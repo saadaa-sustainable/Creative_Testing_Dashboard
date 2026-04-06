@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creative Testing — Live Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#f4f1eb; --bg2:#edeae2; --surface:#fff; --surface2:#faf8f5;
+    --border:#e0dbd0; --border2:#cdc8bc;
+    --ink:#1c1916; --ink2:#4a4540; --muted:#9a9187;
+    --terra:#c0603a; --terra-lt:#f5ebe6; --terra-mid:#e8a48a;
+    --sage:#4a7c6f;  --sage-lt:#e6f0ee;
+    --blush:#d4788a; --blush-lt:#fbeef1;
+    --slate:#4a6fa5; --slate-lt:#eaf0f8;
+    --gold:#b8883a;  --gold-lt:#fdf5e6;
+    --match:#4a7c6f; --match-lt:#e6f0ee;
+    --miss:#c0603a;  --miss-lt:#f5ebe6;
+    --warn:#b8883a;  --warn-lt:#fdf5e6;
+    --a1:#7c4dbd; --a1-lt:#f0ebfa;
+    --a2:#c0603a; --a2-lt:#f5ebe6;
+    --a3:#4a7c6f; --a3-lt:#e6f0ee;
+  }
+  .acct-st{display:flex;align-items:center;gap:5px;font-size:.62rem;font-weight:600;
+    padding:5px 8px;border-radius:7px;min-height:26px}
+  .as-idle{background:rgba(154,145,135,.1);color:var(--muted)}
+  .as-loading{background:var(--slate-lt);color:var(--slate)}
+  .as-done{background:var(--match-lt);color:var(--match)}
+  .as-err{background:var(--miss-lt);color:var(--miss)}
+  .as-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+  .as-loading .as-dot{animation:blink 1s ease infinite}
+  /* account source pill in table */
+  .ap{display:inline-block;font-size:.52rem;font-weight:700;padding:2px 7px;border-radius:100px}
+  .ap.a1{background:var(--a1-lt);color:var(--a1)}
+  .ap.a2{background:var(--a2-lt);color:var(--a2)}
+  .ap.a3{background:var(--a3-lt);color:var(--a3)}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;padding:28px 36px;
+    background-image:radial-gradient(ellipse 800px 500px at 85% 0%,rgba(192,96,58,.05),transparent 70%),
+                     radial-gradient(ellipse 600px 400px at 5% 100%,rgba(74,124,111,.04),transparent 70%)}
+
+  /* ── HEADER ── */
+  header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:26px}
+  .logo h1{font-family:'Roboto',sans-serif;font-size:2rem;font-weight:900;letter-spacing:-.02em;color:var(--ink)}
+  .logo h1 em{font-style:italic;color:var(--terra)}
+  .logo p{font-size:.65rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-top:5px}
+  .header-right{display:flex;align-items:center;gap:10px}
+  .gs-pill{display:flex;align-items:center;gap:7px;background:#0f9d58;color:#fff;font-size:.7rem;font-weight:600;padding:7px 15px;border-radius:100px}
+  .gs-pill svg{width:15px;height:15px;fill:#fff}
+  .last-sync{font-size:.62rem;color:var(--muted);text-align:right}
+
+  /* ── CONNECT PANEL ── */
+  .connect-panel{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px 28px;margin-bottom:20px;position:relative;overflow:hidden}
+  .connect-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#0f9d58,var(--terra));border-radius:18px 18px 0 0}
+  .cp-title{font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;margin-bottom:3px}
+  .cp-sub{font-size:.65rem;color:var(--muted);margin-bottom:18px;line-height:1.6}
+  .cp-grid{display:grid;grid-template-columns:2fr 1.4fr 0.8fr 0.8fr auto;gap:11px;align-items:end}
+  .fg{display:flex;flex-direction:column;gap:5px}
+  .fg label{font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+  .fg input,.fg select{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:9px 13px;
+    font-family:'Roboto',sans-serif;font-size:.76rem;color:var(--ink);outline:none;transition:border-color .2s,box-shadow .2s;width:100%}
+  .fg input:focus,.fg select:focus{border-color:var(--terra);box-shadow:0 0 0 3px rgba(192,96,58,.1)}
+  .fg input::placeholder{color:var(--muted)}
+  .fetch-btn{background:var(--terra);color:#fff;border:none;border-radius:9px;padding:9px 22px;
+    font-family:'Roboto',sans-serif;font-size:.8rem;font-weight:600;cursor:pointer;
+    transition:all .2s;display:flex;align-items:center;gap:8px;height:40px;white-space:nowrap}
+  .fetch-btn:hover{background:#a84f2e;box-shadow:0 4px 14px rgba(192,96,58,.28);transform:translateY(-1px)}
+  .fetch-btn:disabled{background:var(--muted);cursor:not-allowed;transform:none;box-shadow:none}
+  .spinner{width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+    border-radius:50%;animation:spin .7s linear infinite;display:none}
+  .fetch-btn.loading .spinner{display:block}
+  .fetch-btn.loading .btn-text{display:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* How-to hint */
+  .how-hint{background:var(--gold-lt);border:1px solid rgba(184,136,58,.2);border-radius:10px;
+    padding:11px 14px;margin-top:14px;font-size:.67rem;color:var(--ink2);line-height:1.7}
+  .how-hint strong{color:var(--gold);font-weight:600}
+  .how-hint code{background:rgba(184,136,58,.12);padding:1px 5px;border-radius:3px;font-family:'Roboto Mono',monospace;font-size:.65rem}
+
+  /* ── STATUS ── */
+  #statusBar{display:none;align-items:center;gap:9px;padding:10px 16px;border-radius:11px;
+    font-size:.72rem;font-weight:500;margin-bottom:16px}
+  #statusBar.info{background:var(--slate-lt);color:var(--slate);border:1px solid rgba(74,111,165,.2)}
+  #statusBar.success{background:var(--match-lt);color:var(--match);border:1px solid rgba(74,124,111,.2)}
+  #statusBar.error{background:var(--miss-lt);color:var(--miss);border:1px solid rgba(192,96,58,.2)}
+  .sdot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+
+  /* ── SEC LABEL ── */
+  .sec{font-size:.6rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);
+    margin-bottom:12px;display:flex;align-items:center;gap:9px}
+  .sec::after{content:'';flex:1;height:1px;background:var(--border)}
+  .stag{font-size:.55rem;padding:2px 7px;border-radius:4px;font-weight:700;letter-spacing:.04em}
+  .stag-terra{background:var(--terra-lt);color:var(--terra)}
+  .stag-sage{background:var(--sage-lt);color:var(--sage)}
+  .stag-gold{background:var(--gold-lt);color:var(--gold)}
+
+  /* ── WEEK + SEGMENT CONTROLS ── */
+  .ctrl-bar{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+  .ctrl-bar label{font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+  #weekSelect{background:var(--surface);border:1px solid var(--border);border-radius:9px;
+    padding:7px 13px;font-family:'Roboto',sans-serif;font-size:.76rem;color:var(--ink);outline:none;cursor:pointer}
+  #weekSelect:focus{border-color:var(--terra)}
+
+  .total-badge{margin-left:auto;font-size:.62rem;color:var(--muted);font-weight:500}
+
+  /* ── KPI STRIP ── */
+  .kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:22px}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:16px 15px;
+    transition:box-shadow .2s,transform .2s;position:relative;overflow:hidden}
+  .kpi:hover{box-shadow:0 6px 22px rgba(28,25,22,.07);transform:translateY(-2px)}
+  .kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 15px 15px}
+  .kpi.k-terra::after{background:var(--terra)} .kpi.k-sage::after{background:var(--sage)}
+  .kpi.k-blush::after{background:var(--blush)} .kpi.k-slate::after{background:var(--slate)}
+  .kpi.k-gold::after{background:var(--gold)}
+  .kpi-lbl{font-size:.57rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px}
+  .kpi-val{font-family:'Roboto',sans-serif;font-size:1.55rem;font-weight:700;color:var(--ink);line-height:1}
+  .kpi-sub{font-size:.58rem;color:var(--muted);margin-top:4px}
+
+  /* ── ROAS HERO ── */
+  .roas-hero{background:var(--terra);border-radius:16px;padding:22px 28px;display:flex;align-items:center;
+    gap:22px;margin-bottom:22px;position:relative;overflow:hidden}
+  .roas-hero::before{content:'ROAS';position:absolute;right:-12px;top:-10px;font-family:'Roboto',sans-serif;
+    font-size:6rem;font-weight:900;color:rgba(255,255,255,.06);pointer-events:none}
+  .roas-num{font-family:'Roboto',sans-serif;font-size:3.6rem;font-weight:900;color:#fff;line-height:1}
+  .roas-div{width:1px;height:50px;background:rgba(255,255,255,.2)}
+  .roas-info .ri-l{font-size:.6rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:4px}
+  .roas-info .ri-s{font-size:1rem;font-weight:500;color:#fff}
+
+  /* ── SPLIT PANELS ── */
+  .split-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
+  .perf-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px}
+  .perf-head{display:flex;align-items:center;gap:9px;margin-bottom:16px}
+  .seg-badge{font-size:.57rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:3px 11px;border-radius:100px}
+  .seg-badge.w{background:var(--blush-lt);color:var(--blush)}
+  .seg-badge.m{background:var(--slate-lt);color:var(--slate)}
+  .perf-ttl{font-family:'Roboto',sans-serif;font-size:.98rem;font-weight:700}
+  .p-rows{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .p-row{background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:11px 13px}
+  .p-row.hw{background:var(--blush-lt);border-color:rgba(212,120,138,.2)}
+  .p-row.hm{background:var(--slate-lt);border-color:rgba(74,111,165,.2)}
+  .p-lbl{font-size:.54rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:3px}
+  .p-val{font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;color:var(--ink)}
+  .p-row.hw .p-val{color:var(--blush)} .p-row.hm .p-val{color:var(--slate)}
+
+  /* ── ROAS COMPARE ── */
+  .roas-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
+  .roas-card{border-radius:15px;padding:18px 22px;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden}
+  .roas-card.w{background:linear-gradient(135deg,var(--blush),#e06080)}
+  .roas-card.m{background:linear-gradient(135deg,var(--slate),#3a5a95)}
+  .roas-card::after{content:'ROAS';position:absolute;right:-6px;top:-8px;font-family:'Roboto',sans-serif;
+    font-size:4rem;font-weight:900;color:rgba(255,255,255,.07);pointer-events:none}
+  .roas-big{font-family:'Roboto',sans-serif;font-size:2.6rem;font-weight:900;color:#fff;line-height:1}
+  .roas-dvd{width:1px;height:38px;background:rgba(255,255,255,.2)}
+  .roas-card .ri-l{font-size:.54rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:3px}
+  .roas-card .ri-s{font-size:.8rem;font-weight:500;color:#fff}
+
+  /* ── BOTTOM GRID ── */
+  .bottom-grid{display:grid;grid-template-columns:1.3fr 0.9fr 1fr;gap:16px;margin-bottom:22px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px}
+
+  /* ── MINI TABLE ── */
+  .mini-table{width:100%;border-collapse:collapse}
+  .mini-table th{font-size:.55rem;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);
+    text-align:left;padding:5px 7px;border-bottom:1px solid var(--border)}
+  .mini-table td{font-size:.7rem;padding:5px 7px;color:var(--ink2);border-bottom:1px solid var(--bg2)}
+  .mini-table tr:last-child td{border-bottom:none}
+  .mini-table tbody tr:hover td{background:var(--bg2)}
+  .mini-table td.num{font-family:'Roboto',sans-serif;font-weight:700;font-size:.75rem;color:var(--terra);text-align:right}
+  .mini-table tr.grand td{color:var(--terra);font-weight:600;border-top:1px solid var(--border);border-bottom:none}
+
+  /* ── BAR CHART ── */
+  .bar-list{display:flex;flex-direction:column;gap:9px;margin-top:9px}
+  .bar-item .bh{display:flex;justify-content:space-between;font-size:.62rem;font-weight:500;color:var(--ink2);margin-bottom:4px}
+  .bh span{font-weight:700;color:var(--terra)}
+  .bar-track{height:6px;background:var(--bg2);border-radius:99px;overflow:hidden;border:1px solid var(--border)}
+  .bar-fill{height:100%;border-radius:99px}
+
+  /* ── CREATIVE TYPE CHIPS ── */
+  .ct-chips{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+  .ct-chip{display:flex;justify-content:space-between;align-items:center;background:var(--surface2);
+    border:1px solid var(--border);border-radius:9px;padding:9px 12px}
+  .ct-chip .ct-name{font-size:.7rem;font-weight:600;color:var(--ink)}
+  .ct-chip .ct-cnt{font-family:'Roboto',sans-serif;font-weight:700;font-size:.95rem;color:var(--terra)}
+  .ct-chip .ct-bar{flex:1;height:4px;background:var(--bg2);border-radius:99px;margin:0 10px;overflow:hidden}
+  .ct-chip .ct-fill{height:100%;border-radius:99px;background:var(--terra)}
+
+  /* ── AD TABLE ── */
+  .tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:auto;max-height:520px}
+  table.main-tbl{width:100%;border-collapse:collapse;font-size:.65rem}
+  table.main-tbl thead th{background:var(--surface2);font-size:.53rem;font-weight:600;text-transform:uppercase;
+    letter-spacing:.08em;color:var(--muted);padding:10px 12px;text-align:left;
+    border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2}
+  table.main-tbl thead th.num{text-align:right}
+  table.main-tbl tbody td{padding:9px 12px;color:var(--ink2);border-bottom:1px solid var(--bg2);vertical-align:middle;white-space:nowrap}
+  table.main-tbl tbody tr:last-child td{border-bottom:none}
+  table.main-tbl tbody tr:hover td{background:var(--bg2)}
+  td.num{font-family:'Roboto',sans-serif;font-weight:700;font-size:.72rem;color:var(--ink);text-align:right}
+  td.ad-nm{font-weight:500;color:var(--ink);max-width:220px;overflow:hidden;text-overflow:ellipsis}
+  .seg-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+
+  /* ── FILTER BAR ── */
+  .fbar{display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap}
+  .fbar input{background:var(--surface);border:1px solid var(--border);border-radius:9px;
+    padding:7px 13px;font-size:.72rem;font-family:'Roboto',sans-serif;color:var(--ink);outline:none;width:200px}
+  .fbar input:focus{border-color:var(--terra)}
+  .fbar select{background:var(--surface);border:1px solid var(--border);border-radius:9px;
+    padding:7px 13px;font-size:.72rem;font-family:'Roboto',sans-serif;color:var(--ink);outline:none;cursor:pointer}
+  .export-btn{background:var(--sage-lt);color:var(--sage);border:1px solid rgba(74,124,111,.25);
+    border-radius:9px;padding:7px 14px;font-size:.68rem;font-weight:600;cursor:pointer;
+    font-family:'Roboto',sans-serif;transition:all .15s;margin-left:auto}
+  .export-btn:hover{background:var(--sage);color:#fff}
+  .row-ct{font-size:.62rem;color:var(--muted);font-weight:500}
+
+  /* ── EMPTY / INITIAL ── */
+  .empty-box{background:var(--surface);border:1px solid var(--border);border-radius:18px;
+    padding:60px;text-align:center;color:var(--muted)}
+  .empty-box .ei{font-size:2.8rem;margin-bottom:12px}
+  .empty-box .et{font-family:'Roboto',sans-serif;font-size:1.15rem;font-weight:700;color:var(--ink);margin-bottom:6px}
+  .empty-box .es{font-size:.78rem;line-height:1.7;max-width:440px;margin:0 auto}
+
+  /* ── FOOTER ── */
+  footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--border);
+    display:flex;justify-content:space-between;font-size:.6rem;color:var(--muted);align-items:center}
+  .f-badge{display:flex;align-items:center;gap:6px;background:var(--gold-lt);
+    border:1px solid rgba(184,136,58,.2);color:var(--gold);padding:5px 13px;border-radius:100px;font-weight:600}
+  .dot{width:5px;height:5px;border-radius:50%;background:currentColor;animation:blink 2s ease infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+  /* divider */
+  .divider{height:1px;background:var(--border);margin:14px 0}
+
+  /* ── OVERVIEW PERF GRID (7 cards) ── */
+  .overview-perf-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px}
+  .ov-card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:16px 15px;
+    transition:box-shadow .2s,transform .2s;position:relative;overflow:hidden}
+  .ov-card:hover{box-shadow:0 6px 22px rgba(28,25,22,.07);transform:translateY(-2px)}
+  .ov-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 15px 15px}
+  .ov-card.k-terra::after{background:var(--terra)} .ov-card.k-sage::after{background:var(--sage)}
+  .ov-card.k-blush::after{background:var(--blush)} .ov-card.k-slate::after{background:var(--slate)}
+  .ov-card.k-gold::after{background:var(--gold)}
+  .ov-card.roas-ov{background:var(--terra);grid-column:span 1}
+  .ov-card.roas-ov .ov-label{color:rgba(255,255,255,.7)}
+  .ov-card.roas-ov .ov-val{color:#fff}
+  .ov-card.roas-ov .ov-sub{color:rgba(255,255,255,.55)}
+  .ov-label{font-size:.57rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px}
+  .ov-val{font-family:'Roboto',sans-serif;font-size:1.5rem;font-weight:700;color:var(--ink);line-height:1}
+  .ov-sub{font-size:.57rem;color:var(--muted);margin-top:4px}
+
+  /* ── SPLIT GRID (3 cols: Women, Men, Creatives count) ── */
+  .split-grid{display:grid;grid-template-columns:1fr 1fr 0.7fr;gap:16px;margin-bottom:22px}
+  .p-rows{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+  /* ── BOTTOM GRID ── */
+  .bottom-grid{display:grid;grid-template-columns:1.3fr 0.9fr 1fr;gap:16px;margin-bottom:22px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px}
+  .divider{height:1px;background:var(--border)}
+
+  /* ── ROAS CARDS ── */
+  .roas-card{border-radius:15px;padding:18px 22px;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden}
+  .roas-card.w{background:linear-gradient(135deg,var(--blush),#e06080)}
+  .roas-card.m{background:linear-gradient(135deg,var(--slate),#3a5a95)}
+
+  /* ── BAR CHART ── */
+  .bar-list{display:flex;flex-direction:column;gap:9px;margin-top:9px}
+  .bar-item .bh{display:flex;justify-content:space-between;font-size:.62rem;font-weight:500;color:var(--ink2);margin-bottom:4px}
+  .bh span{font-weight:700;color:var(--terra)}
+  .bar-track{height:6px;background:var(--bg2);border-radius:99px;overflow:hidden;border:1px solid var(--border)}
+  .bar-fill{height:100%;border-radius:99px}
+
+
+  .overview-perf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+  .ov-card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:18px 16px;
+    position:relative;overflow:hidden;transition:box-shadow .2s,transform .2s}
+  .ov-card:hover{box-shadow:0 6px 22px rgba(28,25,22,.07);transform:translateY(-2px)}
+  .ov-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 15px 15px}
+  .ov-card.k-terra::after{background:var(--terra)}
+  .ov-card.k-sage::after{background:var(--sage)}
+  .ov-card.k-blush::after{background:var(--blush)}
+  .ov-card.k-slate::after{background:var(--slate)}
+  .ov-card.k-gold::after{background:var(--gold)}
+  .ov-card.roas-ov{background:var(--terra)}
+  .ov-card.roas-ov .ov-label,.ov-card.roas-ov .ov-sub{color:rgba(255,255,255,.65)}
+  .ov-card.roas-ov .ov-val{color:#fff}
+  .ov-label{font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px}
+  .ov-val{font-family:'Roboto',sans-serif;font-size:1.6rem;font-weight:700;color:var(--ink);line-height:1}
+  .ov-sub{font-size:.58rem;color:var(--muted);margin-top:5px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <h1>Creative <em>Testing</em></h1>
+    <p>Live Dashboard · Google Sheets Connected</p>
+  </div>
+  <div class="header-right">
+    <div class="last-sync" id="lastSync">Not yet synced</div>
+    <div class="gs-pill">
+      <svg viewBox="0 0 24 24"><path d="M19.7 3H14.5L9 9l-5.5 6H1v6h3.5l5-6 5.5 6H19.7c1.2 0 2.3-1 2.3-2.3V5.3C22 4 21 3 19.7 3zm0 15.7H15l-5-5.5L14.5 8h5.2v10.7z"/></svg>
+      Google Sheets
+    </div>
+  </div>
+</header>
+
+<!-- CONNECT PANEL -->
+<div class="connect-panel">
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap">
+    <div>
+      <div class="cp-title" style="margin-bottom:2px">Creative Testing Dashboard</div>
+      <div class="cp-sub" style="margin-bottom:0">Live · Google Sheets Connected · Meta Ads</div>
+    </div>
+
+    <!-- Compact override inputs (hidden by default, shown via toggle) -->
+    <div id="credOverride" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="fg" style="gap:3px">
+        <label>Spreadsheet ID</label>
+        <input type="text" id="sheetId" placeholder="Paste ID…"
+          style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;width:220px"/>
+      </div>
+      <div class="fg" style="gap:3px">
+        <label>API Key</label>
+        <input type="password" id="apiKey" placeholder="AIzaSy…"
+          style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;width:180px"/>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+      <button onclick="toggleCredOverride()"
+        style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:6px 12px;font-size:.65rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif">
+        ⚙ Override credentials
+      </button>
+      <button class="fetch-btn" id="fetchBtn" onclick="fetchSheet()">
+        <div class="spinner"></div>
+        <span class="btn-text">↓ Load Account</span>
+      </button>
+    </div>
+  </div>
+
+
+    <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)">Account</span>
+    <div style="display:flex;gap:6px">
+      <div class="acct-sel-tab active" id="aSelTab1" onclick="selectAccount(1,this)"
+        style="background:var(--a1-lt);border:2px solid rgba(124,77,189,.25);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
+        <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--a1)">Account 1</div>
+        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Raho Saadaa</div>
+      </div>
+      <div class="acct-sel-tab" id="aSelTab2" onclick="selectAccount(2,this)"
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
+        <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Account 2</div>
+        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Fourth Ad Account – SD</div>
+      </div>
+      <div class="acct-sel-tab" id="aSelTab3" onclick="selectAccount(3,this)"
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
+        <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Account 3</div>
+        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Third Ad Account – SD</div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+</div>
+
+  <div style="display:none;gap:8px;align-items:center;margin-bottom:4px">
+    <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)">Account</span>
+    <div style="display:flex;gap:6px">
+      <div class="acct-sel-tab active" id="aSelTab1" onclick="selectAccount(1,this)"
+        style="background:var(--a1-lt);border:2px solid rgba(124,77,189,.25);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
+        <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--a1)">Account 1</div>
+        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Raho Saadaa</div>
+      </div>
+      <div class="acct-sel-tab" id="aSelTab2" onclick="selectAccount(2,this)"
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
+        <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Account 2</div>
+        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Fourth Ad Account – SD</div>
+      </div>
+      <div class="acct-sel-tab" id="aSelTab3" onclick="selectAccount(3,this)"
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
+        <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Account 3</div>
+        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Third Ad Account – SD</div>
+      </div>
+    </div>
+    <div class="acct-st as-idle" id="fetchStatus" style="margin-left:auto">
+      <div class="as-dot"></div><span id="fetchStatusMsg">Not loaded</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- STATUS -->
+<div id="statusBar"><div class="sdot"></div><span id="statusMsg"></span></div>
+
+<!-- FILTER BAR -->
+<div id="controls" style="display:none">
+  <div class="ctrl-bar" style="flex-wrap:wrap;gap:10px">
+    <label style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Date Range</label>
+    <input type="date" id="dateFrom" onchange="applyFilters()"
+      style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:6px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none"/>
+    <span style="font-size:.7rem;color:var(--muted);align-self:center">→</span>
+    <input type="date" id="dateTo" onchange="applyFilters()"
+      style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:6px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none"/>
+
+    <!-- Copy toggle -->
+    
+
+    <button onclick="clearFilters()" style="background:var(--bg2);color:var(--muted);border:1px solid var(--border);border-radius:9px;padding:6px 14px;font-size:.7rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif">Clear</button>
+
+    <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+      <span id="dateRangeLabel" style="font-size:.65rem;color:var(--terra);font-weight:600;background:var(--terra-lt);border:1px solid rgba(192,96,58,.2);padding:4px 12px;border-radius:100px">All dates</span>
+      <span class="total-badge" id="totalBadge"></span>
+    </div>
+  </div>
+
+  <!-- Row 2: Ad Name Filters — dynamic rows with AND/OR logic -->
+  <div id="nameFiltersWrap" style="margin-top:10px">
+
+    <!-- AND/OR toggle + Add button -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Ad Name</span>
+
+      <!-- AND / OR mode toggle -->
+      <div style="display:flex;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden">
+        <button id="modeAnd" onclick="setFilterMode('AND')"
+          style="border:none;padding:5px 13px;font-size:.65rem;font-weight:700;cursor:pointer;font-family:'Roboto',sans-serif;background:var(--terra);color:#fff;transition:all .15s">AND</button>
+        <button id="modeOr" onclick="setFilterMode('OR')"
+          style="border:none;padding:5px 13px;font-size:.65rem;font-weight:700;cursor:pointer;font-family:'Roboto',sans-serif;background:transparent;color:var(--muted);transition:all .15s">OR</button>
+      </div>
+
+      <button onclick="addNameFilter()"
+        style="display:flex;align-items:center;gap:5px;border:1px dashed var(--border);background:transparent;color:var(--muted);border-radius:7px;padding:5px 12px;font-size:.65rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .15s"
+        onmouseover="this.style.borderColor='var(--terra)';this.style.color='var(--terra)'"
+        onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+        + Add filter
+      </button>
+
+      <!-- Active filter chips display -->
+      <div id="nameFilterChips" style="display:flex;gap:5px;flex-wrap:wrap;margin-left:4px"></div>
+    </div>
+
+    <!-- Filter rows container -->
+    <div id="nameFilterRows" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+
+<!-- OVERVIEW — PERFORMANCE -->
+<!-- Total Amount Spent | Total Impressions | Avg Video Play Time | Avg Outbound CTR | Avg Engagement Rate | Avg ThruPlay Rate | CT ROAS -->
+<div id="ovPerfWrap" style="display:none">
+  <div class="sec">Overview — Performance <span class="stag stag-terra">Sum &amp; Avg · Excl. Copy</span></div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px">
+
+    <div class="ov-card k-terra">
+      <div class="ov-label">Total Amount Spent</div>
+      <div class="ov-val" id="ov_spend">—</div>
+      <div class="ov-sub">Sum · INR</div>
+    </div>
+
+    <div class="ov-card k-sage">
+      <div class="ov-label">Total Impressions</div>
+      <div class="ov-val" id="ov_impr">—</div>
+      <div class="ov-sub">Sum</div>
+    </div>
+
+    <div class="ov-card k-slate">
+      <div class="ov-label">Avg. Video Play Time</div>
+      <div class="ov-val" id="ov_vpt">—</div>
+      <div class="ov-sub">Sum(VPT×VideoPlays) / Sum(VideoPlays)</div>
+    </div>
+
+    <div class="ov-card k-blush">
+      <div class="ov-label">Avg. Outbound CTR</div>
+      <div class="ov-val" id="ov_ctr">—</div>
+      <div class="ov-sub">Sum(Outbound Clicks) ÷ Sum(Impressions)</div>
+    </div>
+
+    <div class="ov-card k-gold">
+      <div class="ov-label">Avg. Engagement Rate</div>
+      <div class="ov-val" id="ov_eng">—</div>
+      <div class="ov-sub">Sum(Post Engagements) ÷ Sum(Impressions)</div>
+    </div>
+
+    <div class="ov-card k-terra">
+      <div class="ov-label">Avg. ThruPlay Rate</div>
+      <div class="ov-val" id="ov_thru">—</div>
+      <div class="ov-sub">Sum(ThruPlays) ÷ Sum(Impressions)</div>
+    </div>
+
+    <div class="ov-card k-slate">
+      <div class="ov-label">Avg. Hold Rate</div>
+      <div class="ov-val" id="ov_hold">—</div>
+      <div class="ov-sub">Sum(ThruPlays) ÷ Sum(3-Sec Video Plays)</div>
+    </div>
+
+    <div class="ov-card roas-ov">
+      <div class="ov-label">CT ROAS</div>
+      <div class="ov-val" id="ov_roas">—</div>
+      <div class="ov-sub">Sum(Conv. Value) ÷ Sum(Spend)</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- OVERVIEW — CREATIVES -->
+<div id="creativesWrap" style="display:none">
+  <div class="sec">Overview — Creatives <span class="stag stag-gold">Detected from Ad Name · Excl. Copy</span></div>
+  <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
+    <div class="card">
+      <div class="sec" style="margin-bottom:12px">Product in Focus
+        <span style="font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.04em;text-transform:none">from ad name · count desc</span>
+      </div>
+      <table class="mini-table" id="productTable">
+        <thead><tr><th>Product in Focus</th><th style="text-align:right">COUNT</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="sec" style="margin-bottom:12px">Creative Type
+        <span style="font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.04em;text-transform:none">IFAD/GAD · VRP/NNC · STATIC</span>
+      </div>
+      <table class="mini-table" id="ctypeTable">
+        <thead><tr><th>Creative Type</th><th style="text-align:right">COUNT</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- OVERVIEW — RESULTS SUMMARY -->
+<div id="resultsSummaryWrap" style="display:none;margin-top:4px">
+  <div class="sec">Overview — Results
+    <span class="stag stag-terra">Per Ad · Excl. Copy</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <span style="font-size:.6rem;color:var(--muted);font-weight:600">TARGET IMP</span>
+      <input type="number" id="targetImp" value="50000" onchange="applyFilters()"
+        style="width:85px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;text-align:right"/>
+      <span style="font-size:.6rem;color:var(--muted);font-weight:600">TARGET ROAS</span>
+      <input type="number" id="targetRoas" value="3.0" step="0.1" onchange="applyFilters()"
+        style="width:65px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;text-align:right"/>
+    </span>
+  </div>
+  <!-- Category chips row -->
+  <div id="resultSummary" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+</div>
+
+<!-- INITIAL EMPTY -->
+<div id="initEmpty" class="empty-box">
+  <div class="ei">📊</div>
+  <div class="et">Connect your Google Sheet</div>
+  <div class="es">Enter your Spreadsheet ID and API Key,<br>select an account, then click <strong style="color:var(--terra)">↓ Load Account</strong>.</div>
+</div>
+
+<footer>
+  <span>Creative Testing Dashboard · <span id="ftTime">Not yet loaded</span></span>
+  <div class="f-badge"><div class="dot"></div>Live · Sheets API</div>
+</footer>
+
+<script>
+// ════════════════════════════════════════
+// CONFIG — Hardcoded credentials
+// Update these values here instead of entering in UI
+// ════════════════════════════════════════
+const HARDCODED_SHEET_ID = '1oy2PkIXWwL7uhwKaXhZk1xvd7JnIdhLhPMfHr3D-zZ8';  // ← Paste your Spreadsheet ID here
+const HARDCODED_API_KEY  = 'AIzaSyCIB1fFEekjE0dO7ZLz3Nl8ttejJP3YZ1E';  // ← Paste your Google API Key here
+
+const SHEET_ACCOUNTS = [
+  { num:1, name:'Raho Saadaa',             tab:'Meta Account 1' },
+  { num:2, name:'Fourth Ad Account – SD', tab:'Meta Account 2' },
+  { num:3, name:'Third Ad Account – SD',  tab:'Meta Account 3' },
+];
+
+let ALL          = [];
+let ACTIVE_ACCT  = 1;
+const EXCLUDE_COPY = false; // copy handled via name filter
+
+// ════════════════════════════════════════
+// PRODUCT DETECTION from ad name
+// e.g. CTP-BST+IFAD+NA... -> BST
+// Tokens split by +, -, space
+// ════════════════════════════════════════
+const PRODUCTS = [
+  'BST','BCO','COO','SDAFD','CL','TTB','TW','GE','SDCPT','SDELKB','SDELPT',
+  'SDFLK','SDFSK','SDCSS','SDLS','SDRPT','SDRST','SDVPL','SMCP','SMELMS',
+  'SMFLK','SMFSK','SMLS','BR','SDASP','SDCP','SDWLP','GP','SUZNS','WW',
+  'STL','LE','WLP','SDLWC','SDTTB','SDECT','SDECT'
+];
+
+function detectProduct(name){
+  // Split name into tokens by common delimiters
+  const tokens = name.toUpperCase().split(/[\+\-\_\s\.]+/);
+  // Check each token against product list
+  for(const t of tokens){
+    if(PRODUCTS.includes(t)) return t;
+  }
+  // Fallback: substring match for multi-char codes
+  const n = name.toUpperCase();
+  for(const p of PRODUCTS){
+    if(p.length > 2 && n.includes(p)) return p;
+  }
+  return '—';
+}
+
+// ════════════════════════════════════════
+// CREATIVE TYPE DETECTION from ad name
+// Priority: IFAD/GAD > VRP/NNC/VIDEO > STATIC
+// Based on CSV data patterns observed
+// ════════════════════════════════════════
+function detectCtype(name){
+  const n = name.toUpperCase();
+  // IFAD — must contain IFAD keyword
+  if(n.includes('IFAD')) return 'IFAD';
+  // GAD — contains GAD but NOT IFAD (SC_GAD, _GAD-, GAD- patterns)
+  if(n.includes('GAD')) return 'GAD';
+  // VIDEO / NNC+ IG
+  if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || /^VID-AD/.test(n)) return 'VIDEO - NNC+ IG';
+  // STATIC
+  if(n.includes('STATIC') || n.includes('_ST_') || n.includes('+ST+')) return 'STATIC';
+  return 'OTHER';
+}
+
+// ════════════════════════════════════════
+// COPY DETECTION
+// Matches: "Copy", "– Copy", "- Copy", "Copy 2" etc.
+// ════════════════════════════════════════
+function isCopyAd(name){
+  return /copy/i.test(name);
+}
+
+// ════════════════════════════════════════
+// DATE HELPERS
+// CSV date format: 2026-04-01 (yyyy-mm-dd)
+// ════════════════════════════════════════
+// Extract date from ad name — format DD/MM/YY at the end
+// e.g. CLP-SDAWP+MU+NA+IHP+SIF-3124-P1-purva_bhumak-05/03/26 → 05 Mar 2026
+function extractDateFromAdName(name){
+  if(!name) return null;
+  // Match all DD/MM/YY or DD/MM/YYYY patterns in the name
+  const re = /(\d{1,2})\/(\d{2})\/(\d{2,4})/g;
+  const matches = [];
+  let m;
+  while((m = re.exec(name)) !== null) matches.push(m);
+  if(!matches.length) return null;
+  // Take the last match — the date suffix at the end of the ad name
+  const last = matches[matches.length - 1];
+  let d  = parseInt(last[1]);
+  let mo = parseInt(last[2]);
+  let y  = parseInt(last[3]);
+  if(y < 100) y = 2000 + y; // 26 → 2026
+  const dt = new Date(y, mo - 1, d);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
+// Keep for any fallback use
+function parseSheetDate(raw){
+  if(!raw) return null;
+  const s = String(raw).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m) return new Date(+m[3], +m[2]-1, +m[1]);
+  return null;
+}
+function parseInputDate(s){
+  if(!s) return null;
+  const [y,mo,d]=s.split('-').map(Number);
+  return new Date(y,mo-1,d);
+}
+function setDefaultDates(){
+  const today=new Date(), day=today.getDay();
+  const mon=new Date(today); mon.setDate(today.getDate()-(day===0?6:day-1));
+  const sun=new Date(mon);   sun.setDate(mon.getDate()+6);
+  const fmt=d=>d.toISOString().split('T')[0];
+  document.getElementById('dateFrom').value=fmt(mon);
+  document.getElementById('dateTo').value  =fmt(sun);
+}
+function fmtDate(d){
+  return d?d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'?';
+}
+
+// ════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════
+const n2f  = v => { const x=parseFloat(v); return isNaN(x)?0:x; };
+const fI   = n => isNaN(n)?'—':Math.round(n).toLocaleString('en-IN');
+const fD   = n => (n===null||n===undefined||isNaN(n))?'—':parseFloat(n).toFixed(2);
+const fP   = n => (n===null||n===undefined||isNaN(n))?'—':parseFloat(n).toFixed(2)+'%';
+const fC   = n => (!n||isNaN(n))?'—':'₹'+parseFloat(n).toFixed(2);
+// Video Play Time: weighted avg in seconds
+// META displays as integer seconds (e.g. "3s")
+// Old sheet data still has /1000 values — show as ms until backfill reruns
+const fVPT = n => {
+  if(n===null||n===undefined||isNaN(n)) return '—';
+  const sec = parseFloat(n);
+  if(sec >= 60)  return (sec/60).toFixed(1)+'m';
+  if(sec >= 1)   return sec.toFixed(1)+'s';
+  if(sec > 0)    return (sec * 1000).toFixed(0)+'ms'; // old data pre-backfill
+  return '—';
+};
+const sumF = (a,fn)=>a.reduce((s,x)=>s+(fn(x)||0),0);
+// avgF: averages non-zero values only
+// Ignores: 0, 0.0, NaN, Infinity, null, undefined, empty string
+// e.g. [10, 0, 5, 0, 0] → avg of [10, 5] = 7.5
+const avgF = (a, fn) => {
+  const v = a
+    .map(fn)
+    .map(x => parseFloat(x))           // ensure numeric
+    .filter(x => isFinite(x) && !isNaN(x) && x > 0); // strictly positive non-zero
+  return v.length ? v.reduce((s, x) => s + x, 0) / v.length : 0;
+};
+const setEl=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+const setStatus=(msg,t='info')=>{
+  const b=document.getElementById('statusBar');
+  b.style.display='flex'; b.className=t;
+  document.getElementById('statusMsg').textContent=msg;
+};
+const setFetchSt=(msg,cls)=>{
+  const e=document.getElementById('fetchStatus');
+  if(e){e.className='acct-st '+cls;document.getElementById('fetchStatusMsg').textContent=msg;}
+};
+
+// ════════════════════════════════════════
+// ACCOUNT SELECTOR
+// ════════════════════════════════════════
+function selectAccount(num,el){
+  ACTIVE_ACCT=num;
+  const C=[
+    {bg:'var(--a1-lt)',bd:'rgba(124,77,189,.25)',lc:'var(--a1)'},
+    {bg:'var(--a2-lt)',bd:'rgba(192,96,58,.25)', lc:'var(--a2)'},
+    {bg:'var(--a3-lt)',bd:'rgba(74,124,111,.25)',lc:'var(--a3)'},
+  ];
+  document.querySelectorAll('.acct-sel-tab').forEach((t,i)=>{
+    const on=(i+1)===num;
+    t.style.background=on?C[i].bg:'var(--surface2)';
+    t.style.border    =on?'2px solid '+C[i].bd:'1px solid var(--border)';
+    t.style.transform =on?'translateY(-1px)':'none';
+    t.style.boxShadow =on?'0 4px 12px rgba(28,25,22,.08)':'none';
+    t.querySelector('div').style.color=on?C[i].lc:'var(--muted)';
+  });
+}
+
+// ════════════════════════════════════════
+// COPY TOGGLE
+// ════════════════════════════════════════
+function toggleCredOverride(){
+  const el = document.getElementById('credOverride');
+  if(!el) return;
+  el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+}
+
+
+
+// ════════════════════════════════════════
+// PARSE ROWS
+// Exact CSV column mapping:
+// Date | Ad Name | Ad ID | Impressions | Purchase ROAS | Cost Per Result |
+// CPC | FTEWV | Reach | CPM | Frequency | Amount spent (INR) | CTR |
+// CHECKOUT COMPLETION % | CR% | ATC/LC% | CI/ATC% |
+// Cost per FTEWV | Cost per NCP | Reporting starts | Reporting ends |
+// Campaign Name | Campaign ID | Ad Created | True LTV Reach | True LTV Freq | Ad Status
+// ════════════════════════════════════════
+function parseRows(rows){
+  if(!rows||rows.length<2) return [];
+  const headers=rows[0].map(h=>String(h).trim().toLowerCase());
+
+  const ci=(...keys)=>{
+    for(const k of keys){
+      const idx=headers.findIndex(h=>h.includes(k.toLowerCase()));
+      if(idx>=0) return idx;
+    }
+    return -1;
+  };
+
+  // Map exact CSV headers
+  // Supports both new 14-col schema and old 34-col schema
+  const cols={
+    date:      ci('date'),
+    adName:    ci('ad name'),
+    adId:      ci('ad id'),
+    campName:  ci('campaign name'),
+    status:    ci('ad status'),
+    impr:      ci('impressions'),
+    spend:     ci('amount spent'),
+    reach:     ci('reach'),
+    outClicks: ci('outbound clicks'),             // new schema col 9
+    thruPlays: ci('thruplays'),                   // new schema col 10 (raw count)
+    videoPlays:ci('3-sec video plays','video plays'), // new schema col 11
+    postEng:   ci('post engagements'),            // new schema col 12 (raw count)
+    convValue: ci('purchases conversion value'),  // new schema col 13
+    vpt:       ci('video play time'),             // new/old col 14/32
+    // ── Old schema fallback cols (computed rates stored as %) ──
+    thruRate:  ci('thruplay rate'),               // old schema col 28 (rate %)
+    frame1:    ci('1st frame retention'),         // old schema col 29 (rate %)
+    engRate:   ci('engagement rate'),             // old schema col 30 (rate %)
+  };
+
+  const g=(row,key)=>cols[key]>=0?(row[cols[key]]??''):'';
+
+  return rows.slice(1)
+    .filter(row=>row.length>1 && String(g(row,'adName')).trim())
+    .map((row,i)=>{
+      const name         = String(g(row,'adName')).trim();
+      const dateObj      = extractDateFromAdName(name);      // date from ad name e.g. 26/03/26
+      const sheetDateObj = parseSheetDate(String(g(row,'date')||'').trim()); // sheet Date col (spend date)
+      const product      = detectProduct(name);
+      const ctype        = detectCtype(name);
+      const copy         = isCopyAd(name);
+
+      return {
+        i, name,
+        adId:      String(g(row,'adId')).trim(),
+        dateObj,
+        sheetDateObj,
+        product,
+        ctype,
+        isCopy: copy,
+        campName:  String(g(row,'campName')).trim(),
+        status:    String(g(row,'status')).trim(),
+        // Raw metrics — new schema (14-col)
+        impr:      n2f(g(row,'impr')),
+        spend:     n2f(g(row,'spend')),
+        reach:     n2f(g(row,'reach')),
+        outClicks: n2f(g(row,'outClicks')),
+        thruPlays: n2f(g(row,'thruPlays')),
+        videoPlays:n2f(g(row,'videoPlays')),
+        postEng:   n2f(g(row,'postEng')),
+        convValue: n2f(g(row,'convValue')),
+        vpt:       n2f(g(row,'vpt')),
+        // Old schema fallbacks (pre-computed rates %)
+        thruRate:  n2f(g(row,'thruRate')),
+        frame1:    n2f(g(row,'frame1')),
+        engRate:   n2f(g(row,'engRate')),
+      };
+    });
+}
+
+// ════════════════════════════════════════
+// FETCH
+// ════════════════════════════════════════
+async function fetchSheet(){
+  // Use hardcoded credentials, fall back to override inputs if provided
+  const inputSheetId = document.getElementById('sheetId')?.value.trim() || '';
+  const inputApiKey  = document.getElementById('apiKey')?.value.trim()  || '';
+  const sheetId = inputSheetId || HARDCODED_SHEET_ID;
+  const apiKey  = inputApiKey  || HARDCODED_API_KEY;
+  if(!sheetId||!apiKey){setStatus('No credentials found. Click "Override credentials" to enter Spreadsheet ID and API Key.','error');return;}
+
+  const acct=SHEET_ACCOUNTS[ACTIVE_ACCT-1];
+  const btn =document.getElementById('fetchBtn');
+  btn.disabled=true; btn.classList.add('loading');
+  document.getElementById('initEmpty').style.display='none';
+  setFetchSt('Fetching…','as-loading');
+  setStatus('Loading '+acct.name+' ('+acct.tab+')…','info');
+
+  const range=encodeURIComponent("'"+acct.tab+"'");
+  const url='https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+'/values/'+range+'?key='+apiKey;
+
+  try{
+    const r=await fetch(url);
+    const j=await r.json();
+    if(j.error){
+      setStatus('Sheets API Error: '+j.error.message,'error');
+      setFetchSt('Error','as-err');
+      btn.disabled=false; btn.classList.remove('loading');
+      document.getElementById('initEmpty').style.display='';
+      return;
+    }
+
+    ALL=parseRows(j.values||[]);
+    if(!ALL.length){
+      setStatus('No valid rows found. Check sheet tab name and headers.','error');
+      setFetchSt('No data','as-err');
+      btn.disabled=false; btn.classList.remove('loading');
+      return;
+    }
+
+    // Keep whatever dates are already set by setDefaultDates() on init
+    // Only auto-fill if both pickers are completely empty (first ever load)
+    const fromEl = document.getElementById('dateFrom');
+    const toEl   = document.getElementById('dateTo');
+    if(!fromEl.value && !toEl.value){
+      // Fall back to current week
+      setDefaultDates();
+    }
+
+    const withDates=ALL.filter(a=>a.dateObj).length;
+    const copyCount=ALL.filter(a=>a.isCopy).length;
+    const t=new Date().toLocaleTimeString();
+    setStatus(
+      '✓ '+ALL.length+' rows from "'+acct.tab+
+      '" · '+withDates+' with dates in ad name · '+
+      copyCount+' copy ads ('+(EXCLUDE_COPY?'excluded':'included')+')',
+      'success'
+    );
+    setFetchSt('✓ '+ALL.length+' rows','as-done');
+    setEl('ftTime',   'Last loaded: '+t);
+    setEl('lastSync', acct.name+' · '+t);
+
+    ['controls','ovPerfWrap','creativesWrap','resultsSummaryWrap'].forEach(id=>document.getElementById(id).style.display='');
+    applyFilters();
+
+  }catch(e){
+    setStatus('Network error: '+e.message,'error');
+    setFetchSt('Error','as-err');
+    document.getElementById('initEmpty').style.display='';
+  }
+  btn.disabled=false; btn.classList.remove('loading');
+}
+
+// ════════════════════════════════════════
+// FILTER
+// ════════════════════════════════════════
+function filteredAds(){
+  const from=parseInputDate(document.getElementById('dateFrom').value);
+  const to  =parseInputDate(document.getElementById('dateTo').value);
+  if(to) to.setHours(23,59,59,999);
+  const rangeActive = from || to;
+
+    // ── Name filters: dynamic rows, AND/OR mode ──
+  const filterRows   = getNameFilters();  // [{mode, value}, ...]
+  const filterLogic  = NAME_FILTER_MODE; // 'AND' | 'OR'
+
+  return ALL.filter(a=>{
+    // 1. Copy filter
+    if(EXCLUDE_COPY && a.isCopy) return false;
+
+    // 2. Dynamic name filters
+    if(filterRows.length > 0){
+      const results = filterRows.map(f => {
+        if(!f.value) return true; // empty row = skip
+        const inName = a.name.toLowerCase().includes(f.value.toLowerCase());
+        return f.mode === 'contains' ? inName : !inName;
+      }).filter((_, i) => filterRows[i].value); // only evaluate non-empty rows
+
+      if(results.length > 0){
+        const passes = filterLogic === 'AND'
+          ? results.every(r => r)   // ALL must match
+          : results.some(r => r);   // ANY must match
+        if(!passes) return false;
+      }
+    }
+
+    // 3. Date range — sheet Date col
+    if(rangeActive){
+      if(!a.sheetDateObj) return false;
+      if(from && a.sheetDateObj < from) return false;
+      if(to   && a.sheetDateObj > to)   return false;
+    }
+
+    return true;
+  });
+}
+
+function applyFilters(){
+  const from=parseInputDate(document.getElementById('dateFrom').value);
+  const to  =parseInputDate(document.getElementById('dateTo').value);
+  const lbl =(!from&&!to)?'All dates':fmtDate(from)+' → '+fmtDate(to);
+  setEl('dateRangeLabel',lbl);
+
+  // Update name filter chips
+  renderFilterChips();
+
+  const ads=filteredAds();
+  const uniqueAdIds = new Set(ads.map(a=>a.adId||a.name));
+  setEl('totalBadge', uniqueAdIds.size+' ads');
+  renderOverviewPerf(ads);
+  renderCreatives(ads);
+  renderResults(ads);
+}
+
+
+
+function clearFilters(){
+  document.getElementById('dateFrom').value='';
+  document.getElementById('dateTo').value='';
+  clearAllNameFilters();
+  addNameFilter();
+  applyFilters();
+}
+
+// ════════════════════════════════════════
+// RENDER — Overview Performance
+// Total Amount Spent | Total Impressions | Avg Video Play Time
+// Avg Outbound CTR | Avg Engagement Rate | Avg ThruPlay Rate | CT ROAS
+// ════════════════════════════════════════
+function renderOverviewPerf(ads){
+  const totalSpend = sumF(ads, a => a.spend);
+  const totalImpr  = sumF(ads, a => a.impr);
+
+  setEl('ov_spend', fC(totalSpend));
+  setEl('ov_impr',  fI(totalImpr));
+
+  // ── CT ROAS = Sum(Purchases Conversion Value) / Sum(Amount Spent) ──
+  const totalConv = sumF(ads, a => a.convValue);
+  setEl('ov_roas', fD(totalSpend > 0 ? totalConv / totalSpend : 0));
+
+  // ── Detect schema: new = has raw ThruPlays count, old = has ThruPlay Rate % ──
+  const hasRawCols = ads.some(a => a.thruPlays > 0 || a.videoPlays > 0 || a.postEng > 0);
+
+  if(hasRawCols){
+    // ── NEW SCHEMA: raw counts → compute rates ──
+    const totalOutClicks = sumF(ads, a => a.outClicks);
+    const totalThruPlays = sumF(ads, a => a.thruPlays);
+    const totalPostEng   = sumF(ads, a => a.postEng);
+    const totalVideoPlays= sumF(ads, a => a.videoPlays);
+
+    setEl('ov_ctr',  fP(totalImpr      > 0 ? totalOutClicks  / totalImpr       * 100 : 0));
+    setEl('ov_thru', fP(totalImpr      > 0 ? totalThruPlays  / totalImpr       * 100 : 0));
+    setEl('ov_eng',  fP(totalImpr      > 0 ? totalPostEng    / totalImpr       * 100 : 0));
+    setEl('ov_hold', fP(totalVideoPlays> 0 ? totalThruPlays  / totalVideoPlays * 100 : 0));
+
+    let totalVPTWeighted = 0;
+    ads.forEach(a => { if(a.vpt > 0 && a.videoPlays > 0) totalVPTWeighted += a.vpt * a.videoPlays; });
+    setEl('ov_vpt', fVPT(totalVideoPlays > 0 ? totalVPTWeighted / totalVideoPlays : 0));
+
+  } else {
+    // ── OLD SCHEMA FALLBACK: use pre-computed rate % cols ──
+    // CTR = from inline_link_click_ctr col (already %)
+    setEl('ov_ctr',  fP(avgF(ads, a => a.ctr  || 0)));
+    // ThruPlay Rate = sum(rate%*impr)/sum(impr) using stored thruRate col
+    const wThru = sumF(ads, a => (a.thruRate/100) * a.impr);
+    const wEng  = sumF(ads, a => (a.engRate /100) * a.impr);
+    setEl('ov_thru', fP(totalImpr > 0 ? wThru / totalImpr * 100 : 0));
+    setEl('ov_eng',  fP(totalImpr > 0 ? wEng  / totalImpr * 100 : 0));
+    // Hold Rate = ThruPlay Rate / 1st Frame Retention (both stored as %)
+    const wHold  = sumF(ads, a => (a.thruRate/100) * a.impr);
+    const wFrame = sumF(ads, a => (a.frame1  /100) * a.impr);
+    setEl('ov_hold', fP(wFrame > 0 ? wHold / wFrame * 100 : 0));
+    // VPT direct from col
+    setEl('ov_vpt', fVPT(avgF(ads, a => a.vpt)));
+  }
+}
+
+// ════════════════════════════════════════
+// RENDER — Creatives
+// Product: detected from ad name tokens, count desc + Grand Total
+// Creative Type: IFAD/GAD, VRP/NNC, STATIC from ad name, count desc + Grand Total
+// ════════════════════════════════════════
+function renderCreatives(ads){
+  // Dedup by adId — each unique ad counted once even if it has multiple daily rows
+  const seenP = new Set(), seenC = new Set();
+
+  // Products — count unique ads per product
+  const pMap={};
+  ads.forEach(a=>{
+    const key = a.adId || a.name;
+    if(seenP.has(key)) return;
+    seenP.add(key);
+    if(a.product&&a.product!=='—') pMap[a.product]=(pMap[a.product]||0)+1;
+  });
+  const prods=Object.entries(pMap).sort((a,b)=>b[1]-a[1]);
+  const pTotal=prods.reduce((s,[,c])=>s+c,0);
+  document.querySelector('#productTable tbody').innerHTML=
+    prods.map(([p,c])=>'<tr><td>'+p+'</td><td class="num">'+c+'</td></tr>').join('')+
+    '<tr class="grand"><td>Grand Total</td><td class="num">'+pTotal+'</td></tr>';
+
+  // Creative Types — count unique ads per type
+  const cMap={};
+  ads.forEach(a=>{
+    const key = a.adId || a.name;
+    if(seenC.has(key)) return;
+    seenC.add(key);
+    if(a.ctype) cMap[a.ctype]=(cMap[a.ctype]||0)+1;
+  });
+  const ctypes=Object.entries(cMap).sort((a,b)=>b[1]-a[1]);
+  const cTotal=ctypes.reduce((s,[,c])=>s+c,0);
+  document.querySelector('#ctypeTable tbody').innerHTML=
+    ctypes.map(([t,c])=>'<tr><td>'+t+'</td><td class="num">'+c+'</td></tr>').join('')+
+    '<tr class="grand"><td>Grand Total</td><td class="num">'+cTotal+'</td></tr>';
+}
+
+
+
+function onFilterInput(id){
+  const valEl = document.getElementById(`nfVal_${id}`);
+  if(!valEl) return;
+  const raw = valEl.value;
+
+  // Auto-split on " or " or "," → create new rows for each part
+  const splitPattern = /\s+or\s+|,\s*/i;
+  if(splitPattern.test(raw)){
+    const parts = raw.split(splitPattern).map(p => p.trim()).filter(Boolean);
+    if(parts.length > 1){
+      // Set current row to first part
+      valEl.value = parts[0];
+      // Get mode of current row
+      const modeEl = document.getElementById(`nfMode_${id}`);
+      const mode   = modeEl ? modeEl.value : 'contains';
+      // Switch to OR mode automatically
+      setFilterMode('OR');
+      // Add a new row for each remaining part
+      parts.slice(1).forEach(part => {
+        addNameFilter(mode);
+        // Set value in the newly added row
+        const allRows = document.querySelectorAll('#nameFilterRows > div[id^="nfRow_"]');
+        const lastRow = allRows[allRows.length - 1];
+        if(lastRow){
+          const newId  = lastRow.id.replace('nfRow_','');
+          const newVal = document.getElementById(`nfVal_${newId}`);
+          if(newVal) newVal.value = part;
+        }
+      });
+    }
+  }
+  applyFilters();
+}
+
+// When user types comma — split into a new row automatically
+function splitFilterRow(id){
+  const valEl = document.getElementById(`nfVal_${id}`);
+  if(!valEl) return;
+  const modeEl = document.getElementById(`nfMode_${id}`);
+  const mode   = modeEl ? modeEl.value : 'contains';
+  addNameFilter(mode);
+  applyFilters();
+}
+
+
+// Results shown inline on overview page — no tab switching needed
+
+// ════════════════════════════════════════
+// RESULTS — Winner / ITE / Discarded / Analyse
+// Logic from getDashboardData server code
+// ════════════════════════════════════════
+const CATEGORY_CONFIG = {
+  'Winner':    { label:'Winner',    bg:'#e6f0ee', color:'#4a7c6f', border:'rgba(74,124,111,.3)',  action:'Scale budget, maintain creative',        desc:'Strong funnel performance' },
+  'ITE':       { label:'ITE',       bg:'#fdf5e6', color:'#b8883a', border:'rgba(184,136,58,.3)',  action:'Investigate conversion drop',             desc:'Good delivery, weak conversion' },
+  'Discarded': { label:'Discarded', bg:'#f5ebe6', color:'#c0603a', border:'rgba(192,96,58,.3)',   action:'Review creative, audience, bid',          desc:'Negative — learning data point' },
+  'Analyse':   { label:'Analyse',   bg:'#eaf0f8', color:'#4a6fa5', border:'rgba(74,111,165,.3)',  action:'Analyse data for learnings',              desc:'Low impressions but has results' },
+};
+
+function getAdCategory(impr, ctRoas, targetImp, targetRoas, hasConversions){
+  if(impr >= targetImp && ctRoas >= targetRoas) return 'Winner';
+  if(impr >= targetImp && ctRoas < targetRoas)  return 'ITE';
+  if(impr < targetImp  && hasConversions)        return 'Analyse';
+  return 'Discarded';
+}
+
+function renderResults(ads){
+  const targetImp  = parseFloat(document.getElementById('targetImp')?.value)  || 50000;
+  const targetRoas = parseFloat(document.getElementById('targetRoas')?.value) || 3.0;
+
+  // Aggregate per unique ad
+  const adMap = {};
+  ads.forEach(a => {
+    const key = a.adId || a.name;
+    if(!adMap[key]) adMap[key] = { impr:0, spend:0, convValue:0 };
+    adMap[key].impr      += a.impr      || 0;
+    adMap[key].spend     += a.spend     || 0;
+    adMap[key].convValue += a.convValue || 0;
+  });
+
+  // Categorise and count
+  const counts = { Winner:0, ITE:0, Analyse:0, Discarded:0 };
+  Object.values(adMap).forEach(m => {
+    const ctRoas  = m.spend > 0 ? m.convValue / m.spend : 0;
+    const hasConv = m.convValue > 0;
+    const cat     = getAdCategory(m.impr, ctRoas, targetImp, targetRoas, hasConv);
+    if(counts[cat] !== undefined) counts[cat]++;
+  });
+
+  // Render summary chips only — no table
+  const summary = document.getElementById('resultSummary');
+  if(!summary) return;
+  summary.innerHTML = Object.entries(CATEGORY_CONFIG).map(([key, cfg]) =>
+    `<div style="display:flex;flex-direction:column;gap:4px;background:${cfg.bg};border:1px solid ${cfg.border};border-radius:14px;padding:12px 18px;min-width:130px">
+      <div style="display:flex;align-items:baseline;gap:6px">
+        <span style="font-family:'Roboto',sans-serif;font-size:1.8rem;font-weight:900;color:${cfg.color};line-height:1">${counts[key]}</span>
+        <span style="font-size:.62rem;font-weight:600;color:${cfg.color};opacity:.8">ads</span>
+      </div>
+      <div style="font-size:.65rem;font-weight:700;color:${cfg.color}">${cfg.label}</div>
+      <div style="font-size:.58rem;color:${cfg.color};opacity:.7;line-height:1.4">${cfg.action}</div>
+    </div>`
+  ).join('');
+}
+
+// ════════════════════════════════════════
+// NAME FILTER SYSTEM — Dynamic rows, AND/OR
+// ════════════════════════════════════════
+let NAME_FILTER_MODE = 'AND';
+let filterRowCount   = 0;
+
+function setFilterMode(mode){
+  NAME_FILTER_MODE = mode;
+  document.getElementById('modeAnd').style.background = mode==='AND' ? 'var(--terra)' : 'transparent';
+  document.getElementById('modeAnd').style.color      = mode==='AND' ? '#fff' : 'var(--muted)';
+  document.getElementById('modeOr').style.background  = mode==='OR'  ? 'var(--terra)' : 'transparent';
+  document.getElementById('modeOr').style.color       = mode==='OR'  ? '#fff' : 'var(--muted)';
+  applyFilters();
+}
+
+function addNameFilter(defaultMode){
+  const id  = ++filterRowCount;
+  const row = document.createElement('div');
+  row.id    = `nfRow_${id}`;
+  row.style.cssText = 'display:flex;align-items:center;gap:6px';
+  row.innerHTML = `
+    <div style="display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:9px;overflow:hidden">
+      <select id="nfMode_${id}" onchange="applyFilters()"
+        style="border:none;background:var(--surface2);padding:6px 10px;font-family:'Roboto',sans-serif;font-size:.7rem;color:var(--ink2);outline:none;cursor:pointer;border-right:1px solid var(--border)">
+        <option value="contains">contains</option>
+        <option value="not_contains">doesn't contain</option>
+      </select>
+      <input type="text" id="nfVal_${id}" placeholder="e.g. 26/03/26 or 28/03/26"
+        oninput="onFilterInput(${id})"
+        style="border:none;background:var(--surface);padding:6px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;width:220px"/>
+    </div>
+    <button onclick="removeNameFilter(${id})"
+      style="border:none;background:var(--miss-lt);color:var(--miss);border-radius:7px;padding:5px 10px;font-size:.75rem;cursor:pointer;font-weight:700;font-family:'Roboto',sans-serif">✕</button>`;
+  document.getElementById('nameFilterRows').appendChild(row);
+  if(defaultMode){ const m = document.getElementById(`nfMode_${id}`); if(m) m.value=defaultMode; }
+}
+
+function removeNameFilter(id){
+  const row = document.getElementById(`nfRow_${id}`);
+  if(row) row.remove();
+  applyFilters();
+}
+
+function clearAllNameFilters(){
+  document.getElementById('nameFilterRows').innerHTML = '';
+  filterRowCount = 0;
+}
+
+function getNameFilters(){
+  const rows = document.querySelectorAll('#nameFilterRows > div[id^="nfRow_"]');
+  const filters = [];
+  rows.forEach(row => {
+    const id    = row.id.replace('nfRow_','');
+    const mode  = document.getElementById(`nfMode_${id}`)?.value || 'contains';
+    const value = (document.getElementById(`nfVal_${id}`)?.value || '').trim();
+    filters.push({ mode, value });
+  });
+  return filters;
+}
+
+function renderFilterChips(){
+  const chips = document.getElementById('nameFilterChips');
+  if(!chips) return;
+  const filters = getNameFilters().filter(f => f.value);
+  if(!filters.length){ chips.innerHTML=''; return; }
+  const modeLabel = `<span style="background:var(--terra);color:#fff;font-size:.55rem;font-weight:700;padding:2px 7px;border-radius:4px;margin-right:4px">${NAME_FILTER_MODE}</span>`;
+  chips.innerHTML = filters.map((f,i) =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:3px 10px;font-size:.64rem;font-weight:600;color:var(--ink2)">
+      ${i > 0 ? modeLabel : ''}
+      <span style="color:var(--muted)">${f.mode==='contains'?'contains':'not contains'}</span>
+      <strong style="color:var(--terra)">${f.value}</strong>
+    </span>`
+  ).join('');
+}
+
+// ════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+  setDefaultDates();
+  selectAccount(1,document.getElementById('aSelTab1'));
+  addNameFilter(); // start with one filter row
+  // Auto-load if hardcoded credentials are set
+  if(HARDCODED_SHEET_ID && HARDCODED_API_KEY){
+    fetchSheet();
+  }
+});
+</script>
+</body>
+</html>
