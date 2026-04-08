@@ -340,31 +340,7 @@
     </div>
   </div>
 
-
-    <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)">Account</span>
-    <div style="display:flex;gap:6px">
-      <div class="acct-sel-tab active" id="aSelTab1" onclick="selectAccount(1,this)"
-        style="background:var(--a1-lt);border:2px solid rgba(124,77,189,.25);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
-        <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--a1)">Account 1</div>
-        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Raho Saadaa</div>
-      </div>
-      <div class="acct-sel-tab" id="aSelTab2" onclick="selectAccount(2,this)"
-        style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
-        <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Account 2</div>
-        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Fourth Ad Account – SD</div>
-      </div>
-      <div class="acct-sel-tab" id="aSelTab3" onclick="selectAccount(3,this)"
-        style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
-        <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Account 3</div>
-        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Third Ad Account – SD</div>
-      </div>
-    </div>
-    </div>
-  </div>
-
-</div>
-
-  <div style="display:none;gap:8px;align-items:center;margin-bottom:4px">
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
     <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)">Account</span>
     <div style="display:flex;gap:6px">
       <div class="acct-sel-tab active" id="aSelTab1" onclick="selectAccount(1,this)"
@@ -387,6 +363,10 @@
       <div class="as-dot"></div><span id="fetchStatusMsg">Not loaded</span>
     </div>
   </div>
+
+</div>
+
+  
 
 </div>
 
@@ -414,35 +394,55 @@
     </div>
   </div>
 
-  <!-- Row 2: Ad Name Filters — dynamic rows with AND/OR logic -->
-  <div id="nameFiltersWrap" style="margin-top:10px">
+  <!-- Row 2: Ad Name Filter + Copy toggle -->
+  <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
 
-    <!-- AND/OR toggle + Add button -->
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Ad Name</span>
+    <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Ad Name</span>
 
-      <!-- AND / OR mode toggle -->
-      <div style="display:flex;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden">
-        <button id="modeAnd" onclick="setFilterMode('AND')"
-          style="border:none;padding:5px 13px;font-size:.65rem;font-weight:700;cursor:pointer;font-family:'Roboto',sans-serif;background:var(--terra);color:#fff;transition:all .15s">AND</button>
-        <button id="modeOr" onclick="setFilterMode('OR')"
-          style="border:none;padding:5px 13px;font-size:.65rem;font-weight:700;cursor:pointer;font-family:'Roboto',sans-serif;background:transparent;color:var(--muted);transition:all .15s">OR</button>
-      </div>
-
-      <button onclick="addNameFilter()"
-        style="display:flex;align-items:center;gap:5px;border:1px dashed var(--border);background:transparent;color:var(--muted);border-radius:7px;padding:5px 12px;font-size:.65rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .15s"
-        onmouseover="this.style.borderColor='var(--terra)';this.style.color='var(--terra)'"
-        onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-        + Add filter
-      </button>
-
-      <!-- Active filter chips display -->
-      <div id="nameFilterChips" style="display:flex;gap:5px;flex-wrap:wrap;margin-left:4px"></div>
+    <!-- Single smart input — supports "26/03/26 or 27/03/26" -->
+    <div style="display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:9px;overflow:hidden;flex:1;max-width:480px">
+      <select id="nameFilterMode" onchange="applyFilters()"
+        style="border:none;background:var(--surface2);padding:6px 10px;font-family:'Roboto',sans-serif;font-size:.7rem;color:var(--ink2);outline:none;cursor:pointer;border-right:1px solid var(--border);flex-shrink:0">
+        <option value="contains">contains</option>
+        <option value="not_contains">doesn't contain</option>
+      </select>
+      <input type="text" id="nameFilterValue" placeholder="e.g. 26/03/26 or 27/03/26 or BST"
+        oninput="applyFilters()"
+        style="border:none;background:var(--surface);padding:6px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;flex:1;min-width:200px"/>
+      <button id="nameFilterClear" onclick="clearNameFilter()" style="display:none;border:none;background:transparent;color:var(--muted);padding:0 10px;font-size:1rem;cursor:pointer;line-height:1">×</button>
     </div>
 
-    <!-- Filter rows container -->
-    <div id="nameFilterRows" style="display:flex;flex-direction:column;gap:6px"></div>
+    <!-- Copy exclude toggle — always visible -->
+    <div style="display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:6px 12px;cursor:pointer;user-select:none" onclick="toggleExcludeCopy()">
+      <div id="copyToggleDot" style="width:26px;height:15px;background:var(--terra);border-radius:99px;position:relative;transition:background .2s;flex-shrink:0">
+        <div id="copyToggleThumb" style="position:absolute;top:2px;right:2px;width:11px;height:11px;background:#fff;border-radius:50%;transition:right .2s"></div>
+      </div>
+      <span style="font-size:.68rem;font-weight:600;color:var(--ink2)" id="copyToggleLabel">Excl. copy</span>
+    </div>
+
+    <!-- Active filter chip -->
+    <div id="nameFilterChip" style="display:none;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:3px 10px;font-size:.64rem;font-weight:600;color:var(--ink2)">
+      <span id="nameFilterChipText"></span>
+    </div>
+
   </div>
+
+<!-- OVERVIEW — RESULTS SUMMARY -->
+<div id="resultsSummaryWrap" style="display:none;margin-bottom:18px">
+  <div class="sec">Overview — Results
+    <span class="stag stag-terra">Per Ad · Excl. Copy</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <span style="font-size:.6rem;color:var(--muted);font-weight:600">TARGET IMP</span>
+      <input type="number" id="targetImp" value="50000" onchange="applyFilters()"
+        style="width:85px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;text-align:right"/>
+      <span style="font-size:.6rem;color:var(--muted);font-weight:600">TARGET ROAS</span>
+      <input type="number" id="targetRoas" value="3.0" step="0.1" onchange="applyFilters()"
+        style="width:65px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;text-align:right"/>
+    </span>
+  </div>
+  <!-- Category chips row -->
+  <div id="resultSummary" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+</div>
 
 <!-- OVERVIEW — PERFORMANCE -->
 <!-- Total Amount Spent | Total Impressions | Avg Video Play Time | Avg Outbound CTR | Avg Engagement Rate | Avg ThruPlay Rate | CT ROAS -->
@@ -526,23 +526,6 @@
   </div>
 </div>
 
-<!-- OVERVIEW — RESULTS SUMMARY -->
-<div id="resultsSummaryWrap" style="display:none;margin-top:4px">
-  <div class="sec">Overview — Results
-    <span class="stag stag-terra">Per Ad · Excl. Copy</span>
-    <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
-      <span style="font-size:.6rem;color:var(--muted);font-weight:600">TARGET IMP</span>
-      <input type="number" id="targetImp" value="50000" onchange="applyFilters()"
-        style="width:85px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;text-align:right"/>
-      <span style="font-size:.6rem;color:var(--muted);font-weight:600">TARGET ROAS</span>
-      <input type="number" id="targetRoas" value="3.0" step="0.1" onchange="applyFilters()"
-        style="width:65px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;text-align:right"/>
-    </span>
-  </div>
-  <!-- Category chips row -->
-  <div id="resultSummary" style="display:flex;gap:10px;flex-wrap:wrap"></div>
-</div>
-
 <!-- INITIAL EMPTY -->
 <div id="initEmpty" class="empty-box">
   <div class="ei">📊</div>
@@ -560,8 +543,8 @@
 // CONFIG — Hardcoded credentials
 // Update these values here instead of entering in UI
 // ════════════════════════════════════════
-const HARDCODED_SHEET_ID = '1oy2PkIXWwL7uhwKaXhZk1xvd7JnIdhLhPMfHr3D-zZ8';  // ← Paste your Spreadsheet ID here
-const HARDCODED_API_KEY  = 'AIzaSyCIB1fFEekjE0dO7ZLz3Nl8ttejJP3YZ1E';  // ← Paste your Google API Key here
+const HARDCODED_SHEET_ID = '';  // ← Paste your Spreadsheet ID here
+const HARDCODED_API_KEY  = '';  // ← Paste your Google API Key here
 
 const SHEET_ACCOUNTS = [
   { num:1, name:'Raho Saadaa',             tab:'Meta Account 1' },
@@ -915,28 +898,19 @@ function filteredAds(){
   if(to) to.setHours(23,59,59,999);
   const rangeActive = from || to;
 
-    // ── Name filters: dynamic rows, AND/OR mode ──
-  const filterRows   = getNameFilters();  // [{mode, value}, ...]
-  const filterLogic  = NAME_FILTER_MODE; // 'AND' | 'OR'
+    // ── Name filter: single input with OR support ──
+  const nf = getNameFilter();
 
   return ALL.filter(a=>{
-    // 1. Copy filter
-    if(EXCLUDE_COPY && a.isCopy) return false;
+    // 1. Copy toggle — independent exclude
+    if(EXCLUDE_COPY_TOGGLE && a.isCopy) return false;
 
-    // 2. Dynamic name filters
-    if(filterRows.length > 0){
-      const results = filterRows.map(f => {
-        if(!f.value) return true; // empty row = skip
-        const inName = a.name.toLowerCase().includes(f.value.toLowerCase());
-        return f.mode === 'contains' ? inName : !inName;
-      }).filter((_, i) => filterRows[i].value); // only evaluate non-empty rows
-
-      if(results.length > 0){
-        const passes = filterLogic === 'AND'
-          ? results.every(r => r)   // ALL must match
-          : results.some(r => r);   // ANY must match
-        if(!passes) return false;
-      }
+    // 2. Name filter — OR across terms
+    if(nf.terms.length > 0){
+      const name = a.name.toLowerCase();
+      const anyMatch = nf.terms.some(t => name.includes(t.toLowerCase()));
+      if(nf.mode === 'contains'     && !anyMatch) return false;
+      if(nf.mode === 'not_contains' &&  anyMatch) return false;
     }
 
     // 3. Date range — sheet Date col
@@ -956,8 +930,23 @@ function applyFilters(){
   const lbl =(!from&&!to)?'All dates':fmtDate(from)+' → '+fmtDate(to);
   setEl('dateRangeLabel',lbl);
 
-  // Update name filter chips
-  renderFilterChips();
+  // Update name filter chip + clear button
+  const nfVal = (document.getElementById('nameFilterValue')?.value||'').trim();
+  const clearBtn = document.getElementById('nameFilterClear');
+  const chip     = document.getElementById('nameFilterChip');
+  const chipText = document.getElementById('nameFilterChipText');
+  if(clearBtn) clearBtn.style.display = nfVal ? 'flex' : 'none';
+  if(chip){
+    if(nfVal){
+      const mode = document.getElementById('nameFilterMode')?.value||'contains';
+      const terms = nfVal.split(/\s+or\s+/i).filter(Boolean);
+      chip.style.display = 'flex';
+      chipText.innerHTML = (mode==='contains'?'contains ':'not contains ')
+        + terms.map(t=>`<strong style="color:var(--terra)">${t}</strong>`).join(' <span style="color:var(--muted)">OR</span> ');
+    } else {
+      chip.style.display = 'none';
+    }
+  }
 
   const ads=filteredAds();
   const uniqueAdIds = new Set(ads.map(a=>a.adId||a.name));
@@ -972,8 +961,7 @@ function applyFilters(){
 function clearFilters(){
   document.getElementById('dateFrom').value='';
   document.getElementById('dateTo').value='';
-  clearAllNameFilters();
-  addNameFilter();
+  clearNameFilter();
   applyFilters();
 }
 
@@ -1070,49 +1058,10 @@ function renderCreatives(ads){
 
 
 
-function onFilterInput(id){
-  const valEl = document.getElementById(`nfVal_${id}`);
-  if(!valEl) return;
-  const raw = valEl.value;
 
-  // Auto-split on " or " or "," → create new rows for each part
-  const splitPattern = /\s+or\s+|,\s*/i;
-  if(splitPattern.test(raw)){
-    const parts = raw.split(splitPattern).map(p => p.trim()).filter(Boolean);
-    if(parts.length > 1){
-      // Set current row to first part
-      valEl.value = parts[0];
-      // Get mode of current row
-      const modeEl = document.getElementById(`nfMode_${id}`);
-      const mode   = modeEl ? modeEl.value : 'contains';
-      // Switch to OR mode automatically
-      setFilterMode('OR');
-      // Add a new row for each remaining part
-      parts.slice(1).forEach(part => {
-        addNameFilter(mode);
-        // Set value in the newly added row
-        const allRows = document.querySelectorAll('#nameFilterRows > div[id^="nfRow_"]');
-        const lastRow = allRows[allRows.length - 1];
-        if(lastRow){
-          const newId  = lastRow.id.replace('nfRow_','');
-          const newVal = document.getElementById(`nfVal_${newId}`);
-          if(newVal) newVal.value = part;
-        }
-      });
-    }
-  }
-  applyFilters();
-}
 
 // When user types comma — split into a new row automatically
-function splitFilterRow(id){
-  const valEl = document.getElementById(`nfVal_${id}`);
-  if(!valEl) return;
-  const modeEl = document.getElementById(`nfMode_${id}`);
-  const mode   = modeEl ? modeEl.value : 'contains';
-  addNameFilter(mode);
-  applyFilters();
-}
+
 
 
 // Results shown inline on overview page — no tab switching needed
@@ -1174,87 +1123,51 @@ function renderResults(ads){
 }
 
 // ════════════════════════════════════════
-// NAME FILTER SYSTEM — Dynamic rows, AND/OR
+// NAME FILTER + COPY TOGGLE
+// Single input — supports "26/03/26 or 27/03/26"
+// OR-splits on " or " keyword, AND-splits on space (implicit)
+// Copy exclude toggle — independent of name filter
 // ════════════════════════════════════════
-let NAME_FILTER_MODE = 'AND';
-let filterRowCount   = 0;
+let EXCLUDE_COPY_TOGGLE = true; // start with copy excluded
 
-function setFilterMode(mode){
-  NAME_FILTER_MODE = mode;
-  document.getElementById('modeAnd').style.background = mode==='AND' ? 'var(--terra)' : 'transparent';
-  document.getElementById('modeAnd').style.color      = mode==='AND' ? '#fff' : 'var(--muted)';
-  document.getElementById('modeOr').style.background  = mode==='OR'  ? 'var(--terra)' : 'transparent';
-  document.getElementById('modeOr').style.color       = mode==='OR'  ? '#fff' : 'var(--muted)';
+function toggleExcludeCopy(){
+  EXCLUDE_COPY_TOGGLE = !EXCLUDE_COPY_TOGGLE;
+  const dot   = document.getElementById('copyToggleDot');
+  const thumb = document.getElementById('copyToggleThumb');
+  const label = document.getElementById('copyToggleLabel');
+  if(dot)   dot.style.background   = EXCLUDE_COPY_TOGGLE ? 'var(--terra)' : 'var(--border2)';
+  if(thumb) thumb.style.right      = EXCLUDE_COPY_TOGGLE ? '2px' : '13px';
+  if(label) label.textContent      = EXCLUDE_COPY_TOGGLE ? 'Excl. copy' : 'Incl. copy';
   applyFilters();
 }
 
-function addNameFilter(defaultMode){
-  const id  = ++filterRowCount;
-  const row = document.createElement('div');
-  row.id    = `nfRow_${id}`;
-  row.style.cssText = 'display:flex;align-items:center;gap:6px';
-  row.innerHTML = `
-    <div style="display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:9px;overflow:hidden">
-      <select id="nfMode_${id}" onchange="applyFilters()"
-        style="border:none;background:var(--surface2);padding:6px 10px;font-family:'Roboto',sans-serif;font-size:.7rem;color:var(--ink2);outline:none;cursor:pointer;border-right:1px solid var(--border)">
-        <option value="contains">contains</option>
-        <option value="not_contains">doesn't contain</option>
-      </select>
-      <input type="text" id="nfVal_${id}" placeholder="e.g. 26/03/26 or 28/03/26"
-        oninput="onFilterInput(${id})"
-        style="border:none;background:var(--surface);padding:6px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;width:220px"/>
-    </div>
-    <button onclick="removeNameFilter(${id})"
-      style="border:none;background:var(--miss-lt);color:var(--miss);border-radius:7px;padding:5px 10px;font-size:.75rem;cursor:pointer;font-weight:700;font-family:'Roboto',sans-serif">✕</button>`;
-  document.getElementById('nameFilterRows').appendChild(row);
-  if(defaultMode){ const m = document.getElementById(`nfMode_${id}`); if(m) m.value=defaultMode; }
-}
-
-function removeNameFilter(id){
-  const row = document.getElementById(`nfRow_${id}`);
-  if(row) row.remove();
+function clearNameFilter(){
+  const el = document.getElementById('nameFilterValue');
+  if(el) el.value = '';
   applyFilters();
 }
 
-function clearAllNameFilters(){
-  document.getElementById('nameFilterRows').innerHTML = '';
-  filterRowCount = 0;
+// Parse the single input — "26/03/26 or 27/03/26" → OR terms
+// Returns { mode: 'contains'|'not_contains', terms: [...] }
+function getNameFilter(){
+  const mode  = document.getElementById('nameFilterMode')?.value || 'contains';
+  const raw   = (document.getElementById('nameFilterValue')?.value || '').trim();
+  if(!raw) return { mode, terms:[] };
+  // Split on " or " (case-insensitive)
+  const terms = raw.split(/\s+or\s+/i).map(t => t.trim()).filter(Boolean);
+  return { mode, terms };
 }
 
-function getNameFilters(){
-  const rows = document.querySelectorAll('#nameFilterRows > div[id^="nfRow_"]');
-  const filters = [];
-  rows.forEach(row => {
-    const id    = row.id.replace('nfRow_','');
-    const mode  = document.getElementById(`nfMode_${id}`)?.value || 'contains';
-    const value = (document.getElementById(`nfVal_${id}`)?.value || '').trim();
-    filters.push({ mode, value });
-  });
-  return filters;
-}
-
-function renderFilterChips(){
-  const chips = document.getElementById('nameFilterChips');
-  if(!chips) return;
-  const filters = getNameFilters().filter(f => f.value);
-  if(!filters.length){ chips.innerHTML=''; return; }
-  const modeLabel = `<span style="background:var(--terra);color:#fff;font-size:.55rem;font-weight:700;padding:2px 7px;border-radius:4px;margin-right:4px">${NAME_FILTER_MODE}</span>`;
-  chips.innerHTML = filters.map((f,i) =>
-    `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:3px 10px;font-size:.64rem;font-weight:600;color:var(--ink2)">
-      ${i > 0 ? modeLabel : ''}
-      <span style="color:var(--muted)">${f.mode==='contains'?'contains':'not contains'}</span>
-      <strong style="color:var(--terra)">${f.value}</strong>
-    </span>`
-  ).join('');
-}
-
+// ════════════════════════════════════════
+// INIT
 // ════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════
 document.addEventListener('DOMContentLoaded',()=>{
   setDefaultDates();
   selectAccount(1,document.getElementById('aSelTab1'));
-  addNameFilter(); // start with one filter row
+  // Set copy toggle to default state (excluded)
+  EXCLUDE_COPY_TOGGLE = true;
   // Auto-load if hardcoded credentials are set
   if(HARDCODED_SHEET_ID && HARDCODED_API_KEY){
     fetchSheet();
