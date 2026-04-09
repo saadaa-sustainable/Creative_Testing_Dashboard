@@ -543,8 +543,11 @@
 // CONFIG — Hardcoded credentials
 // Update these values here instead of entering in UI
 // ════════════════════════════════════════
-const HARDCODED_SHEET_ID = '';  // ← Paste your Spreadsheet ID here
-const HARDCODED_API_KEY  = '';  // ← Paste your Google API Key here
+// ── Read credentials from URL params first, fall back to hardcoded values ──
+// Usage: dashboard.html?sheetId=YOUR_SHEET_ID&apiKey=YOUR_API_KEY
+const _urlParams         = new URLSearchParams(window.location.search);
+const HARDCODED_SHEET_ID = _urlParams.get('sheetId') || '';  // fallback: paste here
+const HARDCODED_API_KEY  = _urlParams.get('apiKey')  || '';  // fallback: paste here
 
 const SHEET_ACCOUNTS = [
   { num:1, name:'Raho Saadaa',             tab:'Meta Account 1' },
@@ -820,7 +823,7 @@ function parseRows(rows){
 // FETCH
 // ════════════════════════════════════════
 async function fetchSheet(){
-  // Use hardcoded credentials, fall back to override inputs if provided
+  // Priority: override inputs → URL params → hardcoded values
   const inputSheetId = document.getElementById('sheetId')?.value.trim() || '';
   const inputApiKey  = document.getElementById('apiKey')?.value.trim()  || '';
   const sheetId = inputSheetId || HARDCODED_SHEET_ID;
@@ -1107,19 +1110,22 @@ function renderResults(ads){
     if(counts[cat] !== undefined) counts[cat]++;
   });
 
-  // Render summary chips only — no table
+  // Render summary chips — count + percentage + raw count
   const summary = document.getElementById('resultSummary');
   if(!summary) return;
-  summary.innerHTML = Object.entries(CATEGORY_CONFIG).map(([key, cfg]) =>
-    `<div style="display:flex;flex-direction:column;gap:4px;background:${cfg.bg};border:1px solid ${cfg.border};border-radius:14px;padding:12px 18px;min-width:130px">
+  const totalAds = Object.values(counts).reduce((s,c) => s+c, 0);
+  summary.innerHTML = Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => {
+    const n   = counts[key];
+    const pct = totalAds > 0 ? (n / totalAds * 100) : 0;
+    const pctStr = pct === 0 ? '0%' : pct < 1 ? '<1%' : Math.round(pct) + '%';
+    return `<div style="display:flex;flex-direction:column;gap:4px;background:${cfg.bg};border:1px solid ${cfg.border};border-radius:14px;padding:14px 20px;min-width:140px">
       <div style="display:flex;align-items:baseline;gap:6px">
-        <span style="font-family:'Roboto',sans-serif;font-size:1.8rem;font-weight:900;color:${cfg.color};line-height:1">${counts[key]}</span>
-        <span style="font-size:.62rem;font-weight:600;color:${cfg.color};opacity:.8">ads</span>
+        <span style="font-family:'Roboto',sans-serif;font-size:2rem;font-weight:900;color:${cfg.color};line-height:1">${pctStr}</span>
       </div>
-      <div style="font-size:.65rem;font-weight:700;color:${cfg.color}">${cfg.label}</div>
-      <div style="font-size:.58rem;color:${cfg.color};opacity:.7;line-height:1.4">${cfg.action}</div>
-    </div>`
-  ).join('');
+      <div style="font-size:.65rem;font-weight:700;color:${cfg.color};margin-top:2px">${cfg.label}</div>
+      <div style="font-size:.58rem;color:${cfg.color};opacity:.65;margin-top:1px">${n} ads · ${cfg.action}</div>
+    </div>`;
+  }).join('');
 }
 
 // ════════════════════════════════════════
