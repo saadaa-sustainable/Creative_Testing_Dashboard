@@ -583,7 +583,7 @@ function detectProduct(name){
   for(const p of PRODUCTS){
     if(p.length > 2 && n.includes(p)) return p;
   }
-  return '—';
+  return 'Other'; // no product tag found
 }
 
 // ════════════════════════════════════════
@@ -601,7 +601,7 @@ function detectCtype(name){
   if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || /^VID-AD/.test(n)) return 'VIDEO - NNC+ IG';
   // STATIC
   if(n.includes('STATIC') || n.includes('_ST_') || n.includes('+ST+')) return 'STATIC';
-  return 'OTHER';
+  return 'Other';
 }
 
 // ════════════════════════════════════════
@@ -1029,34 +1029,52 @@ function renderOverviewPerf(ads){
 function renderCreatives(ads){
   // Dedup by adId — each unique ad counted once even if it has multiple daily rows
   const seenP = new Set(), seenC = new Set();
+  let totalUnique = 0;
 
   // Products — count unique ads per product
+  // Ads with no product match are counted as "Other"
   const pMap={};
   ads.forEach(a=>{
     const key = a.adId || a.name;
     if(seenP.has(key)) return;
     seenP.add(key);
-    if(a.product&&a.product!=='—') pMap[a.product]=(pMap[a.product]||0)+1;
+    totalUnique++;
+    const prod = a.product || 'Other';
+    pMap[prod] = (pMap[prod]||0) + 1;
   });
-  const prods=Object.entries(pMap).sort((a,b)=>b[1]-a[1]);
-  const pTotal=prods.reduce((s,[,c])=>s+c,0);
+  const prods = Object.entries(pMap).sort((a,b)=>{
+    if(a[0]==='Other') return 1;   // Other always last
+    if(b[0]==='Other') return -1;
+    return b[1]-a[1];
+  });
+  const pTotal = prods.reduce((s,[,c])=>s+c,0);
   document.querySelector('#productTable tbody').innerHTML=
-    prods.map(([p,c])=>'<tr><td>'+p+'</td><td class="num">'+c+'</td></tr>').join('')+
-    '<tr class="grand"><td>Grand Total</td><td class="num">'+pTotal+'</td></tr>';
+    prods.map(([p,c])=>
+      `<tr><td>${p}</td><td class="num">${c}</td></tr>`
+    ).join('')+
+    `<tr class="grand"><td>Grand Total</td><td class="num">${pTotal}</td></tr>`;
 
   // Creative Types — count unique ads per type
+  // All ads get a type — fallback is "Other"
   const cMap={};
   ads.forEach(a=>{
     const key = a.adId || a.name;
     if(seenC.has(key)) return;
     seenC.add(key);
-    if(a.ctype) cMap[a.ctype]=(cMap[a.ctype]||0)+1;
+    const ct = (a.ctype && a.ctype !== '') ? a.ctype : 'Other';
+    cMap[ct] = (cMap[ct]||0) + 1;
   });
-  const ctypes=Object.entries(cMap).sort((a,b)=>b[1]-a[1]);
-  const cTotal=ctypes.reduce((s,[,c])=>s+c,0);
+  const ctypes = Object.entries(cMap).sort((a,b)=>{
+    if(a[0]==='Other') return 1;   // Other always last
+    if(b[0]==='Other') return -1;
+    return b[1]-a[1];
+  });
+  const cTotal = ctypes.reduce((s,[,c])=>s+c,0);
   document.querySelector('#ctypeTable tbody').innerHTML=
-    ctypes.map(([t,c])=>'<tr><td>'+t+'</td><td class="num">'+c+'</td></tr>').join('')+
-    '<tr class="grand"><td>Grand Total</td><td class="num">'+cTotal+'</td></tr>';
+    ctypes.map(([t,c])=>
+      `<tr><td>${t}</td><td class="num">${c}</td></tr>`
+    ).join('')+
+    `<tr class="grand"><td>Grand Total</td><td class="num">${cTotal}</td></tr>`;
 }
 
 
