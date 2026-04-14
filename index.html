@@ -463,9 +463,9 @@
     </div>
 
     <div class="ov-card k-slate">
-      <div class="ov-label">Avg. Video Play Time</div>
-      <div class="ov-val" id="ov_vpt">—</div>
-      <div class="ov-sub">Sum(VPT×VideoPlays) / Sum(VideoPlays)</div>
+      <div class="ov-label">Avg. Hook Rate</div>
+      <div class="ov-val" id="ov_hook2">—</div>
+      <div class="ov-sub">Sum(3-Sec Video Plays) ÷ Sum(Impressions)</div>
     </div>
 
     <div class="ov-card k-blush">
@@ -516,7 +516,7 @@
     </div>
     <div class="card">
       <div class="sec" style="margin-bottom:12px">Creative Type
-        <span style="font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.04em;text-transform:none">IFAD/GAD · VRP/NNC · STATIC</span>
+        <span style="font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.04em;text-transform:none">IFAD/Graphic AD · VID · STATIC</span>
       </div>
       <table class="mini-table" id="ctypeTable">
         <thead><tr><th>Creative Type</th><th style="text-align:right">COUNT</th></tr></thead>
@@ -593,15 +593,11 @@ function detectProduct(name){
 // ════════════════════════════════════════
 function detectCtype(name){
   const n = name.toUpperCase();
-  // IFAD — must contain IFAD keyword
   if(n.includes('IFAD')) return 'IFAD';
-  // GAD — contains GAD but NOT IFAD (SC_GAD, _GAD-, GAD- patterns)
-  if(n.includes('GAD')) return 'GAD';
-  // VIDEO / NNC+ IG
-  if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || /^VID-AD/.test(n)) return 'VIDEO - NNC+ IG';
-  // STATIC
+  if(n.includes('GAD')) return 'Graphic AD';
+  if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || /^VID-AD/.test(n)) return 'VID';
   if(n.includes('STATIC') || n.includes('_ST_') || n.includes('+ST+')) return 'STATIC';
-  return 'Other';
+  return 'VID';
 }
 
 // ════════════════════════════════════════
@@ -781,16 +777,16 @@ function parseRows(rows){
 
   const g=(row,key)=>cols[key]>=0?(row[cols[key]]??''):'';
 
-  return rows.slice(1)
+  // Parse all rows
+  const parsed = rows.slice(1)
     .filter(row=>row.length>1 && String(g(row,'adName')).trim())
     .map((row,i)=>{
       const name         = String(g(row,'adName')).trim();
-      const dateObj      = extractDateFromAdName(name);      // date from ad name e.g. 26/03/26
-      const sheetDateObj = parseSheetDate(String(g(row,'date')||'').trim()); // sheet Date col (spend date)
+      const dateObj      = extractDateFromAdName(name);
+      const sheetDateObj = parseSheetDate(String(g(row,'date')||'').trim());
       const product      = detectProduct(name);
       const ctype        = detectCtype(name);
       const copy         = isCopyAd(name);
-
       return {
         i, name,
         adId:      String(g(row,'adId')).trim(),
@@ -801,7 +797,6 @@ function parseRows(rows){
         isCopy: copy,
         campName:  String(g(row,'campName')).trim(),
         status:    String(g(row,'status')).trim(),
-        // Raw metrics — new schema (14-col)
         impr:      n2f(g(row,'impr')),
         spend:     n2f(g(row,'spend')),
         reach:     n2f(g(row,'reach')),
@@ -811,12 +806,28 @@ function parseRows(rows){
         postEng:   n2f(g(row,'postEng')),
         convValue: n2f(g(row,'convValue')),
         vpt:       n2f(g(row,'vpt')),
-        // Old schema fallbacks (pre-computed rates %)
         thruRate:  n2f(g(row,'thruRate')),
         frame1:    n2f(g(row,'frame1')),
         engRate:   n2f(g(row,'engRate')),
       };
     });
+
+  // ── DEDUPLICATION: keep only one row per (sheetDate + adId) ──
+  // The sheet may have duplicate rows if the Apps Script synced multiple times.
+  // We keep the LAST occurrence (latest sync = most up-to-date values).
+  const dedupMap = new Map();
+  parsed.forEach(a => {
+    const dateKey = a.sheetDateObj ? a.sheetDateObj.toISOString().split('T')[0] : '__nodate__';
+    const key = dateKey + '_' + a.adId;
+    dedupMap.set(key, a); // last write wins
+  });
+
+  const deduped = Array.from(dedupMap.values());
+  const dupeCount = parsed.length - deduped.length;
+  if(dupeCount > 0){
+    console.warn(`[CT Dashboard] Removed ${dupeCount} duplicate rows (same date+adId). Sheet needs re-sync.`);
+  }
+  return deduped;
 }
 
 // ════════════════════════════════════════
@@ -872,9 +883,7 @@ async function fetchSheet(){
     const copyCount=ALL.filter(a=>a.isCopy).length;
     const t=new Date().toLocaleTimeString();
     setStatus(
-      '✓ '+ALL.length+' rows from "'+acct.tab+
-      '" · '+withDates+' with dates in ad name · '+
-      copyCount+' copy ads ('+(EXCLUDE_COPY?'excluded':'included')+')',
+      '✓ '+ALL.length+' rows from "'+acct.tab+'" · '+withDates+' with dates in ad name · '+copyCount+' copy ads (included)',
       'success'
     );
     setFetchSt('✓ '+ALL.length+' rows','as-done');
@@ -974,50 +983,55 @@ function clearFilters(){
 // Avg Outbound CTR | Avg Engagement Rate | Avg ThruPlay Rate | CT ROAS
 // ════════════════════════════════════════
 function renderOverviewPerf(ads){
+  // ── Totals: include ALL rows (zeroes are valid spend/impression data) ──
   const totalSpend = sumF(ads, a => a.spend);
   const totalImpr  = sumF(ads, a => a.impr);
+  const totalConv  = sumF(ads, a => a.convValue);
 
   setEl('ov_spend', fC(totalSpend));
   setEl('ov_impr',  fI(totalImpr));
+  setEl('ov_roas',  fD(totalSpend > 0 ? totalConv / totalSpend : 0));
 
-  // ── CT ROAS = Sum(Purchases Conversion Value) / Sum(Amount Spent) ──
-  const totalConv = sumF(ads, a => a.convValue);
-  setEl('ov_roas', fD(totalSpend > 0 ? totalConv / totalSpend : 0));
-
-  // ── Detect schema: new = has raw ThruPlays count, old = has ThruPlay Rate % ──
+  // ── Rate metrics: only use rows where Impressions > 0 as denominator ──
+  // Rows with 0 impressions contribute 0 to numerator AND denominator
+  // Including them in the denominator would not change the result, but
+  // excluding them matches Meta Ads Manager's behaviour precisely.
   const hasRawCols = ads.some(a => a.thruPlays > 0 || a.videoPlays > 0 || a.postEng > 0);
 
+  // Filter to rows with actual impressions for rate calculations
+  const withImpr = ads.filter(a => a.impr > 0);
+
   if(hasRawCols){
-    // ── NEW SCHEMA: raw counts → compute rates ──
-    const totalOutClicks = sumF(ads, a => a.outClicks);
-    const totalThruPlays = sumF(ads, a => a.thruPlays);
-    const totalPostEng   = sumF(ads, a => a.postEng);
-    const totalVideoPlays= sumF(ads, a => a.videoPlays);
+    // ── NEW SCHEMA: Sum(numerator) / Sum(denominator) — weighted by impressions ──
+    const totalOutClicks  = sumF(withImpr, a => a.outClicks);
+    const totalThruPlays  = sumF(withImpr, a => a.thruPlays);
+    const totalPostEng    = sumF(withImpr, a => a.postEng);
+    const totalVideoPlays = sumF(withImpr, a => a.videoPlays);
+    const imprForRates    = sumF(withImpr, a => a.impr);
 
-    setEl('ov_ctr',  fP(totalImpr      > 0 ? totalOutClicks  / totalImpr       * 100 : 0));
-    setEl('ov_thru', fP(totalImpr      > 0 ? totalThruPlays  / totalImpr       * 100 : 0));
-    setEl('ov_eng',  fP(totalImpr      > 0 ? totalPostEng    / totalImpr       * 100 : 0));
-    setEl('ov_hold', fP(totalVideoPlays> 0 ? totalThruPlays  / totalVideoPlays * 100 : 0));
+    setEl('ov_ctr',  fP(imprForRates    > 0 ? totalOutClicks  / imprForRates    * 100 : 0));
+    setEl('ov_thru', fP(imprForRates    > 0 ? totalThruPlays  / imprForRates    * 100 : 0));
+    setEl('ov_eng',  fP(imprForRates    > 0 ? totalPostEng    / imprForRates    * 100 : 0));
+    setEl('ov_hold', fP(totalVideoPlays > 0 ? totalThruPlays  / totalVideoPlays * 100 : 0));
 
-    let totalVPTWeighted = 0;
-    ads.forEach(a => { if(a.vpt > 0 && a.videoPlays > 0) totalVPTWeighted += a.vpt * a.videoPlays; });
-    setEl('ov_vpt', fVPT(totalVideoPlays > 0 ? totalVPTWeighted / totalVideoPlays : 0));
+    // Hook Rate = Sum(3-Sec Video Plays) / Sum(Impressions) × 100
+    const totalThreeSecForHook = sumF(withImpr, a => a.videoPlays);
+    setEl('ov_hook2', fP(imprForRates > 0 ? totalThreeSecForHook / imprForRates * 100 : 0));
 
   } else {
-    // ── OLD SCHEMA FALLBACK: use pre-computed rate % cols ──
-    // CTR = from inline_link_click_ctr col (already %)
-    setEl('ov_ctr',  fP(avgF(ads, a => a.ctr  || 0)));
-    // ThruPlay Rate = sum(rate%*impr)/sum(impr) using stored thruRate col
-    const wThru = sumF(ads, a => (a.thruRate/100) * a.impr);
-    const wEng  = sumF(ads, a => (a.engRate /100) * a.impr);
-    setEl('ov_thru', fP(totalImpr > 0 ? wThru / totalImpr * 100 : 0));
-    setEl('ov_eng',  fP(totalImpr > 0 ? wEng  / totalImpr * 100 : 0));
-    // Hold Rate = ThruPlay Rate / 1st Frame Retention (both stored as %)
-    const wHold  = sumF(ads, a => (a.thruRate/100) * a.impr);
-    const wFrame = sumF(ads, a => (a.frame1  /100) * a.impr);
-    setEl('ov_hold', fP(wFrame > 0 ? wHold / wFrame * 100 : 0));
-    // VPT direct from col
-    setEl('ov_vpt', fVPT(avgF(ads, a => a.vpt)));
+    // ── OLD SCHEMA FALLBACK: pre-computed rate % cols ──
+    const imprForRates = sumF(withImpr, a => a.impr);
+    const wThru  = sumF(withImpr, a => (a.thruRate/100) * a.impr);
+    const wEng   = sumF(withImpr, a => (a.engRate /100) * a.impr);
+    const wHold  = sumF(withImpr, a => (a.thruRate/100) * a.impr);
+    const wFrame = sumF(withImpr, a => (a.frame1  /100) * a.impr);
+    setEl('ov_ctr',  fP(avgF(withImpr, a => a.ctr || 0)));
+    setEl('ov_thru', fP(imprForRates > 0 ? wThru  / imprForRates * 100 : 0));
+    setEl('ov_eng',  fP(imprForRates > 0 ? wEng   / imprForRates * 100 : 0));
+    setEl('ov_hold', fP(wFrame       > 0 ? wHold  / wFrame       * 100 : 0));
+    // Hook Rate fallback using 1st frame retention as proxy
+    const wHookFb = sumF(withImpr, a => (a.frame1/100) * a.impr);
+    setEl('ov_hook2', fP(imprForRates > 0 ? wHookFb / imprForRates * 100 : 0));
   }
 }
 
@@ -1061,12 +1075,12 @@ function renderCreatives(ads){
     const key = a.adId || a.name;
     if(seenC.has(key)) return;
     seenC.add(key);
-    const ct = (a.ctype && a.ctype !== '') ? a.ctype : 'Other';
+    const ct = (a.ctype && a.ctype !== '') ? a.ctype : 'VID';
     cMap[ct] = (cMap[ct]||0) + 1;
   });
   const ctypes = Object.entries(cMap).sort((a,b)=>{
-    if(a[0]==='Other') return 1;   // Other always last
-    if(b[0]==='Other') return -1;
+    if(a[0]==='VID') return 1;   // VID always last (catch-all)
+    if(b[0]==='VID') return -1;
     return b[1]-a[1];
   });
   const cTotal = ctypes.reduce((s,[,c])=>s+c,0);
@@ -1110,13 +1124,15 @@ function renderResults(ads){
   const targetRoas = parseFloat(document.getElementById('targetRoas')?.value) || 3.0;
 
   // Aggregate per unique ad
+  // Include ALL rows (even 0-impression rows) in spend/convValue totals
+  // but only rows with impressions > 0 count toward the impr total
   const adMap = {};
   ads.forEach(a => {
     const key = a.adId || a.name;
     if(!adMap[key]) adMap[key] = { impr:0, spend:0, convValue:0 };
-    adMap[key].impr      += a.impr      || 0;
     adMap[key].spend     += a.spend     || 0;
     adMap[key].convValue += a.convValue || 0;
+    if((a.impr || 0) > 0) adMap[key].impr += a.impr; // only count real impressions
   });
 
   // Categorise and count
