@@ -299,6 +299,13 @@
   </div>
   <div class="header-right">
     <div class="last-sync" id="lastSync">Not yet synced</div>
+
+    <!-- Definition Button -->
+    <button onclick="toggleDefModal()" style="display:flex;align-items:center;gap:7px;background:var(--slate-lt);color:var(--slate);border:1px solid rgba(74,111,165,.3);border-radius:100px;padding:7px 15px;font-family:'Roboto',sans-serif;font-size:.7rem;font-weight:600;cursor:pointer;transition:all .2s" onmouseover="this.style.background='var(--slate)';this.style.color='#fff'" onmouseout="this.style.background='var(--slate-lt)';this.style.color='var(--slate)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Definitions
+    </button>
+
     <div class="gs-pill">
       <svg viewBox="0 0 24 24"><path d="M19.7 3H14.5L9 9l-5.5 6H1v6h3.5l5-6 5.5 6H19.7c1.2 0 2.3-1 2.3-2.3V5.3C22 4 21 3 19.7 3zm0 15.7H15l-5-5.5L14.5 8h5.2v10.7z"/></svg>
       Google Sheets
@@ -565,10 +572,9 @@ const EXCLUDE_COPY = false; // copy handled via name filter
 // Tokens split by +, -, space
 // ════════════════════════════════════════
 const PRODUCTS = [
-  'BST','BCO','COO','SDAFD','CL','TTB','TW','GE','SDCPT','SDELKB','SDELPT',
-  'SDFLK','SDFSK','SDCSS','SDLS','SDRPT','SDRST','SDVPL','SMCP','SMELMS',
-  'SMFLK','SMFSK','SMLS','BR','SDASP','SDCP','SDWLP','GP','SUZNS','WW',
-  'STL','LE','WLP','SDLWC','SDTTB','SDECT','SDECT'
+  'BST','WNA','WSA','TW','BW','MBS','MSA','MBW','MTW','CL','GE','COO','SDKS',
+  'SDFSK','SDFLK','SDALS','SDECT','SDTJ','SDCP','SDSSP','SDPL','SDFS','SDRST','SDAWP','SDWLP','SDRPT','SDASP','SDAFD','SDSLP',
+  'SMFS','SMFSK','SMFLK','SMLS','SMLHS'
 ];
 
 function detectProduct(name){
@@ -594,7 +600,7 @@ function detectProduct(name){
 function detectCtype(name){
   const n = name.toUpperCase();
   if(n.includes('IFAD')) return 'IFAD';
-  if(n.includes('GAD')) return 'Graphic AD';
+  if(n.includes('GAD')) return 'Graphic ADs';
   if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || /^VID-AD/.test(n)) return 'VID';
   if(n.includes('STATIC') || n.includes('_ST_') || n.includes('+ST+')) return 'STATIC';
   return 'VID';
@@ -1198,8 +1204,86 @@ function getNameFilter(){
   return { mode, terms };
 }
 
+
+// ════════════════════════════════════════
+// DEFINITIONS MODAL
+// ════════════════════════════════════════
+function toggleDefModal(){
+  const modal = document.getElementById('defModal');
+  if(!modal) return;
+  const isOpen = modal.style.display === 'flex';
+  modal.style.display = isOpen ? 'none' : 'flex';
+  if(!isOpen){
+    // Sync current threshold values into modal inputs
+    const ti = document.getElementById('targetImp')?.value  || '50000';
+    const tr = document.getElementById('targetRoas')?.value || '3.0';
+    const di = document.getElementById('def_targetImp');
+    const dr = document.getElementById('def_targetRoas');
+    if(di) di.value = ti;
+    if(dr) dr.value = tr;
+  }
+}
+
+// Close modal when clicking the backdrop
+document.addEventListener('click', e => {
+  const modal = document.getElementById('defModal');
+  if(modal && e.target === modal) toggleDefModal();
+});
+
+// Sync threshold changes from modal → dashboard inputs → re-run filters
+function syncThreshold(type, val){
+  if(type === 'imp'){
+    const el = document.getElementById('targetImp');
+    if(el){ el.value = val; }
+  } else {
+    const el = document.getElementById('targetRoas');
+    if(el){ el.value = val; }
+  }
+  // Re-run categorisation with new thresholds
+  if(typeof applyFilters === 'function') applyFilters();
+}
+
 // ════════════════════════════════════════
 // INIT
+
+// ════════════════════════════════════════
+// DEFINITIONS MODAL
+// ════════════════════════════════════════
+function toggleDefModal(){
+  const modal = document.getElementById('defModal');
+  if(!modal) return;
+  const isOpen = modal.style.display === 'flex';
+  modal.style.display = isOpen ? 'none' : 'flex';
+  if(!isOpen){
+    // Sync current threshold values into modal inputs
+    const ti = document.getElementById('targetImp')?.value  || '50000';
+    const tr = document.getElementById('targetRoas')?.value || '3.0';
+    const di = document.getElementById('def_targetImp');
+    const dr = document.getElementById('def_targetRoas');
+    if(di) di.value = ti;
+    if(dr) dr.value = tr;
+  }
+}
+
+// Close modal when clicking the backdrop
+document.addEventListener('click', e => {
+  const modal = document.getElementById('defModal');
+  if(modal && e.target === modal) toggleDefModal();
+});
+
+// Sync threshold changes from modal → dashboard inputs → re-run filters
+function syncThreshold(type, val){
+  if(type === 'imp'){
+    const el = document.getElementById('targetImp');
+    if(el){ el.value = val; }
+  } else {
+    const el = document.getElementById('targetRoas');
+    if(el){ el.value = val; }
+  }
+  // Re-run categorisation with new thresholds
+  if(typeof applyFilters === 'function') applyFilters();
+}
+
 // ════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════
@@ -1214,5 +1298,154 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 });
 </script>
+
+<!-- ════════════════════════════════════════ -->
+<!-- DEFINITIONS MODAL                        -->
+<!-- ════════════════════════════════════════ -->
+<div id="defModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(28,25,22,.45);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:24px">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:22px;max-width:720px;width:100%;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(28,25,22,.18);position:relative">
+
+    <!-- Header -->
+    <div style="padding:24px 28px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div>
+        <div style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--ink)">Algorithm Definitions</div>
+        <div style="font-size:.65rem;color:var(--muted);margin-top:3px;letter-spacing:.08em;text-transform:uppercase">How ads are evaluated &amp; categorised</div>
+      </div>
+      <button onclick="toggleDefModal()" style="border:none;background:var(--bg2);color:var(--muted);border-radius:8px;width:32px;height:32px;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Roboto',sans-serif">✕</button>
+    </div>
+
+    <!-- Scrollable body -->
+    <div style="overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:22px">
+
+      <!-- ── SECTION 1: THRESHOLDS ── -->
+      <div>
+        <div style="font-size:.58rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--terra);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+          <span style="flex:1;height:1px;background:var(--terra-lt)"></span>
+          Evaluation Thresholds
+          <span style="flex:1;height:1px;background:var(--terra-lt)"></span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="background:var(--terra-lt);border:1px solid rgba(192,96,58,.2);border-radius:12px;padding:14px 16px">
+            <div style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--terra);margin-bottom:6px">Target Impressions</div>
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <input type="number" id="def_targetImp" value="50000" onchange="syncThreshold('imp',this.value)"
+                style="font-family:'Roboto',sans-serif;font-size:1.4rem;font-weight:900;color:var(--terra);background:transparent;border:none;outline:none;border-bottom:2px solid var(--terra);width:110px;padding-bottom:2px"/>
+              <span style="font-size:.65rem;color:var(--terra);font-weight:600">impressions</span>
+            </div>
+            <div style="font-size:.6rem;color:var(--muted);margin-top:6px">Minimum impressions an ad needs before evaluation is valid</div>
+          </div>
+          <div style="background:var(--sage-lt);border:1px solid rgba(74,124,111,.2);border-radius:12px;padding:14px 16px">
+            <div style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--sage);margin-bottom:6px">Target ROAS</div>
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <input type="number" id="def_targetRoas" value="3.0" step="0.1" onchange="syncThreshold('roas',this.value)"
+                style="font-family:'Roboto',sans-serif;font-size:1.4rem;font-weight:900;color:var(--sage);background:transparent;border:none;outline:none;border-bottom:2px solid var(--sage);width:80px;padding-bottom:2px"/>
+              <span style="font-size:.65rem;color:var(--sage);font-weight:600">× return</span>
+            </div>
+            <div style="font-size:.6rem;color:var(--muted);margin-top:6px">Minimum CT ROAS an ad must achieve to be considered profitable</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SECTION 2: CATEGORISATION ALGORITHM ── -->
+      <div>
+        <div style="font-size:.58rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--terra);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+          <span style="flex:1;height:1px;background:var(--terra-lt)"></span>
+          Categorisation Algorithm
+          <span style="flex:1;height:1px;background:var(--terra-lt)"></span>
+        </div>
+        <div style="font-size:.68rem;color:var(--ink2);margin-bottom:10px;line-height:1.7">Each unique ad is evaluated against a 2-axis matrix using <strong>Total Impressions</strong> and <strong>CT ROAS</strong> aggregated across the selected date range. Rows are deduplicated by <em>Date + Ad ID</em> before aggregation.</div>
+
+        <!-- Category cards -->
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:grid;grid-template-columns:100px 1fr 1fr 1fr;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:.63rem">
+            <div style="background:var(--surface2);padding:8px 12px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-right:1px solid var(--border)">Category</div>
+            <div style="background:var(--surface2);padding:8px 12px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-right:1px solid var(--border)">Impressions Rule</div>
+            <div style="background:var(--surface2);padding:8px 12px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-right:1px solid var(--border)">ROAS Rule</div>
+            <div style="background:var(--surface2);padding:8px 12px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Action</div>
+          </div>
+          <div style="display:grid;grid-template-columns:100px 1fr 1fr 1fr;border:1px solid rgba(74,124,111,.25);border-radius:10px;overflow:hidden;font-size:.65rem;background:#e6f0ee">
+            <div style="padding:10px 12px;font-weight:800;color:#4a7c6f;border-right:1px solid rgba(74,124,111,.2)">🟢 Winner</div>
+            <div style="padding:10px 12px;color:#4a7c6f;border-right:1px solid rgba(74,124,111,.2)">≥ Target Imp</div>
+            <div style="padding:10px 12px;color:#4a7c6f;border-right:1px solid rgba(74,124,111,.2)">≥ Target ROAS</div>
+            <div style="padding:10px 12px;color:#4a7c6f">Scale budget immediately</div>
+          </div>
+          <div style="display:grid;grid-template-columns:100px 1fr 1fr 1fr;border:1px solid rgba(184,136,58,.25);border-radius:10px;overflow:hidden;font-size:.65rem;background:#fdf5e6">
+            <div style="padding:10px 12px;font-weight:800;color:#b8883a;border-right:1px solid rgba(184,136,58,.2)">🟡 ITE</div>
+            <div style="padding:10px 12px;color:#b8883a;border-right:1px solid rgba(184,136,58,.2)">≥ Target Imp</div>
+            <div style="padding:10px 12px;color:#b8883a;border-right:1px solid rgba(184,136,58,.2)">&lt; Target ROAS</div>
+            <div style="padding:10px 12px;color:#b8883a">Iterate on message &amp; CTA</div>
+          </div>
+          <div style="display:grid;grid-template-columns:100px 1fr 1fr 1fr;border:1px solid rgba(74,111,165,.25);border-radius:10px;overflow:hidden;font-size:.65rem;background:#eaf0f8">
+            <div style="padding:10px 12px;font-weight:800;color:#4a6fa5;border-right:1px solid rgba(74,111,165,.2)">🔵 Analyse</div>
+            <div style="padding:10px 12px;color:#4a6fa5;border-right:1px solid rgba(74,111,165,.2)">&lt; Target Imp</div>
+            <div style="padding:10px 12px;color:#4a6fa5;border-right:1px solid rgba(74,111,165,.2)">Has conversions</div>
+            <div style="padding:10px 12px;color:#4a6fa5">Study offer &amp; format</div>
+          </div>
+          <div style="display:grid;grid-template-columns:100px 1fr 1fr 1fr;border:1px solid rgba(192,96,58,.25);border-radius:10px;overflow:hidden;font-size:.65rem;background:#f5ebe6">
+            <div style="padding:10px 12px;font-weight:800;color:#c0603a;border-right:1px solid rgba(192,96,58,.2)">🔴 Discarded</div>
+            <div style="padding:10px 12px;color:#c0603a;border-right:1px solid rgba(192,96,58,.2)">&lt; Target Imp</div>
+            <div style="padding:10px 12px;color:#c0603a;border-right:1px solid rgba(192,96,58,.2)">No conversions</div>
+            <div style="padding:10px 12px;color:#c0603a">Do not replicate</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SECTION 3: METRIC FORMULAS ── -->
+      <div>
+        <div style="font-size:.58rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--terra);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+          <span style="flex:1;height:1px;background:var(--terra-lt)"></span>
+          Metric Formulas
+          <span style="flex:1;height:1px;background:var(--terra-lt)"></span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+            <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--terra);margin-bottom:4px">CT ROAS</div>
+            <div style="font-family:'Roboto Mono',monospace;font-size:.68rem;color:var(--ink);background:var(--bg2);padding:5px 8px;border-radius:5px">Sum(Conv. Value) ÷ Sum(Spend)</div>
+            <div style="font-size:.6rem;color:var(--muted);margin-top:5px">Return on ad spend based on purchase conversion value</div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+            <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--slate);margin-bottom:4px">Hook Rate</div>
+            <div style="font-family:'Roboto Mono',monospace;font-size:.68rem;color:var(--ink);background:var(--bg2);padding:5px 8px;border-radius:5px">Sum(3-Sec Plays) ÷ Sum(Impressions)</div>
+            <div style="font-size:.6rem;color:var(--muted);margin-top:5px">% of people who watched at least 3 seconds — measures creative hook strength</div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+            <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--gold);margin-bottom:4px">ThruPlay Rate</div>
+            <div style="font-family:'Roboto Mono',monospace;font-size:.68rem;color:var(--ink);background:var(--bg2);padding:5px 8px;border-radius:5px">Sum(ThruPlays) ÷ Sum(Impressions)</div>
+            <div style="font-size:.6rem;color:var(--muted);margin-top:5px">% who watched the video to completion (or 15s for longer videos)</div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+            <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--sage);margin-bottom:4px">Hold Rate</div>
+            <div style="font-family:'Roboto Mono',monospace;font-size:.68rem;color:var(--ink);background:var(--bg2);padding:5px 8px;border-radius:5px">Sum(ThruPlays) ÷ Sum(3-Sec Plays)</div>
+            <div style="font-size:.6rem;color:var(--muted);margin-top:5px">Of those hooked at 3s, % who stayed till the end — measures content retention</div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+            <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--blush);margin-bottom:4px">Outbound CTR</div>
+            <div style="font-family:'Roboto Mono',monospace;font-size:.68rem;color:var(--ink);background:var(--bg2);padding:5px 8px;border-radius:5px">Sum(Outbound Clicks) ÷ Sum(Impressions)</div>
+            <div style="font-size:.6rem;color:var(--muted);margin-top:5px">Unique click-through rate to destination URL (matches Meta Ads Manager)</div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+            <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px">Engagement Rate</div>
+            <div style="font-family:'Roboto Mono',monospace;font-size:.68rem;color:var(--ink);background:var(--bg2);padding:5px 8px;border-radius:5px">Sum(Post Engagements) ÷ Sum(Impressions)</div>
+            <div style="font-size:.6rem;color:var(--muted);margin-top:5px">Likes, comments, shares and saves as % of impressions</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SECTION 4: DEDUPLICATION NOTE ── -->
+      <div style="background:var(--slate-lt);border:1px solid rgba(74,111,165,.2);border-radius:10px;padding:14px 16px">
+        <div style="font-size:.62rem;font-weight:700;color:var(--slate);margin-bottom:5px">ℹ  Data Deduplication</div>
+        <div style="font-size:.63rem;color:var(--ink2);line-height:1.7">The sheet may contain multiple rows for the same <em>Date + Ad ID</em> combination due to sync overlaps. The dashboard automatically removes duplicates, keeping the latest entry per combination before all calculations. Rate metrics further exclude rows with 0 impressions from their denominators to match Meta Ads Manager's behaviour precisely.</div>
+      </div>
+
+    </div><!-- end scrollable body -->
+
+    <!-- Footer -->
+    <div style="padding:14px 28px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--surface2)">
+      <div style="font-size:.6rem;color:var(--muted)">Changes to thresholds apply instantly to the dashboard</div>
+      <button onclick="toggleDefModal()" style="background:var(--terra);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-family:'Roboto',sans-serif;font-size:.72rem;font-weight:600;cursor:pointer">Close</button>
+    </div>
+
+  </div>
+</div>
 </body>
 </html>
