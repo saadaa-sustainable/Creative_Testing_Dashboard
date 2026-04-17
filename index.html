@@ -256,6 +256,11 @@
   .bottom-grid{display:grid;grid-template-columns:1.3fr 0.9fr 1fr;gap:16px;margin-bottom:22px}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px}
   .divider{height:1px;background:var(--border)}
+  /* Account source pills in combined view */
+  .acct-pill{display:inline-block;font-size:.5rem;font-weight:700;padding:2px 6px;border-radius:100px;vertical-align:middle;margin-left:4px}
+  .acct-pill.a1{background:var(--a1-lt);color:var(--a1)}
+  .acct-pill.a2{background:var(--a2-lt);color:var(--a2)}
+  .acct-pill.a3{background:var(--a3-lt);color:var(--a3)}
 
   /* ── ROAS CARDS ── */
   .roas-card{border-radius:15px;padding:18px 22px;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden}
@@ -349,7 +354,13 @@
 
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
     <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)">Account</span>
-    <div style="display:flex;gap:6px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <!-- ALL ACCOUNTS tab -->
+      <div class="acct-sel-tab" id="aSelTabAll" onclick="selectAccount(0,this)"
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
+        <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">All Accounts</div>
+        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Combined View</div>
+      </div>
       <div class="acct-sel-tab active" id="aSelTab1" onclick="selectAccount(1,this)"
         style="background:var(--a1-lt);border:2px solid rgba(124,77,189,.25);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
         <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--a1)">Account 1</div>
@@ -432,6 +443,21 @@
       <span id="nameFilterChipText"></span>
     </div>
 
+  </div>
+
+  <!-- Row 3: Ad Created Date filter -->
+  <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+    <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Created Date</span>
+    <input type="date" id="createdFrom" onchange="applyFilters()"
+      style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:6px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none"/>
+    <span style="font-size:.7rem;color:var(--muted);align-self:center">→</span>
+    <input type="date" id="createdTo" onchange="applyFilters()"
+      style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:6px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none"/>
+    <button onclick="clearCreatedFilter()" style="background:var(--bg2);color:var(--muted);border:1px solid var(--border);border-radius:9px;padding:6px 14px;font-size:.7rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif">Clear</button>
+    <!-- active chip -->
+    <div id="createdChip" style="display:none;align-items:center;gap:5px;background:var(--slate-lt);border:1px solid rgba(74,111,165,.25);border-radius:100px;padding:3px 10px;font-size:.64rem;font-weight:600;color:var(--slate)">
+      <span id="createdChipText"></span>
+    </div>
   </div>
 
 <!-- OVERVIEW — RESULTS SUMMARY -->
@@ -523,7 +549,7 @@
     </div>
     <div class="card">
       <div class="sec" style="margin-bottom:12px">Creative Type
-        <span style="font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.04em;text-transform:none">IFAD/Graphic AD · VID · STATIC</span>
+        <span style="font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.04em;text-transform:none">IFAD/Graphic AD · VideoAds · STATIC</span>
       </div>
       <table class="mini-table" id="ctypeTable">
         <thead><tr><th>Creative Type</th><th style="text-align:right">COUNT</th></tr></thead>
@@ -556,6 +582,11 @@ const _urlParams         = new URLSearchParams(window.location.search);
 const HARDCODED_SHEET_ID = _urlParams.get('sheetId') || '';  // fallback: paste here
 const HARDCODED_API_KEY  = _urlParams.get('apiKey')  || '';  // fallback: paste here
 
+// ── Supabase config — paste your values here ──
+const SUPABASE_URL  = _urlParams.get('supabaseUrl')  || '';  // https://xxxx.supabase.co
+const SUPABASE_ANON = _urlParams.get('supabaseAnon') || '';  // anon/public key
+// Supabase fetch uses Range header — no page size limit needed
+
 const SHEET_ACCOUNTS = [
   { num:1, name:'Raho Saadaa',             tab:'Meta Account 1' },
   { num:2, name:'Fourth Ad Account – SD', tab:'Meta Account 2' },
@@ -563,7 +594,7 @@ const SHEET_ACCOUNTS = [
 ];
 
 let ALL          = [];
-let ACTIVE_ACCT  = 1;
+let ACTIVE_ACCT  = 1;   // 0 = All Accounts combined
 const EXCLUDE_COPY = false; // copy handled via name filter
 
 // ════════════════════════════════════════
@@ -571,25 +602,17 @@ const EXCLUDE_COPY = false; // copy handled via name filter
 // e.g. CTP-BST+IFAD+NA... -> BST
 // Tokens split by +, -, space
 // ════════════════════════════════════════
-const PRODUCTS = [
-  'BST','WNA','WSA','TW','BW','MBS','MSA','MBW','MTW','CL','GE','COO','SDKS',
-  'SDFSK','SDFLK','SDALS','SDECT','SDTJ','SDCP','SDSSP','SDPL','SDFS','SDRST','SDAWP','SDWLP','SDRPT','SDASP','SDAFD','SDSLP',
-  'SMFS','SMFSK','SMFLK','SMLS','SMLHS'
-];
+// PRODUCTS list removed — product detection now uses naming convention:
+// CTP-<PRODUCT>+... or CLP-<PRODUCT>+... → extracts PRODUCT tag between prefix and first +;
 
 function detectProduct(name){
-  // Split name into tokens by common delimiters
-  const tokens = name.toUpperCase().split(/[\+\-\_\s\.]+/);
-  // Check each token against product list
-  for(const t of tokens){
-    if(PRODUCTS.includes(t)) return t;
-  }
-  // Fallback: substring match for multi-char codes
-  const n = name.toUpperCase();
-  for(const p of PRODUCTS){
-    if(p.length > 2 && n.includes(p)) return p;
-  }
-  return 'Other'; // no product tag found
+  // ── NEW LOGIC: Extract tag from CTP-<TAG>+ or CLP-<TAG>+ pattern ──
+  // Rule 1: name starts with CTP- or CLP-, followed by a TAG, then a + symbol
+  //         → the TAG between the prefix and the first + is the product
+  // Rule 2: everything else → 'Other'
+  const m = name.match(/^(?:CTP|CLP)-([A-Za-z0-9]+)\+/i);
+  if(m) return m[1].toUpperCase();
+  return 'Other';
 }
 
 // ════════════════════════════════════════
@@ -600,10 +623,10 @@ function detectProduct(name){
 function detectCtype(name){
   const n = name.toUpperCase();
   if(n.includes('IFAD')) return 'IFAD';
-  if(n.includes('GAD')) return 'Graphic ADs';
-  if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || /^VID-AD/.test(n)) return 'VID';
+  if(n.includes('GAD')) return 'Graphic AD';
+  if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || /^VID-AD/.test(n)) return 'VideoAds';
   if(n.includes('STATIC') || n.includes('_ST_') || n.includes('+ST+')) return 'STATIC';
-  return 'VID';
+  return 'VideoAds';
 }
 
 // ════════════════════════════════════════
@@ -712,17 +735,20 @@ const setFetchSt=(msg,cls)=>{
 function selectAccount(num,el){
   ACTIVE_ACCT=num;
   const C=[
-    {bg:'var(--a1-lt)',bd:'rgba(124,77,189,.25)',lc:'var(--a1)'},
-    {bg:'var(--a2-lt)',bd:'rgba(192,96,58,.25)', lc:'var(--a2)'},
-    {bg:'var(--a3-lt)',bd:'rgba(74,124,111,.25)',lc:'var(--a3)'},
+    {bg:'var(--surface2)', bd:'rgba(28,25,22,.25)',   lc:'var(--ink)'},   // idx 0 = All
+    {bg:'var(--a1-lt)',    bd:'rgba(124,77,189,.25)', lc:'var(--a1)'},    // idx 1 = Acct 1
+    {bg:'var(--a2-lt)',    bd:'rgba(192,96,58,.25)',  lc:'var(--a2)'},    // idx 2 = Acct 2
+    {bg:'var(--a3-lt)',    bd:'rgba(74,124,111,.25)', lc:'var(--a3)'},    // idx 3 = Acct 3
   ];
-  document.querySelectorAll('.acct-sel-tab').forEach((t,i)=>{
-    const on=(i+1)===num;
-    t.style.background=on?C[i].bg:'var(--surface2)';
-    t.style.border    =on?'2px solid '+C[i].bd:'1px solid var(--border)';
-    t.style.transform =on?'translateY(-1px)':'none';
-    t.style.boxShadow =on?'0 4px 12px rgba(28,25,22,.08)':'none';
-    t.querySelector('div').style.color=on?C[i].lc:'var(--muted)';
+  // Tabs: [All, Acct1, Acct2, Acct3] → index offset by 0
+  document.querySelectorAll('.acct-sel-tab').forEach((t, i) => {
+    const tabNum = i; // 0=All, 1=Acct1, 2=Acct2, 3=Acct3
+    const on     = tabNum === num;
+    t.style.background = on ? C[i].bg    : 'var(--surface2)';
+    t.style.border     = on ? '2px solid '+C[i].bd : '1px solid var(--border)';
+    t.style.transform  = on ? 'translateY(-1px)' : 'none';
+    t.style.boxShadow  = on ? '0 4px 12px rgba(28,25,22,.08)' : 'none';
+    t.querySelector('div').style.color = on ? C[i].lc : 'var(--muted)';
   });
 }
 
@@ -775,6 +801,7 @@ function parseRows(rows){
     postEng:   ci('post engagements'),            // new schema col 12 (raw count)
     convValue: ci('purchases conversion value'),  // new schema col 13
     vpt:       ci('video play time'),             // new/old col 14/32
+    adCreated: ci('ad created date','created date','ad created'), // col 15
     // ── Old schema fallback cols (computed rates stored as %) ──
     thruRate:  ci('thruplay rate'),               // old schema col 28 (rate %)
     frame1:    ci('1st frame retention'),         // old schema col 29 (rate %)
@@ -812,6 +839,12 @@ function parseRows(rows){
         postEng:   n2f(g(row,'postEng')),
         convValue: n2f(g(row,'convValue')),
         vpt:       n2f(g(row,'vpt')),
+        adCreated: (() => {
+          const raw = String(g(row,'adCreated')||'').trim();
+          if(!raw) return null;
+          const d = new Date(raw);
+          return isNaN(d.getTime()) ? null : d;
+        })(),
         thruRate:  n2f(g(row,'thruRate')),
         frame1:    n2f(g(row,'frame1')),
         engRate:   n2f(g(row,'engRate')),
@@ -840,71 +873,319 @@ function parseRows(rows){
 // FETCH
 // ════════════════════════════════════════
 async function fetchSheet(){
-  // Priority: override inputs → URL params → hardcoded values
+  const btn = document.getElementById('fetchBtn');
+  btn.disabled = true; btn.classList.add('loading');
+  document.getElementById('initEmpty').style.display = 'none';
+
+  const useSupabase = SUPABASE_URL && SUPABASE_ANON;
+
+  if(ACTIVE_ACCT === 0){
+    // ── All Accounts: fetch all 3 and combine ──
+    if(useSupabase){
+      await fetchAllAccountsSupabase(btn);
+    } else {
+      await fetchAllAccountsSheets(btn);
+    }
+  } else {
+    const acct = SHEET_ACCOUNTS[ACTIVE_ACCT - 1];
+    if(useSupabase){
+      await fetchFromSupabase(acct, btn);
+    } else {
+      await fetchFromSheets(acct, btn);
+    }
+  }
+
+  btn.disabled = false; btn.classList.remove('loading');
+}
+
+// ════════════════════════════════════════
+// FETCH — Supabase (paginated, gets ALL rows)
+// ════════════════════════════════════════
+// ════════════════════════════════════════
+// FETCH ALL 3 ACCOUNTS — Supabase
+// Fetches each account sequentially, combines into ALL[]
+// Each row gets an account_pill tag for the creatives table
+// ════════════════════════════════════════
+async function fetchAllAccountsSupabase(btn){
+  const cols = [
+    'account_num','account_name',
+    'sheet_date','ad_name','ad_id','campaign_name','ad_status',
+    'impressions','amount_spent','reach','outbound_clicks',
+    'thru_plays','three_sec_plays','post_engagements',
+    'conv_value','video_play_time','ad_created_date'
+  ].join(',');
+
+  const BATCH = 1000;
+  let combined = [];
+
+  for(const acct of SHEET_ACCOUNTS){
+    let offset = 0, page = 0, hasMore = true;
+    setFetchSt('Loading…', 'as-loading');
+    setStatus('Loading ' + acct.name + ' (' + (combined.length).toLocaleString() + ' total so far)…', 'info');
+
+    while(hasMore){
+      page++;
+      const url = SUPABASE_URL + '/rest/v1/ads_data'
+        + '?account_num=eq.' + acct.num
+        + '&select=' + cols
+        + '&order=sheet_date.desc'
+        + '&limit=' + BATCH
+        + '&offset=' + offset;
+
+      const res = await fetch(url, {
+        headers:{
+          'apikey':        SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON,
+          'Prefer':        'count=none',
+        }
+      });
+
+      if(!res.ok){ hasMore = false; break; }
+
+      const batch = await res.json();
+      if(!Array.isArray(batch) || batch.length === 0){ hasMore = false; break; }
+
+      combined = combined.concat(batch);
+      offset  += batch.length;
+      if(batch.length < BATCH) hasMore = false;
+
+      setStatus(
+        'Loading ' + acct.name + ' — ' + combined.length.toLocaleString() + ' rows fetched…',
+        'info'
+      );
+    }
+  }
+
+  if(!combined.length){
+    setStatus('No data found. Run sync first.', 'error');
+    setFetchSt('No data', 'as-err');
+    document.getElementById('initEmpty').style.display = '';
+    return;
+  }
+
+  ALL = mapSupabaseRows(combined);
+  finaliseLoad('All Accounts (Combined)', combined.length);
+}
+
+// ════════════════════════════════════════
+// FETCH ALL 3 ACCOUNTS — Google Sheets
+// ════════════════════════════════════════
+async function fetchAllAccountsSheets(btn){
   const inputSheetId = document.getElementById('sheetId')?.value.trim() || '';
   const inputApiKey  = document.getElementById('apiKey')?.value.trim()  || '';
   const sheetId = inputSheetId || HARDCODED_SHEET_ID;
   const apiKey  = inputApiKey  || HARDCODED_API_KEY;
-  if(!sheetId||!apiKey){setStatus('No credentials found. Click "Override credentials" to enter Spreadsheet ID and API Key.','error');return;}
+  if(!sheetId || !apiKey){
+    setStatus('No credentials found.', 'error'); return;
+  }
 
-  const acct=SHEET_ACCOUNTS[ACTIVE_ACCT-1];
-  const btn =document.getElementById('fetchBtn');
-  btn.disabled=true; btn.classList.add('loading');
-  document.getElementById('initEmpty').style.display='none';
-  setFetchSt('Fetching…','as-loading');
-  setStatus('Loading '+acct.name+' ('+acct.tab+')…','info');
+  let combined = [];
+  for(const acct of SHEET_ACCOUNTS){
+    setStatus('Loading ' + acct.name + '…', 'info');
+    const range = encodeURIComponent("'" + acct.tab + "'");
+    const url   = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + range + '?key=' + apiKey;
+    try{
+      const res  = await fetch(url);
+      const json = await res.json();
+      if(json.error){ console.warn('Sheet error ' + acct.name + ':', json.error.message); continue; }
+      const parsed = parseRows(json.values || []);
+      // Tag each row with account info
+      parsed.forEach(r => { r.accountNum = acct.num; r.accountName = acct.name; });
+      combined = combined.concat(parsed);
+    } catch(e){ console.warn('Fetch error ' + acct.name + ':', e.message); }
+  }
 
-  const range=encodeURIComponent("'"+acct.tab+"'");
-  const url='https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+'/values/'+range+'?key='+apiKey;
+  if(!combined.length){
+    setStatus('No data found in any sheet.', 'error');
+    setFetchSt('No data', 'as-err');
+    document.getElementById('initEmpty').style.display = '';
+    return;
+  }
+
+  ALL = combined;
+  finaliseLoad('All Accounts (Combined)', combined.length);
+}
+
+// ════════════════════════════════════════
+// MAP Supabase row → ad object (shared by single + all)
+// ════════════════════════════════════════
+function mapSupabaseRows(rows){
+  return rows.map((r, i) => ({
+    i,
+    name:        r.ad_name,
+    adId:        r.ad_id,
+    accountNum:  r.account_num  || null,
+    accountName: r.account_name || '',
+    sheetDateObj: r.sheet_date      ? new Date(r.sheet_date      + 'T00:00:00') : null,
+    adCreated:    r.ad_created_date ? new Date(r.ad_created_date + 'T00:00:00') : null,
+    dateObj:     extractDateFromAdName(r.ad_name),
+    product:     detectProduct(r.ad_name),
+    ctype:       detectCtype(r.ad_name),
+    isCopy:      isCopyAd(r.ad_name),
+    campName:    r.campaign_name   || '',
+    status:      r.ad_status       || '',
+    impr:        Number(r.impressions)       || 0,
+    spend:       Number(r.amount_spent)      || 0,
+    reach:       Number(r.reach)             || 0,
+    outClicks:   Number(r.outbound_clicks)   || 0,
+    thruPlays:   Number(r.thru_plays)        || 0,
+    videoPlays:  Number(r.three_sec_plays)   || 0,
+    postEng:     Number(r.post_engagements)  || 0,
+    convValue:   Number(r.conv_value)        || 0,
+    vpt:         Number(r.video_play_time)   || 0,
+    thruRate: 0, frame1: 0, engRate: 0,
+  }));
+}
+
+// ════════════════════════════════════════
+// FINALISE LOAD — shared by all fetch paths
+// ════════════════════════════════════════
+function finaliseLoad(label, totalRows){
+  const fromEl = document.getElementById('dateFrom');
+  const toEl   = document.getElementById('dateTo');
+  if(!fromEl.value && !toEl.value) setDefaultDates();
+
+  const copyCount = ALL.filter(a => a.isCopy).length;
+  const t = new Date().toLocaleTimeString();
+  setStatus(
+    '✓ ' + totalRows.toLocaleString() + ' rows · ' + label +
+    ' · ' + copyCount.toLocaleString() + ' copy ads (included)',
+    'success'
+  );
+  setFetchSt('✓ ' + totalRows.toLocaleString() + ' rows', 'as-done');
+  setEl('ftTime',   'Last loaded: ' + t);
+  setEl('lastSync', label + ' · ' + t);
+
+  ['controls','ovPerfWrap','creativesWrap','resultsSummaryWrap']
+    .forEach(id => document.getElementById(id).style.display = '');
+  applyFilters();
+}
+
+async function fetchFromSupabase(acct, btn){
+  const cols = [
+    'sheet_date','ad_name','ad_id','campaign_name','ad_status',
+    'impressions','amount_spent','reach','outbound_clicks',
+    'thru_plays','three_sec_plays','post_engagements',
+    'conv_value','video_play_time','ad_created_date'
+  ].join(',');
+
+  const BATCH   = 1000;  // fetch 1000 per request (Supabase max per call)
+  let allRows   = [];
+  let offset    = 0;
+  let page      = 0;
+  let hasMore   = true;
 
   try{
-    const r=await fetch(url);
-    const j=await r.json();
-    if(j.error){
-      setStatus('Sheets API Error: '+j.error.message,'error');
-      setFetchSt('Error','as-err');
-      btn.disabled=false; btn.classList.remove('loading');
-      document.getElementById('initEmpty').style.display='';
+    while(hasMore){
+      page++;
+      setFetchSt('Loading… ' + allRows.length.toLocaleString() + ' rows', 'as-loading');
+      setStatus('Loading ' + acct.name + ' — page ' + page + ' (' + allRows.length.toLocaleString() + ' rows so far)…', 'info');
+
+      // Use limit + offset — works regardless of Supabase project settings
+      const url = SUPABASE_URL + '/rest/v1/ads_data'
+        + '?account_num=eq.' + ACTIVE_ACCT
+        + '&select=' + cols
+        + '&order=sheet_date.desc'
+        + '&limit=' + BATCH
+        + '&offset=' + offset;
+
+      const res = await fetch(url, {
+        headers:{
+          'apikey':        SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON,
+          'Prefer':        'count=none',  // skip count for speed
+        }
+      });
+
+      if(!res.ok){
+        const err = await res.json().catch(() => ({}));
+        setStatus('Supabase error: ' + (err.message || res.status), 'error');
+        setFetchSt('Error','as-err');
+        document.getElementById('initEmpty').style.display = '';
+        return;
+      }
+
+      const batch = await res.json();
+
+      if(!Array.isArray(batch)){
+        setStatus('Supabase error: unexpected response format', 'error');
+        setFetchSt('Error','as-err');
+        return;
+      }
+
+      allRows = allRows.concat(batch);
+      offset += batch.length;
+
+      // Last page = returned fewer rows than requested
+      if(batch.length < BATCH) hasMore = false;
+    }
+
+    if(!allRows.length){
+      setStatus('No data found in Supabase for this account. Run sync first.','error');
+      setFetchSt('No data','as-err');
+      document.getElementById('initEmpty').style.display = '';
       return;
     }
 
-    ALL=parseRows(j.values||[]);
+    // Map and finalise
+    ALL = mapSupabaseRows(allRows);
+    finaliseLoad(acct.name, allRows.length);
+
+  }catch(e){
+    setStatus('Network error: ' + e.message,'error');
+    setFetchSt('Error','as-err');
+    document.getElementById('initEmpty').style.display = '';
+  }
+}
+
+// ════════════════════════════════════════
+// FETCH — Google Sheets fallback
+// ════════════════════════════════════════
+async function fetchFromSheets(acct, btn){
+  const inputSheetId = document.getElementById('sheetId')?.value.trim() || '';
+  const inputApiKey  = document.getElementById('apiKey')?.value.trim()  || '';
+  const sheetId = inputSheetId || HARDCODED_SHEET_ID;
+  const apiKey  = inputApiKey  || HARDCODED_API_KEY;
+
+  if(!sheetId || !apiKey){
+    setStatus('No credentials found. Add Supabase config or enter Sheet ID + API Key.','error');
+    return;
+  }
+
+  setFetchSt('Fetching…','as-loading');
+  setStatus('Loading ' + acct.name + ' (' + acct.tab + ')…','info');
+
+  const range = encodeURIComponent("'" + acct.tab + "'");
+  const url   = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + range + '?key=' + apiKey;
+
+  try{
+    const r = await fetch(url);
+    const j = await r.json();
+    if(j.error){
+      setStatus('Sheets API Error: ' + j.error.message,'error');
+      setFetchSt('Error','as-err');
+      document.getElementById('initEmpty').style.display = '';
+      return;
+    }
+
+    ALL = parseRows(j.values || []);
     if(!ALL.length){
       setStatus('No valid rows found. Check sheet tab name and headers.','error');
       setFetchSt('No data','as-err');
-      btn.disabled=false; btn.classList.remove('loading');
       return;
     }
 
-    // Keep whatever dates are already set by setDefaultDates() on init
-    // Only auto-fill if both pickers are completely empty (first ever load)
     const fromEl = document.getElementById('dateFrom');
     const toEl   = document.getElementById('dateTo');
-    if(!fromEl.value && !toEl.value){
-      // Fall back to current week
-      setDefaultDates();
-    }
+    if(!fromEl.value && !toEl.value) setDefaultDates();
 
-    const withDates=ALL.filter(a=>a.dateObj).length;
-    const copyCount=ALL.filter(a=>a.isCopy).length;
-    const t=new Date().toLocaleTimeString();
-    setStatus(
-      '✓ '+ALL.length+' rows from "'+acct.tab+'" · '+withDates+' with dates in ad name · '+copyCount+' copy ads (included)',
-      'success'
-    );
-    setFetchSt('✓ '+ALL.length+' rows','as-done');
-    setEl('ftTime',   'Last loaded: '+t);
-    setEl('lastSync', acct.name+' · '+t);
-
-    ['controls','ovPerfWrap','creativesWrap','resultsSummaryWrap'].forEach(id=>document.getElementById(id).style.display='');
-    applyFilters();
+    finaliseLoad(acct.name, ALL.length);
 
   }catch(e){
-    setStatus('Network error: '+e.message,'error');
+    setStatus('Network error: ' + e.message,'error');
     setFetchSt('Error','as-err');
-    document.getElementById('initEmpty').style.display='';
+    document.getElementById('initEmpty').style.display = '';
   }
-  btn.disabled=false; btn.classList.remove('loading');
 }
 
 // ════════════════════════════════════════
@@ -916,7 +1197,13 @@ function filteredAds(){
   if(to) to.setHours(23,59,59,999);
   const rangeActive = from || to;
 
-    // ── Name filter: single input with OR support ──
+  // ── Created Date filter ──
+  const createdFrom = parseInputDate(document.getElementById('createdFrom')?.value);
+  const createdTo   = parseInputDate(document.getElementById('createdTo')?.value);
+  if(createdTo) createdTo.setHours(23,59,59,999);
+  const createdActive = createdFrom || createdTo;
+
+  // ── Name filter: single input with OR support ──
   const nf = getNameFilter();
 
   return ALL.filter(a=>{
@@ -931,11 +1218,18 @@ function filteredAds(){
       if(nf.mode === 'not_contains' &&  anyMatch) return false;
     }
 
-    // 3. Date range — sheet Date col
+    // 3. Spend Date range — sheet Date col
     if(rangeActive){
       if(!a.sheetDateObj) return false;
       if(from && a.sheetDateObj < from) return false;
       if(to   && a.sheetDateObj > to)   return false;
+    }
+
+    // 4. Ad Created Date filter — Col 15
+    if(createdActive){
+      if(!a.adCreated) return false;
+      if(createdFrom && a.adCreated < createdFrom) return false;
+      if(createdTo   && a.adCreated > createdTo)   return false;
     }
 
     return true;
@@ -966,6 +1260,20 @@ function applyFilters(){
     }
   }
 
+  // Update created date chip
+  const cFrom = document.getElementById('createdFrom')?.value;
+  const cTo   = document.getElementById('createdTo')?.value;
+  const cChip = document.getElementById('createdChip');
+  const cText = document.getElementById('createdChipText');
+  if(cChip && cText){
+    if(cFrom || cTo){
+      cChip.style.display = 'flex';
+      cText.textContent   = 'Created: ' + (cFrom||'…') + ' → ' + (cTo||'…');
+    } else {
+      cChip.style.display = 'none';
+    }
+  }
+
   const ads=filteredAds();
   const uniqueAdIds = new Set(ads.map(a=>a.adId||a.name));
   setEl('totalBadge', uniqueAdIds.size+' ads');
@@ -980,6 +1288,15 @@ function clearFilters(){
   document.getElementById('dateFrom').value='';
   document.getElementById('dateTo').value='';
   clearNameFilter();
+  clearCreatedFilter();
+  applyFilters();
+}
+
+function clearCreatedFilter(){
+  const cf = document.getElementById('createdFrom');
+  const ct = document.getElementById('createdTo');
+  if(cf) cf.value = '';
+  if(ct) ct.value = '';
   applyFilters();
 }
 
@@ -1081,12 +1398,12 @@ function renderCreatives(ads){
     const key = a.adId || a.name;
     if(seenC.has(key)) return;
     seenC.add(key);
-    const ct = (a.ctype && a.ctype !== '') ? a.ctype : 'VID';
+    const ct = (a.ctype && a.ctype !== '') ? a.ctype : 'VideoAds';
     cMap[ct] = (cMap[ct]||0) + 1;
   });
   const ctypes = Object.entries(cMap).sort((a,b)=>{
-    if(a[0]==='VID') return 1;   // VID always last (catch-all)
-    if(b[0]==='VID') return -1;
+    if(a[0]==='VideoAds') return 1;   // VideoAds always last (catch-all)
+    if(b[0]==='VideoAds') return -1;
     return b[1]-a[1];
   });
   const cTotal = ctypes.reduce((s,[,c])=>s+c,0);
@@ -1289,11 +1606,15 @@ function syncThreshold(type, val){
 // ════════════════════════════════════════
 document.addEventListener('DOMContentLoaded',()=>{
   setDefaultDates();
-  selectAccount(1,document.getElementById('aSelTab1'));
-  // Set copy toggle to default state (excluded)
+  // Default to All Accounts tab if Supabase is configured, else Account 1
+  if(SUPABASE_URL && SUPABASE_ANON){
+    selectAccount(0, document.getElementById('aSelTabAll'));
+  } else {
+    selectAccount(1, document.getElementById('aSelTab1'));
+  }
   EXCLUDE_COPY_TOGGLE = true;
-  // Auto-load if hardcoded credentials are set
-  if(HARDCODED_SHEET_ID && HARDCODED_API_KEY){
+  // Auto-load if any credentials are set
+  if((SUPABASE_URL && SUPABASE_ANON) || (HARDCODED_SHEET_ID && HARDCODED_API_KEY)){
     fetchSheet();
   }
 });
