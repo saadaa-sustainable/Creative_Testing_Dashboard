@@ -557,7 +557,7 @@
     </div>
     <div class="card">
       <div class="sec" style="margin-bottom:12px">Creative Type
-        <span style="font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.04em;text-transform:none">IFAD/Graphic AD · VideoAds · STATIC</span>
+        <span style="font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.04em;text-transform:none">IFAD/Graphic AD · VID · STATIC</span>
       </div>
       <table class="mini-table" id="ctypeTable">
         <thead><tr><th>Creative Type</th><th style="text-align:right">COUNT</th></tr></thead>
@@ -614,12 +614,23 @@ const EXCLUDE_COPY = false; // copy handled via name filter
 // CTP-<PRODUCT>+... or CLP-<PRODUCT>+... → extracts PRODUCT tag between prefix and first +;
 
 function detectProduct(name){
-  // ── NEW LOGIC: Extract tag from CTP-<TAG>+ or CLP-<TAG>+ pattern ──
-  // Rule 1: name starts with CTP- or CLP-, followed by a TAG, then a + symbol
-  //         → the TAG between the prefix and the first + is the product
-  // Rule 2: everything else → 'Other'
-  const m = name.match(/^(?:CTP|CLP)-([A-Za-z0-9]+)\+/i);
-  if(m) return m[1].toUpperCase();
+  const PRODUCTS = [
+    'BST','BCO','COO','SDAFD','CL','TTB','TW','GE','SDCPT','SDELKB','SDELPT',
+    'SDFLK','SDFSK','SDCSS','SDLS','SDRPT','SDRST','SDVPL','SMCP','SMELMS',
+    'SMFLK','SMFSK','SMLS','BR','SDASP','SDCP','SDWLP','GP','SUZNS','WW',
+    'STL','LE','WLP','SDLWC','SDTTB','SDECT','SDALS', 'WBS', 'SD5', 'SUPFH', 'SDAWP', 'SDCSP'
+  ];
+  // Split name into tokens by common delimiters
+  const tokens = name.toUpperCase().split(/[\+\-\_\s\.]+/);
+  // Check each token against product list
+  for(const t of tokens){
+    if(PRODUCTS.includes(t)) return t;
+  }
+  // Fallback: substring match for multi-char codes
+  const n = name.toUpperCase();
+  for(const p of PRODUCTS){
+    if(p.length > 2 && n.includes(p)) return p;
+  }
   return 'Other';
 }
 
@@ -630,51 +641,15 @@ function detectProduct(name){
 // ════════════════════════════════════════
 function detectCtype(name){
   const n = name.toUpperCase();
-
-  // ══ IFAD — Influencer-format ads ══
-  // 1. Literal IFAD tag
+  // IFAD — must contain IFAD keyword
   if(n.includes('IFAD')) return 'IFAD';
-  // 2. SIF-<number> = Saadaa Influencer Format ID (e.g. SIF-1234-P1-username)
-  if(/SIF-\d+/.test(n)) return 'IFAD';
-  // 3. VP-<Month>-<number> = Video Post influencer series (e.g. VP-Dec-020)
-  if(/\bVP-[A-Z]+-\d+/.test(n)) return 'IFAD';
-  // 4. SD5+CC = Saadaa creator content (influencer UGC, e.g. CTP-SD5+MU+CC+IHP)
-  if(n.includes('SD5') && n.includes('CC')) return 'IFAD';
-
-  // ══ VideoAds — video format ads ══
-  // Check BEFORE Graphic AD so VRP/IGP take priority over any GAD substring
-  if(n.includes('VRP')) return 'VideoAds';
-  if(n.includes('NNC')) return 'VideoAds';
-  if(n.includes('IGP')) return 'VideoAds';
-  if(n.includes('VIDEO')) return 'VideoAds';
-  // FLVO / CUVO = video format variants
-  if(/\b(FLVO|CUVO)\b/.test(n)) return 'VideoAds';
-  // _VO_ or standalone VO token = video-only format
-  if(/_VO_/.test(n)) return 'VideoAds';
-  // 3RVO / RVO = reel video
-  if(n.includes('RVO')) return 'VideoAds';
-  // Starts with VID-AD
-  if(/^VID-AD/.test(n)) return 'VideoAds';
-
-  // ══ Graphic AD — static/graphic/image ads ══
-  // 1. GAD = Graphic Ad tag (SC_GAD, GF_GAD, _GAD-)
+  // Graphic AD — contains GAD but NOT IFAD (SC_GAD, _GAD-, GAD- patterns)
   if(n.includes('GAD')) return 'Graphic AD';
-  // 2. UGC = User Generated Content (static image or graphic format)
-  if(n.includes('UGC')) return 'Graphic AD';
-  // 3. CUTOUT = cutout graphic format
-  if(n.includes('CUTOUT')) return 'Graphic AD';
-  // 4. ADB / ADBOFF = Ad-based graphic format
-  if(/\bADB\b|ADBOFF/.test(n)) return 'Graphic AD';
-  // 5. USP = Unique Selling Proposition static ads
-  if(n.includes('USP')) return 'Graphic AD';
-  // 6. ADSC = Ad Static format
-  if(/\bADSC\b/.test(n)) return 'Graphic AD';
-  // 7. STATIC keywords
-  if(n.includes('STATIC') || n.includes('_ST_') || n.includes('+ST+')) return 'Graphic AD';
-
-  // ══ Other — genuinely unclassifiable ══
-  // These are non-standard named ads that don't follow any convention
-  return 'Other';
+  // VID — VRP, NNC, VIDEO, IGP patterns
+  if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || /^VID-AD/.test(n)) return 'VID';
+  // STATIC
+  if(n.includes('STATIC') || n.includes('_ST_') || n.includes('+ST+')) return 'STATIC';
+  return 'VID'; // untagged ads classified as VID
 }
 
 // ════════════════════════════════════════
@@ -1508,7 +1483,7 @@ function renderResults(ads){
   const counts = { Winner:0, ITE:0, Analyse:0, Discarded:0 };
 
   // Per-ctype counts: { 'IFAD': { Winner:0, ITE:0, Analyse:0, Discarded:0, total:0 }, ... }
-  const ctypeOrder  = ['IFAD','Graphic AD','VideoAds','STATIC','Other'];
+  const ctypeOrder  = ['IFAD','Graphic AD','VID','STATIC'];
   const ctypeCounts = {};
   ctypeOrder.forEach(ct => {
     ctypeCounts[ct] = { Winner:0, ITE:0, Analyse:0, Discarded:0, total:0 };
@@ -1562,7 +1537,7 @@ function renderCtypeFunnel(ctypeCounts, ctypeOrder, totalAds){
     Analyse:  { color:'#2c5282', bg:'rgba(44,82,130,.07)',   badge:'#2c5282', label:'🔵 Analyse',  pill:'rgba(44,82,130,.12)'  },
     Discarded:{ color:'#9b2335', bg:'rgba(155,35,53,.07)',   badge:'#9b2335', label:'🔴 Discarded', pill:'rgba(155,35,53,.12)'  },
   };
-  const CTYPE_ICONS = { 'IFAD':'🎬', 'Graphic AD':'🖼️', 'STATIC':'📷', 'VideoAds':'📹', 'Other':'📌' };
+  const CTYPE_ICONS = { 'IFAD':'🎬', 'Graphic AD':'🖼️', 'VID':'📹', 'STATIC':'📷' };
 
   const activeCTypes = ctypeOrder.filter(ct => ctypeCounts[ct]?.total > 0);
   if(!activeCTypes.length){ wrap.style.display='none'; return; }
