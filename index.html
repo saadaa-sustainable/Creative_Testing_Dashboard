@@ -300,7 +300,7 @@
 <header>
   <div class="logo">
     <h1>Creative <em>Testing</em></h1>
-    <p>Live Dashboard · Google Sheets Connected</p>
+    <p>Live Dashboard · Supabase Connected</p>
   </div>
   <div class="header-right">
     <div class="last-sync" id="lastSync">Not yet synced</div>
@@ -323,7 +323,7 @@
   <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap">
     <div>
       <div class="cp-title" style="margin-bottom:2px">Creative Testing Dashboard</div>
-      <div class="cp-sub" style="margin-bottom:0">Live · Google Sheets Connected · Meta Ads</div>
+      <div class="cp-sub" style="margin-bottom:0">Live · Supabase Connected · Meta Ads</div>
     </div>
 
     <!-- Compact override inputs (hidden by default, shown via toggle) -->
@@ -576,7 +576,7 @@
 
 <footer>
   <span>Creative Testing Dashboard · <span id="ftTime">Not yet loaded</span></span>
-  <div class="f-badge"><div class="dot"></div>Live · Sheets API</div>
+  <div class="f-badge"><div class="dot"></div>Live · Supabase</div>
 </footer>
 
 <script>
@@ -587,13 +587,12 @@
 // ── Read credentials from URL params first, fall back to hardcoded values ──
 // Usage: dashboard.html?sheetId=YOUR_SHEET_ID&apiKey=YOUR_API_KEY
 const _urlParams         = new URLSearchParams(window.location.search);
-const HARDCODED_SHEET_ID = _urlParams.get('sheetId') || '';  // fallback: paste here
-const HARDCODED_API_KEY  = _urlParams.get('apiKey')  || '';  // fallback: paste here
+const HARDCODED_SHEET_ID = _urlParams.get('sheetId') || '';
+const HARDCODED_API_KEY  = _urlParams.get('apiKey')  || '';
 
-// ── Supabase config — paste your values here ──
-const SUPABASE_URL  = _urlParams.get('supabaseUrl')  || '';  // https://xxxx.supabase.co
-const SUPABASE_ANON = _urlParams.get('supabaseAnon') || '';  // anon/public key
-// Supabase fetch uses Range header — no page size limit needed
+// ── Supabase config — hardcoded (paste your values) ──
+const SUPABASE_URL  = 'https://rtkohjfzyzhizkebdsuy.supabase.co';
+const SUPABASE_ANON = '';  // Supabase → Settings → API → anon public
 
 const SHEET_ACCOUNTS = [
   { num:1, name:'Raho Saadaa',             tab:'Meta Account 1' },
@@ -644,7 +643,7 @@ function detectCtype(name){
   // IFAD — must contain IFAD keyword
   if(n.includes('IFAD')) return 'IFAD';
   // Graphic AD — contains GAD but NOT IFAD (SC_GAD, _GAD-, GAD- patterns)
-  if(n.includes('GAD')) return 'Graphic AD';
+  if(n.includes('GAD')) return 'Graphic AD-';
   // VID — VRP, NNC, VIDEO, IGP patterns
   if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || /^VID-AD/.test(n)) return 'VID';
   // STATIC
@@ -931,11 +930,10 @@ async function fetchSheet(){
 // ════════════════════════════════════════
 async function fetchAllAccountsSupabase(btn){
   const cols = [
-    'account_num','account_name',
-    'sheet_date','ad_name','ad_id','campaign_name','ad_status',
-    'impressions','amount_spent','reach','outbound_clicks',
-    'thru_plays','three_sec_plays','post_engagements',
-    'conv_value','video_play_time','ad_created_date'
+    'account_name','date','ad_name','ad_id','campaign_name','ad_status',
+    'impressions','amount_spent_inr','reach','outbound_clicks',
+    'thruplays','three_sec_video_plays','post_engagements',
+    'conversion_value','video_play_time','ad_created_date'
   ].join(',');
 
   const BATCH = 1000;
@@ -944,14 +942,14 @@ async function fetchAllAccountsSupabase(btn){
   for(const acct of SHEET_ACCOUNTS){
     let offset = 0, page = 0, hasMore = true;
     setFetchSt('Loading…', 'as-loading');
-    setStatus('Loading ' + acct.name + ' (' + (combined.length).toLocaleString() + ' total so far)…', 'info');
+    setStatus('Loading ' + acct.name + ' (' + combined.length.toLocaleString() + ' total so far)…', 'info');
 
     while(hasMore){
       page++;
-      const url = SUPABASE_URL + '/rest/v1/ads_data'
-        + '?account_num=eq.' + acct.num
+      const url = SUPABASE_URL + '/rest/v1/ads_latest'
+        + '?account_name=eq.' + encodeURIComponent(acct.name)
         + '&select=' + cols
-        + '&order=sheet_date.desc'
+        + '&order=date.desc'
         + '&limit=' + BATCH
         + '&offset=' + offset;
 
@@ -972,15 +970,12 @@ async function fetchAllAccountsSupabase(btn){
       offset  += batch.length;
       if(batch.length < BATCH) hasMore = false;
 
-      setStatus(
-        'Loading ' + acct.name + ' — ' + combined.length.toLocaleString() + ' rows fetched…',
-        'info'
-      );
+      setStatus('Loading ' + acct.name + ' — ' + combined.length.toLocaleString() + ' rows…', 'info');
     }
   }
 
   if(!combined.length){
-    setStatus('No data found. Run sync first.', 'error');
+    setStatus('No data found. Run: python sync.py historical', 'error');
     setFetchSt('No data', 'as-err');
     document.getElementById('initEmpty').style.display = '';
     return;
@@ -1033,31 +1028,41 @@ async function fetchAllAccountsSheets(btn){
 // MAP Supabase row → ad object (shared by single + all)
 // ════════════════════════════════════════
 function mapSupabaseRows(rows){
-  return rows.map((r, i) => ({
-    i,
-    name:        r.ad_name,
-    adId:        r.ad_id,
-    accountNum:  r.account_num  || null,
-    accountName: r.account_name || '',
-    sheetDateObj: r.sheet_date      ? new Date(r.sheet_date      + 'T00:00:00') : null,
-    adCreated:    r.ad_created_date ? new Date(r.ad_created_date + 'T00:00:00') : null,
-    dateObj:     extractDateFromAdName(r.ad_name),
-    product:     detectProduct(r.ad_name),
-    ctype:       detectCtype(r.ad_name),
-    isCopy:      isCopyAd(r.ad_name),
-    campName:    r.campaign_name   || '',
-    status:      r.ad_status       || '',
-    impr:        Number(r.impressions)       || 0,
-    spend:       Number(r.amount_spent)      || 0,
-    reach:       Number(r.reach)             || 0,
-    outClicks:   Number(r.outbound_clicks)   || 0,
-    thruPlays:   Number(r.thru_plays)        || 0,
-    videoPlays:  Number(r.three_sec_plays)   || 0,
-    postEng:     Number(r.post_engagements)  || 0,
-    convValue:   Number(r.conv_value)        || 0,
-    vpt:         Number(r.video_play_time)   || 0,
-    thruRate: 0, frame1: 0, engRate: 0,
-  }));
+  // Maps ads_latest column names → dashboard internal field names
+  return rows.map((r, i) => {
+    const name = r.ad_name || '';
+    // Derive account number from name for colour-coding
+    const acctNum = r.account_name === 'Raho Saadaa'            ? 1
+                  : r.account_name === 'Fourth Ad Account - SD' ? 2
+                  : r.account_name === 'Third Ad Account - SD'  ? 3
+                  : null;
+    return {
+      i,
+      name,
+      adId:        r.ad_id         || '',
+      accountNum:  acctNum,
+      accountName: r.account_name  || '',
+      // ads_latest uses 'date' (the spend date), not 'sheet_date'
+      sheetDateObj: r.date            ? new Date(r.date            + 'T00:00:00') : null,
+      adCreated:    r.ad_created_date ? new Date(r.ad_created_date + 'T00:00:00') : null,
+      dateObj:      extractDateFromAdName(name),
+      product:      detectProduct(name),
+      ctype:        detectCtype(name),
+      isCopy:       isCopyAd(name),
+      campName:     r.campaign_name  || '',
+      status:       r.ad_status      || '',
+      impr:         Number(r.impressions)            || 0,
+      spend:        Number(r.amount_spent_inr)       || 0,  // ads_latest col name
+      reach:        Number(r.reach)                  || 0,
+      outClicks:    Number(r.outbound_clicks)         || 0,
+      thruPlays:    Number(r.thruplays)              || 0,  // ads_latest col name
+      videoPlays:   Number(r.three_sec_video_plays)  || 0,  // ads_latest col name
+      postEng:      Number(r.post_engagements)       || 0,
+      convValue:    Number(r.conversion_value)       || 0,  // ads_latest col name
+      vpt:          Number(r.video_play_time)        || 0,
+      thruRate: 0, frame1: 0, engRate: 0,
+    };
+  });
 }
 
 // ════════════════════════════════════════
@@ -1085,18 +1090,16 @@ function finaliseLoad(label, totalRows){
 }
 
 async function fetchFromSupabase(acct, btn){
+  // ads_latest column names (match Python pipeline schema exactly)
   const cols = [
-    'sheet_date','ad_name','ad_id','campaign_name','ad_status',
-    'impressions','amount_spent','reach','outbound_clicks',
-    'thru_plays','three_sec_plays','post_engagements',
-    'conv_value','video_play_time','ad_created_date'
+    'date','ad_name','ad_id','campaign_name','ad_status',
+    'impressions','amount_spent_inr','reach','outbound_clicks',
+    'thruplays','three_sec_video_plays','post_engagements',
+    'conversion_value','video_play_time','ad_created_date','account_name'
   ].join(',');
 
-  const BATCH   = 1000;  // fetch 1000 per request (Supabase max per call)
-  let allRows   = [];
-  let offset    = 0;
-  let page      = 0;
-  let hasMore   = true;
+  const BATCH = 1000;
+  let allRows = [], offset = 0, page = 0, hasMore = true;
 
   try{
     while(hasMore){
@@ -1104,11 +1107,10 @@ async function fetchFromSupabase(acct, btn){
       setFetchSt('Loading… ' + allRows.length.toLocaleString() + ' rows', 'as-loading');
       setStatus('Loading ' + acct.name + ' — page ' + page + ' (' + allRows.length.toLocaleString() + ' rows so far)…', 'info');
 
-      // Use limit + offset — works regardless of Supabase project settings
-      const url = SUPABASE_URL + '/rest/v1/ads_data'
-        + '?account_num=eq.' + ACTIVE_ACCT
+      const url = SUPABASE_URL + '/rest/v1/ads_latest'
+        + '?account_name=eq.' + encodeURIComponent(acct.name)
         + '&select=' + cols
-        + '&order=sheet_date.desc'
+        + '&order=date.desc'
         + '&limit=' + BATCH
         + '&offset=' + offset;
 
@@ -1116,7 +1118,7 @@ async function fetchFromSupabase(acct, btn){
         headers:{
           'apikey':        SUPABASE_ANON,
           'Authorization': 'Bearer ' + SUPABASE_ANON,
-          'Prefer':        'count=none',  // skip count for speed
+          'Prefer':        'count=none',
         }
       });
 
@@ -1129,28 +1131,20 @@ async function fetchFromSupabase(acct, btn){
       }
 
       const batch = await res.json();
-
-      if(!Array.isArray(batch)){
-        setStatus('Supabase error: unexpected response format', 'error');
-        setFetchSt('Error','as-err');
-        return;
-      }
+      if(!Array.isArray(batch)){ setStatus('Unexpected response from Supabase','error'); return; }
 
       allRows = allRows.concat(batch);
       offset += batch.length;
-
-      // Last page = returned fewer rows than requested
       if(batch.length < BATCH) hasMore = false;
     }
 
     if(!allRows.length){
-      setStatus('No data found in Supabase for this account. Run sync first.','error');
+      setStatus('No data in Supabase for ' + acct.name + '. Run: python sync.py hourly','error');
       setFetchSt('No data','as-err');
       document.getElementById('initEmpty').style.display = '';
       return;
     }
 
-    // Map and finalise
     ALL = mapSupabaseRows(allRows);
     finaliseLoad(acct.name, allRows.length);
 
