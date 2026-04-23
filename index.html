@@ -590,9 +590,8 @@ const _urlParams         = new URLSearchParams(window.location.search);
 const HARDCODED_SHEET_ID = _urlParams.get('sheetId') || '';
 const HARDCODED_API_KEY  = _urlParams.get('apiKey')  || '';
 
-// ── Supabase config — hardcoded (paste your values) ──
-const SUPABASE_URL  = 'https://rtkohjfzyzhizkebdsuy.supabase.co';
-const SUPABASE_ANON = '';  // Supabase → Settings → API → anon public
+const SUPABASE_URL  = _urlParams.get('supabaseUrl')  || 'process.env.SUPABASE_URL';
+const SUPABASE_ANON = _urlParams.get('supabaseAnon') || 'process.env.SUPABASE_ANON';
 
 const SHEET_ACCOUNTS = [
   { num:1, name:'Raho Saadaa',             tab:'Meta Account 1' },
