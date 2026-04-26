@@ -300,7 +300,7 @@
 <header>
   <div class="logo">
     <h1>Creative <em>Testing</em></h1>
-    <p>Live Dashboard · Supabase Connected</p>
+    <p>Live Dashboard · Google Sheets Connected</p>
   </div>
   <div class="header-right">
     <div class="last-sync" id="lastSync">Not yet synced</div>
@@ -318,6 +318,7 @@
   </div>
 </header>
 
+<div id="ctDashboardWrap">
 <!-- CONNECT PANEL -->
 <div class="connect-panel">
   <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap">
@@ -369,12 +370,18 @@
       <div class="acct-sel-tab" id="aSelTab2" onclick="selectAccount(2,this)"
         style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
         <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Account 2</div>
-        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Fourth Ad Account – SD</div>
+        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Fourth Ad Account - SD</div>
       </div>
       <div class="acct-sel-tab" id="aSelTab3" onclick="selectAccount(3,this)"
         style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
         <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Account 3</div>
-        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Third Ad Account – SD</div>
+        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Third Ad Account - SD</div>
+      </div>
+      <div class="acct-sel-tab" id="aSelTabEngine" onclick="selectAnalysisEngine(this)"
+        style="background:linear-gradient(135deg,rgba(0,188,212,0.08),rgba(157,0,255,0.08));border:1px solid rgba(0,188,212,0.25);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s;position:relative">
+        <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#00bcd4">Analysis Engine</div>
+        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;background:linear-gradient(90deg,#00bcd4,#9d00ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-top:1px">All Accounts</div>
+        <div style="position:absolute;top:6px;right:8px;width:6px;height:6px;border-radius:50%;background:#00bcd4;box-shadow:0 0 6px #00bcd4;animation:pulse-dot 2s infinite"></div>
       </div>
     </div>
     <div class="acct-st as-idle" id="fetchStatus" style="margin-left:auto">
@@ -576,7 +583,7 @@
 
 <footer>
   <span>Creative Testing Dashboard · <span id="ftTime">Not yet loaded</span></span>
-  <div class="f-badge"><div class="dot"></div>Live · Supabase</div>
+  <div class="f-badge"><div class="dot"></div>Live · Sheets API</div>
 </footer>
 
 <script>
@@ -587,16 +594,18 @@
 // ── Read credentials from URL params first, fall back to hardcoded values ──
 // Usage: dashboard.html?sheetId=YOUR_SHEET_ID&apiKey=YOUR_API_KEY
 const _urlParams         = new URLSearchParams(window.location.search);
-const HARDCODED_SHEET_ID = _urlParams.get('sheetId') || '';
-const HARDCODED_API_KEY  = _urlParams.get('apiKey')  || '';
+const HARDCODED_SHEET_ID = _urlParams.get('sheetId') || '';  // fallback: paste here
+const HARDCODED_API_KEY  = _urlParams.get('apiKey')  || '';  // fallback: paste here
 
-const SUPABASE_URL  = _urlParams.get('supabaseUrl')  || 'process.env.SUPABASE_URL';
-const SUPABASE_ANON = _urlParams.get('supabaseAnon') || 'process.env.SUPABASE_ANON';
+// ── Supabase config — paste your values here ──
+const SUPABASE_URL  = _urlParams.get('supabaseUrl')  || '';  // https://xxxx.supabase.co
+const SUPABASE_ANON = _urlParams.get('supabaseAnon') || '';  // anon/public key
+// Supabase fetch uses Range header — no page size limit needed
 
 const SHEET_ACCOUNTS = [
   { num:1, name:'Raho Saadaa',             tab:'Meta Account 1' },
-  { num:2, name:'Fourth Ad Account – SD', tab:'Meta Account 2' },
-  { num:3, name:'Third Ad Account – SD',  tab:'Meta Account 3' },
+  { num:2, name:'Fourth Ad Account - SD',  tab:'Meta Account 2' },
+  { num:3, name:'Third Ad Account - SD',   tab:'Meta Account 3' },
 ];
 
 let ALL          = [];
@@ -754,6 +763,9 @@ const setFetchSt=(msg,cls)=>{
 // ACCOUNT SELECTOR
 // ════════════════════════════════════════
 function selectAccount(num,el){
+  document.getElementById("analysisEnginePanel").style.display="none";
+  var ctWrap = document.getElementById('ctDashboardWrap');
+  if(ctWrap) ctWrap.style.display = '';
   ACTIVE_ACCT=num;
   const C=[
     {bg:'var(--surface2)', bd:'rgba(28,25,22,.25)',   lc:'var(--ink)'},   // idx 0 = All
@@ -939,13 +951,12 @@ async function fetchAllAccountsSupabase(btn){
   let combined = [];
 
   for(const acct of SHEET_ACCOUNTS){
-    let offset = 0, page = 0, hasMore = true;
+    let offset = 0, hasMore = true;
     setFetchSt('Loading…', 'as-loading');
     setStatus('Loading ' + acct.name + ' (' + combined.length.toLocaleString() + ' total so far)…', 'info');
 
     while(hasMore){
-      page++;
-      const url = SUPABASE_URL + '/rest/v1/ads_latest'
+      const url = SUPABASE_URL + '/rest/v1/primary_table'
         + '?account_name=eq.' + encodeURIComponent(acct.name)
         + '&select=' + cols
         + '&order=date.desc'
@@ -974,7 +985,7 @@ async function fetchAllAccountsSupabase(btn){
   }
 
   if(!combined.length){
-    setStatus('No data found. Run: python sync.py historical', 'error');
+    setStatus('No data found. No data in primary_table. Run: python primary_sync.py backfill', 'error');
     setFetchSt('No data', 'as-err');
     document.getElementById('initEmpty').style.display = '';
     return;
@@ -1027,10 +1038,8 @@ async function fetchAllAccountsSheets(btn){
 // MAP Supabase row → ad object (shared by single + all)
 // ════════════════════════════════════════
 function mapSupabaseRows(rows){
-  // Maps ads_latest column names → dashboard internal field names
   return rows.map((r, i) => {
     const name = r.ad_name || '';
-    // Derive account number from name for colour-coding
     const acctNum = r.account_name === 'Raho Saadaa'            ? 1
                   : r.account_name === 'Fourth Ad Account - SD' ? 2
                   : r.account_name === 'Third Ad Account - SD'  ? 3
@@ -1041,7 +1050,6 @@ function mapSupabaseRows(rows){
       adId:        r.ad_id         || '',
       accountNum:  acctNum,
       accountName: r.account_name  || '',
-      // ads_latest uses 'date' (the spend date), not 'sheet_date'
       sheetDateObj: r.date            ? new Date(r.date            + 'T00:00:00') : null,
       adCreated:    r.ad_created_date ? new Date(r.ad_created_date + 'T00:00:00') : null,
       dateObj:      extractDateFromAdName(name),
@@ -1051,13 +1059,13 @@ function mapSupabaseRows(rows){
       campName:     r.campaign_name  || '',
       status:       r.ad_status      || '',
       impr:         Number(r.impressions)            || 0,
-      spend:        Number(r.amount_spent_inr)       || 0,  // ads_latest col name
+      spend:        Number(r.amount_spent_inr)       || 0,
       reach:        Number(r.reach)                  || 0,
       outClicks:    Number(r.outbound_clicks)         || 0,
-      thruPlays:    Number(r.thruplays)              || 0,  // ads_latest col name
-      videoPlays:   Number(r.three_sec_video_plays)  || 0,  // ads_latest col name
+      thruPlays:    Number(r.thruplays)              || 0,
+      videoPlays:   Number(r.three_sec_video_plays)  || 0,
       postEng:      Number(r.post_engagements)       || 0,
-      convValue:    Number(r.conversion_value)       || 0,  // ads_latest col name
+      convValue:    Number(r.conversion_value)       || 0,
       vpt:          Number(r.video_play_time)        || 0,
       thruRate: 0, frame1: 0, engRate: 0,
     };
@@ -1089,7 +1097,6 @@ function finaliseLoad(label, totalRows){
 }
 
 async function fetchFromSupabase(acct, btn){
-  // ads_latest column names (match Python pipeline schema exactly)
   const cols = [
     'date','ad_name','ad_id','campaign_name','ad_status',
     'impressions','amount_spent_inr','reach','outbound_clicks',
@@ -1097,8 +1104,11 @@ async function fetchFromSupabase(acct, btn){
     'conversion_value','video_play_time','ad_created_date','account_name'
   ].join(',');
 
-  const BATCH = 1000;
-  let allRows = [], offset = 0, page = 0, hasMore = true;
+  const BATCH   = 1000;  // fetch 1000 per request (Supabase max per call)
+  let allRows   = [];
+  let offset    = 0;
+  let page      = 0;
+  let hasMore   = true;
 
   try{
     while(hasMore){
@@ -1106,7 +1116,8 @@ async function fetchFromSupabase(acct, btn){
       setFetchSt('Loading… ' + allRows.length.toLocaleString() + ' rows', 'as-loading');
       setStatus('Loading ' + acct.name + ' — page ' + page + ' (' + allRows.length.toLocaleString() + ' rows so far)…', 'info');
 
-      const url = SUPABASE_URL + '/rest/v1/ads_latest'
+      // Use limit + offset — works regardless of Supabase project settings
+      const url = SUPABASE_URL + '/rest/v1/primary_table'
         + '?account_name=eq.' + encodeURIComponent(acct.name)
         + '&select=' + cols
         + '&order=date.desc'
@@ -1117,7 +1128,7 @@ async function fetchFromSupabase(acct, btn){
         headers:{
           'apikey':        SUPABASE_ANON,
           'Authorization': 'Bearer ' + SUPABASE_ANON,
-          'Prefer':        'count=none',
+          'Prefer':        'count=none',  // skip count for speed
         }
       });
 
@@ -1130,20 +1141,28 @@ async function fetchFromSupabase(acct, btn){
       }
 
       const batch = await res.json();
-      if(!Array.isArray(batch)){ setStatus('Unexpected response from Supabase','error'); return; }
+
+      if(!Array.isArray(batch)){
+        setStatus('Supabase error: unexpected response format', 'error');
+        setFetchSt('Error','as-err');
+        return;
+      }
 
       allRows = allRows.concat(batch);
       offset += batch.length;
+
+      // Last page = returned fewer rows than requested
       if(batch.length < BATCH) hasMore = false;
     }
 
     if(!allRows.length){
-      setStatus('No data in Supabase for ' + acct.name + '. Run: python sync.py hourly','error');
+      setStatus('No data found in Supabase for this account. No data in primary_table. Run: python primary_sync.py backfill','error');
       setFetchSt('No data','as-err');
       document.getElementById('initEmpty').style.display = '';
       return;
     }
 
+    // Map and finalise
     ALL = mapSupabaseRows(allRows);
     finaliseLoad(acct.name, allRows.length);
 
@@ -1913,5 +1932,539 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   </div>
 </div>
+
+</div><!-- /ctDashboardWrap -->
+
+<!-- ADS ANALYSE TAB -->
+<div id="analysisEnginePanel" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:100;overflow-y:auto;background:#09090e;font-family:'Plus Jakarta Sans',sans-serif">
+
+  <style>
+    #analysisEnginePanel {
+      --ae-bg: #09090e;
+      --ae-surface: rgba(255,255,255,0.03);
+      --ae-surface2: rgba(255,255,255,0.05);
+      --ae-border: rgba(255,255,255,0.07);
+      --ae-border2: rgba(255,255,255,0.12);
+      --ae-ink: #f0f0f8;
+      --ae-muted: #94a3b8;
+      --ae-dim: #4f5c70;
+      --ae-primary: #9d00ff;
+      --ae-cyan: #00bcd4;
+      --ae-green: #4ade80;
+      --ae-yellow: #f59e0b;
+      --ae-red: #f87171;
+      --ae-blue: #60a5fa;
+    }
+    #analysisEnginePanel * { box-sizing: border-box; }
+    #analysisEnginePanel .ae-glass {
+      background: var(--ae-surface);
+      border: 1px solid var(--ae-border);
+      border-radius: 14px;
+      backdrop-filter: blur(12px);
+    }
+    #analysisEnginePanel .ae-metric-card {
+      position: relative; overflow: hidden; cursor: pointer;
+      padding: 20px; border-radius: 14px;
+      background: var(--ae-surface); border: 1px solid var(--ae-border);
+      transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+    }
+    #analysisEnginePanel .ae-metric-card::after {
+      content:''; position:absolute; top:0; left:0; right:0; height:2px;
+      background: var(--card-accent, #fff); opacity:0.5; transition: opacity 0.25s;
+    }
+    #analysisEnginePanel .ae-metric-card:hover, #analysisEnginePanel .ae-metric-card.active {
+      transform: translateY(-3px);
+      border-color: var(--card-border, var(--ae-border2));
+      box-shadow: 0 8px 32px -8px var(--card-shadow, rgba(255,255,255,.1));
+    }
+    #analysisEnginePanel .ae-metric-card.active::after { opacity: 1; }
+    #analysisEnginePanel .ae-metric-card.active { background: var(--ae-surface2); }
+    #analysisEnginePanel .ae-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 20px; font-size: 10px;
+      font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+    }
+    #analysisEnginePanel .ae-filter-input {
+      background: rgba(255,255,255,0.03); border: 1px solid var(--ae-border);
+      color: var(--ae-ink); border-radius: 8px; padding: 7px 12px;
+      font-size: 12px; font-weight: 500; outline: none;
+      font-family: 'Plus Jakarta Sans', sans-serif; transition: border-color 0.2s;
+    }
+    #analysisEnginePanel .ae-filter-input:focus { border-color: rgba(157,0,255,0.4); }
+    #analysisEnginePanel .ae-filter-input option { background: #1a1a2e; }
+    #analysisEnginePanel table.ae-tbl { width: 100%; border-collapse: separate; border-spacing: 0; }
+    #analysisEnginePanel table.ae-tbl thead th {
+      background: #0a0a12; color: #64748b; border-bottom: 2px solid rgba(157,0,255,0.12);
+      font-weight: 600; text-transform: uppercase; font-size: 9.5px; letter-spacing: 1px;
+      white-space: nowrap; padding: 14px 16px; cursor: pointer; user-select: none;
+      font-family: 'Plus Jakarta Sans', sans-serif; position: sticky; top: 56px; z-index: 3;
+      transition: color 0.15s;
+    }
+    #analysisEnginePanel table.ae-tbl thead th:hover { color: #c4b5fd; background: #0d0c18; }
+    #analysisEnginePanel table.ae-tbl tbody tr { background: #0d0d14; transition: background 0.15s; }
+    #analysisEnginePanel table.ae-tbl tbody tr:nth-child(even) { background: #0f0f18; }
+    #analysisEnginePanel table.ae-tbl tbody tr:hover { background: #15142a !important; }
+    #analysisEnginePanel table.ae-tbl tbody td {
+      border-bottom: 1px solid rgba(255,255,255,0.035);
+      color: #c9d1e0; padding: 13px 16px; vertical-align: middle;
+      white-space: nowrap; font-size: 12px; font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    @keyframes ae-spin { to { transform: rotate(360deg); } }
+    @keyframes ae-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    #analysisEnginePanel .ae-spinner {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 3px solid rgba(157,0,255,0.15); border-top-color: var(--ae-primary);
+      animation: ae-spin 0.8s linear infinite; margin: 0 auto 14px;
+    }
+  </style>
+
+  <!-- TOP NAV -->
+  <div style="position:sticky;top:0;z-index:10;background:rgba(9,9,14,0.92);border-bottom:1px solid var(--ae-border);height:56px;display:flex;align-items:center;padding:0 24px;gap:16px;backdrop-filter:blur(20px)">
+    <button onclick="aeGoBack()" style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--ae-border2);color:var(--ae-muted);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s" onmouseover="this.style.color='#e2e8f0';this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.color='';this.style.background='rgba(255,255,255,0.04)'">
+      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      <span style="font-style:italic;font-weight:800;letter-spacing:-.01em">Creative <em style="color:#f97316">Testing</em></span>
+    </button>
+    <div style="width:1px;height:20px;background:var(--ae-border)"></div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <div style="width:6px;height:6px;border-radius:50%;background:var(--ae-cyan);box-shadow:0 0 6px var(--ae-cyan);animation:ae-pulse 2s infinite"></div>
+      <span style="font-size:13px;font-weight:700;color:var(--ae-ink)">Ads Analyse</span>
+      <span id="ae-row-badge" style="display:none;font-size:10px;font-weight:700;color:var(--ae-cyan);background:rgba(0,188,212,0.1);border:1px solid rgba(0,188,212,0.25);border-radius:20px;padding:2px 10px"></span>
+    </div>
+    <!-- Controls right side -->
+    <div style="display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap">
+      <select id="ae-group-by" onchange="aeRecompute()" class="ae-filter-input" style="min-width:130px">
+        <option value="ad">🗂 Ad Level</option>
+        <option value="campaign">📁 Campaign Level</option>
+      </select>
+      <select id="ae-acct-filter" onchange="aeApplyFilters()" class="ae-filter-input">
+        <option value="">All Accounts</option>
+        <option value="Raho Saadaa">Raho Saadaa</option>
+        <option value="Fourth Ad Account - SD">Fourth Ad Account</option>
+        <option value="Third Ad Account - SD">Third Ad Account</option>
+      </select>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ae-dim);font-weight:600">
+        Target Imp: <input id="ae-target-imp" type="number" value="50000" oninput="aeRecompute()" style="width:68px;padding:6px 8px;border-radius:7px;border:1px solid var(--ae-border);background:rgba(255,255,255,0.03);color:var(--ae-ink);font-family:inherit;font-size:11px;outline:none">
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ae-dim);font-weight:600">
+        ROAS: <input id="ae-target-roas" type="number" value="3.0" step="0.1" oninput="aeRecompute()" style="width:50px;padding:6px 8px;border-radius:7px;border:1px solid var(--ae-border);background:rgba(255,255,255,0.03);color:var(--ae-ink);font-family:inherit;font-size:11px;outline:none">
+      </div>
+      <button onclick="aeReload()" style="padding:7px 14px;background:rgba(0,188,212,0.08);border:1px solid rgba(0,188,212,0.25);color:var(--ae-cyan);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">↻ Refresh</button>
+    </div>
+  </div>
+
+  <!-- MAIN BODY -->
+  <div style="max-width:1840px;margin:0 auto;padding:20px 24px 40px">
+
+    <!-- Loading -->
+    <div id="ae-loading" style="display:none;text-align:center;padding:80px 24px">
+      <div class="ae-spinner"></div>
+      <div style="font-size:14px;font-weight:700;color:var(--ae-primary);margin-bottom:4px">Loading from Supabase</div>
+      <div id="ae-load-sub" style="font-size:12px;color:var(--ae-dim)">Fetching primary_table...</div>
+    </div>
+
+    <!-- Content (hidden until loaded) -->
+    <div id="ae-content" style="display:none">
+
+      <!-- Executive Summary -->
+      <div id="ae-insight" style="border-left:3px solid var(--ae-primary);background:linear-gradient(90deg,rgba(157,0,255,0.06),transparent);border-radius:10px;padding:14px 16px;margin-bottom:20px">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <span style="font-size:18px">📊</span>
+          <div style="flex:1">
+            <div style="font-size:10px;font-weight:700;color:var(--ae-primary);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;display:flex;justify-content:space-between">
+              Executive Summary <span style="color:var(--ae-dim);text-transform:none;letter-spacing:0">Auto-generated</span>
+            </div>
+            <p id="ae-insight-text" style="font-size:12.5px;color:var(--ae-muted);line-height:1.6;margin:0"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metric Cards -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
+        <div class="ae-metric-card active" id="ae-card-all" onclick="aeChipFilter('')" style="--card-accent:#a78bfa;--card-border:rgba(167,139,250,.4);--card-shadow:rgba(167,139,250,.25)">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-dim);margin-bottom:8px">Total Analysed</div>
+          <div id="ae-c-total" style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#a78bfa">—</div>
+        </div>
+        <div class="ae-metric-card" id="ae-card-Winner" onclick="aeChipFilter('Winner')" style="--card-accent:#4ade80;--card-border:rgba(74,222,128,.4);--card-shadow:rgba(74,222,128,.25)">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-dim);margin-bottom:8px">Winners</div>
+          <div id="ae-c-winner" style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#4ade80">—</div>
+        </div>
+        <div class="ae-metric-card" id="ae-card-ITE" onclick="aeChipFilter('ITE')" style="--card-accent:#f59e0b;--card-border:rgba(245,158,11,.4);--card-shadow:rgba(245,158,11,.25)">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-dim);margin-bottom:8px">ITE</div>
+          <div id="ae-c-ite" style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#f59e0b">—</div>
+        </div>
+        <div class="ae-metric-card" id="ae-card-Analyse" onclick="aeChipFilter('Analyse')" style="--card-accent:#60a5fa;--card-border:rgba(96,165,250,.4);--card-shadow:rgba(96,165,250,.25)">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-dim);margin-bottom:8px">Analyse</div>
+          <div id="ae-c-analyse" style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#60a5fa">—</div>
+        </div>
+        <div class="ae-metric-card" id="ae-card-Discarded" onclick="aeChipFilter('Discarded')" style="--card-accent:#f87171;--card-border:rgba(248,113,113,.4);--card-shadow:rgba(248,113,113,.25)">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-dim);margin-bottom:8px">Discarded</div>
+          <div id="ae-c-discarded" style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#f87171">—</div>
+        </div>
+      </div>
+
+      <!-- Multi-filter panel -->
+      <div class="ae-glass" style="padding:14px;margin-bottom:16px;border-color:rgba(157,0,255,.1)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--ae-dim);text-transform:uppercase;letter-spacing:.6px">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+            Multi-Filter
+          </div>
+          <div style="display:flex;gap:6px">
+            <button id="ae-filter-apply" onclick="aeApplyFilters()" style="padding:5px 14px;background:linear-gradient(135deg,var(--ae-primary),#7c00cc);color:white;font-size:11px;font-weight:700;border-radius:6px;border:none;cursor:pointer;font-family:inherit">Apply</button>
+            <button id="ae-filter-clear" onclick="aeClearFilters()" style="padding:5px 14px;background:var(--ae-surface);border:1px solid var(--ae-border);color:var(--ae-muted);font-size:11px;font-weight:600;border-radius:6px;cursor:pointer;font-family:inherit">Clear</button>
+          </div>
+        </div>
+        <div id="ae-filter-rows">
+          <div class="ae-filter-row" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+            <select class="ae-fcol ae-filter-input" style="min-width:160px">
+              <option value="adName">Name (Ad/Camp)</option>
+              <option value="campName">Campaign Name</option>
+              <option value="adId">ID</option>
+              <option value="category">Status (Category)</option>
+              <option value="adStatus">Ad Status</option>
+            </select>
+            <select class="ae-fcond ae-filter-input">
+              <option value="all">contains all of</option>
+              <option value="any">contains any of</option>
+              <option value="none">doesn't contain</option>
+            </select>
+            <input type="text" class="ae-fval ae-filter-input" style="flex:1;min-width:220px" placeholder="Keywords separated by space (e.g. sale 14/03/26)">
+          </div>
+        </div>
+        <button onclick="aeAddFilterRow()" style="margin-top:10px;display:flex;align-items:center;gap:5px;color:var(--ae-primary);font-size:11px;font-weight:600;background:none;border:none;cursor:pointer;font-family:inherit">
+          <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Add Rule
+        </button>
+      </div>
+
+      <!-- Table toolbar -->
+      <div class="ae-glass" style="padding:14px 16px;margin-bottom:0;border-radius:14px 14px 0 0;border-bottom:none;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:12px;color:var(--ae-dim)">Show</span>
+          <select id="ae-page-size" onchange="aePageSize()" style="padding:5px 10px;border-radius:7px;border:1px solid var(--ae-border);background:var(--ae-surface);color:var(--ae-ink);font-size:12px;outline:none;font-family:inherit">
+            <option value="25">25</option><option value="50">50</option><option value="100">100</option>
+          </select>
+          <span style="font-size:12px;color:var(--ae-dim)">ads</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="ae-row-info" style="font-size:11px;color:var(--ae-dim)"></span>
+          <button onclick="aePage(-1)" style="padding:5px 12px;border-radius:7px;border:1px solid var(--ae-border);background:var(--ae-surface);color:var(--ae-muted);font-size:12px;cursor:pointer;font-family:inherit">‹</button>
+          <span id="ae-page-info" style="font-size:11px;color:var(--ae-muted)"></span>
+          <button onclick="aePage(1)" style="padding:5px 12px;border-radius:7px;border:1px solid var(--ae-border);background:var(--ae-surface);color:var(--ae-muted);font-size:12px;cursor:pointer;font-family:inherit">›</button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="ae-glass" style="overflow-x:auto;border-radius:0 0 14px 14px;padding:0">
+        <table class="ae-tbl">
+          <thead>
+            <tr>
+              <th onclick="aeSort('campName')" style="text-align:left;min-width:160px">Campaign ↕</th>
+              <th onclick="aeSort('adId')" style="text-align:left;min-width:120px">Ad ID ↕</th>
+              <th onclick="aeSort('adName')" style="text-align:left;min-width:220px">Name (Group) ↕</th>
+              <th style="text-align:left;min-width:120px">Ad Created</th>
+              <th onclick="aeSort('firstDate')" style="text-align:left;min-width:110px">First Seen ↕</th>
+              <th onclick="aeSort('category')" style="text-align:left;min-width:110px">Status ↕</th>
+              <th onclick="aeSort('imp')" style="text-align:right;min-width:100px">Impressions ↕</th>
+              <th onclick="aeSort('rawRoas')" style="text-align:right;min-width:80px">ROAS ↕</th>
+              <th onclick="aeSort('rawSpend')" style="text-align:right;min-width:130px">LTV Spend ↕</th>
+              <th style="text-align:center;min-width:120px">Days to Target</th>
+              <th style="text-align:right;min-width:120px">Reach @ Freq 2</th>
+              <th style="text-align:right;min-width:110px">LTV Reach/Freq</th>
+              <th style="text-align:right;min-width:100px">Reach Wt.</th>
+              <th style="text-align:right;min-width:90px">% FTEWV</th>
+              <th onclick="aeSort('rawProfit')" style="text-align:right;min-width:130px">Profit Eff. ↕</th>
+              <th style="text-align:right;min-width:100px">Contrib. %</th>
+              <th style="text-align:right;min-width:110px">Delivery Eff.</th>
+              <th style="text-align:right;min-width:100px">Sales Eff.</th>
+              <th onclick="aeSort('rawBlended')" style="text-align:right;min-width:110px">Blended ↕</th>
+              <th style="text-align:right;min-width:75px">CPR</th>
+              <th style="text-align:right;min-width:75px">FTV</th>
+              <th style="text-align:right;min-width:80px">FTEV Vol.</th>
+              <th style="text-align:right;min-width:75px">NCP</th>
+              <th style="text-align:right;min-width:80px">ROAS Eff.</th>
+              <th style="text-align:right;min-width:85px">Profit Vol.</th>
+              <th style="text-align:left;min-width:200px">System Type</th>
+              <th style="text-align:left;min-width:160px">Action Protocol</th>
+              <th style="text-align:left;min-width:220px">Performance Move</th>
+              <th style="text-align:left;min-width:220px">Creative Move</th>
+              <th style="text-align:left;min-width:120px">Ad Status</th>
+            </tr>
+          </thead>
+          <tbody id="aeTableBody"></tbody>
+        </table>
+      </div>
+    </div><!-- /ae-content -->
+  </div>
+</div>
+
+<script>
+const AEW={X:.10,Y:.25,Z:.15,AA:.20,AB:.20,AC:.10};
+const AEA={
+  Winner:{type:"Proven Creative - Impressions & ROAS both at target",action:"Scale budget, maintain creative",perf:"Strong funnel performance across all metrics",creative:"Replicate format and messaging across new variations"},
+  ITE:{type:"Impressions at target but ROAS below target",action:"Investigate bottom-of-funnel conversion drop",perf:"Good delivery but weak conversion - review offer/landing page",creative:"Iterate on CTA, offer clarity and urgency"},
+  Discarded:{type:"Impressions not served - Low delivery",action:"Review creative format, audience targeting, and bid strategy",perf:"Negative signal - learning data point for what not to do",creative:"—"},
+  Analyse:{type:"Low impressions but has results - Niche performer",action:"Analyse data to create learnings",perf:"Funnel view, find engagement patterns - valid for bottom-of-funnel",creative:"Find pattern and create a learning data point, leverage offer for better format"}
+};
+
+let aeRaw=[],aeResults=[],aeFiltered=[],aeLoaded=false;
+let aeSortKey='imp',aeSortDir=-1,aeChipActive='',aeCurPage=0,aePerPage=25;
+let aeHeat={roas:0,profit:0,blended:0};
+
+const sdv=(n,d)=>(d===0||isNaN(d))?0:n/d;
+function aeMed(a){if(!a.length)return 0;const s=[...a].sort((x,y)=>x-y);const h=Math.floor(s.length/2);return s.length%2?s[h]:(s[h-1]+s[h])/2;}
+
+function aeGoBack(){
+  document.getElementById('analysisEnginePanel').style.display='none';
+  var ct=document.getElementById('ctDashboardWrap');
+  if(ct)ct.style.display='';
+  document.querySelectorAll('.acct-sel-tab').forEach(t=>{t.classList.remove('active');t.style.background='var(--surface2)';t.style.border='1px solid var(--border)';});
+  var t1=document.getElementById('aSelTab1');
+  if(t1){t1.classList.add('active');t1.style.background='var(--a1-lt)';t1.style.border='2px solid rgba(124,77,189,.25)';}
+}
+
+function selectAnalysisEngine(el){
+  document.querySelectorAll('.acct-sel-tab').forEach(t=>{t.classList.remove('active');t.style.background='var(--surface2)';t.style.border='1px solid var(--border)';});
+  el.style.background='linear-gradient(135deg,rgba(0,188,212,0.15),rgba(157,0,255,0.1))';
+  el.style.border='2px solid rgba(0,188,212,0.4)';
+  var ct=document.getElementById('ctDashboardWrap');
+  if(ct)ct.style.display='none';
+  var p=document.getElementById('analysisEnginePanel');
+  p.style.display='block'; p.scrollTop=0;
+  if(!aeLoaded)aeReload();
+}
+
+async function aeReload(){
+  const su=typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'';
+  const sa=typeof SUPABASE_ANON!=='undefined'?SUPABASE_ANON:'';
+  if(!su||!sa){document.getElementById('ae-load-sub').textContent='❌ No Supabase credentials in URL';document.getElementById('ae-loading').style.display='block';return;}
+  document.getElementById('ae-loading').style.display='block';
+  document.getElementById('ae-content').style.display='none';
+  aeLoaded=false;
+  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','ad_created_date','impressions','reach','amount_spent_inr','purchase_roas','ftewv_count','ncp_count','cost_per_ncp','ltv_reach','ltv_frequency'].join(',');
+  const BATCH=1000;let all=[],offset=0,more=true,pg=0;
+  try{
+    while(more){
+      pg++;
+      document.getElementById('ae-load-sub').textContent=`Page ${pg} — ${all.length.toLocaleString()} rows loaded...`;
+      const res=await fetch(su+'/rest/v1/primary_table?select='+cols+'&order=date.desc&limit='+BATCH+'&offset='+offset,{headers:{'apikey':sa,'Authorization':'Bearer '+sa,'Prefer':'count=none'}});
+      if(!res.ok)throw new Error((await res.json().catch(()=>({}))).message||res.status);
+      const b=await res.json();
+      if(!Array.isArray(b)||b.length===0){more=false;break;}
+      all=all.concat(b);offset+=b.length;if(b.length<BATCH)more=false;
+    }
+    aeRaw=all;aeLoaded=true;
+    const badge=document.getElementById('ae-row-badge');
+    badge.textContent=all.length.toLocaleString()+' rows';badge.style.display='inline';
+    setTimeout(aeCompute,20);
+  }catch(e){document.getElementById('ae-load-sub').textContent='❌ '+e.message;}
+}
+
+function aeCompute(){
+  const rows=aeRaw;
+  const tImp=parseFloat(document.getElementById('ae-target-imp').value)||50000;
+  const tRoas=parseFloat(document.getElementById('ae-target-roas').value)||3.0;
+  const grp=document.getElementById('ae-group-by').value;
+  const adMap={};let gR=0,gS=0,gF=0,gN=0,gP=0;
+  for(const r of rows){
+    const adId=String(r.ad_id||'').trim(),camp=String(r.campaign_name||'Unknown');
+    const key=grp==='campaign'?camp:adId;if(!key)continue;
+    const imp=Number(r.impressions)||0,reach=Number(r.reach)||0,spend=Number(r.amount_spent_inr)||0;
+    const roas=Number(r.purchase_roas)||0,ftewv=Number(r.ftewv_count)||0;
+    const ncpC=Number(r.cost_per_ncp)||0,ncp=ncpC>0?spend/ncpC:0;
+    const purV=roas*spend,ltvR=Number(r.ltv_reach)||0,ltvF=Number(r.ltv_frequency)||0;
+    const dMs=r.date?new Date(r.date+'T00:00:00').getTime():0;
+    if(!adMap[key]){adMap[key]={name:grp==='campaign'?camp:String(r.ad_name||'?'),campName:camp,adId,acct:String(r.account_name||''),status:String(r.ad_status||''),created:String(r.ad_created_date||''),ltvR:0,ltvF:0,firstD:dMs,days:[],imp:0,reach:0,spend:0,ftewv:0,ncp:0,purV:0,ltvI:0,ltvS:0,ltvRS:0};}
+    const ad=adMap[key];
+    if(ltvR>ad.ltvR)ad.ltvR=ltvR;if(ltvF>ad.ltvF)ad.ltvF=ltvF;
+    if(dMs&&dMs<ad.firstD)ad.firstD=dMs;
+    ad.imp+=imp;ad.reach+=reach;ad.spend+=spend;ad.ftewv+=ftewv;ad.ncp+=ncp;ad.purV+=purV;
+    ad.ltvI+=imp;ad.ltvS+=spend;ad.ltvRS+=reach;
+    ad.days.push({d:dMs,i:imp,r:reach});
+    gR+=reach;gS+=spend;gF+=ftewv;gN+=ncp;gP+=purV;
+  }
+  const arrF=[],arrP=[];
+  for(const k in adMap){const ad=adMap[k];ad.avgR=sdv(ad.purV,ad.spend);ad.profit=ad.purV-ad.spend;arrF.push(ad.ftewv);arrP.push(ad.profit);}
+  const E1=sdv(gS,gR)*1000,N1=sdv(gP,gS),R1=sdv(gF,gR),Q1=sdv(gS,gN),O3=sdv(gS,gF),P2=aeMed(arrF),S2=aeMed(arrP);
+  const res=[];aeHeat={roas:0,profit:0,blended:0};
+  let wP=0,dS=0,dC=0;
+  const fmt=ms=>ms?new Date(ms).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'—';
+  for(const k in adMap){
+    const ad=adMap[k];
+    let cat='Discarded',mk='Discarded';
+    if(ad.imp>=tImp&&ad.avgR>=tRoas){cat='Winner';mk='Winner';}
+    else if(ad.imp>=tImp&&ad.avgR<tRoas){cat='ITE';mk='ITE';}
+    else if(ad.purV>0||ad.ftewv>0){cat='Analyse';mk='Analyse';}
+    const fR=ad.ltvR>0?ad.ltvR:ad.ltvRS,fF=ad.ltvF>0?ad.ltvF:(ad.ltvRS>0?ad.ltvI/ad.ltvRS:0);
+    const ded=ad.ltvRS>0?(fR/ad.ltvRS):1;
+    ad.days.sort((a,b)=>a.d-b.d);
+    let hitT=null,rf2='-',rI=0,rR=0;
+    for(const day of ad.days){rI+=day.i;rR+=day.r;if(rI>=tImp&&!hitT)hitT=day.d;const eR=rR*ded;if(eR>0&&(rI/eR)>=2&&rf2==='-')rf2=Math.round(eR).toLocaleString();}
+    const cD=ad.created?new Date(ad.created+'T00:00:00'):new Date(ad.firstD);
+    let vec='—';
+    if(hitT)vec='Eval:<br>'+fmt(hitT);
+    else if(!isNaN(cD.getTime())){const p=new Date(cD);p.setDate(p.getDate()+15);vec='Eval:<br>'+fmt(p.getTime());}
+    const lRFN=fF>0?fR/fF:0;
+    const N=ad.avgR,G=ad.spend,P=ad.ftewv,B=ad.reach,R=sdv(P,B),S=ad.profit;
+    const cm=N>0?(1-(1/N))*100:-100;
+    const X=sdv(E1,(sdv(G,B)*1000)),Y=sdv(R,R1),Z=sdv(P,P2);
+    const AA=sdv(Q1,sdv(G,ad.ncp)),AB=sdv(N,N1),AC=sdv(S,S2);
+    const dE=X+Y+sdv(O3,sdv(G,P)),sE=AA+AB;
+    const bl=(X*AEW.X)+(Y*AEW.Y)+(Z*AEW.Z)+(AA*AEW.AA)+(AB*AEW.AB)+(AC*AEW.AC);
+    const rw=gR>0?((ad.reach/gR)*100).toFixed(2)+'%':'0%';
+    const mp=AEA[mk];
+    if(N>aeHeat.roas)aeHeat.roas=N;if(S>aeHeat.profit)aeHeat.profit=S;if(bl>aeHeat.blended)aeHeat.blended=bl;
+    if(cat==='Winner')wP+=S;if(cat==='Discarded'){dS+=G;dC++;}
+    res.push({campName:ad.campName,adId:grp==='campaign'?'[Grp]':String(k),adName:ad.name,acct:ad.acct,
+      created:ad.created||'—',firstDate:fmt(ad.firstD),adStatus:ad.status,category:cat,
+      imp:ad.imp,rawRoas:N,rawSpend:ad.ltvS,rawProfit:S,rawBlended:bl,
+      vec,rf2,lRFN:lRFN.toFixed(2),rw,pFTEWV:(R*100).toFixed(3)+'%',
+      cm:cm.toFixed(2)+'%',dE:dE.toFixed(3),sE:sE.toFixed(3),bl:bl.toFixed(3),
+      X:X.toFixed(3),Y:Y.toFixed(3),Z:Z.toFixed(3),AA:AA.toFixed(3),AB:AB.toFixed(3),AC:AC.toFixed(3),
+      type:mp.type,action:mp.action,perf:mp.perf,creative:mp.creative});
+  }
+  const cnts={Winner:0,ITE:0,Analyse:0,Discarded:0};
+  res.forEach(r=>{if(cnts[r.category]!==undefined)cnts[r.category]++;});
+  document.getElementById('ae-c-total').textContent=res.length.toLocaleString();
+  document.getElementById('ae-c-winner').textContent=cnts.Winner.toLocaleString();
+  document.getElementById('ae-c-ite').textContent=cnts.ITE.toLocaleString();
+  document.getElementById('ae-c-analyse').textContent=cnts.Analyse.toLocaleString();
+  document.getElementById('ae-c-discarded').textContent=cnts.Discarded.toLocaleString();
+  let ins=`Analysing <b>${res.length.toLocaleString()} Ads</b>. Winners have generated <b style="color:#4ade80">₹${Math.round(wP).toLocaleString('en-IN')}</b> profit.`;
+  if(dC>0)ins+=` ⚠️ <b style="color:#f87171">${dC} Discarded</b> have consumed <b style="color:#f87171">₹${Math.round(dS).toLocaleString('en-IN')}</b> with poor results.`;
+  document.getElementById('ae-insight-text').innerHTML=ins;
+  aeResults=res;aeFiltered=res;aeCurPage=0;
+  document.getElementById('ae-loading').style.display='none';
+  document.getElementById('ae-content').style.display='block';
+  aeRender();
+}
+
+function aeRecompute(){if(aeLoaded)aeCompute();}
+
+// ── Multi-filter ─────────────────────────────────
+function aeAddFilterRow(){
+  const row=document.createElement('div');
+  row.className='ae-filter-row';
+  row.style.cssText='display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px';
+  row.innerHTML=`
+    <span style="font-size:10px;font-weight:700;color:var(--ae-dim);min-width:28px;text-align:center">AND</span>
+    <select class="ae-fcol ae-filter-input" style="min-width:160px">
+      <option value="adName">Name (Ad/Camp)</option>
+      <option value="campName">Campaign Name</option>
+      <option value="adId">ID</option>
+      <option value="category">Status (Category)</option>
+      <option value="adStatus">Ad Status</option>
+    </select>
+    <select class="ae-fcond ae-filter-input">
+      <option value="all">contains all of</option>
+      <option value="any">contains any of</option>
+      <option value="none">doesn't contain</option>
+    </select>
+    <div style="flex:1;min-width:220px;display:flex;gap:6px">
+      <input type="text" class="ae-fval ae-filter-input" style="flex:1" placeholder="Keywords...">
+      <button onclick="this.closest('.ae-filter-row').remove()" style="padding:6px 8px;background:var(--ae-surface);border:1px solid var(--ae-border);border-radius:7px;cursor:pointer;color:var(--ae-muted)">✕</button>
+    </div>`;
+  document.getElementById('ae-filter-rows').appendChild(row);
+}
+
+function aeClearFilters(){
+  const rows=document.querySelectorAll('#ae-filter-rows .ae-filter-row');
+  rows.forEach((r,i)=>{if(i===0)r.querySelector('.ae-fval').value='';else r.remove();});
+  aeChipActive='';
+  document.querySelectorAll('[id^="ae-card-"]').forEach(c=>c.classList.remove('active'));
+  document.getElementById('ae-card-all').classList.add('active');
+  aeApplyFilters();
+}
+
+function aeApplyFilters(){
+  const acct=document.getElementById('ae-acct-filter').value;
+  const filterRows=document.querySelectorAll('#ae-filter-rows .ae-filter-row');
+  aeFiltered=aeResults.filter(r=>{
+    if(acct&&r.acct!==acct)return false;
+    if(aeChipActive&&r.category!==aeChipActive)return false;
+    for(const row of filterRows){
+      const col=row.querySelector('.ae-fcol').value;
+      const cond=row.querySelector('.ae-fcond').value;
+      const raw=row.querySelector('.ae-fval').value.trim();
+      if(!raw)continue;
+      let kw;
+      if(cond==='any'||cond==='none')kw=raw.toLowerCase().split(/\s*,\s*|\s+or\s+/i).filter(k=>k.trim());
+      else kw=raw.toLowerCase().split(/\s+/).filter(k=>k.trim());
+      const text=String(r[col]||'').toLowerCase();
+      if(cond==='all'&&!kw.every(k=>text.includes(k)))return false;
+      if(cond==='any'&&!kw.some(k=>text.includes(k)))return false;
+      if(cond==='none'&&!kw.every(k=>!text.includes(k)))return false;
+    }
+    return true;
+  });
+  aeCurPage=0;aeRender();
+}
+
+function aeChipFilter(cat){
+  aeChipActive=cat;
+  document.querySelectorAll('[id^="ae-card-"]').forEach(c=>c.classList.remove('active'));
+  const id='ae-card-'+(cat||'all');
+  const el=document.getElementById(id);if(el)el.classList.add('active');
+  aeApplyFilters();
+}
+
+function aeSort(key){
+  if(aeSortKey===key)aeSortDir*=-1;else{aeSortKey=key;aeSortDir=-1;}
+  aeFiltered.sort((a,b)=>{const av=a[key]??0,bv=b[key]??0;return typeof av==='string'?av.localeCompare(bv)*aeSortDir:(av-bv)*aeSortDir;});
+  aeCurPage=0;aeRender();
+}
+
+function aePage(d){const max=Math.ceil(aeFiltered.length/aePerPage)-1;aeCurPage=Math.max(0,Math.min(max,aeCurPage+d));aeRender();}
+function aePageSize(){aePerPage=parseInt(document.getElementById('ae-page-size').value)||25;aeCurPage=0;aeRender();}
+
+function aeRender(){
+  const st=aeCurPage*aePerPage,en=st+aePerPage,pg=aeFiltered.slice(st,en),tot=aeFiltered.length;
+  document.getElementById('ae-row-info').textContent=(st+1).toLocaleString()+'–'+Math.min(en,tot).toLocaleString()+' of '+tot.toLocaleString()+' ads';
+  document.getElementById('ae-page-info').textContent='Page '+(aeCurPage+1)+' / '+Math.max(1,Math.ceil(tot/aePerPage));
+  const BAD={Winner:'background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.35)',ITE:'background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.35)',Analyse:'background:rgba(96,165,250,.12);color:#60a5fa;border:1px solid rgba(96,165,250,.35)',Discarded:'background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.35)'};
+  const ASTS={ACTIVE:'background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.3)',PAUSED:'background:rgba(148,163,184,.1);color:#94a3b8;border:1px solid rgba(148,163,184,.25)',LEARNING:'background:rgba(96,165,250,.12);color:#60a5fa;border:1px solid rgba(96,165,250,.3)',ARCHIVED:'background:rgba(100,116,139,.1);color:#64748b;border:1px solid rgba(100,116,139,.2)',DISAPPROVED:'background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)',CAMPAIGN_PAUSED:'background:rgba(148,163,184,.1);color:#94a3b8;border:1px solid rgba(148,163,184,.2)',ADSET_PAUSED:'background:rgba(148,163,184,.1);color:#94a3b8;border:1px solid rgba(148,163,184,.2)'};
+  const rows=pg.map(r=>{
+    const rP=Math.min(100,Math.max(0,sdv(r.rawRoas,Math.max(aeHeat.roas,.001))*100));
+    const pP=Math.min(100,Math.max(0,sdv(r.rawProfit,Math.max(aeHeat.profit,.001))*100));
+    const bP=Math.min(100,Math.max(0,sdv(r.rawBlended,Math.max(aeHeat.blended,.001))*100));
+    const bs=BAD[r.category]||BAD.Discarded;
+    const raw=String(r.adStatus).toUpperCase().replace(/ /g,'_');
+    const as_s=ASTS[raw]||'background:rgba(100,116,139,.08);color:#64748b;border:1px solid rgba(100,116,139,.15)';
+    const sid=String(r.adId).replace(/'/g,"&#39;");
+    const sn=String(r.adName).replace(/"/g,'&quot;').replace(/</g,'&lt;');
+    return`<tr>
+<td style="padding:13px 16px;color:#94a3b8;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${r.campName}">${r.campName}</td>
+<td style="padding:13px 16px;font-family:monospace;font-size:10px;color:#6b7280;max-width:100px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="copyText('${sid}',this)" title="Copy ID">${sid}</td>
+<td style="padding:13px 16px;color:#f0f0f8;font-weight:600;max-width:210px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="copyText('${sn}',this)" title="${sn}">${sn}</td>
+<td style="padding:13px 16px;color:#94a3b8">${r.created}</td>
+<td style="padding:13px 16px;color:#c9d1e0">${r.firstDate}</td>
+<td style="padding:13px 16px"><span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;${bs}">${r.category}</span></td>
+<td style="padding:13px 16px;text-align:right;color:#c9d1e0;font-family:monospace">${r.imp.toLocaleString()}</td>
+<td style="padding:13px 16px;position:relative;text-align:right"><div style="position:absolute;top:0;right:0;height:100%;width:${rP}%;background:rgba(0,188,212,.1);border-radius:3px"></div><span style="position:relative;font-weight:700;color:#e2e8f0;font-family:monospace">${r.rawRoas.toFixed(2)}</span></td>
+<td style="padding:13px 16px;text-align:right;color:#fca5a5;font-weight:700;font-family:monospace;white-space:nowrap">₹${r.rawSpend.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+<td style="padding:13px 16px;text-align:center;font-size:10px;color:#a78bfa;line-height:1.4">${r.vec}</td>
+<td style="padding:13px 16px;text-align:right;color:#fde68a;font-family:monospace">${r.rf2}</td>
+<td style="padding:13px 16px;text-align:right;color:#6b7280;font-size:10px">${r.lRFN}</td>
+<td style="padding:13px 16px;text-align:right;color:#67e8f9;font-family:monospace">${r.rw}</td>
+<td style="padding:13px 16px;text-align:right;color:#67e8f9;font-family:monospace">${r.pFTEWV}</td>
+<td style="padding:13px 16px;position:relative;text-align:right">${r.rawProfit>0?`<div style="position:absolute;top:0;right:0;height:100%;width:${pP}%;background:rgba(74,222,128,.1);border-radius:3px;border:1px solid rgba(74,222,128,.2)"></div>`:''}<span style="position:relative;font-weight:700;color:white;font-family:monospace;white-space:nowrap">₹${r.rawProfit.toLocaleString('en-IN',{maximumFractionDigits:0})}</span></td>
+<td style="padding:13px 16px;text-align:right;font-family:monospace;color:#c9d1e0">${r.cm}</td>
+<td style="padding:13px 16px;text-align:right;font-family:monospace;color:#fde68a">${r.dE}</td>
+<td style="padding:13px 16px;text-align:right;font-family:monospace;color:#e879f9">${r.sE}</td>
+<td style="padding:13px 16px;position:relative;text-align:right"><div style="position:absolute;top:0;right:0;height:100%;width:${bP}%;background:rgba(96,165,250,.1);border-radius:3px;border:1px solid rgba(96,165,250,.2)"></div><span style="position:relative;font-weight:700;color:white;font-family:monospace">${r.bl}</span></td>
+<td style="padding:13px 16px;text-align:right;color:#6b7280;font-size:10.5px;font-family:monospace">${r.X}</td>
+<td style="padding:13px 16px;text-align:right;color:#6b7280;font-size:10.5px;font-family:monospace">${r.Y}</td>
+<td style="padding:13px 16px;text-align:right;color:#6b7280;font-size:10.5px;font-family:monospace">${r.Z}</td>
+<td style="padding:13px 16px;text-align:right;color:#6b7280;font-size:10.5px;font-family:monospace">${r.AA}</td>
+<td style="padding:13px 16px;text-align:right;color:#6b7280;font-size:10.5px;font-family:monospace">${r.AB}</td>
+<td style="padding:13px 16px;text-align:right;color:#6b7280;font-size:10.5px;font-family:monospace">${r.AC}</td>
+<td style="padding:13px 16px;color:#6b7280;max-width:150px;overflow:hidden;text-overflow:ellipsis;font-size:10px" title="${r.type}">${r.type}</td>
+<td style="padding:13px 16px;color:#c9d1e0;font-size:10px;font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis" title="${r.action}">${r.action}</td>
+<td style="padding:13px 16px;color:#94a3b8;font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${r.perf}">${r.perf}</td>
+<td style="padding:13px 16px;color:#94a3b8;font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${r.creative}">${r.creative}</td>
+<td style="padding:13px 16px"><span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:9.5px;font-weight:700;text-transform:uppercase;${as_s}">${r.adStatus||'—'}</span></td>
+</tr>`;}).join('');
+  document.getElementById('aeTableBody').innerHTML=rows||'<tr><td colspan="30" style="padding:40px;text-align:center;color:#6b7280;font-size:13px">No ads match current filters</td></tr>';
+}
+</script>
 </body>
-</html>
