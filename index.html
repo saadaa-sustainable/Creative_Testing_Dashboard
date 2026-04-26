@@ -30,7 +30,6 @@
   .as-err{background:var(--miss-lt);color:var(--miss)}
   .as-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
   .as-loading .as-dot{animation:blink 1s ease infinite}
-  /* account source pill in table */
   .ap{display:inline-block;font-size:.52rem;font-weight:700;padding:2px 7px;border-radius:100px}
   .ap.a1{background:var(--a1-lt);color:var(--a1)}
   .ap.a2{background:var(--a2-lt);color:var(--a2)}
@@ -39,8 +38,6 @@
   body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;padding:28px 36px;
     background-image:radial-gradient(ellipse 800px 500px at 85% 0%,rgba(192,96,58,.05),transparent 70%),
                      radial-gradient(ellipse 600px 400px at 5% 100%,rgba(74,124,111,.04),transparent 70%)}
-
-  /* ── HEADER ── */
   header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:26px}
   .logo h1{font-family:'Roboto',sans-serif;font-size:2rem;font-weight:900;letter-spacing:-.02em;color:var(--ink)}
   .logo h1 em{font-style:italic;color:var(--terra)}
@@ -49,8 +46,6 @@
   .gs-pill{display:flex;align-items:center;gap:7px;background:#0f9d58;color:#fff;font-size:.7rem;font-weight:600;padding:7px 15px;border-radius:100px}
   .gs-pill svg{width:15px;height:15px;fill:#fff}
   .last-sync{font-size:.62rem;color:var(--muted);text-align:right}
-
-  /* ── CONNECT PANEL ── */
   .connect-panel{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px 28px;margin-bottom:20px;position:relative;overflow:hidden}
   .connect-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#0f9d58,var(--terra));border-radius:18px 18px 0 0}
   .cp-title{font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;margin-bottom:3px}
@@ -72,22 +67,16 @@
   .fetch-btn.loading .spinner{display:block}
   .fetch-btn.loading .btn-text{display:none}
   @keyframes spin{to{transform:rotate(360deg)}}
-
-  /* How-to hint */
   .how-hint{background:var(--gold-lt);border:1px solid rgba(184,136,58,.2);border-radius:10px;
     padding:11px 14px;margin-top:14px;font-size:.67rem;color:var(--ink2);line-height:1.7}
   .how-hint strong{color:var(--gold);font-weight:600}
   .how-hint code{background:rgba(184,136,58,.12);padding:1px 5px;border-radius:3px;font-family:'Roboto Mono',monospace;font-size:.65rem}
-
-  /* ── STATUS ── */
   #statusBar{display:none;align-items:center;gap:9px;padding:10px 16px;border-radius:11px;
     font-size:.72rem;font-weight:500;margin-bottom:16px}
   #statusBar.info{background:var(--slate-lt);color:var(--slate);border:1px solid rgba(74,111,165,.2)}
   #statusBar.success{background:var(--match-lt);color:var(--match);border:1px solid rgba(74,124,111,.2)}
   #statusBar.error{background:var(--miss-lt);color:var(--miss);border:1px solid rgba(192,96,58,.2)}
   .sdot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
-
-  /* ── SEC LABEL ── */
   .sec{font-size:.6rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);
     margin-bottom:12px;display:flex;align-items:center;gap:9px}
   .sec::after{content:'';flex:1;height:1px;background:var(--border)}
@@ -95,17 +84,12 @@
   .stag-terra{background:var(--terra-lt);color:var(--terra)}
   .stag-sage{background:var(--sage-lt);color:var(--sage)}
   .stag-gold{background:var(--gold-lt);color:var(--gold)}
-
-  /* ── WEEK + SEGMENT CONTROLS ── */
   .ctrl-bar{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
   .ctrl-bar label{font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
   #weekSelect{background:var(--surface);border:1px solid var(--border);border-radius:9px;
     padding:7px 13px;font-family:'Roboto',sans-serif;font-size:.76rem;color:var(--ink);outline:none;cursor:pointer}
   #weekSelect:focus{border-color:var(--terra)}
-
   .total-badge{margin-left:auto;font-size:.62rem;color:var(--muted);font-weight:500}
-
-  /* ── KPI STRIP ── */
   .kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:22px}
   .kpi{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:16px 15px;
     transition:box-shadow .2s,transform .2s;position:relative;overflow:hidden}
@@ -117,8 +101,6 @@
   .kpi-lbl{font-size:.57rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px}
   .kpi-val{font-family:'Roboto',sans-serif;font-size:1.55rem;font-weight:700;color:var(--ink);line-height:1}
   .kpi-sub{font-size:.58rem;color:var(--muted);margin-top:4px}
-
-  /* ── ROAS HERO ── */
   .roas-hero{background:var(--terra);border-radius:16px;padding:22px 28px;display:flex;align-items:center;
     gap:22px;margin-bottom:22px;position:relative;overflow:hidden}
   .roas-hero::before{content:'ROAS';position:absolute;right:-12px;top:-10px;font-family:'Roboto',sans-serif;
@@ -127,8 +109,6 @@
   .roas-div{width:1px;height:50px;background:rgba(255,255,255,.2)}
   .roas-info .ri-l{font-size:.6rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:4px}
   .roas-info .ri-s{font-size:1rem;font-weight:500;color:#fff}
-
-  /* ── SPLIT PANELS ── */
   .split-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
   .perf-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px}
   .perf-head{display:flex;align-items:center;gap:9px;margin-bottom:16px}
@@ -143,8 +123,6 @@
   .p-lbl{font-size:.54rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:3px}
   .p-val{font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;color:var(--ink)}
   .p-row.hw .p-val{color:var(--blush)} .p-row.hm .p-val{color:var(--slate)}
-
-  /* ── ROAS COMPARE ── */
   .roas-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
   .roas-card{border-radius:15px;padding:18px 22px;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden}
   .roas-card.w{background:linear-gradient(135deg,var(--blush),#e06080)}
@@ -155,12 +133,8 @@
   .roas-dvd{width:1px;height:38px;background:rgba(255,255,255,.2)}
   .roas-card .ri-l{font-size:.54rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:3px}
   .roas-card .ri-s{font-size:.8rem;font-weight:500;color:#fff}
-
-  /* ── BOTTOM GRID ── */
   .bottom-grid{display:grid;grid-template-columns:1.3fr 0.9fr 1fr;gap:16px;margin-bottom:22px}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px}
-
-  /* ── MINI TABLE ── */
   .mini-table{width:100%;border-collapse:collapse}
   .mini-table th{font-size:.55rem;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);
     text-align:left;padding:5px 7px;border-bottom:1px solid var(--border)}
@@ -169,15 +143,11 @@
   .mini-table tbody tr:hover td{background:var(--bg2)}
   .mini-table td.num{font-family:'Roboto',sans-serif;font-weight:700;font-size:.75rem;color:var(--terra);text-align:right}
   .mini-table tr.grand td{color:var(--terra);font-weight:600;border-top:1px solid var(--border);border-bottom:none}
-
-  /* ── BAR CHART ── */
   .bar-list{display:flex;flex-direction:column;gap:9px;margin-top:9px}
   .bar-item .bh{display:flex;justify-content:space-between;font-size:.62rem;font-weight:500;color:var(--ink2);margin-bottom:4px}
   .bh span{font-weight:700;color:var(--terra)}
   .bar-track{height:6px;background:var(--bg2);border-radius:99px;overflow:hidden;border:1px solid var(--border)}
   .bar-fill{height:100%;border-radius:99px}
-
-  /* ── CREATIVE TYPE CHIPS ── */
   .ct-chips{display:flex;flex-direction:column;gap:8px;margin-top:8px}
   .ct-chip{display:flex;justify-content:space-between;align-items:center;background:var(--surface2);
     border:1px solid var(--border);border-radius:9px;padding:9px 12px}
@@ -185,8 +155,6 @@
   .ct-chip .ct-cnt{font-family:'Roboto',sans-serif;font-weight:700;font-size:.95rem;color:var(--terra)}
   .ct-chip .ct-bar{flex:1;height:4px;background:var(--bg2);border-radius:99px;margin:0 10px;overflow:hidden}
   .ct-chip .ct-fill{height:100%;border-radius:99px;background:var(--terra)}
-
-  /* ── AD TABLE ── */
   .tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:auto;max-height:520px}
   table.main-tbl{width:100%;border-collapse:collapse;font-size:.65rem}
   table.main-tbl thead th{background:var(--surface2);font-size:.53rem;font-weight:600;text-transform:uppercase;
@@ -199,8 +167,6 @@
   td.num{font-family:'Roboto',sans-serif;font-weight:700;font-size:.72rem;color:var(--ink);text-align:right}
   td.ad-nm{font-weight:500;color:var(--ink);max-width:220px;overflow:hidden;text-overflow:ellipsis}
   .seg-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
-
-  /* ── FILTER BAR ── */
   .fbar{display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap}
   .fbar input{background:var(--surface);border:1px solid var(--border);border-radius:9px;
     padding:7px 13px;font-size:.72rem;font-family:'Roboto',sans-serif;color:var(--ink);outline:none;width:200px}
@@ -212,26 +178,18 @@
     font-family:'Roboto',sans-serif;transition:all .15s;margin-left:auto}
   .export-btn:hover{background:var(--sage);color:#fff}
   .row-ct{font-size:.62rem;color:var(--muted);font-weight:500}
-
-  /* ── EMPTY / INITIAL ── */
   .empty-box{background:var(--surface);border:1px solid var(--border);border-radius:18px;
     padding:60px;text-align:center;color:var(--muted)}
   .empty-box .ei{font-size:2.8rem;margin-bottom:12px}
   .empty-box .et{font-family:'Roboto',sans-serif;font-size:1.15rem;font-weight:700;color:var(--ink);margin-bottom:6px}
   .empty-box .es{font-size:.78rem;line-height:1.7;max-width:440px;margin:0 auto}
-
-  /* ── FOOTER ── */
   footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--border);
     display:flex;justify-content:space-between;font-size:.6rem;color:var(--muted);align-items:center}
   .f-badge{display:flex;align-items:center;gap:6px;background:var(--gold-lt);
     border:1px solid rgba(184,136,58,.2);color:var(--gold);padding:5px 13px;border-radius:100px;font-weight:600}
   .dot{width:5px;height:5px;border-radius:50%;background:currentColor;animation:blink 2s ease infinite}
   @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
-
-  /* divider */
   .divider{height:1px;background:var(--border);margin:14px 0}
-
-  /* ── OVERVIEW PERF GRID (7 cards) ── */
   .overview-perf-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px}
   .ov-card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:16px 15px;
     transition:box-shadow .2s,transform .2s;position:relative;overflow:hidden}
@@ -247,34 +205,13 @@
   .ov-label{font-size:.57rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px}
   .ov-val{font-family:'Roboto',sans-serif;font-size:1.5rem;font-weight:700;color:var(--ink);line-height:1}
   .ov-sub{font-size:.57rem;color:var(--muted);margin-top:4px}
-
-  /* ── SPLIT GRID (3 cols: Women, Men, Creatives count) ── */
   .split-grid{display:grid;grid-template-columns:1fr 1fr 0.7fr;gap:16px;margin-bottom:22px}
   .p-rows{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-
-  /* ── BOTTOM GRID ── */
   .bottom-grid{display:grid;grid-template-columns:1.3fr 0.9fr 1fr;gap:16px;margin-bottom:22px}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px}
-  .divider{height:1px;background:var(--border)}
-  /* Account source pills in combined view */
   .acct-pill{display:inline-block;font-size:.5rem;font-weight:700;padding:2px 6px;border-radius:100px;vertical-align:middle;margin-left:4px}
   .acct-pill.a1{background:var(--a1-lt);color:var(--a1)}
   .acct-pill.a2{background:var(--a2-lt);color:var(--a2)}
   .acct-pill.a3{background:var(--a3-lt);color:var(--a3)}
-
-  /* ── ROAS CARDS ── */
-  .roas-card{border-radius:15px;padding:18px 22px;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden}
-  .roas-card.w{background:linear-gradient(135deg,var(--blush),#e06080)}
-  .roas-card.m{background:linear-gradient(135deg,var(--slate),#3a5a95)}
-
-  /* ── BAR CHART ── */
-  .bar-list{display:flex;flex-direction:column;gap:9px;margin-top:9px}
-  .bar-item .bh{display:flex;justify-content:space-between;font-size:.62rem;font-weight:500;color:var(--ink2);margin-bottom:4px}
-  .bh span{font-weight:700;color:var(--terra)}
-  .bar-track{height:6px;background:var(--bg2);border-radius:99px;overflow:hidden;border:1px solid var(--border)}
-  .bar-fill{height:100%;border-radius:99px}
-
-
   .overview-perf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
   .ov-card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:18px 16px;
     position:relative;overflow:hidden;transition:box-shadow .2s,transform .2s}
@@ -295,8 +232,6 @@
 </style>
 </head>
 <body>
-
-<!-- HEADER -->
 <header>
   <div class="logo">
     <h1>Creative <em>Testing</em></h1>
@@ -304,13 +239,10 @@
   </div>
   <div class="header-right">
     <div class="last-sync" id="lastSync">Not yet synced</div>
-
-    <!-- Definition Button -->
     <button onclick="toggleDefModal()" style="display:flex;align-items:center;gap:7px;background:var(--slate-lt);color:var(--slate);border:1px solid rgba(74,111,165,.3);border-radius:100px;padding:7px 15px;font-family:'Roboto',sans-serif;font-size:.7rem;font-weight:600;cursor:pointer;transition:all .2s" onmouseover="this.style.background='var(--slate)';this.style.color='#fff'" onmouseout="this.style.background='var(--slate-lt)';this.style.color='var(--slate)'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       Definitions
     </button>
-
     <div class="gs-pill">
       <svg viewBox="0 0 24 24"><path d="M19.7 3H14.5L9 9l-5.5 6H1v6h3.5l5-6 5.5 6H19.7c1.2 0 2.3-1 2.3-2.3V5.3C22 4 21 3 19.7 3zm0 15.7H15l-5-5.5L14.5 8h5.2v10.7z"/></svg>
       Google Sheets
@@ -319,66 +251,50 @@
 </header>
 
 <div id="ctDashboardWrap">
-<!-- CONNECT PANEL -->
 <div class="connect-panel">
   <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap">
     <div>
       <div class="cp-title" style="margin-bottom:2px">Creative Testing Dashboard</div>
       <div class="cp-sub" style="margin-bottom:0">Live · Supabase Connected · Meta Ads</div>
     </div>
-
-    <!-- Compact override inputs (hidden by default, shown via toggle) -->
     <div id="credOverride" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
       <div class="fg" style="gap:3px">
         <label>Spreadsheet ID</label>
-        <input type="text" id="sheetId" placeholder="Paste ID…"
-          style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;width:220px"/>
+        <input type="text" id="sheetId" placeholder="Paste ID…" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;width:220px"/>
       </div>
       <div class="fg" style="gap:3px">
         <label>API Key</label>
-        <input type="password" id="apiKey" placeholder="AIzaSy…"
-          style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;width:180px"/>
+        <input type="password" id="apiKey" placeholder="AIzaSy…" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;width:180px"/>
       </div>
     </div>
-
     <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
-      <button onclick="toggleCredOverride()"
-        style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:6px 12px;font-size:.65rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif">
-        ⚙ Override credentials
-      </button>
+      <button onclick="toggleCredOverride()" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:6px 12px;font-size:.65rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif">⚙ Override credentials</button>
       <button class="fetch-btn" id="fetchBtn" onclick="fetchSheet()">
         <div class="spinner"></div>
         <span class="btn-text">↓ Load Account</span>
       </button>
     </div>
   </div>
-
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
     <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)">Account</span>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <!-- ALL ACCOUNTS tab -->
-      <div class="acct-sel-tab" id="aSelTabAll" onclick="selectAccount(0,this)"
-        style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
+      <div class="acct-sel-tab" id="aSelTabAll" onclick="selectAccount(0,this)" style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
         <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">All Accounts</div>
         <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Combined View</div>
       </div>
-      <div class="acct-sel-tab active" id="aSelTab1" onclick="selectAccount(1,this)"
-        style="background:var(--a1-lt);border:2px solid rgba(124,77,189,.25);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
+      <div class="acct-sel-tab active" id="aSelTab1" onclick="selectAccount(1,this)" style="background:var(--a1-lt);border:2px solid rgba(124,77,189,.25);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
         <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--a1)">Account 1</div>
         <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Raho Saadaa</div>
       </div>
-      <div class="acct-sel-tab" id="aSelTab2" onclick="selectAccount(2,this)"
-        style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
+      <div class="acct-sel-tab" id="aSelTab2" onclick="selectAccount(2,this)" style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
         <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Account 2</div>
         <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Fourth Ad Account - SD</div>
       </div>
-      <div class="acct-sel-tab" id="aSelTab3" onclick="selectAccount(3,this)"
-        style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
+      <div class="acct-sel-tab" id="aSelTab3" onclick="selectAccount(3,this)" style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
         <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Account 3</div>
         <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);margin-top:1px">Third Ad Account - SD</div>
       </div>
-      <div class="acct-sel-tab" id="aSelTabEngine" onclick="selectAnalysisEngine(this)"
-        style="background:linear-gradient(135deg,rgba(0,188,212,0.08),rgba(157,0,255,0.08));border:1px solid rgba(0,188,212,0.25);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s;position:relative">
+      <div class="acct-sel-tab" id="aSelTabEngine" onclick="selectAnalysisEngine(this)" style="background:linear-gradient(135deg,rgba(0,188,212,0.08),rgba(157,0,255,0.08));border:1px solid rgba(0,188,212,0.25);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s;position:relative">
         <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#00bcd4">Analysis Engine</div>
         <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;background:linear-gradient(90deg,#00bcd4,#9d00ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-top:1px">All Accounts</div>
         <div style="position:absolute;top:6px;right:8px;width:6px;height:6px;border-radius:50%;background:#00bcd4;box-shadow:0 0 6px #00bcd4;animation:pulse-dot 2s infinite"></div>
@@ -388,193 +304,119 @@
       <div class="as-dot"></div><span id="fetchStatusMsg">Not loaded</span>
     </div>
   </div>
-
+</div>
 </div>
 
-  
-
-</div>
-
-<!-- STATUS -->
 <div id="statusBar"><div class="sdot"></div><span id="statusMsg"></span></div>
 
-<!-- FILTER BAR -->
 <div id="controls" style="display:none">
-  <div class="ctrl-bar" style="flex-wrap:wrap;gap:10px">
-    <label style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Date Range</label>
-    <input type="date" id="dateFrom" onchange="applyFilters()"
-      style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:6px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none"/>
-    <span style="font-size:.7rem;color:var(--muted);align-self:center">→</span>
-    <input type="date" id="dateTo" onchange="applyFilters()"
-      style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:6px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none"/>
+  <!-- ── FILTER CARD ── -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 20px;margin-bottom:16px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--terra),var(--sage));border-radius:16px 16px 0 0"></div>
 
-    <!-- Copy toggle -->
-    
-
-    <button onclick="clearFilters()" style="background:var(--bg2);color:var(--muted);border:1px solid var(--border);border-radius:9px;padding:6px 14px;font-size:.7rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif">Clear</button>
-
-    <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-      <span id="dateRangeLabel" style="font-size:.65rem;color:var(--terra);font-weight:600;background:var(--terra-lt);border:1px solid rgba(192,96,58,.2);padding:4px 12px;border-radius:100px">All dates</span>
-      <span class="total-badge" id="totalBadge"></span>
-    </div>
-  </div>
-
-  <!-- Row 2: Ad Name Filter + Copy toggle -->
-  <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
-
-    <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Ad Name</span>
-
-    <!-- Single smart input — supports "26/03/26 or 27/03/26" -->
-    <div style="display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:9px;overflow:hidden;flex:1;max-width:480px">
-      <select id="nameFilterMode" onchange="applyFilters()"
-        style="border:none;background:var(--surface2);padding:6px 10px;font-family:'Roboto',sans-serif;font-size:.7rem;color:var(--ink2);outline:none;cursor:pointer;border-right:1px solid var(--border);flex-shrink:0">
-        <option value="contains">contains</option>
-        <option value="not_contains">doesn't contain</option>
-      </select>
-      <input type="text" id="nameFilterValue" placeholder="e.g. 26/03/26 or 27/03/26 or BST"
-        oninput="applyFilters()"
-        style="border:none;background:var(--surface);padding:6px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;flex:1;min-width:200px"/>
-      <button id="nameFilterClear" onclick="clearNameFilter()" style="display:none;border:none;background:transparent;color:var(--muted);padding:0 10px;font-size:1rem;cursor:pointer;line-height:1">×</button>
-    </div>
-
-    <!-- Copy exclude toggle — always visible -->
-    <div style="display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:6px 12px;cursor:pointer;user-select:none" onclick="toggleExcludeCopy()">
-      <div id="copyToggleDot" style="width:26px;height:15px;background:var(--terra);border-radius:99px;position:relative;transition:background .2s;flex-shrink:0">
-        <div id="copyToggleThumb" style="position:absolute;top:2px;right:2px;width:11px;height:11px;background:#fff;border-radius:50%;transition:right .2s"></div>
+    <!-- Row 1: Date range + Ad count badge -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);min-width:80px">Date Range</span>
+      <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:3px 6px">
+        <input type="date" id="dateFrom" onchange="applyFilters()" style="background:transparent;border:none;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;padding:4px 6px"/>
+        <span style="color:var(--muted);font-size:.75rem">→</span>
+        <input type="date" id="dateTo" onchange="applyFilters()" style="background:transparent;border:none;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;padding:4px 6px"/>
       </div>
-      <span style="font-size:.68rem;font-weight:600;color:var(--ink2)" id="copyToggleLabel">Excl. copy</span>
+      <button onclick="clearFilters()" style="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:5px 12px;font-size:.65rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .15s" onmouseover="this.style.color='var(--ink)';this.style.borderColor='var(--border2)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Clear all</button>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        <span id="dateRangeLabel" style="font-size:.62rem;color:var(--terra);font-weight:600;background:var(--terra-lt);border:1px solid rgba(192,96,58,.2);padding:3px 10px;border-radius:100px">All dates</span>
+        <span class="total-badge" id="totalBadge" style="font-size:.62rem;color:var(--muted);font-weight:600;background:var(--bg2);border:1px solid var(--border);padding:3px 10px;border-radius:100px"></span>
+      </div>
     </div>
 
-    <!-- Active filter chip -->
-    <div id="nameFilterChip" style="display:none;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:3px 10px;font-size:.64rem;font-weight:600;color:var(--ink2)">
-      <span id="nameFilterChipText"></span>
+    <div style="height:1px;background:var(--border);margin:12px 0"></div>
+
+    <!-- Row 2: Ad name filter + Copy toggle -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);min-width:80px">Ad Name</span>
+      <div style="display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:9px;overflow:hidden;flex:1;max-width:500px;transition:border-color .2s" onfocusin="this.style.borderColor='var(--terra)'" onfocusout="this.style.borderColor='var(--border)'">
+        <select id="nameFilterMode" onchange="applyFilters()" style="border:none;border-right:1px solid var(--border);background:var(--bg2);padding:7px 10px;font-family:'Roboto',sans-serif;font-size:.68rem;color:var(--ink2);outline:none;cursor:pointer;flex-shrink:0">
+          <option value="contains">contains</option>
+          <option value="not_contains">doesn't contain</option>
+        </select>
+        <input type="text" id="nameFilterValue" placeholder="e.g. 26/03/26 or 27/03/26 or BST" oninput="applyFilters()" style="border:none;background:transparent;padding:7px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;flex:1;min-width:180px"/>
+        <button id="nameFilterClear" onclick="clearNameFilter()" style="display:none;border:none;background:transparent;color:var(--muted);padding:0 12px;font-size:1.1rem;cursor:pointer;line-height:1">×</button>
+      </div>
+      <div id="nameFilterChip" style="display:none;align-items:center;gap:5px;background:var(--terra-lt);border:1px solid rgba(192,96,58,.2);border-radius:100px;padding:3px 10px;font-size:.62rem;font-weight:600;color:var(--terra)">
+        <span id="nameFilterChipText"></span>
+      </div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:6px 12px;cursor:pointer;user-select:none;transition:all .15s" onclick="toggleExcludeCopy()" onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div id="copyToggleDot" style="width:28px;height:16px;background:var(--terra);border-radius:99px;position:relative;transition:background .2s;flex-shrink:0">
+          <div id="copyToggleThumb" style="position:absolute;top:2px;right:2px;width:12px;height:12px;background:#fff;border-radius:50%;transition:right .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
+        </div>
+        <span style="font-size:.68rem;font-weight:600;color:var(--ink2)" id="copyToggleLabel">Excl. copy</span>
+      </div>
     </div>
 
+    <div style="height:1px;background:var(--border);margin:12px 0"></div>
+
+    <!-- Row 3: Created Date filter -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);min-width:80px">Created Date</span>
+      <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:3px 6px">
+        <input type="date" id="createdFrom" onchange="applyFilters()" style="background:transparent;border:none;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;padding:4px 6px"/>
+        <span style="color:var(--muted);font-size:.75rem">→</span>
+        <input type="date" id="createdTo" onchange="applyFilters()" style="background:transparent;border:none;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;padding:4px 6px"/>
+      </div>
+      <button onclick="clearCreatedFilter()" style="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:5px 12px;font-size:.65rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .15s" onmouseover="this.style.color='var(--ink)';this.style.borderColor='var(--border2)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Clear</button>
+      <div id="createdChip" style="display:none;align-items:center;gap:5px;background:var(--slate-lt);border:1px solid rgba(74,111,165,.25);border-radius:100px;padding:3px 10px;font-size:.62rem;font-weight:600;color:var(--slate)">
+        <span id="createdChipText"></span>
+      </div>
+    </div>
   </div>
 
-  <!-- Row 3: Ad Created Date filter -->
-  <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
-    <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Created Date</span>
-    <input type="date" id="createdFrom" onchange="applyFilters()"
-      style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:6px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none"/>
-    <span style="font-size:.7rem;color:var(--muted);align-self:center">→</span>
-    <input type="date" id="createdTo" onchange="applyFilters()"
-      style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:6px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none"/>
-    <button onclick="clearCreatedFilter()" style="background:var(--bg2);color:var(--muted);border:1px solid var(--border);border-radius:9px;padding:6px 14px;font-size:.7rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif">Clear</button>
-    <!-- active chip -->
-    <div id="createdChip" style="display:none;align-items:center;gap:5px;background:var(--slate-lt);border:1px solid rgba(74,111,165,.25);border-radius:100px;padding:3px 10px;font-size:.64rem;font-weight:600;color:var(--slate)">
-      <span id="createdChipText"></span>
-    </div>
-  </div>
-
-<!-- OVERVIEW — RESULTS SUMMARY -->
 <div id="resultsSummaryWrap" style="display:none;margin-bottom:18px">
   <div class="sec">Overview — Results
     <span class="stag stag-terra">Per Ad · Excl. Copy</span>
-    <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
-      <span style="font-size:.6rem;color:var(--muted);font-weight:600">TARGET IMP</span>
-      <input type="number" id="targetImp" value="50000" onchange="applyFilters()"
-        style="width:85px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;text-align:right"/>
-      <span style="font-size:.6rem;color:var(--muted);font-weight:600">TARGET ROAS</span>
-      <input type="number" id="targetRoas" value="3.0" step="0.1" onchange="applyFilters()"
-        style="width:65px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;text-align:right"/>
+    <span style="margin-left:auto">
+      <button onclick="toggleDefModal()" style="display:flex;align-items:center;gap:5px;background:var(--slate-lt);color:var(--slate);border:1px solid rgba(74,111,165,.25);border-radius:7px;padding:4px 11px;font-family:'Roboto',sans-serif;font-size:.6rem;font-weight:600;cursor:pointer;transition:all .2s" onmouseover="this.style.background='var(--slate)';this.style.color='#fff'" onmouseout="this.style.background='var(--slate-lt)';this.style.color='var(--slate)'">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Edit Thresholds
+      </button>
     </span>
   </div>
-  <!-- Category chips row -->
+  <input type="number" id="targetImp" value="50000" style="display:none"/>
+  <input type="number" id="targetRoas" value="3.0" step="0.1" style="display:none"/>
   <div id="resultSummary" style="display:flex;gap:10px;flex-wrap:wrap"></div>
-
-  <!-- Creative Type Funnel Breakdown -->
   <div id="ctypeFunnel" style="margin-top:16px;display:none">
-    <div class="sec" style="margin-bottom:12px">Creative Type Breakdown
-      <span class="stag stag-terra">Winner · ITE · Analyse · Discarded</span>
-    </div>
+    <div class="sec" style="margin-bottom:12px">Creative Type Breakdown <span class="stag stag-terra">Winner · ITE · Analyse · Discarded</span></div>
     <div id="ctypeFunnelTable" style="overflow-x:auto"></div>
   </div>
 </div>
 
-<!-- OVERVIEW — PERFORMANCE -->
-<!-- Total Amount Spent | Total Impressions | Avg Video Play Time | Avg Outbound CTR | Avg Engagement Rate | Avg ThruPlay Rate | CT ROAS -->
 <div id="ovPerfWrap" style="display:none">
   <div class="sec">Overview — Performance <span class="stag stag-terra">Sum &amp; Avg · Excl. Copy</span></div>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px">
-
-    <div class="ov-card k-terra">
-      <div class="ov-label">Total Amount Spent</div>
-      <div class="ov-val" id="ov_spend">—</div>
-      <div class="ov-sub">Sum · INR</div>
-    </div>
-
-    <div class="ov-card k-sage">
-      <div class="ov-label">Total Impressions</div>
-      <div class="ov-val" id="ov_impr">—</div>
-      <div class="ov-sub">Sum</div>
-    </div>
-
-    <div class="ov-card k-slate">
-      <div class="ov-label">Avg. Hook Rate</div>
-      <div class="ov-val" id="ov_hook2">—</div>
-      <div class="ov-sub">Sum(3-Sec Video Plays) ÷ Sum(Impressions)</div>
-    </div>
-
-    <div class="ov-card k-blush">
-      <div class="ov-label">Avg. Outbound CTR</div>
-      <div class="ov-val" id="ov_ctr">—</div>
-      <div class="ov-sub">Sum(Outbound Clicks) ÷ Sum(Impressions)</div>
-    </div>
-
-    <div class="ov-card k-gold">
-      <div class="ov-label">Avg. Engagement Rate</div>
-      <div class="ov-val" id="ov_eng">—</div>
-      <div class="ov-sub">Sum(Post Engagements) ÷ Sum(Impressions)</div>
-    </div>
-
-    <div class="ov-card k-terra">
-      <div class="ov-label">Avg. ThruPlay Rate</div>
-      <div class="ov-val" id="ov_thru">—</div>
-      <div class="ov-sub">Sum(ThruPlays) ÷ Sum(Impressions)</div>
-    </div>
-
-    <div class="ov-card k-slate">
-      <div class="ov-label">Avg. Hold Rate</div>
-      <div class="ov-val" id="ov_hold">—</div>
-      <div class="ov-sub">Sum(ThruPlays) ÷ Sum(3-Sec Video Plays)</div>
-    </div>
-
-    <div class="ov-card roas-ov">
-      <div class="ov-label">CT ROAS</div>
-      <div class="ov-val" id="ov_roas">—</div>
-      <div class="ov-sub">Sum(Conv. Value) ÷ Sum(Spend)</div>
-    </div>
-
+    <div class="ov-card k-terra"><div class="ov-label">Total Amount Spent</div><div class="ov-val" id="ov_spend">—</div><div class="ov-sub">Sum · INR</div></div>
+    <div class="ov-card k-sage"><div class="ov-label">Total Impressions</div><div class="ov-val" id="ov_impr">—</div><div class="ov-sub">Sum</div></div>
+    <div class="ov-card k-slate"><div class="ov-label">Avg. Hook Rate</div><div class="ov-val" id="ov_hook2">—</div><div class="ov-sub">Sum(3-Sec Video Plays) ÷ Sum(Impressions)</div></div>
+    <div class="ov-card k-blush"><div class="ov-label">Avg. Outbound CTR</div><div class="ov-val" id="ov_ctr">—</div><div class="ov-sub">Sum(Outbound Clicks) ÷ Sum(Impressions)</div></div>
+    <div class="ov-card k-gold"><div class="ov-label">Avg. Engagement Rate</div><div class="ov-val" id="ov_eng">—</div><div class="ov-sub">Sum(Post Engagements) ÷ Sum(Impressions)</div></div>
+    <div class="ov-card k-terra"><div class="ov-label">Avg. ThruPlay Rate</div><div class="ov-val" id="ov_thru">—</div><div class="ov-sub">Sum(ThruPlays) ÷ Sum(Impressions)</div></div>
+    <div class="ov-card k-slate"><div class="ov-label">Avg. Hold Rate</div><div class="ov-val" id="ov_hold">—</div><div class="ov-sub">Sum(ThruPlays) ÷ Sum(3-Sec Video Plays)</div></div>
+    <div class="ov-card roas-ov"><div class="ov-label">CT ROAS</div><div class="ov-val" id="ov_roas">—</div><div class="ov-sub">Sum(Conv. Value) ÷ Sum(Spend)</div></div>
   </div>
 </div>
 
-<!-- OVERVIEW — CREATIVES -->
 <div id="creativesWrap" style="display:none">
   <div class="sec">Overview — Creatives <span class="stag stag-gold">Detected from Ad Name · Excl. Copy</span></div>
   <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
     <div class="card">
-      <div class="sec" style="margin-bottom:12px">Product in Focus
-        <span style="font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.04em;text-transform:none">from ad name · count desc</span>
-      </div>
-      <table class="mini-table" id="productTable">
-        <thead><tr><th>Product in Focus</th><th style="text-align:right">COUNT</th></tr></thead>
-        <tbody></tbody>
-      </table>
+      <div class="sec" style="margin-bottom:12px">Product in Focus <span style="font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.04em;text-transform:none">from ad name · count desc</span></div>
+      <table class="mini-table" id="productTable"><thead><tr><th>Product in Focus</th><th style="text-align:right">COUNT</th></tr></thead><tbody></tbody></table>
     </div>
     <div class="card">
-      <div class="sec" style="margin-bottom:12px">Creative Type
-        <span style="font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.04em;text-transform:none">IFAD/Graphic AD · VID · STATIC</span>
-      </div>
-      <table class="mini-table" id="ctypeTable">
-        <thead><tr><th>Creative Type</th><th style="text-align:right">COUNT</th></tr></thead>
-        <tbody></tbody>
-      </table>
+      <div class="sec" style="margin-bottom:12px">Creative Type <span style="font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.04em;text-transform:none">IFAD/Graphic AD · VID · STATIC</span></div>
+      <table class="mini-table" id="ctypeTable"><thead><tr><th>Creative Type</th><th style="text-align:right">COUNT</th></tr></thead><tbody></tbody></table>
     </div>
   </div>
 </div>
 
-<!-- INITIAL EMPTY -->
 <div id="initEmpty" class="empty-box">
   <div class="ei">📊</div>
   <div class="et">Connect your Google Sheet</div>
@@ -587,20 +429,11 @@
 </footer>
 
 <script>
-// ════════════════════════════════════════
-// CONFIG — Hardcoded credentials
-// Update these values here instead of entering in UI
-// ════════════════════════════════════════
-// ── Read credentials from URL params first, fall back to hardcoded values ──
-// Usage: dashboard.html?sheetId=YOUR_SHEET_ID&apiKey=YOUR_API_KEY
 const _urlParams         = new URLSearchParams(window.location.search);
-const HARDCODED_SHEET_ID = _urlParams.get('sheetId') || '';  // fallback: paste here
-const HARDCODED_API_KEY  = _urlParams.get('apiKey')  || '';  // fallback: paste here
-
-// ── Supabase config — paste your values here ──
-const SUPABASE_URL  = _urlParams.get('supabaseUrl')  || '';  // https://xxxx.supabase.co
-const SUPABASE_ANON = _urlParams.get('supabaseAnon') || '';  // anon/public key
-// Supabase fetch uses Range header — no page size limit needed
+const HARDCODED_SHEET_ID = _urlParams.get('sheetId') || '';
+const HARDCODED_API_KEY  = _urlParams.get('apiKey')  || '';
+const SUPABASE_URL  = _urlParams.get('supabaseUrl')  || '';
+const SUPABASE_ANON = _urlParams.get('supabaseAnon') || '';
 
 const SHEET_ACCOUNTS = [
   { num:1, name:'Raho Saadaa',             tab:'Meta Account 1' },
@@ -609,89 +442,43 @@ const SHEET_ACCOUNTS = [
 ];
 
 let ALL          = [];
-let ACTIVE_ACCT  = 1;   // 0 = All Accounts combined
-const EXCLUDE_COPY = false; // copy handled via name filter
-
-// ════════════════════════════════════════
-// PRODUCT DETECTION from ad name
-// e.g. CTP-BST+IFAD+NA... -> BST
-// Tokens split by +, -, space
-// ════════════════════════════════════════
-// PRODUCTS list removed — product detection now uses naming convention:
-// CTP-<PRODUCT>+... or CLP-<PRODUCT>+... → extracts PRODUCT tag between prefix and first +;
+let ACTIVE_ACCT  = 1;
+const EXCLUDE_COPY = false;
 
 function detectProduct(name){
-  const PRODUCTS = [
-    'BST','BCO','COO','SDAFD','CL','TTB','TW','GE','SDCPT','SDELKB','SDELPT',
-    'SDFLK','SDFSK','SDCSS','SDLS','SDRPT','SDRST','SDVPL','SMCP','SMELMS',
-    'SMFLK','SMFSK','SMLS','BR','SDASP','SDCP','SDWLP','GP','SUZNS','WW',
-    'STL','LE','WLP','SDLWC','SDTTB','SDECT','SDALS', 'WBS', 'SD5', 'SUPFH', 'SDAWP', 'SDCSP'
-  ];
-  // Split name into tokens by common delimiters
+  const PRODUCTS = ['BST','BCO','COO','SDAFD','CL','TTB','TW','GE','SDCPT','SDELKB','SDELPT','SDFLK','SDFSK','SDCSS','SDLS','SDRPT','SDRST','SDVPL','SMCP','SMELMS','SMFLK','SMFSK','SMLS','BR','SDASP','SDCP','SDWLP','GP','SUZNS','WW','STL','LE','WLP','SDLWC','SDTTB','SDECT','SDALS','WBS','SD5','SUPFH','SDAWP','SDCSP'];
   const tokens = name.toUpperCase().split(/[\+\-\_\s\.]+/);
-  // Check each token against product list
-  for(const t of tokens){
-    if(PRODUCTS.includes(t)) return t;
-  }
-  // Fallback: substring match for multi-char codes
+  for(const t of tokens){ if(PRODUCTS.includes(t)) return t; }
   const n = name.toUpperCase();
-  for(const p of PRODUCTS){
-    if(p.length > 2 && n.includes(p)) return p;
-  }
+  for(const p of PRODUCTS){ if(p.length > 2 && n.includes(p)) return p; }
   return 'Other';
 }
 
-// ════════════════════════════════════════
-// CREATIVE TYPE DETECTION from ad name
-// Priority: IFAD/GAD > VRP/NNC/VIDEO > STATIC
-// Based on CSV data patterns observed
-// ════════════════════════════════════════
 function detectCtype(name){
   const n = name.toUpperCase();
-  // IFAD — must contain IFAD keyword
   if(n.includes('IFAD')) return 'IFAD';
-  // Graphic AD — contains GAD but NOT IFAD (SC_GAD, _GAD-, GAD- patterns)
   if(n.includes('GAD')) return 'Graphic AD-';
-  // VID — VRP, NNC, VIDEO, IGP patterns
   if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || /^VID-AD/.test(n)) return 'VID';
-  // STATIC
   if(n.includes('STATIC') || n.includes('_ST_') || n.includes('+ST+')) return 'STATIC';
-  return 'VID'; // untagged ads classified as VID
+  return 'VID';
 }
 
-// ════════════════════════════════════════
-// COPY DETECTION
-// Matches: "Copy", "– Copy", "- Copy", "Copy 2" etc.
-// ════════════════════════════════════════
-function isCopyAd(name){
-  return /copy/i.test(name);
-}
+function isCopyAd(name){ return /copy/i.test(name); }
 
-// ════════════════════════════════════════
-// DATE HELPERS
-// CSV date format: 2026-04-01 (yyyy-mm-dd)
-// ════════════════════════════════════════
-// Extract date from ad name — format DD/MM/YY at the end
-// e.g. CLP-SDAWP+MU+NA+IHP+SIF-3124-P1-purva_bhumak-05/03/26 → 05 Mar 2026
 function extractDateFromAdName(name){
   if(!name) return null;
-  // Match all DD/MM/YY or DD/MM/YYYY patterns in the name
   const re = /(\d{1,2})\/(\d{2})\/(\d{2,4})/g;
   const matches = [];
   let m;
   while((m = re.exec(name)) !== null) matches.push(m);
   if(!matches.length) return null;
-  // Take the last match — the date suffix at the end of the ad name
   const last = matches[matches.length - 1];
-  let d  = parseInt(last[1]);
-  let mo = parseInt(last[2]);
-  let y  = parseInt(last[3]);
-  if(y < 100) y = 2000 + y; // 26 → 2026
+  let d=parseInt(last[1]),mo=parseInt(last[2]),y=parseInt(last[3]);
+  if(y < 100) y = 2000 + y;
   const dt = new Date(y, mo - 1, d);
   return isNaN(dt.getTime()) ? null : dt;
 }
 
-// Keep for any fallback use
 function parseSheetDate(raw){
   if(!raw) return null;
   const s = String(raw).trim();
@@ -714,69 +501,44 @@ function setDefaultDates(){
   document.getElementById('dateFrom').value=fmt(mon);
   document.getElementById('dateTo').value  =fmt(sun);
 }
-function fmtDate(d){
-  return d?d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'?';
-}
+function fmtDate(d){ return d?d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'?'; }
 
-// ════════════════════════════════════════
-// HELPERS
-// ════════════════════════════════════════
 const n2f  = v => { const x=parseFloat(v); return isNaN(x)?0:x; };
 const fI   = n => isNaN(n)?'—':Math.round(n).toLocaleString('en-IN');
 const fD   = n => (n===null||n===undefined||isNaN(n))?'—':parseFloat(n).toFixed(2);
 const fP   = n => (n===null||n===undefined||isNaN(n))?'—':parseFloat(n).toFixed(2)+'%';
 const fC   = n => (!n||isNaN(n))?'—':'₹'+parseFloat(n).toFixed(2);
-// Video Play Time: weighted avg in seconds
-// META displays as integer seconds (e.g. "3s")
-// Old sheet data still has /1000 values — show as ms until backfill reruns
 const fVPT = n => {
   if(n===null||n===undefined||isNaN(n)) return '—';
   const sec = parseFloat(n);
-  if(sec >= 60)  return (sec/60).toFixed(1)+'m';
-  if(sec >= 1)   return sec.toFixed(1)+'s';
-  if(sec > 0)    return (sec * 1000).toFixed(0)+'ms'; // old data pre-backfill
+  if(sec >= 60) return (sec/60).toFixed(1)+'m';
+  if(sec >= 1) return sec.toFixed(1)+'s';
+  if(sec > 0) return (sec * 1000).toFixed(0)+'ms';
   return '—';
 };
 const sumF = (a,fn)=>a.reduce((s,x)=>s+(fn(x)||0),0);
-// avgF: averages non-zero values only
-// Ignores: 0, 0.0, NaN, Infinity, null, undefined, empty string
-// e.g. [10, 0, 5, 0, 0] → avg of [10, 5] = 7.5
 const avgF = (a, fn) => {
-  const v = a
-    .map(fn)
-    .map(x => parseFloat(x))           // ensure numeric
-    .filter(x => isFinite(x) && !isNaN(x) && x > 0); // strictly positive non-zero
+  const v = a.map(fn).map(x => parseFloat(x)).filter(x => isFinite(x) && !isNaN(x) && x > 0);
   return v.length ? v.reduce((s, x) => s + x, 0) / v.length : 0;
 };
 const setEl=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-const setStatus=(msg,t='info')=>{
-  const b=document.getElementById('statusBar');
-  b.style.display='flex'; b.className=t;
-  document.getElementById('statusMsg').textContent=msg;
-};
-const setFetchSt=(msg,cls)=>{
-  const e=document.getElementById('fetchStatus');
-  if(e){e.className='acct-st '+cls;document.getElementById('fetchStatusMsg').textContent=msg;}
-};
+const setStatus=(msg,t='info')=>{ const b=document.getElementById('statusBar'); b.style.display='flex'; b.className=t; document.getElementById('statusMsg').textContent=msg; };
+const setFetchSt=(msg,cls)=>{ const e=document.getElementById('fetchStatus'); if(e){e.className='acct-st '+cls;document.getElementById('fetchStatusMsg').textContent=msg;} };
 
-// ════════════════════════════════════════
-// ACCOUNT SELECTOR
-// ════════════════════════════════════════
 function selectAccount(num,el){
   document.getElementById("analysisEnginePanel").style.display="none";
   var ctWrap = document.getElementById('ctDashboardWrap');
   if(ctWrap) ctWrap.style.display = '';
   ACTIVE_ACCT=num;
   const C=[
-    {bg:'var(--surface2)', bd:'rgba(28,25,22,.25)',   lc:'var(--ink)'},   // idx 0 = All
-    {bg:'var(--a1-lt)',    bd:'rgba(124,77,189,.25)', lc:'var(--a1)'},    // idx 1 = Acct 1
-    {bg:'var(--a2-lt)',    bd:'rgba(192,96,58,.25)',  lc:'var(--a2)'},    // idx 2 = Acct 2
-    {bg:'var(--a3-lt)',    bd:'rgba(74,124,111,.25)', lc:'var(--a3)'},    // idx 3 = Acct 3
+    {bg:'var(--surface2)', bd:'rgba(28,25,22,.25)',   lc:'var(--ink)'},
+    {bg:'var(--a1-lt)',    bd:'rgba(124,77,189,.25)', lc:'var(--a1)'},
+    {bg:'var(--a2-lt)',    bd:'rgba(192,96,58,.25)',  lc:'var(--a2)'},
+    {bg:'var(--a3-lt)',    bd:'rgba(74,124,111,.25)', lc:'var(--a3)'},
   ];
-  // Tabs: [All, Acct1, Acct2, Acct3] → index offset by 0
   document.querySelectorAll('.acct-sel-tab').forEach((t, i) => {
-    const tabNum = i; // 0=All, 1=Acct1, 2=Acct2, 3=Acct3
-    const on     = tabNum === num;
+    const tabNum = i;
+    const on = tabNum === num;
     t.style.background = on ? C[i].bg    : 'var(--surface2)';
     t.style.border     = on ? '2px solid '+C[i].bd : '1px solid var(--border)';
     t.style.transform  = on ? 'translateY(-1px)' : 'none';
@@ -785,1062 +547,518 @@ function selectAccount(num,el){
   });
 }
 
-// ════════════════════════════════════════
-// COPY TOGGLE
-// ════════════════════════════════════════
 function toggleCredOverride(){
   const el = document.getElementById('credOverride');
   if(!el) return;
   el.style.display = el.style.display === 'none' ? 'flex' : 'none';
 }
 
-
-
-// ════════════════════════════════════════
-// PARSE ROWS
-// Exact CSV column mapping:
-// Date | Ad Name | Ad ID | Impressions | Purchase ROAS | Cost Per Result |
-// CPC | FTEWV | Reach | CPM | Frequency | Amount spent (INR) | CTR |
-// CHECKOUT COMPLETION % | CR% | ATC/LC% | CI/ATC% |
-// Cost per FTEWV | Cost per NCP | Reporting starts | Reporting ends |
-// Campaign Name | Campaign ID | Ad Created | True LTV Reach | True LTV Freq | Ad Status
-// ════════════════════════════════════════
 function parseRows(rows){
   if(!rows||rows.length<2) return [];
   const headers=rows[0].map(h=>String(h).trim().toLowerCase());
-
   const ci=(...keys)=>{
-    for(const k of keys){
-      const idx=headers.findIndex(h=>h.includes(k.toLowerCase()));
-      if(idx>=0) return idx;
-    }
+    for(const k of keys){ const idx=headers.findIndex(h=>h.includes(k.toLowerCase())); if(idx>=0) return idx; }
     return -1;
   };
-
-  // Map exact CSV headers
-  // Supports both new 14-col schema and old 34-col schema
   const cols={
-    date:      ci('date'),
-    adName:    ci('ad name'),
-    adId:      ci('ad id'),
-    campName:  ci('campaign name'),
-    status:    ci('ad status'),
-    impr:      ci('impressions'),
-    spend:     ci('amount spent'),
-    reach:     ci('reach'),
-    outClicks: ci('outbound clicks'),             // new schema col 9
-    thruPlays: ci('thruplays'),                   // new schema col 10 (raw count)
-    videoPlays:ci('3-sec video plays','video plays'), // new schema col 11
-    postEng:   ci('post engagements'),            // new schema col 12 (raw count)
-    convValue: ci('purchases conversion value'),  // new schema col 13
-    vpt:       ci('video play time'),             // new/old col 14/32
-    adCreated: ci('ad created date','created date','ad created'), // col 15
-    // ── Old schema fallback cols (computed rates stored as %) ──
-    thruRate:  ci('thruplay rate'),               // old schema col 28 (rate %)
-    frame1:    ci('1st frame retention'),         // old schema col 29 (rate %)
-    engRate:   ci('engagement rate'),             // old schema col 30 (rate %)
+    date:ci('date'),adName:ci('ad name'),adId:ci('ad id'),campName:ci('campaign name'),
+    status:ci('ad status'),impr:ci('impressions'),spend:ci('amount spent'),reach:ci('reach'),
+    outClicks:ci('outbound clicks'),thruPlays:ci('thruplays'),videoPlays:ci('3-sec video plays','video plays'),
+    postEng:ci('post engagements'),convValue:ci('purchases conversion value'),vpt:ci('video play time'),
+    adCreated:ci('ad created date','created date','ad created'),thruRate:ci('thruplay rate'),
+    frame1:ci('1st frame retention'),engRate:ci('engagement rate'),
   };
-
   const g=(row,key)=>cols[key]>=0?(row[cols[key]]??''):'';
-
-  // Parse all rows
-  const parsed = rows.slice(1)
-    .filter(row=>row.length>1 && String(g(row,'adName')).trim())
-    .map((row,i)=>{
-      const name         = String(g(row,'adName')).trim();
-      const dateObj      = extractDateFromAdName(name);
-      const sheetDateObj = parseSheetDate(String(g(row,'date')||'').trim());
-      const product      = detectProduct(name);
-      const ctype        = detectCtype(name);
-      const copy         = isCopyAd(name);
-      return {
-        i, name,
-        adId:      String(g(row,'adId')).trim(),
-        dateObj,
-        sheetDateObj,
-        product,
-        ctype,
-        isCopy: copy,
-        campName:  String(g(row,'campName')).trim(),
-        status:    String(g(row,'status')).trim(),
-        impr:      n2f(g(row,'impr')),
-        spend:     n2f(g(row,'spend')),
-        reach:     n2f(g(row,'reach')),
-        outClicks: n2f(g(row,'outClicks')),
-        thruPlays: n2f(g(row,'thruPlays')),
-        videoPlays:n2f(g(row,'videoPlays')),
-        postEng:   n2f(g(row,'postEng')),
-        convValue: n2f(g(row,'convValue')),
-        vpt:       n2f(g(row,'vpt')),
-        adCreated: (() => {
-          const raw = String(g(row,'adCreated')||'').trim();
-          if(!raw) return null;
-          const d = new Date(raw);
-          return isNaN(d.getTime()) ? null : d;
-        })(),
-        thruRate:  n2f(g(row,'thruRate')),
-        frame1:    n2f(g(row,'frame1')),
-        engRate:   n2f(g(row,'engRate')),
-      };
-    });
-
-  // ── DEDUPLICATION: keep only one row per (sheetDate + adId) ──
-  // The sheet may have duplicate rows if the Apps Script synced multiple times.
-  // We keep the LAST occurrence (latest sync = most up-to-date values).
+  const parsed = rows.slice(1).filter(row=>row.length>1 && String(g(row,'adName')).trim()).map((row,i)=>{
+    const name=String(g(row,'adName')).trim();
+    const dateObj=extractDateFromAdName(name);
+    const sheetDateObj=parseSheetDate(String(g(row,'date')||'').trim());
+    return {
+      i, name, adId:String(g(row,'adId')).trim(), dateObj, sheetDateObj,
+      product:detectProduct(name), ctype:detectCtype(name), isCopy:isCopyAd(name),
+      campName:String(g(row,'campName')).trim(), status:String(g(row,'status')).trim(),
+      impr:n2f(g(row,'impr')), spend:n2f(g(row,'spend')), reach:n2f(g(row,'reach')),
+      outClicks:n2f(g(row,'outClicks')), thruPlays:n2f(g(row,'thruPlays')),
+      videoPlays:n2f(g(row,'videoPlays')), postEng:n2f(g(row,'postEng')),
+      convValue:n2f(g(row,'convValue')), vpt:n2f(g(row,'vpt')),
+      adCreated:(() => { const raw=String(g(row,'adCreated')||'').trim(); if(!raw) return null; const d=new Date(raw); return isNaN(d.getTime())?null:d; })(),
+      thruRate:n2f(g(row,'thruRate')), frame1:n2f(g(row,'frame1')), engRate:n2f(g(row,'engRate')),
+    };
+  });
   const dedupMap = new Map();
   parsed.forEach(a => {
     const dateKey = a.sheetDateObj ? a.sheetDateObj.toISOString().split('T')[0] : '__nodate__';
-    const key = dateKey + '_' + a.adId;
-    dedupMap.set(key, a); // last write wins
+    dedupMap.set(dateKey + '_' + a.adId, a);
   });
-
   const deduped = Array.from(dedupMap.values());
   const dupeCount = parsed.length - deduped.length;
-  if(dupeCount > 0){
-    console.warn(`[CT Dashboard] Removed ${dupeCount} duplicate rows (same date+adId). Sheet needs re-sync.`);
-  }
+  if(dupeCount > 0) console.warn(`[CT Dashboard] Removed ${dupeCount} duplicate rows.`);
   return deduped;
 }
 
-// ════════════════════════════════════════
-// FETCH
-// ════════════════════════════════════════
 async function fetchSheet(){
   const btn = document.getElementById('fetchBtn');
   btn.disabled = true; btn.classList.add('loading');
   document.getElementById('initEmpty').style.display = 'none';
-
   const useSupabase = SUPABASE_URL && SUPABASE_ANON;
-
   if(ACTIVE_ACCT === 0){
-    // ── All Accounts: fetch all 3 and combine ──
-    if(useSupabase){
-      await fetchAllAccountsSupabase(btn);
-    } else {
-      await fetchAllAccountsSheets(btn);
-    }
+    if(useSupabase) await fetchAllAccountsSupabase(btn);
+    else await fetchAllAccountsSheets(btn);
   } else {
     const acct = SHEET_ACCOUNTS[ACTIVE_ACCT - 1];
-    if(useSupabase){
-      await fetchFromSupabase(acct, btn);
-    } else {
-      await fetchFromSheets(acct, btn);
-    }
+    if(useSupabase) await fetchFromSupabase(acct, btn);
+    else await fetchFromSheets(acct, btn);
   }
-
   btn.disabled = false; btn.classList.remove('loading');
 }
 
-// ════════════════════════════════════════
-// FETCH — Supabase (paginated, gets ALL rows)
-// ════════════════════════════════════════
-// ════════════════════════════════════════
-// FETCH ALL 3 ACCOUNTS — Supabase
-// Fetches each account sequentially, combines into ALL[]
-// Each row gets an account_pill tag for the creatives table
-// ════════════════════════════════════════
 async function fetchAllAccountsSupabase(btn){
-  const cols = [
-    'account_name','date','ad_name','ad_id','campaign_name','ad_status',
-    'impressions','amount_spent_inr','reach','outbound_clicks',
-    'thruplays','three_sec_video_plays','post_engagements',
-    'conversion_value','video_play_time','ad_created_date'
-  ].join(',');
-
-  const BATCH = 1000;
-  let combined = [];
-
+  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','conversion_value','video_play_time','ad_created_date'].join(',');
+  const BATCH=1000;
+  let combined=[];
   for(const acct of SHEET_ACCOUNTS){
-    let offset = 0, hasMore = true;
-    setFetchSt('Loading…', 'as-loading');
-    setStatus('Loading ' + acct.name + ' (' + combined.length.toLocaleString() + ' total so far)…', 'info');
-
+    let offset=0,hasMore=true;
+    setFetchSt('Loading…','as-loading');
+    setStatus('Loading '+acct.name+' ('+combined.length.toLocaleString()+' total so far)…','info');
     while(hasMore){
-      const url = SUPABASE_URL + '/rest/v1/primary_table'
-        + '?account_name=eq.' + encodeURIComponent(acct.name)
-        + '&select=' + cols
-        + '&order=date.desc'
-        + '&limit=' + BATCH
-        + '&offset=' + offset;
-
-      const res = await fetch(url, {
-        headers:{
-          'apikey':        SUPABASE_ANON,
-          'Authorization': 'Bearer ' + SUPABASE_ANON,
-          'Prefer':        'count=none',
-        }
-      });
-
-      if(!res.ok){ hasMore = false; break; }
-
-      const batch = await res.json();
-      if(!Array.isArray(batch) || batch.length === 0){ hasMore = false; break; }
-
-      combined = combined.concat(batch);
-      offset  += batch.length;
-      if(batch.length < BATCH) hasMore = false;
-
-      setStatus('Loading ' + acct.name + ' — ' + combined.length.toLocaleString() + ' rows…', 'info');
+      const url=SUPABASE_URL+'/rest/v1/primary_table?account_name=eq.'+encodeURIComponent(acct.name)+'&select='+cols+'&order=date.desc&limit='+BATCH+'&offset='+offset;
+      const res=await fetch(url,{headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,'Prefer':'count=none'}});
+      if(!res.ok){hasMore=false;break;}
+      const batch=await res.json();
+      if(!Array.isArray(batch)||batch.length===0){hasMore=false;break;}
+      combined=combined.concat(batch);offset+=batch.length;if(batch.length<BATCH)hasMore=false;
+      setStatus('Loading '+acct.name+' — '+combined.length.toLocaleString()+' rows…','info');
     }
   }
-
-  if(!combined.length){
-    setStatus('No data found. No data in primary_table. Run: python primary_sync.py backfill', 'error');
-    setFetchSt('No data', 'as-err');
-    document.getElementById('initEmpty').style.display = '';
-    return;
-  }
-
-  ALL = mapSupabaseRows(combined);
-  finaliseLoad('All Accounts (Combined)', combined.length);
+  if(!combined.length){setStatus('No data found.','error');setFetchSt('No data','as-err');document.getElementById('initEmpty').style.display='';return;}
+  ALL=mapSupabaseRows(combined);
+  finaliseLoad('All Accounts (Combined)',combined.length);
 }
 
-// ════════════════════════════════════════
-// FETCH ALL 3 ACCOUNTS — Google Sheets
-// ════════════════════════════════════════
 async function fetchAllAccountsSheets(btn){
-  const inputSheetId = document.getElementById('sheetId')?.value.trim() || '';
-  const inputApiKey  = document.getElementById('apiKey')?.value.trim()  || '';
-  const sheetId = inputSheetId || HARDCODED_SHEET_ID;
-  const apiKey  = inputApiKey  || HARDCODED_API_KEY;
-  if(!sheetId || !apiKey){
-    setStatus('No credentials found.', 'error'); return;
-  }
-
-  let combined = [];
+  const inputSheetId=document.getElementById('sheetId')?.value.trim()||'';
+  const inputApiKey=document.getElementById('apiKey')?.value.trim()||'';
+  const sheetId=inputSheetId||HARDCODED_SHEET_ID;
+  const apiKey=inputApiKey||HARDCODED_API_KEY;
+  if(!sheetId||!apiKey){setStatus('No credentials found.','error');return;}
+  let combined=[];
   for(const acct of SHEET_ACCOUNTS){
-    setStatus('Loading ' + acct.name + '…', 'info');
-    const range = encodeURIComponent("'" + acct.tab + "'");
-    const url   = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + range + '?key=' + apiKey;
+    setStatus('Loading '+acct.name+'…','info');
+    const range=encodeURIComponent("'"+acct.tab+"'");
+    const url='https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+'/values/'+range+'?key='+apiKey;
     try{
-      const res  = await fetch(url);
-      const json = await res.json();
-      if(json.error){ console.warn('Sheet error ' + acct.name + ':', json.error.message); continue; }
-      const parsed = parseRows(json.values || []);
-      // Tag each row with account info
-      parsed.forEach(r => { r.accountNum = acct.num; r.accountName = acct.name; });
-      combined = combined.concat(parsed);
-    } catch(e){ console.warn('Fetch error ' + acct.name + ':', e.message); }
+      const res=await fetch(url);const json=await res.json();
+      if(json.error){console.warn('Sheet error '+acct.name+':',json.error.message);continue;}
+      const parsed=parseRows(json.values||[]);
+      parsed.forEach(r=>{r.accountNum=acct.num;r.accountName=acct.name;});
+      combined=combined.concat(parsed);
+    }catch(e){console.warn('Fetch error '+acct.name+':',e.message);}
   }
-
-  if(!combined.length){
-    setStatus('No data found in any sheet.', 'error');
-    setFetchSt('No data', 'as-err');
-    document.getElementById('initEmpty').style.display = '';
-    return;
-  }
-
-  ALL = combined;
-  finaliseLoad('All Accounts (Combined)', combined.length);
+  if(!combined.length){setStatus('No data found in any sheet.','error');setFetchSt('No data','as-err');document.getElementById('initEmpty').style.display='';return;}
+  ALL=combined;
+  finaliseLoad('All Accounts (Combined)',combined.length);
 }
 
-// ════════════════════════════════════════
-// MAP Supabase row → ad object (shared by single + all)
-// ════════════════════════════════════════
 function mapSupabaseRows(rows){
-  return rows.map((r, i) => {
-    const name = r.ad_name || '';
-    const acctNum = r.account_name === 'Raho Saadaa'            ? 1
-                  : r.account_name === 'Fourth Ad Account - SD' ? 2
-                  : r.account_name === 'Third Ad Account - SD'  ? 3
-                  : null;
+  return rows.map((r,i)=>{
+    const name=r.ad_name||'';
+    const acctNum=r.account_name==='Raho Saadaa'?1:r.account_name==='Fourth Ad Account - SD'?2:r.account_name==='Third Ad Account - SD'?3:null;
     return {
-      i,
-      name,
-      adId:        r.ad_id         || '',
-      accountNum:  acctNum,
-      accountName: r.account_name  || '',
-      sheetDateObj: r.date            ? new Date(r.date            + 'T00:00:00') : null,
-      adCreated:    r.ad_created_date ? new Date(r.ad_created_date + 'T00:00:00') : null,
-      dateObj:      extractDateFromAdName(name),
-      product:      detectProduct(name),
-      ctype:        detectCtype(name),
-      isCopy:       isCopyAd(name),
-      campName:     r.campaign_name  || '',
-      status:       r.ad_status      || '',
-      impr:         Number(r.impressions)            || 0,
-      spend:        Number(r.amount_spent_inr)       || 0,
-      reach:        Number(r.reach)                  || 0,
-      outClicks:    Number(r.outbound_clicks)         || 0,
-      thruPlays:    Number(r.thruplays)              || 0,
-      videoPlays:   Number(r.three_sec_video_plays)  || 0,
-      postEng:      Number(r.post_engagements)       || 0,
-      convValue:    Number(r.conversion_value)       || 0,
-      vpt:          Number(r.video_play_time)        || 0,
-      thruRate: 0, frame1: 0, engRate: 0,
+      i,name,adId:r.ad_id||'',accountNum:acctNum,accountName:r.account_name||'',
+      sheetDateObj:r.date?new Date(r.date+'T00:00:00'):null,
+      adCreated:r.ad_created_date?new Date(r.ad_created_date+'T00:00:00'):null,
+      dateObj:extractDateFromAdName(name),product:detectProduct(name),ctype:detectCtype(name),isCopy:isCopyAd(name),
+      campName:r.campaign_name||'',status:r.ad_status||'',
+      impr:Number(r.impressions)||0,spend:Number(r.amount_spent_inr)||0,reach:Number(r.reach)||0,
+      outClicks:Number(r.outbound_clicks)||0,thruPlays:Number(r.thruplays)||0,
+      videoPlays:Number(r.three_sec_video_plays)||0,postEng:Number(r.post_engagements)||0,
+      convValue:Number(r.conversion_value)||0,vpt:Number(r.video_play_time)||0,
+      thruRate:0,frame1:0,engRate:0,
     };
   });
 }
 
-// ════════════════════════════════════════
-// FINALISE LOAD — shared by all fetch paths
-// ════════════════════════════════════════
-function finaliseLoad(label, totalRows){
-  const fromEl = document.getElementById('dateFrom');
-  const toEl   = document.getElementById('dateTo');
-  if(!fromEl.value && !toEl.value) setDefaultDates();
-
-  const copyCount = ALL.filter(a => a.isCopy).length;
-  const t = new Date().toLocaleTimeString();
-  setStatus(
-    '✓ ' + totalRows.toLocaleString() + ' rows · ' + label +
-    ' · ' + copyCount.toLocaleString() + ' copy ads (included)',
-    'success'
-  );
-  setFetchSt('✓ ' + totalRows.toLocaleString() + ' rows', 'as-done');
-  setEl('ftTime',   'Last loaded: ' + t);
-  setEl('lastSync', label + ' · ' + t);
-
-  ['controls','ovPerfWrap','creativesWrap','resultsSummaryWrap']
-    .forEach(id => document.getElementById(id).style.display = '');
+function finaliseLoad(label,totalRows){
+  const fromEl=document.getElementById('dateFrom');
+  const toEl=document.getElementById('dateTo');
+  if(!fromEl.value&&!toEl.value) setDefaultDates();
+  const copyCount=ALL.filter(a=>a.isCopy).length;
+  const t=new Date().toLocaleTimeString();
+  setStatus('✓ '+totalRows.toLocaleString()+' rows · '+label+' · '+copyCount.toLocaleString()+' copy ads (included)','success');
+  setFetchSt('✓ '+totalRows.toLocaleString()+' rows','as-done');
+  setEl('ftTime','Last loaded: '+t);
+  setEl('lastSync',label+' · '+t);
+  ['controls','ovPerfWrap','creativesWrap','resultsSummaryWrap'].forEach(id=>document.getElementById(id).style.display='');
   applyFilters();
 }
 
-async function fetchFromSupabase(acct, btn){
-  const cols = [
-    'date','ad_name','ad_id','campaign_name','ad_status',
-    'impressions','amount_spent_inr','reach','outbound_clicks',
-    'thruplays','three_sec_video_plays','post_engagements',
-    'conversion_value','video_play_time','ad_created_date','account_name'
-  ].join(',');
-
-  const BATCH   = 1000;  // fetch 1000 per request (Supabase max per call)
-  let allRows   = [];
-  let offset    = 0;
-  let page      = 0;
-  let hasMore   = true;
-
+async function fetchFromSupabase(acct,btn){
+  const cols=['date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','conversion_value','video_play_time','ad_created_date','account_name'].join(',');
+  const BATCH=1000;let allRows=[],offset=0,page=0,hasMore=true;
   try{
     while(hasMore){
       page++;
-      setFetchSt('Loading… ' + allRows.length.toLocaleString() + ' rows', 'as-loading');
-      setStatus('Loading ' + acct.name + ' — page ' + page + ' (' + allRows.length.toLocaleString() + ' rows so far)…', 'info');
-
-      // Use limit + offset — works regardless of Supabase project settings
-      const url = SUPABASE_URL + '/rest/v1/primary_table'
-        + '?account_name=eq.' + encodeURIComponent(acct.name)
-        + '&select=' + cols
-        + '&order=date.desc'
-        + '&limit=' + BATCH
-        + '&offset=' + offset;
-
-      const res = await fetch(url, {
-        headers:{
-          'apikey':        SUPABASE_ANON,
-          'Authorization': 'Bearer ' + SUPABASE_ANON,
-          'Prefer':        'count=none',  // skip count for speed
-        }
-      });
-
-      if(!res.ok){
-        const err = await res.json().catch(() => ({}));
-        setStatus('Supabase error: ' + (err.message || res.status), 'error');
-        setFetchSt('Error','as-err');
-        document.getElementById('initEmpty').style.display = '';
-        return;
-      }
-
-      const batch = await res.json();
-
-      if(!Array.isArray(batch)){
-        setStatus('Supabase error: unexpected response format', 'error');
-        setFetchSt('Error','as-err');
-        return;
-      }
-
-      allRows = allRows.concat(batch);
-      offset += batch.length;
-
-      // Last page = returned fewer rows than requested
-      if(batch.length < BATCH) hasMore = false;
+      setFetchSt('Loading… '+allRows.length.toLocaleString()+' rows','as-loading');
+      setStatus('Loading '+acct.name+' — page '+page+' ('+allRows.length.toLocaleString()+' rows so far)…','info');
+      const url=SUPABASE_URL+'/rest/v1/primary_table?account_name=eq.'+encodeURIComponent(acct.name)+'&select='+cols+'&order=date.desc&limit='+BATCH+'&offset='+offset;
+      const res=await fetch(url,{headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,'Prefer':'count=none'}});
+      if(!res.ok){const err=await res.json().catch(()=>({}));setStatus('Supabase error: '+(err.message||res.status),'error');setFetchSt('Error','as-err');document.getElementById('initEmpty').style.display='';return;}
+      const batch=await res.json();
+      if(!Array.isArray(batch)){setStatus('Supabase error: unexpected response format','error');setFetchSt('Error','as-err');return;}
+      allRows=allRows.concat(batch);offset+=batch.length;if(batch.length<BATCH)hasMore=false;
     }
-
-    if(!allRows.length){
-      setStatus('No data found in Supabase for this account. No data in primary_table. Run: python primary_sync.py backfill','error');
-      setFetchSt('No data','as-err');
-      document.getElementById('initEmpty').style.display = '';
-      return;
-    }
-
-    // Map and finalise
-    ALL = mapSupabaseRows(allRows);
-    finaliseLoad(acct.name, allRows.length);
-
-  }catch(e){
-    setStatus('Network error: ' + e.message,'error');
-    setFetchSt('Error','as-err');
-    document.getElementById('initEmpty').style.display = '';
-  }
+    if(!allRows.length){setStatus('No data found in Supabase for this account.','error');setFetchSt('No data','as-err');document.getElementById('initEmpty').style.display='';return;}
+    ALL=mapSupabaseRows(allRows);
+    finaliseLoad(acct.name,allRows.length);
+  }catch(e){setStatus('Network error: '+e.message,'error');setFetchSt('Error','as-err');document.getElementById('initEmpty').style.display='';}
 }
 
-// ════════════════════════════════════════
-// FETCH — Google Sheets fallback
-// ════════════════════════════════════════
-async function fetchFromSheets(acct, btn){
-  const inputSheetId = document.getElementById('sheetId')?.value.trim() || '';
-  const inputApiKey  = document.getElementById('apiKey')?.value.trim()  || '';
-  const sheetId = inputSheetId || HARDCODED_SHEET_ID;
-  const apiKey  = inputApiKey  || HARDCODED_API_KEY;
-
-  if(!sheetId || !apiKey){
-    setStatus('No credentials found. Add Supabase config or enter Sheet ID + API Key.','error');
-    return;
-  }
-
+async function fetchFromSheets(acct,btn){
+  const inputSheetId=document.getElementById('sheetId')?.value.trim()||'';
+  const inputApiKey=document.getElementById('apiKey')?.value.trim()||'';
+  const sheetId=inputSheetId||HARDCODED_SHEET_ID;
+  const apiKey=inputApiKey||HARDCODED_API_KEY;
+  if(!sheetId||!apiKey){setStatus('No credentials found. Add Supabase config or enter Sheet ID + API Key.','error');return;}
   setFetchSt('Fetching…','as-loading');
-  setStatus('Loading ' + acct.name + ' (' + acct.tab + ')…','info');
-
-  const range = encodeURIComponent("'" + acct.tab + "'");
-  const url   = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + range + '?key=' + apiKey;
-
+  setStatus('Loading '+acct.name+' ('+acct.tab+')…','info');
+  const range=encodeURIComponent("'"+acct.tab+"'");
+  const url='https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+'/values/'+range+'?key='+apiKey;
   try{
-    const r = await fetch(url);
-    const j = await r.json();
-    if(j.error){
-      setStatus('Sheets API Error: ' + j.error.message,'error');
-      setFetchSt('Error','as-err');
-      document.getElementById('initEmpty').style.display = '';
-      return;
-    }
-
-    ALL = parseRows(j.values || []);
-    if(!ALL.length){
-      setStatus('No valid rows found. Check sheet tab name and headers.','error');
-      setFetchSt('No data','as-err');
-      return;
-    }
-
-    const fromEl = document.getElementById('dateFrom');
-    const toEl   = document.getElementById('dateTo');
-    if(!fromEl.value && !toEl.value) setDefaultDates();
-
-    finaliseLoad(acct.name, ALL.length);
-
-  }catch(e){
-    setStatus('Network error: ' + e.message,'error');
-    setFetchSt('Error','as-err');
-    document.getElementById('initEmpty').style.display = '';
-  }
+    const r=await fetch(url);const j=await r.json();
+    if(j.error){setStatus('Sheets API Error: '+j.error.message,'error');setFetchSt('Error','as-err');document.getElementById('initEmpty').style.display='';return;}
+    ALL=parseRows(j.values||[]);
+    if(!ALL.length){setStatus('No valid rows found.','error');setFetchSt('No data','as-err');return;}
+    const fromEl=document.getElementById('dateFrom');const toEl=document.getElementById('dateTo');
+    if(!fromEl.value&&!toEl.value) setDefaultDates();
+    finaliseLoad(acct.name,ALL.length);
+  }catch(e){setStatus('Network error: '+e.message,'error');setFetchSt('Error','as-err');document.getElementById('initEmpty').style.display='';}
 }
 
-// ════════════════════════════════════════
-// FILTER
-// ════════════════════════════════════════
 function filteredAds(){
   const from=parseInputDate(document.getElementById('dateFrom').value);
-  const to  =parseInputDate(document.getElementById('dateTo').value);
+  const to=parseInputDate(document.getElementById('dateTo').value);
   if(to) to.setHours(23,59,59,999);
-  const rangeActive = from || to;
-
-  // ── Created Date filter ──
-  const createdFrom = parseInputDate(document.getElementById('createdFrom')?.value);
-  const createdTo   = parseInputDate(document.getElementById('createdTo')?.value);
+  const rangeActive=from||to;
+  const createdFrom=parseInputDate(document.getElementById('createdFrom')?.value);
+  const createdTo=parseInputDate(document.getElementById('createdTo')?.value);
   if(createdTo) createdTo.setHours(23,59,59,999);
-  const createdActive = createdFrom || createdTo;
-
-  // ── Name filter: single input with OR support ──
-  const nf = getNameFilter();
-
+  const createdActive=createdFrom||createdTo;
+  const nf=getNameFilter();
   return ALL.filter(a=>{
-    // 1. Copy toggle — independent exclude
-    if(EXCLUDE_COPY_TOGGLE && a.isCopy) return false;
-
-    // 2. Name filter — OR across terms
-    if(nf.terms.length > 0){
-      const name = a.name.toLowerCase();
-      const anyMatch = nf.terms.some(t => name.includes(t.toLowerCase()));
-      if(nf.mode === 'contains'     && !anyMatch) return false;
-      if(nf.mode === 'not_contains' &&  anyMatch) return false;
+    if(EXCLUDE_COPY_TOGGLE&&a.isCopy) return false;
+    if(nf.terms.length>0){
+      const name=a.name.toLowerCase();
+      const anyMatch=nf.terms.some(t=>name.includes(t.toLowerCase()));
+      if(nf.mode==='contains'&&!anyMatch) return false;
+      if(nf.mode==='not_contains'&&anyMatch) return false;
     }
-
-    // 3. Spend Date range — sheet Date col
     if(rangeActive){
       if(!a.sheetDateObj) return false;
-      if(from && a.sheetDateObj < from) return false;
-      if(to   && a.sheetDateObj > to)   return false;
+      if(from&&a.sheetDateObj<from) return false;
+      if(to&&a.sheetDateObj>to) return false;
     }
-
-    // 4. Ad Created Date filter — Col 15
     if(createdActive){
       if(!a.adCreated) return false;
-      if(createdFrom && a.adCreated < createdFrom) return false;
-      if(createdTo   && a.adCreated > createdTo)   return false;
+      if(createdFrom&&a.adCreated<createdFrom) return false;
+      if(createdTo&&a.adCreated>createdTo) return false;
     }
-
     return true;
   });
 }
 
 function applyFilters(){
   const from=parseInputDate(document.getElementById('dateFrom').value);
-  const to  =parseInputDate(document.getElementById('dateTo').value);
-  const lbl =(!from&&!to)?'All dates':fmtDate(from)+' → '+fmtDate(to);
+  const to=parseInputDate(document.getElementById('dateTo').value);
+  const lbl=(!from&&!to)?'All dates':fmtDate(from)+' → '+fmtDate(to);
   setEl('dateRangeLabel',lbl);
-
-  // Update name filter chip + clear button
-  const nfVal = (document.getElementById('nameFilterValue')?.value||'').trim();
-  const clearBtn = document.getElementById('nameFilterClear');
-  const chip     = document.getElementById('nameFilterChip');
-  const chipText = document.getElementById('nameFilterChipText');
-  if(clearBtn) clearBtn.style.display = nfVal ? 'flex' : 'none';
+  const nfVal=(document.getElementById('nameFilterValue')?.value||'').trim();
+  const clearBtn=document.getElementById('nameFilterClear');
+  const chip=document.getElementById('nameFilterChip');
+  const chipText=document.getElementById('nameFilterChipText');
+  if(clearBtn) clearBtn.style.display=nfVal?'flex':'none';
   if(chip){
     if(nfVal){
-      const mode = document.getElementById('nameFilterMode')?.value||'contains';
-      const terms = nfVal.split(/\s+or\s+/i).filter(Boolean);
-      chip.style.display = 'flex';
-      chipText.innerHTML = (mode==='contains'?'contains ':'not contains ')
-        + terms.map(t=>`<strong style="color:var(--terra)">${t}</strong>`).join(' <span style="color:var(--muted)">OR</span> ');
-    } else {
-      chip.style.display = 'none';
-    }
+      const mode=document.getElementById('nameFilterMode')?.value||'contains';
+      const terms=nfVal.split(/\s+or\s+/i).filter(Boolean);
+      chip.style.display='flex';
+      chipText.innerHTML=(mode==='contains'?'contains ':'not contains ')+terms.map(t=>`<strong style="color:var(--terra)">${t}</strong>`).join(' <span style="color:var(--muted)">OR</span> ');
+    } else { chip.style.display='none'; }
   }
-
-  // Update created date chip
-  const cFrom = document.getElementById('createdFrom')?.value;
-  const cTo   = document.getElementById('createdTo')?.value;
-  const cChip = document.getElementById('createdChip');
-  const cText = document.getElementById('createdChipText');
-  if(cChip && cText){
-    if(cFrom || cTo){
-      cChip.style.display = 'flex';
-      cText.textContent   = 'Created: ' + (cFrom||'…') + ' → ' + (cTo||'…');
-    } else {
-      cChip.style.display = 'none';
-    }
+  const cFrom=document.getElementById('createdFrom')?.value;
+  const cTo=document.getElementById('createdTo')?.value;
+  const cChip=document.getElementById('createdChip');const cText=document.getElementById('createdChipText');
+  if(cChip&&cText){
+    if(cFrom||cTo){cChip.style.display='flex';cText.textContent='Created: '+(cFrom||'…')+' → '+(cTo||'…');}
+    else{cChip.style.display='none';}
   }
-
   const ads=filteredAds();
-  const uniqueAdIds = new Set(ads.map(a=>a.adId||a.name));
-  setEl('totalBadge', uniqueAdIds.size+' ads');
+  const uniqueAdIds=new Set(ads.map(a=>a.adId||a.name));
+  setEl('totalBadge',uniqueAdIds.size+' ads');
   renderOverviewPerf(ads);
   renderCreatives(ads);
   renderResults(ads);
 }
 
+function clearFilters(){ document.getElementById('dateFrom').value=''; document.getElementById('dateTo').value=''; clearNameFilter(); clearCreatedFilter(); applyFilters(); }
+function clearCreatedFilter(){ const cf=document.getElementById('createdFrom');const ct=document.getElementById('createdTo'); if(cf)cf.value=''; if(ct)ct.value=''; applyFilters(); }
 
-
-function clearFilters(){
-  document.getElementById('dateFrom').value='';
-  document.getElementById('dateTo').value='';
-  clearNameFilter();
-  clearCreatedFilter();
-  applyFilters();
-}
-
-function clearCreatedFilter(){
-  const cf = document.getElementById('createdFrom');
-  const ct = document.getElementById('createdTo');
-  if(cf) cf.value = '';
-  if(ct) ct.value = '';
-  applyFilters();
-}
-
-// ════════════════════════════════════════
-// RENDER — Overview Performance
-// Total Amount Spent | Total Impressions | Avg Video Play Time
-// Avg Outbound CTR | Avg Engagement Rate | Avg ThruPlay Rate | CT ROAS
-// ════════════════════════════════════════
 function renderOverviewPerf(ads){
-  // ── Totals: include ALL rows (zeroes are valid spend/impression data) ──
-  const totalSpend = sumF(ads, a => a.spend);
-  const totalImpr  = sumF(ads, a => a.impr);
-  const totalConv  = sumF(ads, a => a.convValue);
-
-  setEl('ov_spend', fC(totalSpend));
-  setEl('ov_impr',  fI(totalImpr));
-  setEl('ov_roas',  fD(totalSpend > 0 ? totalConv / totalSpend : 0));
-
-  // ── Rate metrics: only use rows where Impressions > 0 as denominator ──
-  // Rows with 0 impressions contribute 0 to numerator AND denominator
-  // Including them in the denominator would not change the result, but
-  // excluding them matches Meta Ads Manager's behaviour precisely.
-  const hasRawCols = ads.some(a => a.thruPlays > 0 || a.videoPlays > 0 || a.postEng > 0);
-
-  // Filter to rows with actual impressions for rate calculations
-  const withImpr = ads.filter(a => a.impr > 0);
-
+  const totalSpend=sumF(ads,a=>a.spend);
+  const totalImpr=sumF(ads,a=>a.impr);
+  const totalConv=sumF(ads,a=>a.convValue);
+  setEl('ov_spend',fC(totalSpend));
+  setEl('ov_impr',fI(totalImpr));
+  setEl('ov_roas',fD(totalSpend>0?totalConv/totalSpend:0));
+  const hasRawCols=ads.some(a=>a.thruPlays>0||a.videoPlays>0||a.postEng>0);
+  const withImpr=ads.filter(a=>a.impr>0);
   if(hasRawCols){
-    // ── NEW SCHEMA: Sum(numerator) / Sum(denominator) — weighted by impressions ──
-    const totalOutClicks  = sumF(withImpr, a => a.outClicks);
-    const totalThruPlays  = sumF(withImpr, a => a.thruPlays);
-    const totalPostEng    = sumF(withImpr, a => a.postEng);
-    const totalVideoPlays = sumF(withImpr, a => a.videoPlays);
-    const imprForRates    = sumF(withImpr, a => a.impr);
-
-    setEl('ov_ctr',  fP(imprForRates    > 0 ? totalOutClicks  / imprForRates    * 100 : 0));
-    setEl('ov_thru', fP(imprForRates    > 0 ? totalThruPlays  / imprForRates    * 100 : 0));
-    setEl('ov_eng',  fP(imprForRates    > 0 ? totalPostEng    / imprForRates    * 100 : 0));
-    setEl('ov_hold', fP(totalVideoPlays > 0 ? totalThruPlays  / totalVideoPlays * 100 : 0));
-
-    // Hook Rate = Sum(3-Sec Video Plays) / Sum(Impressions) × 100
-    const totalThreeSecForHook = sumF(withImpr, a => a.videoPlays);
-    setEl('ov_hook2', fP(imprForRates > 0 ? totalThreeSecForHook / imprForRates * 100 : 0));
-
+    const totalOutClicks=sumF(withImpr,a=>a.outClicks);
+    const totalThruPlays=sumF(withImpr,a=>a.thruPlays);
+    const totalPostEng=sumF(withImpr,a=>a.postEng);
+    const totalVideoPlays=sumF(withImpr,a=>a.videoPlays);
+    const imprForRates=sumF(withImpr,a=>a.impr);
+    setEl('ov_ctr',fP(imprForRates>0?totalOutClicks/imprForRates*100:0));
+    setEl('ov_thru',fP(imprForRates>0?totalThruPlays/imprForRates*100:0));
+    setEl('ov_eng',fP(imprForRates>0?totalPostEng/imprForRates*100:0));
+    setEl('ov_hold',fP(totalVideoPlays>0?totalThruPlays/totalVideoPlays*100:0));
+    const totalThreeSecForHook=sumF(withImpr,a=>a.videoPlays);
+    setEl('ov_hook2',fP(imprForRates>0?totalThreeSecForHook/imprForRates*100:0));
   } else {
-    // ── OLD SCHEMA FALLBACK: pre-computed rate % cols ──
-    const imprForRates = sumF(withImpr, a => a.impr);
-    const wThru  = sumF(withImpr, a => (a.thruRate/100) * a.impr);
-    const wEng   = sumF(withImpr, a => (a.engRate /100) * a.impr);
-    const wHold  = sumF(withImpr, a => (a.thruRate/100) * a.impr);
-    const wFrame = sumF(withImpr, a => (a.frame1  /100) * a.impr);
-    setEl('ov_ctr',  fP(avgF(withImpr, a => a.ctr || 0)));
-    setEl('ov_thru', fP(imprForRates > 0 ? wThru  / imprForRates * 100 : 0));
-    setEl('ov_eng',  fP(imprForRates > 0 ? wEng   / imprForRates * 100 : 0));
-    setEl('ov_hold', fP(wFrame       > 0 ? wHold  / wFrame       * 100 : 0));
-    // Hook Rate fallback using 1st frame retention as proxy
-    const wHookFb = sumF(withImpr, a => (a.frame1/100) * a.impr);
-    setEl('ov_hook2', fP(imprForRates > 0 ? wHookFb / imprForRates * 100 : 0));
+    const imprForRates=sumF(withImpr,a=>a.impr);
+    const wThru=sumF(withImpr,a=>(a.thruRate/100)*a.impr);
+    const wEng=sumF(withImpr,a=>(a.engRate/100)*a.impr);
+    const wHold=sumF(withImpr,a=>(a.thruRate/100)*a.impr);
+    const wFrame=sumF(withImpr,a=>(a.frame1/100)*a.impr);
+    setEl('ov_ctr',fP(avgF(withImpr,a=>a.ctr||0)));
+    setEl('ov_thru',fP(imprForRates>0?wThru/imprForRates*100:0));
+    setEl('ov_eng',fP(imprForRates>0?wEng/imprForRates*100:0));
+    setEl('ov_hold',fP(wFrame>0?wHold/wFrame*100:0));
+    const wHookFb=sumF(withImpr,a=>(a.frame1/100)*a.impr);
+    setEl('ov_hook2',fP(imprForRates>0?wHookFb/imprForRates*100:0));
   }
 }
 
-// ════════════════════════════════════════
-// RENDER — Creatives
-// Product: detected from ad name tokens, count desc + Grand Total
-// Creative Type: IFAD/GAD, VRP/NNC, STATIC from ad name, count desc + Grand Total
-// ════════════════════════════════════════
 function renderCreatives(ads){
-  // Dedup by adId — each unique ad counted once even if it has multiple daily rows
-  const seenP = new Set(), seenC = new Set();
-  let totalUnique = 0;
-
-  // Products — count unique ads per product
-  // Ads with no product match are counted as "Other"
+  const seenP=new Set(),seenC=new Set();
+  let totalUnique=0;
   const pMap={};
   ads.forEach(a=>{
-    const key = a.adId || a.name;
-    if(seenP.has(key)) return;
-    seenP.add(key);
-    totalUnique++;
-    const prod = a.product || 'Other';
-    pMap[prod] = (pMap[prod]||0) + 1;
+    const key=a.adId||a.name;if(seenP.has(key))return;seenP.add(key);totalUnique++;
+    const prod=a.product||'Other';pMap[prod]=(pMap[prod]||0)+1;
   });
-  const prods = Object.entries(pMap).sort((a,b)=>{
-    if(a[0]==='Other') return 1;   // Other always last
-    if(b[0]==='Other') return -1;
-    return b[1]-a[1];
-  });
-  const pTotal = prods.reduce((s,[,c])=>s+c,0);
-  document.querySelector('#productTable tbody').innerHTML=
-    prods.map(([p,c])=>
-      `<tr><td>${p}</td><td class="num">${c}</td></tr>`
-    ).join('')+
-    `<tr class="grand"><td>Grand Total</td><td class="num">${pTotal}</td></tr>`;
-
-  // Creative Types — count unique ads per type
-  // All ads get a type — fallback is "Other"
+  const prods=Object.entries(pMap).sort((a,b)=>{if(a[0]==='Other')return 1;if(b[0]==='Other')return -1;return b[1]-a[1];});
+  const pTotal=prods.reduce((s,[,c])=>s+c,0);
+  document.querySelector('#productTable tbody').innerHTML=prods.map(([p,c])=>`<tr><td>${p}</td><td class="num">${c}</td></tr>`).join('')+`<tr class="grand"><td>Grand Total</td><td class="num">${pTotal}</td></tr>`;
   const cMap={};
   ads.forEach(a=>{
-    const key = a.adId || a.name;
-    if(seenC.has(key)) return;
-    seenC.add(key);
-    const ct = (a.ctype && a.ctype !== '') ? a.ctype : 'VideoAds';
-    cMap[ct] = (cMap[ct]||0) + 1;
+    const key=a.adId||a.name;if(seenC.has(key))return;seenC.add(key);
+    const ct=(a.ctype&&a.ctype!=='')?a.ctype:'VideoAds';cMap[ct]=(cMap[ct]||0)+1;
   });
-  const ctypes = Object.entries(cMap).sort((a,b)=>{
-    if(a[0]==='VideoAds') return 1;   // VideoAds always last (catch-all)
-    if(b[0]==='VideoAds') return -1;
-    return b[1]-a[1];
-  });
-  const cTotal = ctypes.reduce((s,[,c])=>s+c,0);
-  document.querySelector('#ctypeTable tbody').innerHTML=
-    ctypes.map(([t,c])=>
-      `<tr><td>${t}</td><td class="num">${c}</td></tr>`
-    ).join('')+
-    `<tr class="grand"><td>Grand Total</td><td class="num">${cTotal}</td></tr>`;
+  const ctypes=Object.entries(cMap).sort((a,b)=>{if(a[0]==='VideoAds')return 1;if(b[0]==='VideoAds')return -1;return b[1]-a[1];});
+  const cTotal=ctypes.reduce((s,[,c])=>s+c,0);
+  document.querySelector('#ctypeTable tbody').innerHTML=ctypes.map(([t,c])=>`<tr><td>${t}</td><td class="num">${c}</td></tr>`).join('')+`<tr class="grand"><td>Grand Total</td><td class="num">${cTotal}</td></tr>`;
 }
 
-
-
-
-
-// When user types comma — split into a new row automatically
-
-
-
-// Results shown inline on overview page — no tab switching needed
-
-// ════════════════════════════════════════
-// RESULTS — Winner / ITE / Discarded / Analyse
-// Logic from getDashboardData server code
-// ════════════════════════════════════════
 const CATEGORY_CONFIG = {
-  'Winner':    { label:'Winner',    bg:'#e6f0ee', color:'#4a7c6f', border:'rgba(74,124,111,.3)',  action:'Scale budget, maintain creative',        desc:'Strong funnel performance' },
-  'ITE':       { label:'ITE',       bg:'#fdf5e6', color:'#b8883a', border:'rgba(184,136,58,.3)',  action:'Investigate conversion drop',             desc:'Good delivery, weak conversion' },
-  'Discarded': { label:'Discarded', bg:'#f5ebe6', color:'#c0603a', border:'rgba(192,96,58,.3)',   action:'Review creative, audience, bid',          desc:'Negative — learning data point' },
-  'Analyse':   { label:'Analyse',   bg:'#eaf0f8', color:'#4a6fa5', border:'rgba(74,111,165,.3)',  action:'Analyse data for learnings',              desc:'Low impressions but has results' },
+  'Winner':   {label:'Winner',   bg:'#e6f0ee',color:'#4a7c6f',border:'rgba(74,124,111,.3)',  action:'Scale budget, maintain creative',       desc:'Imp ≥ target + ROAS ≥ target  OR  Imp ≥ 25k + ROAS ≥ 3.0 + CPC ≤ ₹525'},
+  'ITE':      {label:'ITE',      bg:'#fdf5e6',color:'#b8883a',border:'rgba(184,136,58,.3)',  action:'Investigate conversion drop',            desc:'Good delivery, weak conversion'},
+  'Discarded':{label:'Discarded',bg:'#f5ebe6',color:'#c0603a',border:'rgba(192,96,58,.3)',   action:'Review creative, audience, bid',         desc:'Negative — learning data point'},
+  'Analyse':  {label:'Analyse',  bg:'#eaf0f8',color:'#4a6fa5',border:'rgba(74,111,165,.3)',  action:'Analyse data for learnings',             desc:'Low impressions but has results'},
 };
 
-function getAdCategory(impr, ctRoas, targetImp, targetRoas, hasConversions){
-  if(impr >= targetImp && ctRoas >= targetRoas) return 'Winner';
-  if(impr >= targetImp && ctRoas < targetRoas)  return 'ITE';
-  if(impr < targetImp  && hasConversions)        return 'Analyse';
+function getAdCategory(impr,ctRoas,targetImp,targetRoas,hasConversions,cpc){
+  // Path A: standard threshold (imp >= target AND ROAS >= target)
+  if(impr>=targetImp&&ctRoas>=targetRoas) return 'Winner';
+  // Path B: efficiency winner (imp >= 25k AND ROAS >= 3.0 AND CPC <= 525)
+  if(impr>=25000&&ctRoas>=3.0&&cpc>0&&cpc<=525) return 'Winner';
+  if(impr>=targetImp&&ctRoas<targetRoas) return 'ITE';
+  if(impr<targetImp&&hasConversions) return 'Analyse';
   return 'Discarded';
 }
 
 function renderResults(ads){
-  const targetImp  = parseFloat(document.getElementById('targetImp')?.value)  || 50000;
-  const targetRoas = parseFloat(document.getElementById('targetRoas')?.value) || 3.0;
-
-  // ── Aggregate per unique ad — track ctype alongside metrics ──
-  const adMap = {};
-  ads.forEach(a => {
-    const key = a.adId || a.name;
-    if(!adMap[key]) adMap[key] = { impr:0, spend:0, convValue:0, ctype: a.ctype || 'VideoAds' };
-    adMap[key].spend     += a.spend     || 0;
-    adMap[key].convValue += a.convValue || 0;
-    if((a.impr || 0) > 0) adMap[key].impr += a.impr;
+  const targetImp=parseFloat(document.getElementById('targetImp')?.value)||50000;
+  const targetRoas=parseFloat(document.getElementById('targetRoas')?.value)||3.0;
+  const adMap={};
+  ads.forEach(a=>{
+    const key=a.adId||a.name;
+    if(!adMap[key]) adMap[key]={impr:0,spend:0,convValue:0,outClicks:0,ctype:a.ctype||'VideoAds'};
+    adMap[key].spend+=a.spend||0;adMap[key].convValue+=a.convValue||0;adMap[key].outClicks+=a.outClicks||0;
+    if((a.impr||0)>0) adMap[key].impr+=a.impr;
   });
-
-  // ── Categorise each unique ad ──
-  const counts = { Winner:0, ITE:0, Analyse:0, Discarded:0 };
-
-  // Per-ctype counts: { 'IFAD': { Winner:0, ITE:0, Analyse:0, Discarded:0, total:0 }, ... }
-  const ctypeOrder  = ['IFAD','Graphic AD','VID','STATIC'];
-  const ctypeCounts = {};
-  ctypeOrder.forEach(ct => {
-    ctypeCounts[ct] = { Winner:0, ITE:0, Analyse:0, Discarded:0, total:0 };
-  });
-
-  Object.values(adMap).forEach(m => {
-    const ctRoas  = m.spend > 0 ? m.convValue / m.spend : 0;
-    const hasConv = m.convValue > 0;
-    const cat     = getAdCategory(m.impr, ctRoas, targetImp, targetRoas, hasConv);
+  const counts={Winner:0,ITE:0,Analyse:0,Discarded:0};
+  const ctypeOrder=['IFAD','Graphic AD','VID','STATIC'];
+  const ctypeCounts={};
+  ctypeOrder.forEach(ct=>{ctypeCounts[ct]={Winner:0,ITE:0,Analyse:0,Discarded:0,total:0};});
+  Object.values(adMap).forEach(m=>{
+    const ctRoas=m.spend>0?m.convValue/m.spend:0;
+    const hasConv=m.convValue>0;
+    const cpc=m.outClicks>0?m.spend/m.outClicks:0;
+    const cat=getAdCategory(m.impr,ctRoas,targetImp,targetRoas,hasConv,cpc);
     counts[cat]++;
-
-    // Add to ctype bucket
-    const ct = ctypeOrder.includes(m.ctype) ? m.ctype : 'VideoAds';
-    if(ctypeCounts[ct]){
-      ctypeCounts[ct][cat]++;
-      ctypeCounts[ct].total++;
-    }
+    const ct=ctypeOrder.includes(m.ctype)?m.ctype:'VideoAds';
+    if(ctypeCounts[ct]){ctypeCounts[ct][cat]++;ctypeCounts[ct].total++;}
   });
-
-  // ── Render summary chips (unchanged) ──
-  const summary = document.getElementById('resultSummary');
+  const summary=document.getElementById('resultSummary');
   if(!summary) return;
-  const totalAds = Object.values(counts).reduce((s,c) => s+c, 0);
-  summary.innerHTML = Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => {
-    const n      = counts[key];
-    const pct    = totalAds > 0 ? (n / totalAds * 100) : 0;
-    const pctStr = pct === 0 ? '0%' : pct < 1 ? '<1%' : Math.round(pct) + '%';
+  const totalAds=Object.values(counts).reduce((s,c)=>s+c,0);
+  summary.innerHTML=Object.entries(CATEGORY_CONFIG).map(([key,cfg])=>{
+    const n=counts[key];
+    const pct=totalAds>0?(n/totalAds*100):0;
+    const pctStr=pct===0?'0%':pct<1?'<1%':Math.round(pct)+'%';
     return `<div style="display:flex;flex-direction:column;gap:4px;background:${cfg.bg};border:1px solid ${cfg.border};border-radius:14px;padding:14px 20px;min-width:140px">
-      <div style="display:flex;align-items:baseline;gap:6px">
-        <span style="font-family:'Roboto',sans-serif;font-size:2rem;font-weight:900;color:${cfg.color};line-height:1">${pctStr}</span>
-      </div>
+      <div style="display:flex;align-items:baseline;gap:6px"><span style="font-family:'Roboto',sans-serif;font-size:2rem;font-weight:900;color:${cfg.color};line-height:1">${pctStr}</span></div>
       <div style="font-size:.65rem;font-weight:700;color:${cfg.color};margin-top:2px">${cfg.label}</div>
       <div style="font-size:.58rem;color:${cfg.color};opacity:.65;margin-top:1px">${n} ads · ${cfg.action}</div>
     </div>`;
   }).join('');
-
-  // ── Render creative type funnel ──
-  renderCtypeFunnel(ctypeCounts, ctypeOrder, totalAds);
+  renderCtypeFunnel(ctypeCounts,ctypeOrder,totalAds);
 }
 
-// ── Creative Type Funnel Table ──
-function renderCtypeFunnel(ctypeCounts, ctypeOrder, totalAds){
-  const wrap  = document.getElementById('ctypeFunnel');
-  const table = document.getElementById('ctypeFunnelTable');
-  if(!wrap || !table) return;
-
-  const cats = ['Winner','ITE','Analyse','Discarded'];
-  const CAT_CFG = {
-    Winner:   { color:'#2d6a4f', bg:'rgba(45,106,79,.08)',  badge:'#2d6a4f', label:'🟢 Winner',   pill:'rgba(45,106,79,.12)'  },
-    ITE:      { color:'#92620a', bg:'rgba(146,98,10,.07)',   badge:'#92620a', label:'🟡 ITE',      pill:'rgba(146,98,10,.12)'  },
-    Analyse:  { color:'#2c5282', bg:'rgba(44,82,130,.07)',   badge:'#2c5282', label:'🔵 Analyse',  pill:'rgba(44,82,130,.12)'  },
-    Discarded:{ color:'#9b2335', bg:'rgba(155,35,53,.07)',   badge:'#9b2335', label:'🔴 Discarded', pill:'rgba(155,35,53,.12)'  },
+function renderCtypeFunnel(ctypeCounts,ctypeOrder,totalAds){
+  const wrap=document.getElementById('ctypeFunnel');const table=document.getElementById('ctypeFunnelTable');
+  if(!wrap||!table) return;
+  const cats=['Winner','ITE','Analyse','Discarded'];
+  const CAT_CFG={
+    Winner:{color:'#2d6a4f',bg:'rgba(45,106,79,.08)',badge:'#2d6a4f',label:'🟢 Winner',pill:'rgba(45,106,79,.12)'},
+    ITE:{color:'#92620a',bg:'rgba(146,98,10,.07)',badge:'#92620a',label:'🟡 ITE',pill:'rgba(146,98,10,.12)'},
+    Analyse:{color:'#2c5282',bg:'rgba(44,82,130,.07)',badge:'#2c5282',label:'🔵 Analyse',pill:'rgba(44,82,130,.12)'},
+    Discarded:{color:'#9b2335',bg:'rgba(155,35,53,.07)',badge:'#9b2335',label:'🔴 Discarded',pill:'rgba(155,35,53,.12)'},
   };
-  const CTYPE_ICONS = { 'IFAD':'🎬', 'Graphic AD':'🖼️', 'VID':'📹', 'STATIC':'📷' };
-
-  const activeCTypes = ctypeOrder.filter(ct => ctypeCounts[ct]?.total > 0);
-  if(!activeCTypes.length){ wrap.style.display='none'; return; }
-  wrap.style.display = '';
-
-  // Max per category for bar scaling
-  const maxPerCat = {};
-  cats.forEach(cat => {
-    maxPerCat[cat] = Math.max(...activeCTypes.map(ct => ctypeCounts[ct][cat] || 0), 1);
-  });
-
-  table.innerHTML = `
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden">
-
-    <!-- Column header strip -->
+  const CTYPE_ICONS={'IFAD':'🎬','Graphic AD':'🖼️','VID':'📹','STATIC':'📷'};
+  const activeCTypes=ctypeOrder.filter(ct=>ctypeCounts[ct]?.total>0);
+  if(!activeCTypes.length){wrap.style.display='none';return;}
+  wrap.style.display='';
+  const maxPerCat={};
+  cats.forEach(cat=>{maxPerCat[cat]=Math.max(...activeCTypes.map(ct=>ctypeCounts[ct][cat]||0),1);});
+  table.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden">
     <div style="display:grid;grid-template-columns:180px 70px repeat(4,1fr);background:var(--surface2);border-bottom:2px solid var(--border)">
       <div style="padding:12px 18px;font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)">Creative Type</div>
       <div style="padding:12px 8px;font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);text-align:center">Total</div>
-      ${cats.map(cat => {
-        const c = CAT_CFG[cat];
-        return `<div style="padding:12px 16px;text-align:center;background:${c.bg};border-left:1px solid var(--border)">
-          <div style="font-size:.62rem;font-weight:800;letter-spacing:.08em;color:${c.color}">${c.label}</div>
-        </div>`;
-      }).join('')}
+      ${cats.map(cat=>{const c=CAT_CFG[cat];return`<div style="padding:12px 16px;text-align:center;background:${c.bg};border-left:1px solid var(--border)"><div style="font-size:.62rem;font-weight:800;letter-spacing:.08em;color:${c.color}">${c.label}</div></div>`;}).join('')}
     </div>
-
-    <!-- Data rows -->
-    ${activeCTypes.map((ct, ri) => {
-      const row = ctypeCounts[ct];
-      const isLast = ri === activeCTypes.length - 1;
-      const icon = CTYPE_ICONS[ct] || '📌';
-      return `
-      <div style="display:grid;grid-template-columns:180px 70px repeat(4,1fr);${isLast ? '' : 'border-bottom:1px solid var(--border);'}align-items:stretch">
-
-        <!-- Creative type label -->
-        <div style="padding:16px 18px;display:flex;align-items:center;gap:10px;background:var(--surface)">
-          <span style="font-size:1.1rem">${icon}</span>
-          <div>
-            <div style="font-size:.72rem;font-weight:700;color:var(--ink)">${ct}</div>
-            <div style="font-size:.58rem;color:var(--muted);margin-top:1px">${row.total} ads total</div>
-          </div>
-        </div>
-
-        <!-- Total badge -->
-        <div style="padding:16px 8px;display:flex;align-items:center;justify-content:center;background:var(--surface);border-left:1px solid var(--border)">
-          <div style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--ink)">${row.total}</div>
-        </div>
-
-        <!-- Category cells -->
-        ${cats.map(cat => {
-          const n      = row[cat] || 0;
-          const pct    = row.total > 0 ? Math.round(n / row.total * 100) : 0;
-          const barPct = maxPerCat[cat] > 0 ? (n / maxPerCat[cat] * 100) : 0;
-          const c      = CAT_CFG[cat];
-          return `
-          <div style="padding:14px 16px;background:${c.bg};border-left:1px solid var(--border);display:flex;flex-direction:column;gap:6px;justify-content:center">
-            <!-- Count + pct -->
-            <div style="display:flex;align-items:baseline;gap:6px">
-              <span style="font-family:'Roboto',sans-serif;font-size:1.4rem;font-weight:900;color:${c.color};line-height:1">${n}</span>
-              <span style="font-size:.6rem;font-weight:700;color:${c.color};opacity:.7">${pct}%</span>
-            </div>
-            <!-- Progress bar -->
-            <div style="height:5px;background:rgba(0,0,0,.06);border-radius:99px;overflow:hidden">
-              <div style="height:100%;width:${barPct.toFixed(1)}%;background:${c.color};border-radius:99px;opacity:.75;transition:width .5s cubic-bezier(.4,0,.2,1)"></div>
-            </div>
-            <!-- "X of total" label -->
-            <div style="font-size:.55rem;color:${c.color};opacity:.65">${n} of ${row.total}</div>
-          </div>`;
-        }).join('')}
+    ${activeCTypes.map((ct,ri)=>{
+      const row=ctypeCounts[ct];const isLast=ri===activeCTypes.length-1;const icon=CTYPE_ICONS[ct]||'📌';
+      return`<div style="display:grid;grid-template-columns:180px 70px repeat(4,1fr);${isLast?'':'border-bottom:1px solid var(--border);'}align-items:stretch">
+        <div style="padding:16px 18px;display:flex;align-items:center;gap:10px;background:var(--surface)"><span style="font-size:1.1rem">${icon}</span><div><div style="font-size:.72rem;font-weight:700;color:var(--ink)">${ct}</div><div style="font-size:.58rem;color:var(--muted);margin-top:1px">${row.total} ads total</div></div></div>
+        <div style="padding:16px 8px;display:flex;align-items:center;justify-content:center;background:var(--surface);border-left:1px solid var(--border)"><div style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--ink)">${row.total}</div></div>
+        ${cats.map(cat=>{const n=row[cat]||0;const pct=row.total>0?Math.round(n/row.total*100):0;const barPct=maxPerCat[cat]>0?(n/maxPerCat[cat]*100):0;const c=CAT_CFG[cat];return`<div style="padding:14px 16px;background:${c.bg};border-left:1px solid var(--border);display:flex;flex-direction:column;gap:6px;justify-content:center"><div style="display:flex;align-items:baseline;gap:6px"><span style="font-family:'Roboto',sans-serif;font-size:1.4rem;font-weight:900;color:${c.color};line-height:1">${n}</span><span style="font-size:.6rem;font-weight:700;color:${c.color};opacity:.7">${pct}%</span></div><div style="height:5px;background:rgba(0,0,0,.06);border-radius:99px;overflow:hidden"><div style="height:100%;width:${barPct.toFixed(1)}%;background:${c.color};border-radius:99px;opacity:.75;transition:width .5s cubic-bezier(.4,0,.2,1)"></div></div><div style="font-size:.55rem;color:${c.color};opacity:.65">${n} of ${row.total}</div></div>`;}).join('')}
       </div>`;
     }).join('')}
-
-    <!-- Grand Total row -->
     <div style="display:grid;grid-template-columns:180px 70px repeat(4,1fr);border-top:2px solid var(--border);background:var(--surface2)">
-      <div style="padding:14px 18px;display:flex;align-items:center;gap:8px">
-        <span style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--terra)">Grand Total</span>
-      </div>
-      <div style="padding:14px 8px;display:flex;align-items:center;justify-content:center;border-left:1px solid var(--border)">
-        <span style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--terra)">${totalAds}</span>
-      </div>
-      ${cats.map(cat => {
-        const n   = counts_total(ctypeCounts, activeCTypes, cat);
-        const pct = totalAds > 0 ? Math.round(n / totalAds * 100) : 0;
-        const c   = CAT_CFG[cat];
-        return `
-        <div style="padding:14px 16px;background:${c.bg};border-left:1px solid var(--border);display:flex;align-items:center;gap:8px">
-          <span style="font-family:'Roboto',sans-serif;font-size:1.2rem;font-weight:900;color:${c.color}">${n}</span>
-          <span style="font-size:.62rem;font-weight:700;color:${c.color};opacity:.75;background:${c.pill};padding:2px 7px;border-radius:99px">${pct}%</span>
-        </div>`;
-      }).join('')}
+      <div style="padding:14px 18px;display:flex;align-items:center;gap:8px"><span style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--terra)">Grand Total</span></div>
+      <div style="padding:14px 8px;display:flex;align-items:center;justify-content:center;border-left:1px solid var(--border)"><span style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--terra)">${totalAds}</span></div>
+      ${cats.map(cat=>{const n=counts_total(ctypeCounts,activeCTypes,cat);const pct=totalAds>0?Math.round(n/totalAds*100):0;const c=CAT_CFG[cat];return`<div style="padding:14px 16px;background:${c.bg};border-left:1px solid var(--border);display:flex;align-items:center;gap:8px"><span style="font-family:'Roboto',sans-serif;font-size:1.2rem;font-weight:900;color:${c.color}">${n}</span><span style="font-size:.62rem;font-weight:700;color:${c.color};opacity:.75;background:${c.pill};padding:2px 7px;border-radius:99px">${pct}%</span></div>`;}).join('')}
     </div>
-
   </div>`;
 }
 
-function counts_total(ctypeCounts, activeCTypes, cat){
-  return activeCTypes.reduce((s, ct) => s + (ctypeCounts[ct][cat] || 0), 0);
-}
+function counts_total(ctypeCounts,activeCTypes,cat){ return activeCTypes.reduce((s,ct)=>s+(ctypeCounts[ct][cat]||0),0); }
 
-// ════════════════════════════════════════
-// NAME FILTER + COPY TOGGLE
-// Single input — supports "26/03/26 or 27/03/26"
-// OR-splits on " or " keyword, AND-splits on space (implicit)
-// Copy exclude toggle — independent of name filter
-// ════════════════════════════════════════
-let EXCLUDE_COPY_TOGGLE = true; // start with copy excluded
+let EXCLUDE_COPY_TOGGLE=true;
 
 function toggleExcludeCopy(){
-  EXCLUDE_COPY_TOGGLE = !EXCLUDE_COPY_TOGGLE;
-  const dot   = document.getElementById('copyToggleDot');
-  const thumb = document.getElementById('copyToggleThumb');
-  const label = document.getElementById('copyToggleLabel');
-  if(dot)   dot.style.background   = EXCLUDE_COPY_TOGGLE ? 'var(--terra)' : 'var(--border2)';
-  if(thumb) thumb.style.right      = EXCLUDE_COPY_TOGGLE ? '2px' : '13px';
-  if(label) label.textContent      = EXCLUDE_COPY_TOGGLE ? 'Excl. copy' : 'Incl. copy';
+  EXCLUDE_COPY_TOGGLE=!EXCLUDE_COPY_TOGGLE;
+  const dot=document.getElementById('copyToggleDot');const thumb=document.getElementById('copyToggleThumb');const label=document.getElementById('copyToggleLabel');
+  if(dot) dot.style.background=EXCLUDE_COPY_TOGGLE?'var(--terra)':'var(--border2)';
+  if(thumb) thumb.style.right=EXCLUDE_COPY_TOGGLE?'2px':'13px';
+  if(label) label.textContent=EXCLUDE_COPY_TOGGLE?'Excl. copy':'Incl. copy';
   applyFilters();
 }
 
-function clearNameFilter(){
-  const el = document.getElementById('nameFilterValue');
-  if(el) el.value = '';
-  applyFilters();
-}
+function clearNameFilter(){ const el=document.getElementById('nameFilterValue'); if(el) el.value=''; applyFilters(); }
 
-// Parse the single input — "26/03/26 or 27/03/26" → OR terms
-// Returns { mode: 'contains'|'not_contains', terms: [...] }
 function getNameFilter(){
-  const mode  = document.getElementById('nameFilterMode')?.value || 'contains';
-  const raw   = (document.getElementById('nameFilterValue')?.value || '').trim();
-  if(!raw) return { mode, terms:[] };
-  // Split on " or " (case-insensitive)
-  const terms = raw.split(/\s+or\s+/i).map(t => t.trim()).filter(Boolean);
-  return { mode, terms };
+  const mode=document.getElementById('nameFilterMode')?.value||'contains';
+  const raw=(document.getElementById('nameFilterValue')?.value||'').trim();
+  if(!raw) return{mode,terms:[]};
+  const terms=raw.split(/\s+or\s+/i).map(t=>t.trim()).filter(Boolean);
+  return{mode,terms};
 }
 
-
-// ════════════════════════════════════════
-// DEFINITIONS MODAL
-// ════════════════════════════════════════
 function toggleDefModal(){
-  const modal = document.getElementById('defModal');
-  if(!modal) return;
-  const isOpen = modal.style.display === 'flex';
-  modal.style.display = isOpen ? 'none' : 'flex';
+  const modal=document.getElementById('defModal');if(!modal) return;
+  const isOpen=modal.style.display==='flex';
+  modal.style.display=isOpen?'none':'flex';
   if(!isOpen){
-    // Sync current threshold values into modal inputs
-    const ti = document.getElementById('targetImp')?.value  || '50000';
-    const tr = document.getElementById('targetRoas')?.value || '3.0';
-    const di = document.getElementById('def_targetImp');
-    const dr = document.getElementById('def_targetRoas');
-    if(di) di.value = ti;
-    if(dr) dr.value = tr;
+    const ti=document.getElementById('targetImp')?.value||'50000';const tr=document.getElementById('targetRoas')?.value||'3.0';
+    const di=document.getElementById('def_targetImp');const dr=document.getElementById('def_targetRoas');
+    if(di) di.value=ti;if(dr) dr.value=tr;
   }
 }
 
-// Close modal when clicking the backdrop
-document.addEventListener('click', e => {
-  const modal = document.getElementById('defModal');
-  if(modal && e.target === modal) toggleDefModal();
-});
+document.addEventListener('click',e=>{const modal=document.getElementById('defModal');if(modal&&e.target===modal)toggleDefModal();});
 
-// Sync threshold changes from modal → dashboard inputs → re-run filters
-function syncThreshold(type, val){
-  if(type === 'imp'){
-    const el = document.getElementById('targetImp');
-    if(el){ el.value = val; }
-  } else {
-    const el = document.getElementById('targetRoas');
-    if(el){ el.value = val; }
-  }
-  // Re-run categorisation with new thresholds
-  if(typeof applyFilters === 'function') applyFilters();
+function syncThreshold(type,val){
+  if(type==='imp'){const el=document.getElementById('targetImp');if(el){el.value=val;}}
+  else{const el=document.getElementById('targetRoas');if(el){el.value=val;}}
+  if(typeof applyFilters==='function') applyFilters();
 }
 
-// ════════════════════════════════════════
-// INIT
-
-// ════════════════════════════════════════
-// DEFINITIONS MODAL
-// ════════════════════════════════════════
-function toggleDefModal(){
-  const modal = document.getElementById('defModal');
-  if(!modal) return;
-  const isOpen = modal.style.display === 'flex';
-  modal.style.display = isOpen ? 'none' : 'flex';
-  if(!isOpen){
-    // Sync current threshold values into modal inputs
-    const ti = document.getElementById('targetImp')?.value  || '50000';
-    const tr = document.getElementById('targetRoas')?.value || '3.0';
-    const di = document.getElementById('def_targetImp');
-    const dr = document.getElementById('def_targetRoas');
-    if(di) di.value = ti;
-    if(dr) dr.value = tr;
-  }
-}
-
-// Close modal when clicking the backdrop
-document.addEventListener('click', e => {
-  const modal = document.getElementById('defModal');
-  if(modal && e.target === modal) toggleDefModal();
-});
-
-// Sync threshold changes from modal → dashboard inputs → re-run filters
-function syncThreshold(type, val){
-  if(type === 'imp'){
-    const el = document.getElementById('targetImp');
-    if(el){ el.value = val; }
-  } else {
-    const el = document.getElementById('targetRoas');
-    if(el){ el.value = val; }
-  }
-  // Re-run categorisation with new thresholds
-  if(typeof applyFilters === 'function') applyFilters();
-}
-
-// ════════════════════════════════════════
-// INIT
-// ════════════════════════════════════════
 document.addEventListener('DOMContentLoaded',()=>{
   setDefaultDates();
-  // Default to All Accounts tab if Supabase is configured, else Account 1
-  if(SUPABASE_URL && SUPABASE_ANON){
-    selectAccount(0, document.getElementById('aSelTabAll'));
-  } else {
-    selectAccount(1, document.getElementById('aSelTab1'));
-  }
-  EXCLUDE_COPY_TOGGLE = true;
-  // Auto-load if any credentials are set
-  if((SUPABASE_URL && SUPABASE_ANON) || (HARDCODED_SHEET_ID && HARDCODED_API_KEY)){
-    fetchSheet();
-  }
+  if(SUPABASE_URL&&SUPABASE_ANON){selectAccount(0,document.getElementById('aSelTabAll'));}
+  else{selectAccount(1,document.getElementById('aSelTab1'));}
+  EXCLUDE_COPY_TOGGLE=true;
+  if((SUPABASE_URL&&SUPABASE_ANON)||(HARDCODED_SHEET_ID&&HARDCODED_API_KEY)){fetchSheet();}
 });
 </script>
 
-<!-- ════════════════════════════════════════ -->
-<!-- DEFINITIONS MODAL                        -->
-<!-- ════════════════════════════════════════ -->
+<!-- DEFINITIONS MODAL -->
 <div id="defModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(28,25,22,.45);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:24px">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:22px;max-width:720px;width:100%;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(28,25,22,.18);position:relative">
-
-    <!-- Header -->
     <div style="padding:24px 28px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-      <div>
-        <div style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--ink)">Algorithm Definitions</div>
-        <div style="font-size:.65rem;color:var(--muted);margin-top:3px;letter-spacing:.08em;text-transform:uppercase">How ads are evaluated &amp; categorised</div>
-      </div>
+      <div><div style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--ink)">Algorithm Definitions</div><div style="font-size:.65rem;color:var(--muted);margin-top:3px;letter-spacing:.08em;text-transform:uppercase">How ads are evaluated &amp; categorised</div></div>
       <button onclick="toggleDefModal()" style="border:none;background:var(--bg2);color:var(--muted);border-radius:8px;width:32px;height:32px;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Roboto',sans-serif">✕</button>
     </div>
-
-    <!-- Scrollable body -->
     <div style="overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:22px">
 
       <!-- ── SECTION 1: THRESHOLDS ── -->
       <div>
-        <div style="font-size:.58rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--terra);margin-bottom:10px;display:flex;align-items:center;gap:8px">
-          <span style="flex:1;height:1px;background:var(--terra-lt)"></span>
-          Evaluation Thresholds
-          <span style="flex:1;height:1px;background:var(--terra-lt)"></span>
-        </div>
+        <div style="font-size:.58rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--terra);margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="flex:1;height:1px;background:var(--terra-lt)"></span>Evaluation Thresholds<span style="flex:1;height:1px;background:var(--terra-lt)"></span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div style="background:var(--terra-lt);border:1px solid rgba(192,96,58,.2);border-radius:12px;padding:14px 16px">
             <div style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--terra);margin-bottom:6px">Target Impressions</div>
-            <div style="display:flex;align-items:baseline;gap:8px">
-              <input type="number" id="def_targetImp" value="50000" onchange="syncThreshold('imp',this.value)"
-                style="font-family:'Roboto',sans-serif;font-size:1.4rem;font-weight:900;color:var(--terra);background:transparent;border:none;outline:none;border-bottom:2px solid var(--terra);width:110px;padding-bottom:2px"/>
-              <span style="font-size:.65rem;color:var(--terra);font-weight:600">impressions</span>
-            </div>
+            <div style="display:flex;align-items:baseline;gap:8px"><input type="number" id="def_targetImp" value="50000" onchange="syncThreshold('imp',this.value)" style="font-family:'Roboto',sans-serif;font-size:1.4rem;font-weight:900;color:var(--terra);background:transparent;border:none;outline:none;border-bottom:2px solid var(--terra);width:110px;padding-bottom:2px"/><span style="font-size:.65rem;color:var(--terra);font-weight:600">impressions</span></div>
             <div style="font-size:.6rem;color:var(--muted);margin-top:6px">Minimum impressions an ad needs before evaluation is valid</div>
           </div>
           <div style="background:var(--sage-lt);border:1px solid rgba(74,124,111,.2);border-radius:12px;padding:14px 16px">
             <div style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--sage);margin-bottom:6px">Target ROAS</div>
-            <div style="display:flex;align-items:baseline;gap:8px">
-              <input type="number" id="def_targetRoas" value="3.0" step="0.1" onchange="syncThreshold('roas',this.value)"
-                style="font-family:'Roboto',sans-serif;font-size:1.4rem;font-weight:900;color:var(--sage);background:transparent;border:none;outline:none;border-bottom:2px solid var(--sage);width:80px;padding-bottom:2px"/>
-              <span style="font-size:.65rem;color:var(--sage);font-weight:600">× return</span>
-            </div>
+            <div style="display:flex;align-items:baseline;gap:8px"><input type="number" id="def_targetRoas" value="3.0" step="0.1" onchange="syncThreshold('roas',this.value)" style="font-family:'Roboto',sans-serif;font-size:1.4rem;font-weight:900;color:var(--sage);background:transparent;border:none;outline:none;border-bottom:2px solid var(--sage);width:80px;padding-bottom:2px"/><span style="font-size:.65rem;color:var(--sage);font-weight:600">× return</span></div>
             <div style="font-size:.6rem;color:var(--muted);margin-top:6px">Minimum CT ROAS an ad must achieve to be considered profitable</div>
           </div>
+        </div>
+        <!-- Efficiency Winner path -->
+        <div style="margin-top:10px;background:var(--sage-lt);border:1px solid rgba(74,124,111,.2);border-radius:12px;padding:14px 16px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--sage)">🟢 Efficiency Winner Path</span>
+            <span style="font-size:.56rem;background:var(--sage);color:#fff;padding:2px 8px;border-radius:100px;font-weight:700">NEW</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <div style="display:flex;flex-direction:column;align-items:center;background:#fff;border:1px solid rgba(74,124,111,.2);border-radius:8px;padding:8px 14px">
+              <span style="font-size:.55rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px">Impressions</span>
+              <span style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--sage)">≥ 25,000</span>
+            </div>
+            <span style="font-size:1rem;color:var(--sage);font-weight:700">+</span>
+            <div style="display:flex;flex-direction:column;align-items:center;background:#fff;border:1px solid rgba(74,124,111,.2);border-radius:8px;padding:8px 14px">
+              <span style="font-size:.55rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px">CT ROAS</span>
+              <span style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--sage)">≥ 3.0×</span>
+            </div>
+            <span style="font-size:1rem;color:var(--sage);font-weight:700">+</span>
+            <div style="display:flex;flex-direction:column;align-items:center;background:#fff;border:1px solid rgba(74,124,111,.2);border-radius:8px;padding:8px 14px">
+              <span style="font-size:.55rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px">CPC</span>
+              <span style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--sage)">≤ ₹525</span>
+            </div>
+            <span style="font-size:.65rem;color:var(--sage);font-weight:700;margin-left:4px">= 🟢 Winner</span>
+          </div>
+          <div style="font-size:.6rem;color:var(--sage);opacity:.8;margin-top:8px">An ad achieving all three efficiency signals qualifies as a Winner even before reaching the standard impression threshold</div>
         </div>
       </div>
 
       <!-- ── SECTION 2: CATEGORISATION ALGORITHM ── -->
       <div>
-        <div style="font-size:.58rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--terra);margin-bottom:10px;display:flex;align-items:center;gap:8px">
-          <span style="flex:1;height:1px;background:var(--terra-lt)"></span>
-          Categorisation Algorithm
-          <span style="flex:1;height:1px;background:var(--terra-lt)"></span>
-        </div>
+        <div style="font-size:.58rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--terra);margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="flex:1;height:1px;background:var(--terra-lt)"></span>Categorisation Algorithm<span style="flex:1;height:1px;background:var(--terra-lt)"></span></div>
         <div style="font-size:.68rem;color:var(--ink2);margin-bottom:10px;line-height:1.7">Each unique ad is evaluated against a 2-axis matrix using <strong>Total Impressions</strong> and <strong>CT ROAS</strong> aggregated across the selected date range. Rows are deduplicated by <em>Date + Ad ID</em> before aggregation.</div>
-
-        <!-- Category cards -->
         <div style="display:flex;flex-direction:column;gap:8px">
           <div style="display:grid;grid-template-columns:100px 1fr 1fr 1fr;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:.63rem">
             <div style="background:var(--surface2);padding:8px 12px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-right:1px solid var(--border)">Category</div>
@@ -1849,9 +1067,18 @@ document.addEventListener('DOMContentLoaded',()=>{
             <div style="background:var(--surface2);padding:8px 12px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Action</div>
           </div>
           <div style="display:grid;grid-template-columns:100px 1fr 1fr 1fr;border:1px solid rgba(74,124,111,.25);border-radius:10px;overflow:hidden;font-size:.65rem;background:#e6f0ee">
-            <div style="padding:10px 12px;font-weight:800;color:#4a7c6f;border-right:1px solid rgba(74,124,111,.2)">🟢 Winner</div>
-            <div style="padding:10px 12px;color:#4a7c6f;border-right:1px solid rgba(74,124,111,.2)">≥ Target Imp</div>
-            <div style="padding:10px 12px;color:#4a7c6f;border-right:1px solid rgba(74,124,111,.2)">≥ Target ROAS</div>
+            <div style="padding:10px 12px;font-weight:800;color:#4a7c6f;border-right:1px solid rgba(74,124,111,.2);display:flex;flex-direction:column;gap:4px">
+              🟢 Winner
+              <span style="font-size:.5rem;font-weight:600;color:#4a7c6f;opacity:.7">Path A or B</span>
+            </div>
+            <div style="padding:10px 12px;color:#4a7c6f;border-right:1px solid rgba(74,124,111,.2)">
+              <div style="margin-bottom:4px"><span style="font-size:.52rem;font-weight:700;background:rgba(74,124,111,.15);padding:1px 5px;border-radius:3px">A</span> ≥ Target Imp</div>
+              <div><span style="font-size:.52rem;font-weight:700;background:rgba(74,124,111,.15);padding:1px 5px;border-radius:3px">B</span> ≥ 25,000</div>
+            </div>
+            <div style="padding:10px 12px;color:#4a7c6f;border-right:1px solid rgba(74,124,111,.2)">
+              <div style="margin-bottom:4px"><span style="font-size:.52rem;font-weight:700;background:rgba(74,124,111,.15);padding:1px 5px;border-radius:3px">A</span> ≥ Target ROAS</div>
+              <div><span style="font-size:.52rem;font-weight:700;background:rgba(74,124,111,.15);padding:1px 5px;border-radius:3px">B</span> ≥ 3.0× + CPC ≤ ₹525</div>
+            </div>
             <div style="padding:10px 12px;color:#4a7c6f">Scale budget immediately</div>
           </div>
           <div style="display:grid;grid-template-columns:100px 1fr 1fr 1fr;border:1px solid rgba(184,136,58,.25);border-radius:10px;overflow:hidden;font-size:.65rem;background:#fdf5e6">
@@ -1877,11 +1104,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
       <!-- ── SECTION 3: METRIC FORMULAS ── -->
       <div>
-        <div style="font-size:.58rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--terra);margin-bottom:10px;display:flex;align-items:center;gap:8px">
-          <span style="flex:1;height:1px;background:var(--terra-lt)"></span>
-          Metric Formulas
-          <span style="flex:1;height:1px;background:var(--terra-lt)"></span>
-        </div>
+        <div style="font-size:.58rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--terra);margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="flex:1;height:1px;background:var(--terra-lt)"></span>Metric Formulas<span style="flex:1;height:1px;background:var(--terra-lt)"></span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
             <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--terra);margin-bottom:4px">CT ROAS</div>
@@ -1916,202 +1139,186 @@ document.addEventListener('DOMContentLoaded',()=>{
         </div>
       </div>
 
-      <!-- ── SECTION 4: DEDUPLICATION NOTE ── -->
+      <!-- ── SECTION 4: DEDUPLICATION ── -->
       <div style="background:var(--slate-lt);border:1px solid rgba(74,111,165,.2);border-radius:10px;padding:14px 16px">
         <div style="font-size:.62rem;font-weight:700;color:var(--slate);margin-bottom:5px">ℹ  Data Deduplication</div>
         <div style="font-size:.63rem;color:var(--ink2);line-height:1.7">The sheet may contain multiple rows for the same <em>Date + Ad ID</em> combination due to sync overlaps. The dashboard automatically removes duplicates, keeping the latest entry per combination before all calculations. Rate metrics further exclude rows with 0 impressions from their denominators to match Meta Ads Manager's behaviour precisely.</div>
       </div>
 
-    </div><!-- end scrollable body -->
-
-    <!-- Footer -->
+    </div>
     <div style="padding:14px 28px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--surface2)">
       <div style="font-size:.6rem;color:var(--muted)">Changes to thresholds apply instantly to the dashboard</div>
       <button onclick="toggleDefModal()" style="background:var(--terra);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-family:'Roboto',sans-serif;font-size:.72rem;font-weight:600;cursor:pointer">Close</button>
     </div>
-
   </div>
 </div>
 
 </div><!-- /ctDashboardWrap -->
 
 <!-- ADS ANALYSE TAB -->
-<div id="analysisEnginePanel" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:100;overflow-y:auto;background:#09090e;font-family:'Plus Jakarta Sans',sans-serif">
+<div id="analysisEnginePanel" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:100;overflow-y:auto;background:#f4f1eb;font-family:'Roboto',sans-serif">
 
   <style>
     #analysisEnginePanel {
-      --ae-bg: #09090e;
-      --ae-surface: rgba(255,255,255,0.03);
-      --ae-surface2: rgba(255,255,255,0.05);
-      --ae-border: rgba(255,255,255,0.07);
-      --ae-border2: rgba(255,255,255,0.12);
-      --ae-ink: #f0f0f8;
-      --ae-muted: #94a3b8;
-      --ae-dim: #4f5c70;
-      --ae-primary: #9d00ff;
-      --ae-cyan: #00bcd4;
-      --ae-green: #4ade80;
-      --ae-yellow: #f59e0b;
-      --ae-red: #f87171;
-      --ae-blue: #60a5fa;
+      --ae-bg: #f4f1eb; --ae-bg2: #edeae2;
+      --ae-surface: #ffffff; --ae-surface2: #faf8f5;
+      --ae-border: #e0dbd0; --ae-border2: #cdc8bc;
+      --ae-ink: #1c1916; --ae-ink2: #4a4540; --ae-muted: #9a9187; --ae-dim: #9a9187;
+      --ae-terra: #c0603a; --ae-terra-lt: #f5ebe6;
+      --ae-sage: #4a7c6f; --ae-sage-lt: #e6f0ee;
+      --ae-slate: #4a6fa5; --ae-slate-lt: #eaf0f8;
+      --ae-gold: #b8883a; --ae-gold-lt: #fdf5e6;
+      --ae-a1: #7c4dbd; --ae-a1-lt: #f0ebfa;
+      --ae-a2: #c0603a; --ae-a2-lt: #f5ebe6;
+      --ae-a3: #4a7c6f; --ae-a3-lt: #e6f0ee;
     }
+    #analysisEnginePanel { background: var(--ae-bg); color: var(--ae-ink); font-family: 'Roboto', sans-serif; }
     #analysisEnginePanel * { box-sizing: border-box; }
-    #analysisEnginePanel .ae-glass {
-      background: var(--ae-surface);
-      border: 1px solid var(--ae-border);
-      border-radius: 14px;
-      backdrop-filter: blur(12px);
-    }
+    #analysisEnginePanel .ae-glass { background: var(--ae-surface); border: 1px solid var(--ae-border); border-radius: 14px; }
     #analysisEnginePanel .ae-metric-card {
-      position: relative; overflow: hidden; cursor: pointer;
-      padding: 20px; border-radius: 14px;
-      background: var(--ae-surface); border: 1px solid var(--ae-border);
-      transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+      position: relative; overflow: hidden; cursor: pointer; padding: 18px; border-radius: 14px;
+      background: var(--ae-surface); border: 1px solid var(--ae-border); transition: all 0.2s;
     }
     #analysisEnginePanel .ae-metric-card::after {
-      content:''; position:absolute; top:0; left:0; right:0; height:2px;
-      background: var(--card-accent, #fff); opacity:0.5; transition: opacity 0.25s;
+      content:''; position:absolute; bottom:0; left:0; right:0; height:3px;
+      background: var(--card-accent, var(--ae-terra)); opacity:0.5; transition: opacity 0.2s; border-radius: 0 0 14px 14px;
     }
     #analysisEnginePanel .ae-metric-card:hover, #analysisEnginePanel .ae-metric-card.active {
-      transform: translateY(-3px);
-      border-color: var(--card-border, var(--ae-border2));
-      box-shadow: 0 8px 32px -8px var(--card-shadow, rgba(255,255,255,.1));
+      transform: translateY(-2px); box-shadow: 0 6px 22px rgba(28,25,22,.07);
     }
     #analysisEnginePanel .ae-metric-card.active::after { opacity: 1; }
-    #analysisEnginePanel .ae-metric-card.active { background: var(--ae-surface2); }
-    #analysisEnginePanel .ae-badge {
-      display: inline-flex; align-items: center; gap: 4px;
-      padding: 3px 10px; border-radius: 20px; font-size: 10px;
-      font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
-    }
+    #analysisEnginePanel .ae-metric-card.active { background: var(--ae-surface2); border-color: var(--card-border, var(--ae-border2)); }
+    #analysisEnginePanel .ae-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; }
     #analysisEnginePanel .ae-filter-input {
-      background: rgba(255,255,255,0.03); border: 1px solid var(--ae-border);
-      color: var(--ae-ink); border-radius: 8px; padding: 7px 12px;
-      font-size: 12px; font-weight: 500; outline: none;
-      font-family: 'Plus Jakarta Sans', sans-serif; transition: border-color 0.2s;
+      background: var(--ae-surface2); border: 1px solid var(--ae-border); color: var(--ae-ink);
+      border-radius: 8px; padding: 7px 12px; font-size: 12px; font-weight: 500; outline: none;
+      font-family: 'Roboto', sans-serif; transition: border-color 0.2s;
     }
-    #analysisEnginePanel .ae-filter-input:focus { border-color: rgba(157,0,255,0.4); }
-    #analysisEnginePanel .ae-filter-input option { background: #1a1a2e; }
+    #analysisEnginePanel .ae-filter-input:focus { border-color: var(--ae-terra); box-shadow: 0 0 0 3px rgba(192,96,58,.1); }
+    #analysisEnginePanel .ae-filter-input option { background: #fff; color: #1c1916; }
     #analysisEnginePanel table.ae-tbl { width: 100%; border-collapse: separate; border-spacing: 0; }
     #analysisEnginePanel table.ae-tbl thead th {
-      background: #0a0a12; color: #64748b; border-bottom: 2px solid rgba(157,0,255,0.12);
-      font-weight: 600; text-transform: uppercase; font-size: 9.5px; letter-spacing: 1px;
-      white-space: nowrap; padding: 14px 16px; cursor: pointer; user-select: none;
-      font-family: 'Plus Jakarta Sans', sans-serif; position: sticky; top: 56px; z-index: 3;
-      transition: color 0.15s;
+      background: var(--ae-surface2); color: var(--ae-muted); border-bottom: 1px solid var(--ae-border);
+      font-weight: 700; text-transform: uppercase; font-size: 9.5px; letter-spacing: 1px;
+      white-space: nowrap; padding: 11px 14px; cursor: pointer; user-select: none;
+      font-family: 'Roboto', sans-serif; position: sticky; top: 0; z-index: 3; transition: color 0.15s;
     }
-    #analysisEnginePanel table.ae-tbl thead th:hover { color: #c4b5fd; background: #0d0c18; }
-    #analysisEnginePanel table.ae-tbl tbody tr { background: #0d0d14; transition: background 0.15s; }
-    #analysisEnginePanel table.ae-tbl tbody tr:nth-child(even) { background: #0f0f18; }
-    #analysisEnginePanel table.ae-tbl tbody tr:hover { background: #15142a !important; }
+    #analysisEnginePanel table.ae-tbl thead th:hover { color: var(--ae-terra); background: var(--ae-terra-lt); }
+    #analysisEnginePanel table.ae-tbl tbody tr { background: var(--ae-surface); transition: background 0.15s; }
+    #analysisEnginePanel table.ae-tbl tbody tr:nth-child(even) { background: var(--ae-surface2); }
+    #analysisEnginePanel table.ae-tbl tbody tr:hover { background: #f5ebe6 !important; }
     #analysisEnginePanel table.ae-tbl tbody td {
-      border-bottom: 1px solid rgba(255,255,255,0.035);
-      color: #c9d1e0; padding: 13px 16px; vertical-align: middle;
-      white-space: nowrap; font-size: 12px; font-family: 'Plus Jakarta Sans', sans-serif;
+      border-bottom: 1px solid var(--ae-bg2); color: var(--ae-ink2); padding: 11px 14px;
+      vertical-align: middle; white-space: nowrap; font-size: 12px; font-family: 'Roboto', sans-serif;
     }
     @keyframes ae-spin { to { transform: rotate(360deg); } }
-    @keyframes ae-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    @keyframes ae-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
     #analysisEnginePanel .ae-spinner {
       width: 40px; height: 40px; border-radius: 50%;
-      border: 3px solid rgba(157,0,255,0.15); border-top-color: var(--ae-primary);
+      border: 3px solid rgba(192,96,58,0.15); border-top-color: var(--ae-terra);
       animation: ae-spin 0.8s linear infinite; margin: 0 auto 14px;
     }
+    #analysisEnginePanel .ae-acct-card {
+      background: var(--ae-surface2); border: 1px solid var(--ae-border); border-radius: 9px;
+      padding: 8px 14px; cursor: pointer; transition: all 0.15s; user-select: none; white-space: nowrap;
+    }
+    #analysisEnginePanel .ae-acct-card:hover { background: var(--ae-surface); border-color: var(--ae-border2); box-shadow: 0 2px 8px rgba(28,25,22,.06); }
+    #analysisEnginePanel .ae-acct-card-label { font-size: .56rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ae-muted); font-family: 'Roboto', sans-serif; }
+    #analysisEnginePanel .ae-acct-card-name { font-size: .82rem; font-weight: 700; color: var(--ae-ink); margin-top: 1px; font-family: 'Roboto', sans-serif; }
+    #analysisEnginePanel .ae-acct-card.active.tab-all  { background: var(--ae-terra-lt); border: 2px solid rgba(192,96,58,.25); }
+    #analysisEnginePanel .ae-acct-card.active.tab-all  .ae-acct-card-label { color: var(--ae-terra); }
+    #analysisEnginePanel .ae-acct-card.active.tab-1    { background: var(--ae-a1-lt);    border: 2px solid rgba(124,77,189,.25); }
+    #analysisEnginePanel .ae-acct-card.active.tab-1    .ae-acct-card-label { color: var(--ae-a1); }
+    #analysisEnginePanel .ae-acct-card.active.tab-2    { background: var(--ae-a2-lt);    border: 2px solid rgba(192,96,58,.25); }
+    #analysisEnginePanel .ae-acct-card.active.tab-2    .ae-acct-card-label { color: var(--ae-a2); }
+    #analysisEnginePanel .ae-acct-card.active.tab-3    { background: var(--ae-a3-lt);    border: 2px solid rgba(74,124,111,.25); }
+    #analysisEnginePanel .ae-acct-card.active.tab-3    .ae-acct-card-label { color: var(--ae-a3); }
   </style>
 
   <!-- TOP NAV -->
-  <div style="position:sticky;top:0;z-index:10;background:rgba(9,9,14,0.92);border-bottom:1px solid var(--ae-border);height:56px;display:flex;align-items:center;padding:0 24px;gap:16px;backdrop-filter:blur(20px)">
-    <button onclick="aeGoBack()" style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--ae-border2);color:var(--ae-muted);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s" onmouseover="this.style.color='#e2e8f0';this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.color='';this.style.background='rgba(255,255,255,0.04)'">
-      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-      <span style="font-style:italic;font-weight:800;letter-spacing:-.01em">Creative <em style="color:#f97316">Testing</em></span>
-    </button>
-    <div style="width:1px;height:20px;background:var(--ae-border)"></div>
-    <div style="display:flex;align-items:center;gap:6px">
-      <div style="width:6px;height:6px;border-radius:50%;background:var(--ae-cyan);box-shadow:0 0 6px var(--ae-cyan);animation:ae-pulse 2s infinite"></div>
-      <span style="font-size:13px;font-weight:700;color:var(--ae-ink)">Ads Analyse</span>
-      <span id="ae-row-badge" style="display:none;font-size:10px;font-weight:700;color:var(--ae-cyan);background:rgba(0,188,212,0.1);border:1px solid rgba(0,188,212,0.25);border-radius:20px;padding:2px 10px"></span>
+  <div style="position:sticky;top:0;z-index:10;background:rgba(244,241,235,0.96);border-bottom:1px solid var(--ae-border);backdrop-filter:blur(20px)">
+    <div style="height:52px;display:flex;align-items:center;padding:0 24px;gap:14px">
+      <button onclick="aeGoBack()" style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--ae-surface2);border:1px solid var(--ae-border2);color:var(--ae-ink2);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;flex-shrink:0" onmouseover="this.style.background='var(--ae-surface)';this.style.borderColor='var(--ae-terra)'" onmouseout="this.style.background='var(--ae-surface2)';this.style.borderColor='var(--ae-border2)'">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        <span style="font-style:italic;font-weight:800;letter-spacing:-.01em">Creative <em style="color:#c0603a">Testing</em></span>
+      </button>
+      <div style="width:1px;height:20px;background:var(--ae-border);flex-shrink:0"></div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <div style="width:6px;height:6px;border-radius:50%;background:var(--ae-terra);animation:ae-pulse 2s infinite"></div>
+        <span style="font-size:13px;font-weight:700;color:var(--ae-ink)">Ads Analyse</span>
+        <span id="ae-row-badge" style="display:none;font-size:10px;font-weight:700;color:var(--ae-terra);background:var(--ae-terra-lt);border:1px solid rgba(192,96,58,.25);border-radius:20px;padding:2px 10px"></span>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <select id="ae-group-by" onchange="aeRecompute()" class="ae-filter-input" style="min-width:130px">
+          <option value="ad">🗂 Ad Level</option>
+          <option value="campaign">📁 Campaign Level</option>
+        </select>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ae-muted);font-weight:600">
+          Target Imp: <input id="ae-target-imp" type="number" value="50000" oninput="aeRecompute()" style="width:68px;padding:6px 8px;border-radius:7px;border:1px solid var(--ae-border);background:var(--ae-surface2);color:var(--ae-ink);font-family:inherit;font-size:11px;outline:none">
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ae-muted);font-weight:600">
+          ROAS: <input id="ae-target-roas" type="number" value="3.0" step="0.1" oninput="aeRecompute()" style="width:50px;padding:6px 8px;border-radius:7px;border:1px solid var(--ae-border);background:var(--ae-surface2);color:var(--ae-ink);font-family:inherit;font-size:11px;outline:none">
+        </div>
+        <button onclick="aeReload()" style="padding:7px 14px;background:var(--ae-terra-lt);border:1px solid rgba(192,96,58,.3);color:var(--ae-terra);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">↻ Refresh</button>
+      </div>
     </div>
-    <!-- Controls right side -->
-    <div style="display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap">
-      <select id="ae-group-by" onchange="aeRecompute()" class="ae-filter-input" style="min-width:130px">
-        <option value="ad">🗂 Ad Level</option>
-        <option value="campaign">📁 Campaign Level</option>
-      </select>
-      <select id="ae-acct-filter" onchange="aeApplyFilters()" class="ae-filter-input">
-        <option value="">All Accounts</option>
-        <option value="Raho Saadaa">Raho Saadaa</option>
-        <option value="Fourth Ad Account - SD">Fourth Ad Account</option>
-        <option value="Third Ad Account - SD">Third Ad Account</option>
-      </select>
-      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ae-dim);font-weight:600">
-        Target Imp: <input id="ae-target-imp" type="number" value="50000" oninput="aeRecompute()" style="width:68px;padding:6px 8px;border-radius:7px;border:1px solid var(--ae-border);background:rgba(255,255,255,0.03);color:var(--ae-ink);font-family:inherit;font-size:11px;outline:none">
+    <!-- Row 2: account cards -->
+    <div style="padding:0 24px 12px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ae-muted);flex-shrink:0">Account</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="aeAcctRail">
+        <div class="ae-acct-card active tab-all" id="aeTab-all" onclick="aeSetAcct('',this)">
+          <div class="ae-acct-card-label">All Accounts</div>
+          <div class="ae-acct-card-name">Combined View</div>
+        </div>
+        <div class="ae-acct-card tab-1" id="aeTab-1" onclick="aeSetAcct('Raho Saadaa',this)">
+          <div class="ae-acct-card-label">Account 1</div>
+          <div class="ae-acct-card-name">Raho Saadaa</div>
+        </div>
+        <div class="ae-acct-card tab-2" id="aeTab-2" onclick="aeSetAcct('Fourth Ad Account - SD',this)">
+          <div class="ae-acct-card-label">Account 2</div>
+          <div class="ae-acct-card-name">Fourth Ad Account - SD</div>
+        </div>
+        <div class="ae-acct-card tab-3" id="aeTab-3" onclick="aeSetAcct('Third Ad Account - SD',this)">
+          <div class="ae-acct-card-label">Account 3</div>
+          <div class="ae-acct-card-name">Third Ad Account - SD</div>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ae-dim);font-weight:600">
-        ROAS: <input id="ae-target-roas" type="number" value="3.0" step="0.1" oninput="aeRecompute()" style="width:50px;padding:6px 8px;border-radius:7px;border:1px solid var(--ae-border);background:rgba(255,255,255,0.03);color:var(--ae-ink);font-family:inherit;font-size:11px;outline:none">
-      </div>
-      <button onclick="aeReload()" style="padding:7px 14px;background:rgba(0,188,212,0.08);border:1px solid rgba(0,188,212,0.25);color:var(--ae-cyan);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">↻ Refresh</button>
     </div>
   </div>
 
   <!-- MAIN BODY -->
   <div style="max-width:1840px;margin:0 auto;padding:20px 24px 40px">
-
-    <!-- Loading -->
     <div id="ae-loading" style="display:none;text-align:center;padding:80px 24px">
       <div class="ae-spinner"></div>
-      <div style="font-size:14px;font-weight:700;color:var(--ae-primary);margin-bottom:4px">Loading from Supabase</div>
-      <div id="ae-load-sub" style="font-size:12px;color:var(--ae-dim)">Fetching primary_table...</div>
+      <div style="font-size:14px;font-weight:700;color:var(--ae-terra);margin-bottom:4px">Loading from Supabase</div>
+      <div id="ae-load-sub" style="font-size:12px;color:var(--ae-muted)">Fetching primary_table...</div>
     </div>
-
-    <!-- Content (hidden until loaded) -->
     <div id="ae-content" style="display:none">
-
-      <!-- Executive Summary -->
-      <div id="ae-insight" style="border-left:3px solid var(--ae-primary);background:linear-gradient(90deg,rgba(157,0,255,0.06),transparent);border-radius:10px;padding:14px 16px;margin-bottom:20px">
+      <div id="ae-insight" style="border-left:3px solid var(--ae-terra);background:linear-gradient(90deg,var(--ae-terra-lt),transparent);border-radius:10px;padding:14px 16px;margin-bottom:20px">
         <div style="display:flex;align-items:flex-start;gap:12px">
           <span style="font-size:18px">📊</span>
           <div style="flex:1">
-            <div style="font-size:10px;font-weight:700;color:var(--ae-primary);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;display:flex;justify-content:space-between">
-              Executive Summary <span style="color:var(--ae-dim);text-transform:none;letter-spacing:0">Auto-generated</span>
-            </div>
-            <p id="ae-insight-text" style="font-size:12.5px;color:var(--ae-muted);line-height:1.6;margin:0"></p>
+            <div style="font-size:10px;font-weight:700;color:var(--ae-terra);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;display:flex;justify-content:space-between">Executive Summary <span style="color:var(--ae-muted);text-transform:none;letter-spacing:0">Auto-generated</span></div>
+            <p id="ae-insight-text" style="font-size:12.5px;color:var(--ae-ink2);line-height:1.6;margin:0"></p>
           </div>
         </div>
       </div>
-
-      <!-- Metric Cards -->
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
-        <div class="ae-metric-card active" id="ae-card-all" onclick="aeChipFilter('')" style="--card-accent:#a78bfa;--card-border:rgba(167,139,250,.4);--card-shadow:rgba(167,139,250,.25)">
-          <div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-dim);margin-bottom:8px">Total Analysed</div>
-          <div id="ae-c-total" style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#a78bfa">—</div>
-        </div>
-        <div class="ae-metric-card" id="ae-card-Winner" onclick="aeChipFilter('Winner')" style="--card-accent:#4ade80;--card-border:rgba(74,222,128,.4);--card-shadow:rgba(74,222,128,.25)">
-          <div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-dim);margin-bottom:8px">Winners</div>
-          <div id="ae-c-winner" style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#4ade80">—</div>
-        </div>
-        <div class="ae-metric-card" id="ae-card-ITE" onclick="aeChipFilter('ITE')" style="--card-accent:#f59e0b;--card-border:rgba(245,158,11,.4);--card-shadow:rgba(245,158,11,.25)">
-          <div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-dim);margin-bottom:8px">ITE</div>
-          <div id="ae-c-ite" style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#f59e0b">—</div>
-        </div>
-        <div class="ae-metric-card" id="ae-card-Analyse" onclick="aeChipFilter('Analyse')" style="--card-accent:#60a5fa;--card-border:rgba(96,165,250,.4);--card-shadow:rgba(96,165,250,.25)">
-          <div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-dim);margin-bottom:8px">Analyse</div>
-          <div id="ae-c-analyse" style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#60a5fa">—</div>
-        </div>
-        <div class="ae-metric-card" id="ae-card-Discarded" onclick="aeChipFilter('Discarded')" style="--card-accent:#f87171;--card-border:rgba(248,113,113,.4);--card-shadow:rgba(248,113,113,.25)">
-          <div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-dim);margin-bottom:8px">Discarded</div>
-          <div id="ae-c-discarded" style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#f87171">—</div>
-        </div>
+        <div class="ae-metric-card active" id="ae-card-all" onclick="aeChipFilter('')" style="--card-accent:var(--ae-slate);--card-border:rgba(74,111,165,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Total Analysed</div><div id="ae-c-total" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-slate)">—</div></div>
+        <div class="ae-metric-card" id="ae-card-Winner" onclick="aeChipFilter('Winner')" style="--card-accent:var(--ae-sage);--card-border:rgba(74,124,111,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Winners</div><div id="ae-c-winner" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-sage)">—</div></div>
+        <div class="ae-metric-card" id="ae-card-ITE" onclick="aeChipFilter('ITE')" style="--card-accent:var(--ae-gold);--card-border:rgba(184,136,58,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">ITE</div><div id="ae-c-ite" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-gold)">—</div></div>
+        <div class="ae-metric-card" id="ae-card-Analyse" onclick="aeChipFilter('Analyse')" style="--card-accent:var(--ae-slate);--card-border:rgba(74,111,165,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Analyse</div><div id="ae-c-analyse" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-slate)">—</div></div>
+        <div class="ae-metric-card" id="ae-card-Discarded" onclick="aeChipFilter('Discarded')" style="--card-accent:var(--ae-terra);--card-border:rgba(192,96,58,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Discarded</div><div id="ae-c-discarded" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-terra)">—</div></div>
       </div>
-
-      <!-- Multi-filter panel -->
-      <div class="ae-glass" style="padding:14px;margin-bottom:16px;border-color:rgba(157,0,255,.1)">
+      <div class="ae-glass" style="padding:14px;margin-bottom:16px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--ae-dim);text-transform:uppercase;letter-spacing:.6px">
+          <div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--ae-muted);text-transform:uppercase;letter-spacing:.6px">
             <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
             Multi-Filter
           </div>
           <div style="display:flex;gap:6px">
-            <button id="ae-filter-apply" onclick="aeApplyFilters()" style="padding:5px 14px;background:linear-gradient(135deg,var(--ae-primary),#7c00cc);color:white;font-size:11px;font-weight:700;border-radius:6px;border:none;cursor:pointer;font-family:inherit">Apply</button>
-            <button id="ae-filter-clear" onclick="aeClearFilters()" style="padding:5px 14px;background:var(--ae-surface);border:1px solid var(--ae-border);color:var(--ae-muted);font-size:11px;font-weight:600;border-radius:6px;cursor:pointer;font-family:inherit">Clear</button>
+            <button id="ae-filter-apply" onclick="aeApplyFilters()" style="padding:5px 14px;background:var(--ae-terra);color:white;font-size:11px;font-weight:700;border-radius:6px;border:none;cursor:pointer;font-family:inherit">Apply</button>
+            <button id="ae-filter-clear" onclick="aeClearFilters()" style="padding:5px 14px;background:var(--ae-surface2);border:1px solid var(--ae-border);color:var(--ae-muted);font-size:11px;font-weight:600;border-radius:6px;cursor:pointer;font-family:inherit">Clear</button>
           </div>
         </div>
         <div id="ae-filter-rows">
@@ -2131,30 +1338,26 @@ document.addEventListener('DOMContentLoaded',()=>{
             <input type="text" class="ae-fval ae-filter-input" style="flex:1;min-width:220px" placeholder="Keywords separated by space (e.g. sale 14/03/26)">
           </div>
         </div>
-        <button onclick="aeAddFilterRow()" style="margin-top:10px;display:flex;align-items:center;gap:5px;color:var(--ae-primary);font-size:11px;font-weight:600;background:none;border:none;cursor:pointer;font-family:inherit">
+        <button onclick="aeAddFilterRow()" style="margin-top:10px;display:flex;align-items:center;gap:5px;color:var(--ae-terra);font-size:11px;font-weight:600;background:none;border:none;cursor:pointer;font-family:inherit">
           <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           Add Rule
         </button>
       </div>
-
-      <!-- Table toolbar -->
       <div class="ae-glass" style="padding:14px 16px;margin-bottom:0;border-radius:14px 14px 0 0;border-bottom:none;display:flex;align-items:center;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:12px;color:var(--ae-dim)">Show</span>
+          <span style="font-size:12px;color:var(--ae-muted)">Show</span>
           <select id="ae-page-size" onchange="aePageSize()" style="padding:5px 10px;border-radius:7px;border:1px solid var(--ae-border);background:var(--ae-surface);color:var(--ae-ink);font-size:12px;outline:none;font-family:inherit">
             <option value="25">25</option><option value="50">50</option><option value="100">100</option>
           </select>
-          <span style="font-size:12px;color:var(--ae-dim)">ads</span>
+          <span style="font-size:12px;color:var(--ae-muted)">ads</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
-          <span id="ae-row-info" style="font-size:11px;color:var(--ae-dim)"></span>
-          <button onclick="aePage(-1)" style="padding:5px 12px;border-radius:7px;border:1px solid var(--ae-border);background:var(--ae-surface);color:var(--ae-muted);font-size:12px;cursor:pointer;font-family:inherit">‹</button>
+          <span id="ae-row-info" style="font-size:11px;color:var(--ae-muted)"></span>
+          <button onclick="aePage(-1)" style="padding:5px 12px;border-radius:7px;border:1px solid var(--ae-border);background:var(--ae-surface);color:var(--ae-ink2);font-size:12px;cursor:pointer;font-family:inherit">‹</button>
           <span id="ae-page-info" style="font-size:11px;color:var(--ae-muted)"></span>
-          <button onclick="aePage(1)" style="padding:5px 12px;border-radius:7px;border:1px solid var(--ae-border);background:var(--ae-surface);color:var(--ae-muted);font-size:12px;cursor:pointer;font-family:inherit">›</button>
+          <button onclick="aePage(1)" style="padding:5px 12px;border-radius:7px;border:1px solid var(--ae-border);background:var(--ae-surface);color:var(--ae-ink2);font-size:12px;cursor:pointer;font-family:inherit">›</button>
         </div>
       </div>
-
-      <!-- Table -->
       <div class="ae-glass" style="overflow-x:auto;border-radius:0 0 14px 14px;padding:0">
         <table class="ae-tbl">
           <thead>
@@ -2194,10 +1397,9 @@ document.addEventListener('DOMContentLoaded',()=>{
           <tbody id="aeTableBody"></tbody>
         </table>
       </div>
-    </div><!-- /ae-content -->
+    </div>
   </div>
 </div>
-
 <script>
 const AEW={X:.10,Y:.25,Z:.15,AA:.20,AB:.20,AC:.10};
 const AEA={
@@ -2208,12 +1410,23 @@ const AEA={
 };
 
 let aeRaw=[],aeResults=[],aeFiltered=[],aeLoaded=false;
+let aeActiveAcct='';
 let aeSortKey='imp',aeSortDir=-1,aeChipActive='',aeCurPage=0,aePerPage=25;
 let aeHeat={roas:0,profit:0,blended:0};
 
 const sdv=(n,d)=>(d===0||isNaN(d))?0:n/d;
 function aeMed(a){if(!a.length)return 0;const s=[...a].sort((x,y)=>x-y);const h=Math.floor(s.length/2);return s.length%2?s[h]:(s[h-1]+s[h])/2;}
 
+function aeSetAcct(acct,el){
+  aeActiveAcct=acct;
+  document.querySelectorAll('#aeAcctRail .ae-acct-card').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  aeApplyFilters();
+}
+function aeUpdateTabCounts(){
+  const ACCTS=[{id:'all',val:''},{id:'1',val:'Raho Saadaa'},{id:'2',val:'Fourth Ad Account - SD'},{id:'3',val:'Third Ad Account - SD'}];
+  ACCTS.forEach(a=>{const el=document.getElementById('aeTabCount-'+a.id);if(!el)return;const n=a.val===''?aeResults.length:aeResults.filter(r=>r.acct===a.val).length;el.textContent=n.toLocaleString();});
+}
 function aeGoBack(){
   document.getElementById('analysisEnginePanel').style.display='none';
   var ct=document.getElementById('ctDashboardWrap');
@@ -2225,12 +1438,12 @@ function aeGoBack(){
 
 function selectAnalysisEngine(el){
   document.querySelectorAll('.acct-sel-tab').forEach(t=>{t.classList.remove('active');t.style.background='var(--surface2)';t.style.border='1px solid var(--border)';});
-  el.style.background='linear-gradient(135deg,rgba(0,188,212,0.15),rgba(157,0,255,0.1))';
-  el.style.border='2px solid rgba(0,188,212,0.4)';
+  el.style.background='linear-gradient(135deg,rgba(192,96,58,0.1),rgba(74,124,111,0.08))';
+  el.style.border='2px solid rgba(192,96,58,0.3)';
   var ct=document.getElementById('ctDashboardWrap');
   if(ct)ct.style.display='none';
   var p=document.getElementById('analysisEnginePanel');
-  p.style.display='block'; p.scrollTop=0;
+  p.style.display='block';p.scrollTop=0;
   if(!aeLoaded)aeReload();
 }
 
@@ -2330,10 +1543,11 @@ function aeCompute(){
   document.getElementById('ae-c-ite').textContent=cnts.ITE.toLocaleString();
   document.getElementById('ae-c-analyse').textContent=cnts.Analyse.toLocaleString();
   document.getElementById('ae-c-discarded').textContent=cnts.Discarded.toLocaleString();
-  let ins=`Analysing <b>${res.length.toLocaleString()} Ads</b>. Winners have generated <b style="color:#4ade80">₹${Math.round(wP).toLocaleString('en-IN')}</b> profit.`;
-  if(dC>0)ins+=` ⚠️ <b style="color:#f87171">${dC} Discarded</b> have consumed <b style="color:#f87171">₹${Math.round(dS).toLocaleString('en-IN')}</b> with poor results.`;
+  let ins=`Analysing <b>${res.length.toLocaleString()} Ads</b>. Winners have generated <b style="color:#4a7c6f">₹${Math.round(wP).toLocaleString('en-IN')}</b> profit.`;
+  if(dC>0)ins+=` ⚠️ <b style="color:#c0603a">${dC} Discarded</b> have consumed <b style="color:#c0603a">₹${Math.round(dS).toLocaleString('en-IN')}</b> with poor results.`;
   document.getElementById('ae-insight-text').innerHTML=ins;
   aeResults=res;aeFiltered=res;aeCurPage=0;
+  aeUpdateTabCounts();
   document.getElementById('ae-loading').style.display='none';
   document.getElementById('ae-content').style.display='block';
   aeRender();
@@ -2341,29 +1555,14 @@ function aeCompute(){
 
 function aeRecompute(){if(aeLoaded)aeCompute();}
 
-// ── Multi-filter ─────────────────────────────────
 function aeAddFilterRow(){
   const row=document.createElement('div');
   row.className='ae-filter-row';
   row.style.cssText='display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px';
-  row.innerHTML=`
-    <span style="font-size:10px;font-weight:700;color:var(--ae-dim);min-width:28px;text-align:center">AND</span>
-    <select class="ae-fcol ae-filter-input" style="min-width:160px">
-      <option value="adName">Name (Ad/Camp)</option>
-      <option value="campName">Campaign Name</option>
-      <option value="adId">ID</option>
-      <option value="category">Status (Category)</option>
-      <option value="adStatus">Ad Status</option>
-    </select>
-    <select class="ae-fcond ae-filter-input">
-      <option value="all">contains all of</option>
-      <option value="any">contains any of</option>
-      <option value="none">doesn't contain</option>
-    </select>
-    <div style="flex:1;min-width:220px;display:flex;gap:6px">
-      <input type="text" class="ae-fval ae-filter-input" style="flex:1" placeholder="Keywords...">
-      <button onclick="this.closest('.ae-filter-row').remove()" style="padding:6px 8px;background:var(--ae-surface);border:1px solid var(--ae-border);border-radius:7px;cursor:pointer;color:var(--ae-muted)">✕</button>
-    </div>`;
+  row.innerHTML=`<span style="font-size:10px;font-weight:700;color:var(--ae-dim);min-width:28px;text-align:center">AND</span>
+    <select class="ae-fcol ae-filter-input" style="min-width:160px"><option value="adName">Name (Ad/Camp)</option><option value="campName">Campaign Name</option><option value="adId">ID</option><option value="category">Status (Category)</option><option value="adStatus">Ad Status</option></select>
+    <select class="ae-fcond ae-filter-input"><option value="all">contains all of</option><option value="any">contains any of</option><option value="none">doesn't contain</option></select>
+    <div style="flex:1;min-width:220px;display:flex;gap:6px"><input type="text" class="ae-fval ae-filter-input" style="flex:1" placeholder="Keywords..."><button onclick="this.closest('.ae-filter-row').remove()" style="padding:6px 8px;background:var(--ae-surface);border:1px solid var(--ae-border);border-radius:7px;cursor:pointer;color:var(--ae-muted)">✕</button></div>`;
   document.getElementById('ae-filter-rows').appendChild(row);
 }
 
@@ -2377,10 +1576,9 @@ function aeClearFilters(){
 }
 
 function aeApplyFilters(){
-  const acct=document.getElementById('ae-acct-filter').value;
   const filterRows=document.querySelectorAll('#ae-filter-rows .ae-filter-row');
   aeFiltered=aeResults.filter(r=>{
-    if(acct&&r.acct!==acct)return false;
+    if(aeActiveAcct&&r.acct!==aeActiveAcct)return false;
     if(aeChipActive&&r.category!==aeChipActive)return false;
     for(const row of filterRows){
       const col=row.querySelector('.ae-fcol').value;
@@ -2417,54 +1615,61 @@ function aeSort(key){
 function aePage(d){const max=Math.ceil(aeFiltered.length/aePerPage)-1;aeCurPage=Math.max(0,Math.min(max,aeCurPage+d));aeRender();}
 function aePageSize(){aePerPage=parseInt(document.getElementById('ae-page-size').value)||25;aeCurPage=0;aeRender();}
 
+function copyText(txt,el){
+  navigator.clipboard.writeText(txt).then(()=>{
+    const orig=el.style.color;el.style.color='#4a7c6f';
+    setTimeout(()=>{el.style.color=orig;},800);
+  });
+}
+
 function aeRender(){
   const st=aeCurPage*aePerPage,en=st+aePerPage,pg=aeFiltered.slice(st,en),tot=aeFiltered.length;
   document.getElementById('ae-row-info').textContent=(st+1).toLocaleString()+'–'+Math.min(en,tot).toLocaleString()+' of '+tot.toLocaleString()+' ads';
   document.getElementById('ae-page-info').textContent='Page '+(aeCurPage+1)+' / '+Math.max(1,Math.ceil(tot/aePerPage));
-  const BAD={Winner:'background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.35)',ITE:'background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.35)',Analyse:'background:rgba(96,165,250,.12);color:#60a5fa;border:1px solid rgba(96,165,250,.35)',Discarded:'background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.35)'};
-  const ASTS={ACTIVE:'background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.3)',PAUSED:'background:rgba(148,163,184,.1);color:#94a3b8;border:1px solid rgba(148,163,184,.25)',LEARNING:'background:rgba(96,165,250,.12);color:#60a5fa;border:1px solid rgba(96,165,250,.3)',ARCHIVED:'background:rgba(100,116,139,.1);color:#64748b;border:1px solid rgba(100,116,139,.2)',DISAPPROVED:'background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)',CAMPAIGN_PAUSED:'background:rgba(148,163,184,.1);color:#94a3b8;border:1px solid rgba(148,163,184,.2)',ADSET_PAUSED:'background:rgba(148,163,184,.1);color:#94a3b8;border:1px solid rgba(148,163,184,.2)'};
+  const BAD={Winner:'background:#e6f0ee;color:#4a7c6f;border:1px solid rgba(74,124,111,.3)',ITE:'background:#fdf5e6;color:#b8883a;border:1px solid rgba(184,136,58,.3)',Analyse:'background:#eaf0f8;color:#4a6fa5;border:1px solid rgba(74,111,165,.3)',Discarded:'background:#f5ebe6;color:#c0603a;border:1px solid rgba(192,96,58,.3)'};
+  const ASTS={ACTIVE:'background:#e6f0ee;color:#4a7c6f;border:1px solid rgba(74,124,111,.3)',PAUSED:'background:#edeae2;color:#9a9187;border:1px solid #e0dbd0',LEARNING:'background:#eaf0f8;color:#4a6fa5;border:1px solid rgba(74,111,165,.3)',ARCHIVED:'background:#edeae2;color:#9a9187;border:1px solid #e0dbd0',DISAPPROVED:'background:#f5ebe6;color:#c0603a;border:1px solid rgba(192,96,58,.3)',CAMPAIGN_PAUSED:'background:#edeae2;color:#9a9187;border:1px solid #e0dbd0',ADSET_PAUSED:'background:#edeae2;color:#9a9187;border:1px solid #e0dbd0'};
   const rows=pg.map(r=>{
     const rP=Math.min(100,Math.max(0,sdv(r.rawRoas,Math.max(aeHeat.roas,.001))*100));
     const pP=Math.min(100,Math.max(0,sdv(r.rawProfit,Math.max(aeHeat.profit,.001))*100));
     const bP=Math.min(100,Math.max(0,sdv(r.rawBlended,Math.max(aeHeat.blended,.001))*100));
     const bs=BAD[r.category]||BAD.Discarded;
     const raw=String(r.adStatus).toUpperCase().replace(/ /g,'_');
-    const as_s=ASTS[raw]||'background:rgba(100,116,139,.08);color:#64748b;border:1px solid rgba(100,116,139,.15)';
+    const as_s=ASTS[raw]||'background:#edeae2;color:#9a9187;border:1px solid #e0dbd0';
     const sid=String(r.adId).replace(/'/g,"&#39;");
     const sn=String(r.adName).replace(/"/g,'&quot;').replace(/</g,'&lt;');
     return`<tr>
-<td style="padding:13px 16px;color:#94a3b8;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${r.campName}">${r.campName}</td>
-<td style="padding:13px 16px;font-family:monospace;font-size:10px;color:#6b7280;max-width:100px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="copyText('${sid}',this)" title="Copy ID">${sid}</td>
-<td style="padding:13px 16px;color:#f0f0f8;font-weight:600;max-width:210px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="copyText('${sn}',this)" title="${sn}">${sn}</td>
-<td style="padding:13px 16px;color:#94a3b8">${r.created}</td>
-<td style="padding:13px 16px;color:#c9d1e0">${r.firstDate}</td>
+<td style="padding:11px 14px;color:#9a9187;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${r.campName}">${r.campName}</td>
+<td style="padding:11px 14px;font-family:'Roboto Mono',monospace;font-size:10px;color:#9a9187;max-width:100px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="copyText('${sid}',this)" title="Copy ID">${sid}</td>
+<td style="padding:11px 14px;color:#1c1916;font-weight:600;max-width:210px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="copyText('${sn}',this)" title="${sn}">${sn}</td>
+<td style="padding:11px 14px;color:#9a9187">${r.created}</td>
+<td style="padding:11px 14px;color:#4a4540">${r.firstDate}</td>
 <td style="padding:13px 16px"><span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;${bs}">${r.category}</span></td>
-<td style="padding:13px 16px;text-align:right;color:#c9d1e0;font-family:monospace">${r.imp.toLocaleString()}</td>
-<td style="padding:13px 16px;position:relative;text-align:right"><div style="position:absolute;top:0;right:0;height:100%;width:${rP}%;background:rgba(0,188,212,.1);border-radius:3px"></div><span style="position:relative;font-weight:700;color:#e2e8f0;font-family:monospace">${r.rawRoas.toFixed(2)}</span></td>
-<td style="padding:13px 16px;text-align:right;color:#fca5a5;font-weight:700;font-family:monospace;white-space:nowrap">₹${r.rawSpend.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
-<td style="padding:13px 16px;text-align:center;font-size:10px;color:#a78bfa;line-height:1.4">${r.vec}</td>
-<td style="padding:13px 16px;text-align:right;color:#fde68a;font-family:monospace">${r.rf2}</td>
-<td style="padding:13px 16px;text-align:right;color:#6b7280;font-size:10px">${r.lRFN}</td>
-<td style="padding:13px 16px;text-align:right;color:#67e8f9;font-family:monospace">${r.rw}</td>
-<td style="padding:13px 16px;text-align:right;color:#67e8f9;font-family:monospace">${r.pFTEWV}</td>
-<td style="padding:13px 16px;position:relative;text-align:right">${r.rawProfit>0?`<div style="position:absolute;top:0;right:0;height:100%;width:${pP}%;background:rgba(74,222,128,.1);border-radius:3px;border:1px solid rgba(74,222,128,.2)"></div>`:''}<span style="position:relative;font-weight:700;color:white;font-family:monospace;white-space:nowrap">₹${r.rawProfit.toLocaleString('en-IN',{maximumFractionDigits:0})}</span></td>
-<td style="padding:13px 16px;text-align:right;font-family:monospace;color:#c9d1e0">${r.cm}</td>
-<td style="padding:13px 16px;text-align:right;font-family:monospace;color:#fde68a">${r.dE}</td>
-<td style="padding:13px 16px;text-align:right;font-family:monospace;color:#e879f9">${r.sE}</td>
-<td style="padding:13px 16px;position:relative;text-align:right"><div style="position:absolute;top:0;right:0;height:100%;width:${bP}%;background:rgba(96,165,250,.1);border-radius:3px;border:1px solid rgba(96,165,250,.2)"></div><span style="position:relative;font-weight:700;color:white;font-family:monospace">${r.bl}</span></td>
-<td style="padding:13px 16px;text-align:right;color:#6b7280;font-size:10.5px;font-family:monospace">${r.X}</td>
-<td style="padding:13px 16px;text-align:right;color:#6b7280;font-size:10.5px;font-family:monospace">${r.Y}</td>
-<td style="padding:13px 16px;text-align:right;color:#6b7280;font-size:10.5px;font-family:monospace">${r.Z}</td>
-<td style="padding:13px 16px;text-align:right;color:#6b7280;font-size:10.5px;font-family:monospace">${r.AA}</td>
-<td style="padding:13px 16px;text-align:right;color:#6b7280;font-size:10.5px;font-family:monospace">${r.AB}</td>
-<td style="padding:13px 16px;text-align:right;color:#6b7280;font-size:10.5px;font-family:monospace">${r.AC}</td>
-<td style="padding:13px 16px;color:#6b7280;max-width:150px;overflow:hidden;text-overflow:ellipsis;font-size:10px" title="${r.type}">${r.type}</td>
-<td style="padding:13px 16px;color:#c9d1e0;font-size:10px;font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis" title="${r.action}">${r.action}</td>
-<td style="padding:13px 16px;color:#94a3b8;font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${r.perf}">${r.perf}</td>
-<td style="padding:13px 16px;color:#94a3b8;font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${r.creative}">${r.creative}</td>
+<td style="padding:11px 14px;text-align:right;color:#4a4540;font-family:'Roboto Mono',monospace">${r.imp.toLocaleString()}</td>
+<td style="padding:13px 16px;position:relative;text-align:right"><div style="position:absolute;top:0;right:0;height:100%;width:${rP}%;background:rgba(192,96,58,.06);border-radius:3px"></div><span style="position:relative;font-weight:700;color:#c0603a;font-family:'Roboto Mono',monospace">${r.rawRoas.toFixed(2)}</span></td>
+<td style="padding:11px 14px;text-align:right;color:#c0603a;font-weight:700;font-family:'Roboto Mono',monospace;white-space:nowrap">₹${r.rawSpend.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+<td style="padding:11px 14px;text-align:center;font-size:10px;color:#7c4dbd;line-height:1.4">${r.vec}</td>
+<td style="padding:11px 14px;text-align:right;color:#b8883a;font-family:'Roboto Mono',monospace">${r.rf2}</td>
+<td style="padding:11px 14px;text-align:right;color:#9a9187;font-size:10px">${r.lRFN}</td>
+<td style="padding:11px 14px;text-align:right;color:#4a6fa5;font-family:'Roboto Mono',monospace">${r.rw}</td>
+<td style="padding:11px 14px;text-align:right;color:#4a6fa5;font-family:'Roboto Mono',monospace">${r.pFTEWV}</td>
+<td style="padding:13px 16px;position:relative;text-align:right">${r.rawProfit>0?`<div style="position:absolute;top:0;right:0;height:100%;width:${pP}%;background:rgba(74,124,111,.06);border-radius:3px;border:1px solid rgba(74,124,111,.12)"></div>`:''}<span style="position:relative;font-weight:700;color:#4a7c6f;font-family:'Roboto Mono',monospace;white-space:nowrap">₹${r.rawProfit.toLocaleString('en-IN',{maximumFractionDigits:0})}</span></td>
+<td style="padding:11px 14px;text-align:right;font-family:'Roboto Mono',monospace;color:#4a4540">${r.cm}</td>
+<td style="padding:11px 14px;text-align:right;font-family:'Roboto Mono',monospace;color:#b8883a">${r.dE}</td>
+<td style="padding:11px 14px;text-align:right;font-family:'Roboto Mono',monospace;color:#7c4dbd">${r.sE}</td>
+<td style="padding:13px 16px;position:relative;text-align:right"><div style="position:absolute;top:0;right:0;height:100%;width:${bP}%;background:rgba(74,111,165,.06);border-radius:3px;border:1px solid rgba(74,111,165,.12)"></div><span style="position:relative;font-weight:700;color:#4a6fa5;font-family:'Roboto Mono',monospace">${r.bl}</span></td>
+<td style="padding:11px 14px;text-align:right;color:#9a9187;font-size:10.5px;font-family:'Roboto Mono',monospace">${r.X}</td>
+<td style="padding:11px 14px;text-align:right;color:#9a9187;font-size:10.5px;font-family:'Roboto Mono',monospace">${r.Y}</td>
+<td style="padding:11px 14px;text-align:right;color:#9a9187;font-size:10.5px;font-family:'Roboto Mono',monospace">${r.Z}</td>
+<td style="padding:11px 14px;text-align:right;color:#9a9187;font-size:10.5px;font-family:'Roboto Mono',monospace">${r.AA}</td>
+<td style="padding:11px 14px;text-align:right;color:#9a9187;font-size:10.5px;font-family:'Roboto Mono',monospace">${r.AB}</td>
+<td style="padding:11px 14px;text-align:right;color:#9a9187;font-size:10.5px;font-family:'Roboto Mono',monospace">${r.AC}</td>
+<td style="padding:11px 14px;color:#9a9187;max-width:150px;overflow:hidden;text-overflow:ellipsis;font-size:10px" title="${r.type}">${r.type}</td>
+<td style="padding:11px 14px;color:#4a4540;font-size:10px;font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis" title="${r.action}">${r.action}</td>
+<td style="padding:11px 14px;color:#9a9187;font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${r.perf}">${r.perf}</td>
+<td style="padding:11px 14px;color:#9a9187;font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${r.creative}">${r.creative}</td>
 <td style="padding:13px 16px"><span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:9.5px;font-weight:700;text-transform:uppercase;${as_s}">${r.adStatus||'—'}</span></td>
 </tr>`;}).join('');
-  document.getElementById('aeTableBody').innerHTML=rows||'<tr><td colspan="30" style="padding:40px;text-align:center;color:#6b7280;font-size:13px">No ads match current filters</td></tr>';
+  document.getElementById('aeTableBody').innerHTML=rows||'<tr><td colspan="30" style="padding:40px;text-align:center;color:#9a9187;font-size:13px">No ads match current filters</td></tr>';
 }
 </script>
 </body>
