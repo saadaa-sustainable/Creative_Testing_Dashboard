@@ -1,0 +1,434 @@
+"""
+results_sync.py
+═══════════════════════════════════════════════════════════════════════════
+Runs hourly (via scheduler.py).
+Reads raw data from primary_table → computes all dashboard metrics →
+writes ONE compact row per account (+ one for All Accounts) into results_table.
+
+The dashboard then fetches ONLY results_table (~4 tiny rows) instead of
+scanning 84,875 rows — load time drops from 30s → <1s.
+
+Usage:
+    python results_sync.py              # compute all accounts + combined
+    python results_sync.py --account 1  # single account only (for testing)
+"""
+
+import os, json, math
+from datetime import datetime, timezone
+from collections import defaultdict
+
+import psycopg2
+import psycopg2.extras
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL")
+
+# ── Account map ────────────────────────────────────────────────────────
+ACCOUNTS = [
+    {"name": "Raho Saadaa"},
+    {"name": "Fourth Ad Account - SD"},
+    {"name": "Third Ad Account - SD"},
+]
+
+# ── Detection helpers (mirror of dashboard JS logic) ──────────────────
+PRODUCTS = [
+    "BST",
+    "BCO",
+    "COO",
+    "SDAFD",
+    "CL",
+    "TTB",
+    "TW",
+    "GE",
+    "SDCPT",
+    "SDELKB",
+    "SDELPT",
+    "SDFLK",
+    "SDFSK",
+    "SDCSS",
+    "SDLS",
+    "SDRPT",
+    "SDRST",
+    "SDVPL",
+    "SMCP",
+    "SMELMS",
+    "SMFLK",
+    "SMFSK",
+    "SMLS",
+    "BR",
+    "SDASP",
+    "SDCP",
+    "SDWLP",
+    "GP",
+    "SUZNS",
+    "WW",
+    "STL",
+    "LE",
+    "WLP",
+    "SDLWC",
+    "SDTTB",
+    "SDECT",
+    "SDALS",
+    "WBS",
+    "SD5",
+    "SUPFH",
+    "SDAWP",
+    "SDCSP",
+]
+
+
+def detect_product(name: str) -> str:
+    n = name.upper()
+    import re
+
+    tokens = re.split(r"[\+\-\_\s\.]+", n)
+    for t in tokens:
+        if t in PRODUCTS:
+            return t
+    for p in PRODUCTS:
+        if len(p) > 2 and p in n:
+            return p
+    return "Other"
+
+
+def detect_ctype(name: str) -> str:
+    n = name.upper()
+    if "IFAD" in n:
+        return "IFAD"
+    if "GAD" in n:
+        return "Graphic AD"
+    if any(k in n for k in ("VRP", "NNC", "VIDEO", "IGP")):
+        return "VID"
+    if any(k in n for k in ("STATIC", "_ST_", "+ST+")):
+        return "STATIC"
+    return "VID"  # default
+
+
+def is_copy(name: str) -> bool:
+    import re
+
+    return bool(re.search(r"copy", name, re.IGNORECASE))
+
+
+def sdv(n, d):
+    return 0.0 if not d or math.isnan(d) else n / d
+
+
+# ── DB helpers ────────────────────────────────────────────────────────
+def get_conn():
+    return psycopg2.connect(SUPABASE_DB_URL)
+
+
+def fetch_primary(conn, account_name: str | None = None):
+    """
+    Pull all rows from primary_table for one account (or all accounts).
+    Returns list of dicts.
+    """
+    cols = [
+        "account_name",
+        "date",
+        "ad_name",
+        "ad_id",
+        "campaign_name",
+        "ad_status",
+        "ad_created_date",
+        "impressions",
+        "amount_spent_inr",
+        "reach",
+        "outbound_clicks",
+        "thruplays",
+        "three_sec_video_plays",
+        "post_engagements",
+        "conversion_value",
+        "video_play_time",
+        "purchase_roas",
+    ]
+    col_str = ", ".join(cols)
+
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        if account_name:
+            cur.execute(
+                f"SELECT {col_str} FROM primary_table WHERE account_name = %s ORDER BY date DESC",
+                (account_name,),
+            )
+        else:
+            cur.execute(f"SELECT {col_str} FROM primary_table ORDER BY date DESC")
+        return cur.fetchall()
+
+
+# ── Core computation ──────────────────────────────────────────────────
+def compute_results(
+    rows: list, account_name: str, target_imp=50000, target_roas=3.0
+) -> dict:
+    """
+    Takes raw primary_table rows, mirrors dashboard JS logic exactly,
+    returns a dict ready to INSERT into results_table.
+    """
+    if not rows:
+        return None
+
+    # ── Date range of data used ────────────────────────────────────────
+    dates = [r["date"] for r in rows if r.get("date")]
+    date_from = min(dates) if dates else None
+    date_to = max(dates) if dates else None
+
+    # ── Aggregate per unique ad (same as JS renderResults) ────────────
+    # Key: ad_id — sum metrics across all dates
+    ad_map: dict[str, dict] = {}
+
+    for r in rows:
+        ad_id = str(r.get("ad_id") or "").strip()
+        if not ad_id:
+            continue
+
+        ad_name = str(r.get("ad_name") or "")
+        impr = float(r.get("impressions") or 0)
+        spend = float(r.get("amount_spent_inr") or 0)
+        reach = float(r.get("reach") or 0)
+        clicks = float(r.get("outbound_clicks") or 0)
+        thru = float(r.get("thruplays") or 0)
+        vid3 = float(r.get("three_sec_video_plays") or 0)
+        eng = float(r.get("post_engagements") or 0)
+        conv_v = float(r.get("conversion_value") or 0)
+        vpt = float(r.get("video_play_time") or 0)
+
+        if ad_id not in ad_map:
+            ad_map[ad_id] = {
+                "adId": ad_id,
+                "adName": ad_name,
+                "acct": str(r.get("account_name") or account_name),
+                "campName": str(r.get("campaign_name") or ""),
+                "adStatus": str(r.get("ad_status") or ""),
+                "adCreated": str(r.get("ad_created_date") or ""),
+                "ctype": detect_ctype(ad_name),
+                "product": detect_product(ad_name),
+                "isCopy": is_copy(ad_name),
+                "impr": 0,
+                "spend": 0,
+                "reach": 0,
+                "clicks": 0,
+                "thru": 0,
+                "vid3": 0,
+                "eng": 0,
+                "convV": 0,
+                "vpt_sum": 0,
+            }
+
+        ad = ad_map[ad_id]
+        ad["impr"] += impr
+        ad["spend"] += spend
+        ad["reach"] += reach
+        ad["clicks"] += clicks
+        ad["thru"] += thru
+        ad["vid3"] += vid3
+        ad["eng"] += eng
+        ad["convV"] += conv_v
+        ad["vpt_sum"] += vpt * impr  # weighted for later avg
+
+    # ── Overview totals (all rows, not deduplicated) ───────────────────
+    total_spend = sum(float(r.get("amount_spent_inr") or 0) for r in rows)
+    total_impr = sum(float(r.get("impressions") or 0) for r in rows)
+    total_reach = sum(float(r.get("reach") or 0) for r in rows)
+    total_conv = sum(float(r.get("conversion_value") or 0) for r in rows)
+    total_thru = sum(float(r.get("thruplays") or 0) for r in rows)
+    total_vid3 = sum(float(r.get("three_sec_video_plays") or 0) for r in rows)
+    total_clicks = sum(float(r.get("outbound_clicks") or 0) for r in rows)
+    total_eng = sum(float(r.get("post_engagements") or 0) for r in rows)
+
+    # ── Derived rates ─────────────────────────────────────────────────
+    ct_roas = sdv(total_conv, total_spend)
+    hook_rate = sdv(total_vid3, total_impr) * 100
+    hold_rate = sdv(total_thru, total_vid3) * 100
+    thruplay_rate = sdv(total_thru, total_impr) * 100
+    outbound_ctr = sdv(total_clicks, total_impr) * 100
+    engagement_r = sdv(total_eng, total_impr) * 100
+
+    # ── Categorise each unique ad ──────────────────────────────────────
+    CTYPE_ORDER = ["IFAD", "Graphic AD", "VID", "STATIC"]
+    counts = {"Winner": 0, "ITE": 0, "Analyse": 0, "Discarded": 0}
+    ctype_b = {
+        ct: {"Winner": 0, "ITE": 0, "Analyse": 0, "Discarded": 0, "total": 0}
+        for ct in CTYPE_ORDER
+    }
+    product_b: dict[str, int] = defaultdict(int)
+
+    # Only non-copy ads for categorisation (mirrors JS EXCLUDE_COPY_TOGGLE=true)
+    ads_no_copy = [ad for ad in ad_map.values() if not ad["isCopy"]]
+
+    for ad in ads_no_copy:
+        ct_roas_ad = sdv(ad["convV"], ad["spend"])
+        has_conv = ad["convV"] > 0
+
+        if ad["impr"] >= target_imp and ct_roas_ad >= target_roas:
+            cat = "Winner"
+        elif ad["impr"] >= target_imp and ct_roas_ad < target_roas:
+            cat = "ITE"
+        elif ad["impr"] < target_imp and has_conv:
+            cat = "Analyse"
+        else:
+            cat = "Discarded"
+
+        counts[cat] += 1
+
+        ct = ad["ctype"] if ad["ctype"] in CTYPE_ORDER else "VID"
+        ctype_b[ct][cat] += 1
+        ctype_b[ct]["total"] += 1
+
+        product_b[ad["product"]] += 1
+
+    # ── Build compact ads_json for frontend ───────────────────────────
+    # Only store what the frontend needs to render the table
+    ads_json = [
+        {
+            "adId": ad["adId"],
+            "adName": ad["adName"],
+            "acct": ad.get("acct", account_name),
+            "campName": ad["campName"],
+            "adStatus": ad["adStatus"],
+            "adCreated": ad["adCreated"],
+            "ctype": ad["ctype"],
+            "product": ad["product"],
+            "isCopy": ad["isCopy"],
+            "impr": round(ad["impr"]),
+            "spend": round(ad["spend"], 2),
+            "reach": round(ad["reach"]),
+            "clicks": round(ad["clicks"]),
+            "thru": round(ad["thru"]),
+            "vid3": round(ad["vid3"]),
+            "eng": round(ad["eng"]),
+            "convV": round(ad["convV"], 2),
+            "vpt": round(sdv(ad["vpt_sum"], ad["impr"]), 3),
+        }
+        for ad in ad_map.values()
+    ]
+
+    return {
+        "account_name": account_name,
+        "computed_at": datetime.now(timezone.utc).isoformat(),
+        "data_date_from": str(date_from),
+        "data_date_to": str(date_to),
+        "total_raw_rows": len(rows),
+        "ads_json": json.dumps(ads_json),
+        "total_spend": round(total_spend, 2),
+        "total_impr": int(total_impr),
+        "total_reach": int(total_reach),
+        "total_conv_value": round(total_conv, 2),
+        "total_thru_plays": int(total_thru),
+        "total_video_plays": int(total_vid3),
+        "total_out_clicks": int(total_clicks),
+        "total_post_eng": int(total_eng),
+        "ct_roas": round(ct_roas, 4),
+        "hook_rate": round(hook_rate, 4),
+        "hold_rate": round(hold_rate, 4),
+        "thruplay_rate": round(thruplay_rate, 4),
+        "outbound_ctr": round(outbound_ctr, 4),
+        "engagement_rate": round(engagement_r, 4),
+        "target_imp": target_imp,
+        "target_roas": target_roas,
+        "count_winner": counts["Winner"],
+        "count_ite": counts["ITE"],
+        "count_analyse": counts["Analyse"],
+        "count_discarded": counts["Discarded"],
+        "count_total_ads": len(ads_no_copy),
+        "ctype_breakdown": json.dumps(ctype_b),
+        "product_breakdown": json.dumps(dict(product_b)),
+    }
+
+
+def write_result(conn, result: dict):
+    """Insert computed result row into results_table."""
+    cols = list(result.keys())
+    vals = list(result.values())
+    placeholders = ", ".join(["%s"] * len(cols))
+    col_names = ", ".join(cols)
+    sql = f"INSERT INTO results_table ({col_names}) VALUES ({placeholders})"
+    with conn.cursor() as cur:
+        cur.execute(sql, vals)
+    conn.commit()
+
+
+def purge_old_results(conn):
+    """Keep only the 3 most recent rows per account — prevent table bloat."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            DELETE FROM results_table
+            WHERE id NOT IN (
+                SELECT id FROM (
+                    SELECT id,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY account_name
+                               ORDER BY computed_at DESC
+                           ) AS rn
+                    FROM results_table
+                ) ranked
+                WHERE rn <= 3
+            )
+        """
+        )
+    conn.commit()
+    print("  Old rows purged — keeping latest 3 per account")
+
+
+# ── Main ─────────────────────────────────────────────────────────────
+def run(account_name: str | None = None):
+    print(f"\n[results_sync] Starting — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+    conn = get_conn()
+    try:
+        targets = [a["name"] for a in ACCOUNTS] if not account_name else [account_name]
+
+        all_rows_combined = []
+
+        for acct in targets:
+            print(f"  Fetching primary_table for: {acct}...")
+            rows = fetch_primary(conn, acct)
+            print(f"    {len(rows):,} rows fetched")
+
+            if not rows:
+                print(f"    No data — skipping")
+                continue
+
+            result = compute_results(rows, acct)
+            if result:
+                write_result(conn, result)
+                print(
+                    f"    ✓ Wrote results_table row — "
+                    f"{result['count_total_ads']} ads | "
+                    f"Winner:{result['count_winner']} "
+                    f"ITE:{result['count_ite']} "
+                    f"Analyse:{result['count_analyse']} "
+                    f"Discarded:{result['count_discarded']}"
+                )
+
+            all_rows_combined.extend(rows)
+
+        # ── Write combined "All Accounts" row ─────────────────────────
+        if len(targets) > 1 and all_rows_combined:
+            print("  Computing All Accounts combined...")
+            combined = compute_results(all_rows_combined, "All Accounts")
+            if combined:
+                write_result(conn, combined)
+                print(
+                    f"    ✓ All Accounts row written — {combined['count_total_ads']} unique ads"
+                )
+
+        purge_old_results(conn)
+        print(f"[results_sync] Done — {datetime.now().strftime('%H:%M:%S')}\n")
+
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    import sys
+
+    acct = None
+    if "--account" in sys.argv:
+        idx = sys.argv.index("--account")
+        if idx + 1 < len(sys.argv):
+            num = int(sys.argv[idx + 1])
+            acct = ACCOUNTS[num - 1]["name"]
+    run(acct)
