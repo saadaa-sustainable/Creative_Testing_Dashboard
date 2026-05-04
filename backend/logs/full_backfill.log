@@ -1082,3 +1082,239 @@
 2026-04-28 04:15:34 [INFO]   Rows inserted : 293,999
 2026-04-28 04:15:34 [INFO]   Time elapsed  : 3h 22m 55s
 2026-04-28 04:15:34 [INFO] =================================================================
+2026-05-02 14:03:23 [INFO] =================================================================
+2026-05-02 14:03:23 [INFO]   SAADAA — Meta Ads Full Historical Backfill → backfill_table
+2026-05-02 14:03:23 [INFO] =================================================================
+2026-05-02 14:03:23 [INFO]   Date range : Auto-detect from Meta API → 2026-05-02
+2026-05-02 14:03:23 [INFO]   Accounts   : 3
+2026-05-02 14:03:23 [INFO]     • Raho Saadaa (ID: 1136644150469466)
+2026-05-02 14:03:23 [INFO]     • Fourth Ad Account - SD (ID: 1349767139294217)
+2026-05-02 14:03:23 [INFO]     • Third Ad Account - SD (ID: 264868699479122)
+2026-05-02 14:03:23 [INFO]   Chunk size : 7 days per API request
+2026-05-02 14:03:23 [INFO]   Dry run    : False
+2026-05-02 14:03:23 [INFO]   Progress   : E:\Project\Saadaa\Saadaa_test\backend\backfill_progress.json
+2026-05-02 14:03:23 [INFO] =================================================================
+2026-05-02 14:03:24 [INFO]   ✓ Supabase connection OK
+2026-05-02 14:03:24 [INFO] 
+2026-05-02 14:03:24 [INFO] ▶  Raho Saadaa
+2026-05-02 14:03:24 [INFO]   Detecting earliest date from Meta API...
+2026-05-02 14:03:25 [INFO]     Account created : 2022-04-23
+2026-05-02 14:03:25 [INFO]     Using account created date: 2022-04-23
+2026-05-02 14:03:25 [INFO]   ✓ Will fetch from: 2022-04-23
+2026-05-02 14:03:25 [INFO]   Total chunks: 211 (7-day each)
+2026-05-02 14:03:25 [INFO]   [  1/366]   0.3%  2022-04-23 → 2022-04-29  fetching...
+2026-05-02 14:03:26 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AdsBGKn2WFw2egZsymHCYTI"}}
+2026-05-02 14:03:26 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-02 14:03:27 [INFO]   [  2/366]   0.5%  2022-04-30 → 2022-05-06  fetching...
+2026-05-02 14:03:27 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"Az0oyViZYQx4eV6LignmFf4"}}
+2026-05-02 14:03:27 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-02 14:03:28 [INFO]   [  3/366]   0.8%  2022-05-07 → 2022-05-13  fetching...
+2026-05-02 14:03:29 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"Aea2tCjW1sIRV9xTPkEpw4D"}}
+2026-05-02 14:03:29 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-02 14:03:30 [INFO] 
+⛔ Interrupted by user — progress saved. Re-run to resume.
+2026-05-02 14:03:30 [INFO] =================================================================
+2026-05-02 14:03:30 [INFO]   BACKFILL COMPLETE
+2026-05-02 14:03:30 [INFO]   Rows fetched  : 0
+2026-05-02 14:03:30 [INFO]   Rows inserted : 0
+2026-05-02 14:03:30 [INFO]   Time elapsed  : 0m 5s
+2026-05-02 14:03:30 [INFO] =================================================================
+2026-05-04 14:41:49 [INFO] =================================================================
+2026-05-04 14:41:49 [INFO]   SAADAA — Meta Ads Full Historical Backfill → backfill_table
+2026-05-04 14:41:49 [INFO] =================================================================
+2026-05-04 14:41:49 [INFO]   Date range : Auto-detect from Meta API → 2026-05-04
+2026-05-04 14:41:49 [INFO]   Accounts   : 3
+2026-05-04 14:41:49 [INFO]     • Raho Saadaa (ID: 1136644150469466)
+2026-05-04 14:41:49 [INFO]     • Fourth Ad Account - SD (ID: 1349767139294217)
+2026-05-04 14:41:49 [INFO]     • Third Ad Account - SD (ID: 264868699479122)
+2026-05-04 14:41:49 [INFO]   Chunk size : 7 days per API request
+2026-05-04 14:41:49 [INFO]   Dry run    : False
+2026-05-04 14:41:49 [INFO]   Progress   : E:\Project\Saadaa\Saadaa_test\backend\backfill_progress.json
+2026-05-04 14:41:49 [INFO] =================================================================
+2026-05-04 14:41:51 [INFO]   ✓ Supabase connection OK
+2026-05-04 14:41:51 [INFO] 
+2026-05-04 14:41:51 [INFO] ▶  Raho Saadaa
+2026-05-04 14:41:51 [INFO]   Detecting earliest date from Meta API...
+2026-05-04 14:41:51 [INFO]     Account created : 2022-04-23
+2026-05-04 14:41:52 [INFO]     Using account created date: 2022-04-23
+2026-05-04 14:41:52 [INFO]   ✓ Will fetch from: 2022-04-23
+2026-05-04 14:41:52 [INFO]   Total chunks: 211 (7-day each)
+2026-05-04 14:41:52 [INFO]   [  1/369]   0.3%  2022-04-23 → 2022-04-29  fetching...
+2026-05-04 14:41:52 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AYCnMnVXu8hNhyDhM9-DlpW"}}
+2026-05-04 14:41:52 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:41:53 [INFO]   [  2/369]   0.5%  2022-04-30 → 2022-05-06  fetching...
+2026-05-04 14:41:54 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AkJXY-ZmvZrohdVTuRU-d6w"}}
+2026-05-04 14:41:54 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:41:55 [INFO]   [  3/369]   0.8%  2022-05-07 → 2022-05-13  fetching...
+2026-05-04 14:41:55 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"Ay1IaULiLOTLjTgucfuUPgu"}}
+2026-05-04 14:41:55 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:41:56 [INFO]   [  4/369]   1.1%  2022-05-14 → 2022-05-20  fetching...
+2026-05-04 14:41:57 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AlcKL6ia9QBVpq5ylq-wFIO"}}
+2026-05-04 14:41:57 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:41:58 [INFO]   [  5/369]   1.4%  2022-05-21 → 2022-05-27  fetching...
+2026-05-04 14:41:59 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"A-5YvFhCZbjxUfElY9rJSZD"}}
+2026-05-04 14:41:59 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:00 [INFO]   [  6/369]   1.6%  2022-05-28 → 2022-06-03  fetching...
+2026-05-04 14:42:00 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"ATHLcyNFnwZ2gQAxiAlLTpd"}}
+2026-05-04 14:42:00 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:01 [INFO]   [  7/369]   1.9%  2022-06-04 → 2022-06-10  fetching...
+2026-05-04 14:42:02 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"A_WiHOycE13P-gSpXh0OybP"}}
+2026-05-04 14:42:02 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:03 [INFO]   [  8/369]   2.2%  2022-06-11 → 2022-06-17  fetching...
+2026-05-04 14:42:03 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AfWjoPZYq83kBlAO8yT4ZGW"}}
+2026-05-04 14:42:03 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:04 [INFO]   [  9/369]   2.4%  2022-06-18 → 2022-06-24  fetching...
+2026-05-04 14:42:05 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AeS1ST30J17GluNRNdcNByL"}}
+2026-05-04 14:42:05 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:06 [INFO]   [ 10/369]   2.7%  2022-06-25 → 2022-07-01  fetching...
+2026-05-04 14:42:06 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AkZ3pcRDnio3twkTfnCVhhh"}}
+2026-05-04 14:42:06 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:07 [INFO]   [ 11/369]   3.0%  2022-07-02 → 2022-07-08  fetching...
+2026-05-04 14:42:08 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AsgVBFeYOQUYx42RExCehMB"}}
+2026-05-04 14:42:08 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:09 [INFO]   [ 12/369]   3.3%  2022-07-09 → 2022-07-15  fetching...
+2026-05-04 14:42:09 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AAjIU2i4p-62or2pWvfQCfa"}}
+2026-05-04 14:42:09 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:10 [INFO]   [ 13/369]   3.5%  2022-07-16 → 2022-07-22  fetching...
+2026-05-04 14:42:11 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"A4yqg5HRnkkMgYhCDP7e1oP"}}
+2026-05-04 14:42:11 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:12 [INFO]   [ 14/369]   3.8%  2022-07-23 → 2022-07-29  fetching...
+2026-05-04 14:42:12 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AyG5QGGoa0_I0al5JVnCz1B"}}
+2026-05-04 14:42:12 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:13 [INFO]   [ 15/369]   4.1%  2022-07-30 → 2022-08-05  fetching...
+2026-05-04 14:42:14 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"APNfsuC9YxSnZbMBElIF2KU"}}
+2026-05-04 14:42:14 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:15 [INFO]   [ 16/369]   4.3%  2022-08-06 → 2022-08-12  fetching...
+2026-05-04 14:42:15 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AsvolsMiLbBwD5AR6zwbhzy"}}
+2026-05-04 14:42:15 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:16 [INFO]   [ 17/369]   4.6%  2022-08-13 → 2022-08-19  fetching...
+2026-05-04 14:42:17 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AVH18NYRCB1apM-5ECKWNQV"}}
+2026-05-04 14:42:17 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:18 [INFO]   [ 18/369]   4.9%  2022-08-20 → 2022-08-26  fetching...
+2026-05-04 14:42:19 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AJDNh2Zch0C1_UGX3UhhpOi"}}
+2026-05-04 14:42:19 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:20 [INFO]   [ 19/369]   5.1%  2022-08-27 → 2022-09-02  fetching...
+2026-05-04 14:42:21 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"A-P4kPALWzM9-54GWFT4pbm"}}
+2026-05-04 14:42:21 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:22 [INFO]   [ 20/369]   5.4%  2022-09-03 → 2022-09-09  fetching...
+2026-05-04 14:42:22 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AnY_oJH604Aale7cR6OEmQi"}}
+2026-05-04 14:42:22 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:23 [INFO]   [ 21/369]   5.7%  2022-09-10 → 2022-09-16  fetching...
+2026-05-04 14:42:24 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"Apbbtio7CKDkpWu1dFNs05f"}}
+2026-05-04 14:42:24 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:25 [INFO]   [ 22/369]   6.0%  2022-09-17 → 2022-09-23  fetching...
+2026-05-04 14:42:26 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"ARFF1PX3twVhv1eupaLFlkR"}}
+2026-05-04 14:42:26 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:27 [INFO]   [ 23/369]   6.2%  2022-09-24 → 2022-09-30  fetching...
+2026-05-04 14:42:28 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"A1oT9gjTHwA6MOa70-5taMf"}}
+2026-05-04 14:42:28 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:29 [INFO]   [ 24/369]   6.5%  2022-10-01 → 2022-10-07  fetching...
+2026-05-04 14:42:30 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AQD_sokd4q_tYUpRPTqkTEd"}}
+2026-05-04 14:42:30 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:31 [INFO]   [ 25/369]   6.8%  2022-10-08 → 2022-10-14  fetching...
+2026-05-04 14:42:31 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"A6Qnpsu-b8u-RV4prohgeOz"}}
+2026-05-04 14:42:31 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:32 [INFO]   [ 26/369]   7.0%  2022-10-15 → 2022-10-21  fetching...
+2026-05-04 14:42:33 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"Ak_---itNiwas0RdYkHjvrg"}}
+2026-05-04 14:42:33 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:34 [INFO]   [ 27/369]   7.3%  2022-10-22 → 2022-10-28  fetching...
+2026-05-04 14:42:34 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AYvCelTatDBO1IKWY0rHnPo"}}
+2026-05-04 14:42:34 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:35 [INFO]   [ 28/369]   7.6%  2022-10-29 → 2022-11-04  fetching...
+2026-05-04 14:42:36 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"ADIs4dfjwtLNOGvGHPx4WmS"}}
+2026-05-04 14:42:36 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:37 [INFO]   [ 29/369]   7.9%  2022-11-05 → 2022-11-11  fetching...
+2026-05-04 14:42:37 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"Ap7eSN5VaOkO7ccP0v7ixbI"}}
+2026-05-04 14:42:37 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:38 [INFO]   [ 30/369]   8.1%  2022-11-12 → 2022-11-18  fetching...
+2026-05-04 14:42:39 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AdoWBq0QDiujUOFyd5_7KTs"}}
+2026-05-04 14:42:39 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:40 [INFO]   [ 31/369]   8.4%  2022-11-19 → 2022-11-25  fetching...
+2026-05-04 14:42:41 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AMGOz7P17zpWKJYz1kOOjWc"}}
+2026-05-04 14:42:41 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:42 [INFO]   [ 32/369]   8.7%  2022-11-26 → 2022-12-02  fetching...
+2026-05-04 14:42:42 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"Aheik0a0GcbKcgn_skuIRry"}}
+2026-05-04 14:42:42 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:43 [INFO]   [ 33/369]   8.9%  2022-12-03 → 2022-12-09  fetching...
+2026-05-04 14:42:44 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AuvRRITlURnjYpXj4bz8UUL"}}
+2026-05-04 14:42:44 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:45 [INFO]   [ 34/369]   9.2%  2022-12-10 → 2022-12-16  fetching...
+2026-05-04 14:42:45 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AsNEMbTcuN-i5YyD9ocA9DA"}}
+2026-05-04 14:42:45 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:46 [INFO]   [ 35/369]   9.5%  2022-12-17 → 2022-12-23  fetching...
+2026-05-04 14:42:47 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AbqKvBrREhIUspfUTtZ94Xr"}}
+2026-05-04 14:42:47 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:48 [INFO]   [ 36/369]   9.8%  2022-12-24 → 2022-12-30  fetching...
+2026-05-04 14:42:48 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AfwegiNpqQpg3aZSTpE6JRC"}}
+2026-05-04 14:42:48 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:49 [INFO]   [ 37/369]  10.0%  2022-12-31 → 2023-01-06  fetching...
+2026-05-04 14:42:50 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"ANMxR6fkG0JCF4WclxrAfrT"}}
+2026-05-04 14:42:50 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:51 [INFO]   [ 38/369]  10.3%  2023-01-07 → 2023-01-13  fetching...
+2026-05-04 14:42:52 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"ANSlVvQyZAJ7rsMp2yDxd1r"}}
+2026-05-04 14:42:52 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:53 [INFO]   [ 39/369]  10.6%  2023-01-14 → 2023-01-20  fetching...
+2026-05-04 14:42:53 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AhiFO-sPMWca2GKR8frLJ5c"}}
+2026-05-04 14:42:53 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:54 [INFO]   [ 40/369]  10.8%  2023-01-21 → 2023-01-27  fetching...
+2026-05-04 14:42:55 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"ALG0U2qUNgwQNAHqHgmGMs-"}}
+2026-05-04 14:42:55 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:56 [INFO]   [ 41/369]  11.1%  2023-01-28 → 2023-02-03  fetching...
+2026-05-04 14:42:56 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AKgwYO5SoncwEJAJz8j5teZ"}}
+2026-05-04 14:42:56 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:57 [INFO]   [ 42/369]  11.4%  2023-02-04 → 2023-02-10  fetching...
+2026-05-04 14:42:58 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"ATMBDx54AymvWxFzTIDueGJ"}}
+2026-05-04 14:42:58 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:42:59 [INFO]   [ 43/369]  11.7%  2023-02-11 → 2023-02-17  fetching...
+2026-05-04 14:42:59 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AcQxDPWFm5npWIEQPcxYzOs"}}
+2026-05-04 14:42:59 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:43:00 [INFO]   [ 44/369]  11.9%  2023-02-18 → 2023-02-24  fetching...
+2026-05-04 14:43:01 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"A6edBpJAhoy5q5zyCd4QOeq"}}
+2026-05-04 14:43:01 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:43:02 [INFO]   [ 45/369]  12.2%  2023-02-25 → 2023-03-03  fetching...
+2026-05-04 14:43:03 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AJar3fkJGIHnQRqGuY6jMow"}}
+2026-05-04 14:43:03 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:43:04 [INFO]   [ 46/369]  12.5%  2023-03-04 → 2023-03-10  fetching...
+2026-05-04 14:43:04 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AAMVqJZ6-Bc5DgCsjBEaftP"}}
+2026-05-04 14:43:04 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:43:05 [INFO]   [ 47/369]  12.7%  2023-03-11 → 2023-03-17  fetching...
+2026-05-04 14:43:06 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AHdv_fXK9_zDFHMg8QNdXba"}}
+2026-05-04 14:43:06 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:43:07 [INFO]   [ 48/369]  13.0%  2023-03-18 → 2023-03-24  fetching...
+2026-05-04 14:43:07 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"AlNehGMbQcUkJv1CKFQ2W7t"}}
+2026-05-04 14:43:07 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:43:08 [INFO]   [ 49/369]  13.3%  2023-03-25 → 2023-03-31  fetching...
+2026-05-04 14:43:10 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"A4UwgDiupB02v25CZHlMSQL"}}
+2026-05-04 14:43:10 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:43:11 [INFO]   [ 50/369]  13.6%  2023-04-01 → 2023-04-07  fetching...
+2026-05-04 14:43:11 [ERROR]       Meta API error 400: {"error":{"message":"(#3018) The start date of the time range cannot be beyond 37 months from the current date","type":"OAuthException","code":3018,"fbtrace_id":"ADIOFFdcl9rf9RBhXKL-d6e"}}
+2026-05-04 14:43:11 [INFO]              → 0 rows (no ads ran in this period)
+2026-05-04 14:43:12 [INFO]   [ 51/369]  13.8%  2023-04-08 → 2023-04-14  fetching...
+2026-05-04 14:43:34 [INFO]              → 418 rows fetched, 418 inserted
+2026-05-04 14:43:35 [INFO]   [ 52/369]  14.1%  2023-04-15 → 2023-04-21  fetching...
+2026-05-04 14:43:53 [INFO]              → 449 rows fetched, 449 inserted
+2026-05-04 14:43:54 [INFO]   [ 53/369]  14.4%  2023-04-22 → 2023-04-28  fetching...
+2026-05-04 14:44:14 [INFO]              → 469 rows fetched, 469 inserted
+2026-05-04 14:44:15 [INFO]   [ 54/369]  14.6%  2023-04-29 → 2023-05-05  fetching...
+2026-05-04 14:44:41 [INFO]              → 403 rows fetched, 403 inserted
+2026-05-04 14:44:42 [INFO]   [ 55/369]  14.9%  2023-05-06 → 2023-05-12  fetching...
+2026-05-04 14:45:05 [INFO]              → 379 rows fetched, 379 inserted
+2026-05-04 14:45:06 [INFO]   [ 56/369]  15.2%  2023-05-13 → 2023-05-19  fetching...
+2026-05-04 14:45:28 [INFO]              → 378 rows fetched, 378 inserted
+2026-05-04 14:45:29 [INFO]   [ 57/369]  15.4%  2023-05-20 → 2023-05-26  fetching...
+2026-05-04 14:45:50 [INFO]              → 354 rows fetched, 354 inserted
+2026-05-04 14:45:51 [INFO]   [ 58/369]  15.7%  2023-05-27 → 2023-06-02  fetching...
+2026-05-04 14:46:13 [INFO]              → 335 rows fetched, 335 inserted
+2026-05-04 14:46:14 [INFO]   [ 59/369]  16.0%  2023-06-03 → 2023-06-09  fetching...
+2026-05-04 14:46:33 [INFO]              → 288 rows fetched, 288 inserted
+2026-05-04 14:46:34 [INFO]   [ 60/369]  16.3%  2023-06-10 → 2023-06-16  fetching...
+2026-05-04 14:46:55 [INFO]              → 262 rows fetched, 262 inserted
+2026-05-04 14:46:56 [INFO]   [ 61/369]  16.5%  2023-06-17 → 2023-06-23  fetching...
+2026-05-04 14:47:14 [INFO]              → 275 rows fetched, 275 inserted
+2026-05-04 14:47:15 [INFO]   [ 62/369]  16.8%  2023-06-24 → 2023-06-30  fetching...
+2026-05-04 14:47:36 [INFO]              → 377 rows fetched, 377 inserted
+2026-05-04 14:47:37 [INFO]   [ 63/369]  17.1%  2023-07-01 → 2023-07-07  fetching...
+2026-05-04 14:48:02 [INFO]              → 413 rows fetched, 413 inserted
+2026-05-04 14:48:03 [INFO]   [ 64/369]  17.3%  2023-07-08 → 2023-07-14  fetching...
+2026-05-04 14:48:28 [INFO]              → 406 rows fetched, 406 inserted
+2026-05-04 14:48:29 [INFO]   [ 65/369]  17.6%  2023-07-15 → 2023-07-21  fetching...
