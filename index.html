@@ -379,7 +379,11 @@
       <div id="createdChip" style="display:none;align-items:center;gap:5px;background:var(--slate-lt);border:1px solid rgba(74,111,165,.25);border-radius:100px;padding:3px 10px;font-size:.62rem;font-weight:600;color:var(--slate)">
         <span id="createdChipText"></span>
       </div>
-      <span id="dateFilterNote" style="display:none;font-size:.6rem;color:var(--slate);background:var(--slate-lt);border:1px solid rgba(74,111,165,.2);padding:3px 11px;border-radius:100px;margin-left:auto">Fetching from primary_table...</span>
+      <span id="dateFilterNote" style="display:none;font-size:.6rem;color:var(--slate);background:var(--slate-lt);border:1px solid rgba(74,111,165,.2);padding:3px 11px;border-radius:100px">Fetching from primary_table...</span>
+      <button onclick="ctExportCSV()" id="ct-export-btn" title="Export filtered ads as CSV with all active filter metadata" style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:1px solid rgba(74,124,111,.35);background:#e6f0ee;color:#4a7c6f;font-size:.68rem;font-weight:700;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .15s;flex-shrink:0;white-space:nowrap" onmouseover="this.style.background='#4a7c6f';this.style.color='#fff'" onmouseout="this.style.background='#e6f0ee';this.style.color='#4a7c6f'">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        ↓ Export CSV
+      </button>
     </div>
   </div>
 
@@ -847,23 +851,55 @@ async function fetchFromSheets(acct,btn){
 // FILTER
 // ════════════════════════════════════════
 function filteredAds(){
-  const from=parseInputDate(document.getElementById('dateFrom').value);
-  const to=parseInputDate(document.getElementById('dateTo').value);
+  const from        = parseInputDate(document.getElementById('dateFrom').value);
+  const to          = parseInputDate(document.getElementById('dateTo').value);
   if(to) to.setHours(23,59,59,999);
-  const createdFrom=parseInputDate(document.getElementById('createdFrom')?.value);
-  const createdTo=parseInputDate(document.getElementById('createdTo')?.value);
+ 
+  const createdFrom = parseInputDate(document.getElementById('createdFrom')?.value);
+  const createdTo   = parseInputDate(document.getElementById('createdTo')?.value);
   if(createdTo) createdTo.setHours(23,59,59,999);
-  const nf=getNameFilter();
-  return ALL.filter(a=>{
-    if(EXCLUDE_COPY_TOGGLE&&a.isCopy) return false;
-    if(nf.terms.length>0){
-      const name=a.name.toLowerCase();
-      const anyMatch=nf.terms.some(t=>name.includes(t.toLowerCase()));
-      if(nf.mode==='contains'&&!anyMatch) return false;
-      if(nf.mode==='not_contains'&&anyMatch) return false;
+ 
+  const nf = getNameFilter();
+ 
+  // When loaded from results_table: sheetDateObj is the same for ALL ads
+  // (= data_date_to). Applying the date filter here would kill everything.
+  // Only use sheetDateObj filter when we have primary_table daily rows
+  // (i.e. _inPrimaryDateMode or not _fromResultsTable).
+  const skipDateFilter = window._fromResultsTable && !window._inPrimaryDateMode;
+ 
+  return ALL.filter(a => {
+ 
+    // ── 1. Account filter ─────────────────────────────────────────────
+    if(ACTIVE_ACCT !== 0){
+      const acctName = SHEET_ACCOUNTS[ACTIVE_ACCT - 1]?.name;
+      if(acctName && a.accountName && a.accountName !== acctName) return false;
     }
-    if(from||to){ if(!a.sheetDateObj) return false; if(from&&a.sheetDateObj<from) return false; if(to&&a.sheetDateObj>to) return false; }
-    if(createdFrom||createdTo){ if(!a.adCreated) return false; if(createdFrom&&a.adCreated<createdFrom) return false; if(createdTo&&a.adCreated>createdTo) return false; }
+ 
+    // ── 2. Copy filter ────────────────────────────────────────────────
+    if(EXCLUDE_COPY_TOGGLE && a.isCopy) return false;
+ 
+    // ── 3. Ad name filter ─────────────────────────────────────────────
+    if(nf.terms.length > 0){
+      const name = a.name.toLowerCase();
+      const anyMatch = nf.terms.some(t => name.includes(t.toLowerCase()));
+      if(nf.mode === 'contains'     && !anyMatch) return false;
+      if(nf.mode === 'not_contains' &&  anyMatch) return false;
+    }
+ 
+    // ── 4. Report date filter (skip when results_table mode, no date set) ──
+    if(!skipDateFilter && (from || to)){
+      if(!a.sheetDateObj) return false;
+      if(from && a.sheetDateObj < from) return false;
+      if(to   && a.sheetDateObj > to)   return false;
+    }
+ 
+    // ── 5. Created date filter ────────────────────────────────────────
+    if(createdFrom || createdTo){
+      if(!a.adCreated) return false;
+      if(createdFrom && a.adCreated < createdFrom) return false;
+      if(createdTo   && a.adCreated > createdTo)   return false;
+    }
+ 
     return true;
   });
 }
@@ -1242,6 +1278,8 @@ function populateDashboardFromResult(row,label){
   const lbl=document.getElementById('fetchBtnText'); if(lbl) lbl.textContent='↻ Refresh';
   ['controls','ovPerfWrap','creativesWrap','resultsSummaryWrap'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
   document.getElementById('initEmpty').style.display='none';
+  document.getElementById('dateFrom').value = '';
+  document.getElementById('dateTo').value   = ''; 
   applyFilters();
 }
 
@@ -1327,6 +1365,148 @@ function _renderAll(){
   renderOverviewPerf(ads);
   renderCreatives(ads);
   renderResults(ads);
+}
+
+// ════════════════════════════════════════
+// EXPORT CSV — Creative Testing Section
+// Aggregates per unique ad, applies same 3-filter logic, exports all active filters
+// ════════════════════════════════════════
+function ctExportCSV(){
+  const ads = filteredAds();
+  if(!ads||!ads.length){ alert('No data to export. Load an account and apply filters first.'); return; }
+
+  // ── Collect active filter state ──
+  const dateFrom   = document.getElementById('dateFrom')?.value||'';
+  const dateTo     = document.getElementById('dateTo')?.value||'';
+  const createdFrom= document.getElementById('createdFrom')?.value||'';
+  const createdTo  = document.getElementById('createdTo')?.value||'';
+  const nameMode   = document.getElementById('nameFilterMode')?.value||'contains';
+  const nameVal    = (document.getElementById('nameFilterValue')?.value||'').trim();
+  const exclCopy   = EXCLUDE_COPY_TOGGLE;
+  const tImp       = parseFloat(document.getElementById('targetImp')?.value)||20000;
+  const tRoas      = parseFloat(document.getElementById('targetRoas')?.value)||3.2;
+  const tCpc       = parseFloat(document.getElementById('targetCpc')?.value)||12;
+  const acctName   = ACTIVE_ACCT===0?'All Accounts':(SHEET_ACCOUNTS[ACTIVE_ACCT-1]?.name||'All Accounts');
+  const now        = new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+  // ── Aggregate per unique ad (same logic as renderResults) ──
+  const adMap = {};
+  ads.forEach(a => {
+    const key = a.adId || a.name;
+    if(!adMap[key]) adMap[key] = {
+      name:a.name, adId:a.adId||'', campName:a.campName||'', status:a.status||'',
+      product:a.product||'Other', ctype:a.ctype||'VID', isCopy:a.isCopy,
+      accountName:a.accountName||acctName,
+      adCreated:a.adCreated?a.adCreated.toISOString().split('T')[0]:'',
+      firstDate:a.sheetDateObj?a.sheetDateObj.toISOString().split('T')[0]:'',
+      impr:0, spend:0, convValue:0, outClicks:0, cpcSheetSum:0, cpcSheetCount:0,
+      thruPlays:0, videoPlays:0, postEng:0, reach:0
+    };
+    const m = adMap[key];
+    m.impr       += a.impr||0;
+    m.spend      += a.spend||0;
+    m.convValue  += a.convValue||0;
+    m.outClicks  += a.outClicks||0;
+    m.thruPlays  += a.thruPlays||0;
+    m.videoPlays += a.videoPlays||0;
+    m.postEng    += a.postEng||0;
+    m.reach      += a.reach||0;
+    if((a.cpcSheet||0)>0){ m.cpcSheetSum+=a.cpcSheet; m.cpcSheetCount++; }
+    // track earliest date seen
+    if(a.sheetDateObj&&(!m._firstDate||a.sheetDateObj<m._firstDate)) m._firstDate=a.sheetDateObj;
+    if(a.adCreated&&(!m._createdDate||a.adCreated<m._createdDate)) m._createdDate=a.adCreated;
+  });
+
+  const esc = v => '"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+
+  // ── Metadata header ──
+  const meta = [
+    ['# Creative Testing Dashboard — CT Section Export'],
+    ['# Exported At', now],
+    ['# ─── FETCH PARAMETERS ───'],
+    ['# Account', acctName],
+    ['# Report Date From', dateFrom||'(all)'],
+    ['# Report Date To', dateTo||'(all)'],
+    ['# Created Date From', createdFrom||'(all)'],
+    ['# Created Date To', createdTo||'(all)'],
+    ['# Ad Name Filter', nameVal?(nameMode+' "'+nameVal+'"'):'(none)'],
+    ['# Exclude Copy Ads', exclCopy?'Yes':'No'],
+    ['# ─── WINNER LOGIC THRESHOLDS ───'],
+    ['# F1 — Min Impressions', tImp],
+    ['# F2 — Min ROAS', tRoas],
+    ['# F3 — Max CPC (₹)', tCpc],
+    ['# Winner = F1 AND (F2 OR F3)'],
+    ['# ITE    = F1 AND NOT F2 AND NOT F3'],
+    ['# Analyse= NOT F1 AND (conversions OR F3)'],
+    ['# Discarded = NOT F1 AND no conversions AND NOT F3'],
+    ['# ─── EXPORT SUMMARY ───'],
+    ['# Unique Ads in Export', Object.keys(adMap).length],
+    ['# Raw Rows Filtered', ads.length],
+    ['#'],
+  ];
+
+  // ── Column headers ──
+  const headers = [
+    'Ad Name','Ad ID','Campaign','Account','Product','Creative Type','Is Copy',
+    'Ad Created','First Report Date',
+    'Impressions','Spend (₹)','Conv. Value (₹)','ROAS',
+    'Outbound Clicks','CPC (₹)','ThruPlays','3-Sec Video Plays','Post Engagements','Reach',
+    'F1 Pass','F2 Pass','F3 Pass','Category (Winner/ITE/Analyse/Discarded)',
+    'Ad Status'
+  ];
+
+  // ── Data rows ──
+  const dataRows = Object.values(adMap).map(m => {
+    const ctRoas     = m.spend>0 ? m.convValue/m.spend : 0;
+    const cpcSheet   = m.cpcSheetCount>0 ? m.cpcSheetSum/m.cpcSheetCount : 0;
+    const cpcComp    = m.outClicks>0 ? m.spend/m.outClicks : 0;
+    const cpc        = cpcSheet>0 ? cpcSheet : cpcComp;
+    const f1 = m.impr >= tImp;
+    const f2 = ctRoas >= tRoas;
+    const f3 = cpc>0 && cpc<=tCpc;
+    const hasConv = m.convValue>0;
+    let cat;
+    if(f1&&(f2||f3))      cat='Winner';
+    else if(f1&&!f2&&!f3) cat='ITE';
+    else if(!f1&&(hasConv||f3)) cat='Analyse';
+    else cat='Discarded';
+    const firstDate = m._firstDate?m._firstDate.toISOString().split('T')[0]:(m.firstDate||'');
+    const createdDate = m._createdDate?m._createdDate.toISOString().split('T')[0]:(m.adCreated||'');
+    return [
+      m.name, m.adId, m.campName, m.accountName, m.product, m.ctype, m.isCopy?'Yes':'No',
+      createdDate, firstDate,
+      m.impr, m.spend.toFixed(0), m.convValue.toFixed(0), ctRoas.toFixed(2),
+      m.outClicks, cpc>0?cpc.toFixed(2):'', m.thruPlays, m.videoPlays, m.postEng, m.reach,
+      f1?'TRUE':'FALSE', f2?'TRUE':'FALSE', f3?'TRUE':'FALSE', cat,
+      m.status
+    ];
+  });
+
+  // ── Assemble CSV ──
+  const lines = [];
+  meta.forEach(row => lines.push(row.map(esc).join(',')));
+  lines.push(headers.map(esc).join(','));
+  dataRows.forEach(row => lines.push(row.map(esc).join(',')));
+  const csv = lines.join('\r\n');
+
+  // ── Trigger download ──
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const safeDate = (dateFrom&&dateTo) ? dateFrom+'_to_'+dateTo : 'all-dates';
+  const safeAcct = acctName.replace(/[^a-zA-Z0-9]+/g,'-');
+  a.href = url;
+  a.download = 'CT-Creative-Export_'+safeAcct+'_'+safeDate+'_'+Object.keys(adMap).length+'ads.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+
+  // ── Button flash feedback ──
+  const btn = document.getElementById('ct-export-btn');
+  if(btn){
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✓ Exported!';
+    btn.style.background='#4a7c6f'; btn.style.color='#fff';
+    setTimeout(()=>{ btn.innerHTML=orig; btn.style.background='#e6f0ee'; btn.style.color='#4a7c6f'; }, 2200);
+  }
 }
 </script>
 
@@ -1634,6 +1814,10 @@ function _renderAll(){
         <div class="ae-acct-card tab-2" onclick="aeSetAcct('Fourth Ad Account - SD',this)"><div class="ae-acct-card-label">Account 2</div><div class="ae-acct-card-name">Fourth Ad Account - SD</div></div>
         <div class="ae-acct-card tab-3" onclick="aeSetAcct('Third Ad Account - SD',this)"><div class="ae-acct-card-label">Account 3</div><div class="ae-acct-card-name">Third Ad Account - SD</div></div>
       </div>
+      <button onclick="aeExportCSV()" id="ae-export-btn" title="Export filtered results as CSV with all active filter metadata" style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:1px solid rgba(74,124,111,.35);background:#e6f0ee;color:#4a7c6f;font-size:11.5px;font-weight:700;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .15s;flex-shrink:0;white-space:nowrap" onmouseover="this.style.background='#4a7c6f';this.style.color='#fff'" onmouseout="this.style.background='#e6f0ee';this.style.color='#4a7c6f'">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        ↓ Export CSV
+      </button>
     </div>
   </div>
 
@@ -2191,6 +2375,103 @@ function aeSort(key){
 
 function aePage(d){const max=Math.ceil(aeFiltered.length/aePerPage)-1;aeCurPage=Math.max(0,Math.min(max,aeCurPage+d));aeRender();}
 function aePageSize(){aePerPage=parseInt(document.getElementById('ae-page-size').value)||25;aeCurPage=0;aeRender();}
+
+// ════════════════════════════════════════
+// EXPORT CSV — Analysis Engine
+// Exports aeFiltered (all pages) with full filter metadata header
+// ════════════════════════════════════════
+function aeExportCSV(){
+  if(!aeFiltered||!aeFiltered.length){alert('No data to export. Apply filters and load data first.');return;}
+
+  // ── Collect active filter state ──
+  const dateFrom  = document.getElementById('ae-date-from')?.value||'';
+  const dateTo    = document.getElementById('ae-date-to')?.value||'';
+  const drpLabel  = document.getElementById('ae-drp-label')?.textContent?.replace('📅 ','').trim()||'All time';
+  const groupBy   = document.getElementById('ae-group-by')?.value==='campaign'?'Campaign Level':'Ad Level';
+  const tImp      = document.getElementById('ae-target-imp')?.value||'20000';
+  const tRoas     = document.getElementById('ae-target-roas')?.value||'3.2';
+  const tCpc      = document.getElementById('ae-target-cpc')?.value||'12';
+  const acctLabel = aeActiveAcct||'All Accounts';
+  const catFilter = aeChipActive||'All Categories';
+  const now       = new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+  // Collect multi-filter rules
+  const filterRules=[];
+  document.querySelectorAll('#ae-filter-rows .ae-filter-row').forEach(row=>{
+    const col  = row.querySelector('.ae-fcol')?.value||'';
+    const cond = row.querySelector('.ae-fcond')?.value||'';
+    const val  = row.querySelector('.ae-fval')?.value?.trim()||'';
+    if(val) filterRules.push(col+' '+cond+' "'+val+'"');
+  });
+
+  // ── Build metadata header rows (prefixed with # so they're identifiable) ──
+  const esc=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const meta=[
+    ['# Creative Testing Dashboard — Analysis Engine Export'],
+    ['# Exported At',now],
+    ['# ─── FETCH PARAMETERS ───'],
+    ['# Account',acctLabel],
+    ['# Date Range (Label)',drpLabel],
+    ['# Date From',dateFrom||'(lifetime)'],
+    ['# Date To',dateTo||'(lifetime)'],
+    ['# Group By',groupBy],
+    ['# ─── WINNER LOGIC THRESHOLDS ───'],
+    ['# F1 — Min Impressions',tImp],
+    ['# F2 — Min ROAS',tRoas],
+    ['# F3 — Max CPC (₹)',tCpc],
+    ['# Winner = F1 AND (F2 OR F3)'],
+    ['# ITE    = F1 AND NOT F2 AND NOT F3'],
+    ['# Analyse= NOT F1 AND (conversions OR F3)'],
+    ['# Discarded = NOT F1 AND no conversions AND NOT F3'],
+    ['# ─── ACTIVE FILTERS ───'],
+    ['# Category Filter',catFilter],
+    ['# Multi-Filter Rules',filterRules.length?filterRules.join(' | '):'(none)'],
+    ['# Total Rows in Export',aeFiltered.length],
+    ['#'],
+  ];
+
+  // ── Column headers ──
+  const headers=[
+    'Campaign','Ad ID','Ad Name','Account','Ad Created','First Seen',
+    'Status (Category)','Impressions','ROAS','CPC (₹)','LTV Spend (₹)',
+    'F1 Pass','F2 Pass','F3 Pass',
+    'Days to Target (vec)','Reach @ Freq2','LTV R/F','Reach Weight%',
+    'Profit Eff (₹)','Contrib %','Delivery Score','Sales Score','Blended Score',
+    'System Type','Action Protocol','Performance Move','Creative Move','Ad Status'
+  ];
+
+  // ── Data rows ──
+  const dataRows=aeFiltered.map(r=>[
+    r.campName,r.adId,r.adName,r.acct,r.created,r.firstDate,
+    r.category,r.imp,r.rawRoas.toFixed(2),
+    r.rawCpc>0?r.rawCpc.toFixed(2):'',
+    r.rawSpend.toFixed(0),
+    r.f1Pass?'TRUE':'FALSE',r.f2Pass?'TRUE':'FALSE',r.f3Pass?'TRUE':'FALSE',
+    r.vec,r.rf2,r.lRFN,r.rw,
+    r.rawProfit.toFixed(0),r.cm,r.dE,r.sE,r.bl,
+    r.type,r.action,r.perf,r.creative,r.adStatus||''
+  ]);
+
+  // ── Assemble CSV ──
+  const lines=[];
+  meta.forEach(row=>lines.push(row.map(esc).join(',')));
+  lines.push(headers.map(esc).join(','));
+  dataRows.forEach(row=>lines.push(row.map(esc).join(',')));
+  const csv=lines.join('\r\n');
+
+  // ── Trigger download ──
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const safeDate=(dateFrom&&dateTo)?dateFrom+'_to_'+dateTo:drpLabel.replace(/[^a-zA-Z0-9]+/g,'-');
+  const safeAcct=acctLabel.replace(/[^a-zA-Z0-9]+/g,'-');
+  a.href=url; a.download='CT-Export_'+safeAcct+'_'+safeDate+'_'+aeFiltered.length+'ads.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+
+  // ── Feedback flash on button ──
+  const btn=document.getElementById('ae-export-btn');
+  if(btn){const orig=btn.innerHTML;btn.innerHTML='✓ Exported!';btn.style.background='#4a7c6f';btn.style.color='#fff';setTimeout(()=>{btn.innerHTML=orig;btn.style.background='#e6f0ee';btn.style.color='#4a7c6f';},2200);}
+}
 
 function copyText(txt,el){
   navigator.clipboard.writeText(String(txt)).then(()=>{const orig=el.style.color;el.style.color='#4a7c6f';setTimeout(()=>{el.style.color=orig;},700);}).catch(()=>{});

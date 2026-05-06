@@ -7,3 +7,102 @@
 2026-05-04 13:43:19 [INFO]   Next primary sync  : 2026-05-05 00:30:00 IST
 2026-05-04 13:43:19 [INFO]   Next results sync  : 2026-05-04 15:00:00 IST
 2026-05-04 13:43:19 [INFO] 
+2026-05-04 15:00:19 [INFO] 
+⏰ Results sync triggered at 2026-05-04 15:00:19 IST
+2026-05-04 15:00:19 [INFO] ------------------------------------------------------------
+2026-05-04 15:00:19 [INFO] ▶  RESULTS SYNC — results_table update
+2026-05-04 15:00:19 [INFO]    Started: 2026-05-04 15:00:19 IST
+2026-05-04 15:00:19 [INFO] ------------------------------------------------------------
+2026-05-04 15:04:20 [INFO]    Results sync ✓ done — exit code 0
+2026-05-04 15:04:20 [INFO]   Next results sync: 2026-05-04 18:00:00 IST
+2026-05-04 17:53:52 [INFO] Running primary sync immediately (--now)
+2026-05-04 17:53:52 [INFO] ============================================================
+2026-05-04 17:53:52 [INFO] ▶  PRIMARY SYNC — primary_table update
+2026-05-04 17:53:52 [INFO]    Started: 2026-05-04 17:53:52 IST
+2026-05-04 17:53:52 [INFO] ============================================================
+2026-05-04 18:00:20 [INFO] 
+⏰ Results sync triggered at 2026-05-04 18:00:20 IST
+2026-05-04 18:00:20 [INFO] ------------------------------------------------------------
+2026-05-04 18:00:20 [INFO] ▶  RESULTS SYNC — results_table update
+2026-05-04 18:00:20 [INFO]    Started: 2026-05-04 18:00:20 IST
+2026-05-04 18:00:20 [INFO] ------------------------------------------------------------
+2026-05-04 18:02:42 [INFO]    Results sync ✓ done — exit code 0
+2026-05-04 18:02:42 [INFO]   Next results sync: 2026-05-04 21:00:00 IST
+2026-05-04 18:03:55 [INFO]    Primary sync ✓ done — exit code 0
+2026-05-04 21:00:03 [INFO] 
+⏰ Results sync triggered at 2026-05-04 21:00:03 IST
+2026-05-04 21:00:03 [INFO] ------------------------------------------------------------
+2026-05-04 21:00:03 [INFO] ▶  RESULTS SYNC — results_table update
+2026-05-04 21:00:03 [INFO]    Started: 2026-05-04 21:00:03 IST
+2026-05-04 21:00:03 [INFO] ------------------------------------------------------------
+2026-05-04 21:01:35 [INFO]    Results sync ❌ FAILED — exit code 1
+2026-05-04 21:01:35 [INFO]   Next results sync: 2026-05-05 00:00:00 IST
+2026-05-05 00:30:02 [INFO] 
+🌙 Nightly primary sync triggered at 2026-05-05 00:30:02 IST
+2026-05-05 00:30:02 [INFO] ============================================================
+2026-05-05 00:30:02 [INFO] ▶  PRIMARY SYNC — primary_table update
+2026-05-05 00:30:02 [INFO]    Started: 2026-05-05 00:30:02 IST
+2026-05-05 00:30:02 [INFO] ============================================================
+2026-05-05 00:39:42 [INFO]    Primary sync ✓ done — exit code 0
+2026-05-05 00:39:42 [INFO]   → Also refreshing results_table after primary sync...
+2026-05-05 00:39:42 [INFO] ------------------------------------------------------------
+2026-05-05 00:39:42 [INFO] ▶  RESULTS SYNC — results_table update
+2026-05-05 00:39:42 [INFO]    Started: 2026-05-05 00:39:42 IST
+2026-05-05 00:39:42 [INFO] ------------------------------------------------------------
+2026-05-05 00:39:57 [INFO]    Results sync ✓ done — exit code 0
+2026-05-05 00:39:57 [INFO]   Next primary sync: 2026-05-06 00:30:00 IST
+2026-05-05 03:00:27 [INFO] 
+⏰ Results sync triggered at 2026-05-05 03:00:27 IST
+2026-05-05 03:00:27 [INFO] ------------------------------------------------------------
+2026-05-05 03:00:27 [INFO] ▶  RESULTS SYNC — results_table update
+2026-05-05 03:00:27 [INFO]    Started: 2026-05-05 03:00:27 IST
+2026-05-05 03:00:27 [INFO] ------------------------------------------------------------
+2026-05-05 03:00:41 [INFO]    Results sync ✓ done — exit code 0
+2026-05-05 03:00:41 [INFO]   Next results sync: 2026-05-05 06:00:00 IST
+2026-05-05 06:00:11 [INFO] 
+⏰ Results sync triggered at 2026-05-05 06:00:11 IST
+2026-05-05 06:00:11 [INFO] ------------------------------------------------------------
+2026-05-05 06:00:11 [INFO] ▶  RESULTS SYNC — results_table update
+2026-05-05 06:00:11 [INFO]    Started: 2026-05-05 06:00:11 IST
+2026-05-05 06:00:11 [INFO] ------------------------------------------------------------
+2026-05-05 06:00:28 [INFO]    Results sync ✓ done — exit code 0
+2026-05-05 06:00:28 [INFO]   Next results sync: 2026-05-05 09:00:00 IST
+2026-05-05 09:00:29 [INFO] 
+⏰ Results sync triggered at 2026-05-05 09:00:28 IST
+2026-05-05 09:00:29 [INFO] ------------------------------------------------------------
+2026-05-05 09:00:29 [INFO] ▶  RESULTS SYNC — results_table update
+2026-05-05 09:00:29 [INFO]    Started: 2026-05-05 09:00:29 IST
+2026-05-05 09:00:29 [INFO] ------------------------------------------------------------
+2026-05-05 09:00:43 [INFO]    Results sync ✓ done — exit code 0
+2026-05-05 09:00:43 [INFO]   Next results sync: 2026-05-05 12:00:00 IST
+2026-05-05 11:23:00 [INFO] Running primary sync immediately (--now)
+2026-05-05 11:23:00 [INFO] ============================================================
+2026-05-05 11:23:00 [INFO] ▶  PRIMARY SYNC — primary_table update
+2026-05-05 11:23:00 [INFO]    Started: 2026-05-05 11:23:00 IST
+2026-05-05 11:23:00 [INFO] ============================================================
+2026-05-05 11:33:06 [INFO]    Primary sync ✓ done — exit code 0
+2026-05-05 12:00:13 [INFO] 
+⏰ Results sync triggered at 2026-05-05 12:00:13 IST
+2026-05-05 12:00:13 [INFO] ------------------------------------------------------------
+2026-05-05 12:00:13 [INFO] ▶  RESULTS SYNC — results_table update
+2026-05-05 12:00:13 [INFO]    Started: 2026-05-05 12:00:13 IST
+2026-05-05 12:00:13 [INFO] ------------------------------------------------------------
+2026-05-05 12:02:04 [INFO]    Results sync ✓ done — exit code 0
+2026-05-05 12:02:04 [INFO]   Next results sync: 2026-05-05 15:00:00 IST
+2026-05-06 11:12:06 [INFO] ============================================================
+2026-05-06 11:12:06 [INFO]   SAADAA Meta Ads Cron Runner — starting
+2026-05-06 11:12:06 [INFO]   Project dir : E:\Project\Saadaa\Saadaa_test\backend
+2026-05-06 11:12:06 [INFO]   Python      : C:\Users\DELL\AppData\Local\Programs\Python\Python311\python.exe
+2026-05-06 11:12:06 [INFO]   Log dir     : E:\Project\Saadaa\Saadaa_test\backend\logs
+2026-05-06 11:12:06 [INFO] ============================================================
+2026-05-06 11:12:06 [INFO]   Next primary sync  : 2026-05-07 00:30:00 IST
+2026-05-06 11:12:06 [INFO]   Next results sync  : 2026-05-06 12:00:00 IST
+2026-05-06 11:12:06 [INFO] 
+2026-05-06 12:00:06 [INFO] 
+⏰ Results sync triggered at 2026-05-06 12:00:06 IST
+2026-05-06 12:00:06 [INFO] ------------------------------------------------------------
+2026-05-06 12:00:06 [INFO] ▶  RESULTS SYNC — results_table update
+2026-05-06 12:00:06 [INFO]    Started: 2026-05-06 12:00:06 IST
+2026-05-06 12:00:06 [INFO] ------------------------------------------------------------
+2026-05-06 12:02:59 [INFO]    Results sync ✓ done — exit code 0
+2026-05-06 12:02:59 [INFO]   Next results sync: 2026-05-06 15:00:00 IST

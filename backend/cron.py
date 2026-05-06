@@ -7,13 +7,13 @@ Schedule:
                                    15:00, 18:00, 21:00 IST)
 
 Run:
-  python cron_runner.py           # starts the scheduler (runs forever)
-  python cron_runner.py --now primary   # run primary sync immediately
-  python cron_runner.py --now results   # run results sync immediately
-  python cron_runner.py --status        # show next run times
+  python cron.py           # starts the scheduler (runs forever)
+  python cron.py --now primary   # run primary sync immediately
+  python cron.py --now results   # run results sync immediately
+  python cron.py --status        # show next run times
 
-Keep alive:  nohup python cron_runner.py > logs/cron.log 2>&1 &
-Or Windows:  pythonw cron_runner.py
+Keep alive:  nohup python cron.py > logs/cron.log 2>&1 &
+Or Windows:  pythonw cron.py
 """
 
 import sys
