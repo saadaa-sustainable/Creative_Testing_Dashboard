@@ -389,39 +389,40 @@
 
 <!-- OVERVIEW — RESULTS SUMMARY -->
 <div id="resultsSummaryWrap" style="display:none;margin-bottom:18px">
-  <div class="sec">Overview — Results
-    <span class="stag stag-terra">3-Filter Logic · Excl. Copy</span>
-    <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
-      <span style="font-size:.6rem;color:var(--muted);font-weight:600">MIN IMP</span>
-      <input type="number" id="targetImp" value="20000" onchange="applyFilters()"
-        style="width:85px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;text-align:right"/>
-      <span style="font-size:.6rem;color:var(--muted);font-weight:600">ROAS ≥</span>
-      <input type="number" id="targetRoas" value="3.2" step="0.1" onchange="applyFilters()"
-        style="width:65px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;text-align:right"/>
-      <span style="font-size:.6rem;color:var(--muted);font-weight:600">CPC ≤ ₹</span>
-      <input type="number" id="targetCpc" value="12" step="1" onchange="applyFilters()"
-        style="width:60px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-family:'Roboto',sans-serif;font-size:.72rem;color:var(--ink);outline:none;text-align:right"/>
-    </span>
+  <!-- Threshold inputs kept in DOM (hidden) so applyFilters() and the Definitions modal
+       can still read/write them. Adjust thresholds via the Definitions modal. -->
+  <div style="display:none">
+    <input type="number" id="targetImp"   value="50000" onchange="applyFilters()"/>
+    <input type="number" id="targetRoas"  value="3.2" step="0.1" onchange="applyFilters()"/>
+    <input type="number" id="targetCpn"   value="525" step="1" onchange="applyFilters()"/>
+    <input type="number" id="targetFtewv" value="12"  step="1" onchange="applyFilters()"/>
   </div>
 
   <!-- ── LOGIC LEGEND ── -->
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <span style="font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)">Winner Logic</span>
     <div style="display:flex;align-items:center;gap:6px;background:var(--sage-lt);border:1px solid rgba(74,124,111,.25);border-radius:8px;padding:6px 12px">
       <span style="font-size:.6rem;font-weight:700;color:var(--sage)">F1</span>
-      <span style="font-size:.6rem;color:var(--ink2)">Impressions ≥ <span id="legendImp" style="font-weight:700;color:var(--sage)">20,000</span></span>
+      <span style="font-size:.6rem;color:var(--ink2)">Impressions ≥ <span id="legendImp" style="font-weight:700;color:var(--sage)">50,000</span></span>
     </div>
     <span style="font-size:.7rem;color:var(--muted);font-weight:700">AND</span>
     <div style="display:flex;align-items:center;gap:6px;background:var(--terra-lt);border:1px solid rgba(192,96,58,.25);border-radius:8px;padding:6px 12px">
       <span style="font-size:.6rem;font-weight:700;color:var(--terra)">F2</span>
       <span style="font-size:.6rem;color:var(--ink2)">ROAS ≥ <span id="legendRoas" style="font-weight:700;color:var(--terra)">3.2</span></span>
     </div>
-    <span style="font-size:.7rem;color:var(--muted);font-weight:700">OR</span>
+    <span style="font-size:.7rem;color:var(--muted);font-weight:700">AND</span>
+    <span style="font-size:.55rem;color:var(--muted);font-weight:600">(</span>
     <div style="display:flex;align-items:center;gap:6px;background:var(--gold-lt);border:1px solid rgba(184,136,58,.25);border-radius:8px;padding:6px 12px">
       <span style="font-size:.6rem;font-weight:700;color:var(--gold)">F3</span>
-      <span style="font-size:.6rem;color:var(--ink2)">CPC ≤ ₹<span id="legendCpc" style="font-weight:700;color:var(--gold)">12</span></span>
+      <span style="font-size:.6rem;color:var(--ink2)">Cost/NCP ≤ ₹<span id="legendCpn" style="font-weight:700;color:var(--gold)">525</span></span>
     </div>
-    <span style="font-size:.58rem;color:var(--muted);margin-left:auto">CPC = Spend ÷ Outbound Clicks</span>
+    <span style="font-size:.7rem;color:var(--muted);font-weight:700">OR</span>
+    <div style="display:flex;align-items:center;gap:6px;background:var(--slate-lt);border:1px solid rgba(74,111,165,.25);border-radius:8px;padding:6px 12px">
+      <span style="font-size:.6rem;font-weight:700;color:var(--slate)">F4</span>
+      <span style="font-size:.6rem;color:var(--ink2)">Cost/FTEWV ≤ ₹<span id="legendFtewv" style="font-weight:700;color:var(--slate)">12</span></span>
+    </div>
+    <span style="font-size:.55rem;color:var(--muted);font-weight:600">)</span>
+    <span style="font-size:.55rem;color:var(--muted);margin-left:auto">F3 ✓ AND F4 ✓ = Incremental Winner</span>
   </div>
 
   <!-- Category chips row -->
@@ -430,7 +431,7 @@
   <!-- Creative Type Funnel Breakdown -->
   <div id="ctypeFunnel" style="margin-top:16px;display:none">
     <div class="sec" style="margin-bottom:12px">Creative Type Breakdown
-      <span class="stag stag-terra">Winner · ITE · Analyse · Discarded</span>
+      <span class="stag stag-terra">Winner · ITE · Failed Ad</span>
     </div>
     <div id="ctypeFunnelTable" style="overflow-x:auto"></div>
   </div>
@@ -562,7 +563,9 @@ function detectCtype(name){
   if(n.includes('GAD'))  return 'Graphic AD';
   if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || /^VID-AD/.test(n)) return 'VID';
   if(n.includes('STATIC') || n.includes('_ST_') || n.includes('+ST+')) return 'STATIC';
-  return 'VID';
+  // Default: assume Graphic AD when no marker is present. Render-time metric
+  // override in renderResults() will upgrade to VID if video plays > 0.
+  return 'Graphic AD';
 }
 
 function isCopyAd(name){ return /copy/i.test(name); }
@@ -728,7 +731,7 @@ async function fetchSheet(){
 async function fetchAllAccountsSupabase(btn){
   try{ const row=await fetchFromResultsTable('All Accounts'); if(row&&row.ads_json){ populateDashboardFromResult(row,'All Accounts (Combined)'); return; } }catch(e){ console.warn('[CT] results_table fast path failed:',e.message); }
   setStatus('results_table empty — fetching primary_table…','info');
-  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','conversion_value','video_play_time','ad_created_date'].join(',');
+  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','conversion_value','video_play_time','ad_created_date','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp'].join(',');
   const BATCH=1000; let combined=[];
   for(const acct of SHEET_ACCOUNTS){
     let offset=0,hasMore=true;
@@ -788,6 +791,10 @@ function mapSupabaseRows(rows){
       postEng:Number(r.post_engagements)||0, convValue:Number(r.conversion_value||r.conv_value)||0,
       vpt:Number(r.video_play_time)||0,
       cpcSheet:Number(r.cpc||r.cost_per_click||r.cost_per_link_click)||0,
+      ftewvCount:Number(r.ftewv_count)||0,
+      costPerFtewvSheet:Number(r.cost_per_ftewv)||0,
+      ncpCount:Number(r.ncp_count)||0,
+      costPerNcpSheet:Number(r.cost_per_ncp)||0,
       thruRate:0,frame1:0,engRate:0,
     };
   });
@@ -910,12 +917,14 @@ function applyFilters(){
   const from=parseInputDate(fromVal),to=parseInputDate(toVal);
   setEl('dateRangeLabel',(!from&&!to)?'All dates':fmtDate(from)+' → '+fmtDate(to));
   // Update legend labels from threshold inputs
-  const ti=document.getElementById('targetImp')?.value||'20000';
+  const ti=document.getElementById('targetImp')?.value||'50000';
   const tr=document.getElementById('targetRoas')?.value||'3.2';
-  const tc=document.getElementById('targetCpc')?.value||'12';
+  const tc=document.getElementById('targetCpn')?.value||'525';
+  const tf=document.getElementById('targetFtewv')?.value||'12';
   setEl('legendImp',Number(ti).toLocaleString('en-IN'));
   setEl('legendRoas',tr);
-  setEl('legendCpc',tc);
+  setEl('legendCpn',tc);
+  setEl('legendFtewv',tf);
   if(window._fromResultsTable&&(from||to)){fetchFromPrimaryForDateRange(fromVal,toVal);return;}
   if(!from&&!to&&window._inPrimaryDateMode){window._inPrimaryDateMode=false;autoLoadSupabase();return;}
   _renderAll();
@@ -972,116 +981,217 @@ function renderOverviewPerf(ads){
 // RENDER — Creatives
 // ════════════════════════════════════════
 function renderCreatives(ads){
-  const seenP=new Set(),seenC=new Set();
+  // Aggregate per unique ad first, so we can:
+  //  (a) drop paused-zero-delivery ads (but keep active-zero-delivery ones — matches Meta UI)
+  //  (b) reclassify ctype using actual video metrics
+  const adAgg = {};
+  ads.forEach(a => {
+    const key = a.adId || a.name;
+    if(!adAgg[key]) adAgg[key] = {
+      name:a.name||'', product:a.product||'Other',
+      ctype:a.ctype||'Graphic AD', status:a.status||'',
+      impr:0, thruPlays:0, videoPlays:0
+    };
+    if(a.status && (!adAgg[key].status || a.status.toUpperCase() === 'ACTIVE')){
+      adAgg[key].status = a.status;
+    }
+    adAgg[key].impr       += a.impr       || 0;
+    adAgg[key].thruPlays  += a.thruPlays  || 0;
+    adAgg[key].videoPlays += a.videoPlays || 0;
+  });
+
+  const ACTIVE_STATUSES = ['ACTIVE','WITH_ISSUES','PENDING_REVIEW','PREAPPROVED','IN_PROCESS','PENDING_BILLING_INFO'];
+
+  // Keep ads with impressions OR with active-like status (so non-delivering active ads show)
+  const aggs = Object.values(adAgg).filter(m => {
+    if((m.impr||0) > 0) return true;
+    return ACTIVE_STATUSES.includes((m.status||'').toUpperCase());
+  }).map(m => {
+    const hasVideoSignal = (m.videoPlays||0) > 0 || (m.thruPlays||0) > 0;
+    const nameUpper = (m.name||'').toUpperCase();
+    const explicitVid = nameUpper.includes('VRP') || nameUpper.includes('NNC') ||
+                        nameUpper.includes('VIDEO') || nameUpper.includes('IGP') ||
+                        /^VID-AD/.test(nameUpper);
+    if(m.ctype === 'VID' && !hasVideoSignal && !explicitVid){
+      m.ctype = 'Graphic AD';
+    } else if(m.ctype !== 'IFAD' && m.ctype !== 'Graphic AD' && hasVideoSignal){
+      m.ctype = 'VID';
+    }
+    return m;
+  });
+
   const pMap={};
-  ads.forEach(a=>{ const key=a.adId||a.name; if(seenP.has(key))return; seenP.add(key); const prod=a.product||'Other'; pMap[prod]=(pMap[prod]||0)+1; });
+  aggs.forEach(m=>{ const prod=m.product||'Other'; pMap[prod]=(pMap[prod]||0)+1; });
   const prods=Object.entries(pMap).sort((a,b)=>{ if(a[0]==='Other')return 1; if(b[0]==='Other')return -1; return b[1]-a[1]; });
   const pTotal=prods.reduce((s,[,c])=>s+c,0);
   document.querySelector('#productTable tbody').innerHTML=prods.map(([p,c])=>`<tr><td>${p}</td><td class="num">${c}</td></tr>`).join('')+`<tr class="grand"><td>Grand Total</td><td class="num">${pTotal}</td></tr>`;
+
   const cMap={};
-  ads.forEach(a=>{ const key=a.adId||a.name; if(seenC.has(key))return; seenC.add(key); const ct=(a.ctype&&a.ctype!=='')?a.ctype:'VideoAds'; cMap[ct]=(cMap[ct]||0)+1; });
-  const ctypes=Object.entries(cMap).sort((a,b)=>{ if(a[0]==='VideoAds')return 1; if(b[0]==='VideoAds')return -1; return b[1]-a[1]; });
+  aggs.forEach(m=>{ const ct=m.ctype||'Graphic AD'; cMap[ct]=(cMap[ct]||0)+1; });
+  const ctypes=Object.entries(cMap).sort((a,b)=>b[1]-a[1]);
   const cTotal=ctypes.reduce((s,[,c])=>s+c,0);
   document.querySelector('#ctypeTable tbody').innerHTML=ctypes.map(([t,c])=>`<tr><td>${t}</td><td class="num">${c}</td></tr>`).join('')+`<tr class="grand"><td>Grand Total</td><td class="num">${cTotal}</td></tr>`;
 }
 
 // ════════════════════════════════════════
-// ★ NEW 3-FILTER WINNER LOGIC ★
+// ★ 4-FILTER WINNER LOGIC ★
 //
-// WINNER:    F1(impr ≥ targetImp) AND (F2(roas ≥ targetRoas) OR F3(cpc ≤ targetCpc))
-// ITE:       F1 passes BUT both F2 and F3 fail → good delivery, weak conversion & CPC
-// ANALYSE:   F1 fails BUT (has conversions OR cpc ≤ targetCpc) → low delivery with signal
-// DISCARDED: F1 fails AND no conversions AND cpc > targetCpc → no signal at all
+// INCREMENTAL WINNER: F1 ✓ AND F2 ✓ AND F3 ✓ AND F4 ✓ — all four pass
+// WINNER:             F1 ✓ AND F2 ✓ AND (F3 ✓ OR F4 ✓)
+// ITE PRIORITY 1:     F1 ✓ AND F2 ✗ AND F3 ✓ — Cost/NCP efficient, salvageable
+// ITE PRIORITY 2:     F1 ✓ AND F2 ✗ AND F3 ✗ — Cost/NCP also failing
+// ANALYSE:            F1 ✓ AND F2 ✓ AND NOT F3 AND NOT F4 (good ROAS, no efficiency signal)
+//                  OR NOT F1 AND (has conversions OR F3 ✓)
+// DISCARDED:          NOT F1 AND no conversions AND NOT F3
 //
-// CPC = totalSpend / totalOutClicks (computed per unique ad across date range)
+// F1 — Min Impressions
+// F2 — Min ROAS
+// F3 — Cost/NCP   = Σ(spend) / Σ(ncp_count)    ← was CPC, now Cost per New Customer Purchase
+// F4 — Cost/FTEWV = Σ(spend) / Σ(ftewv_count)
 // ════════════════════════════════════════
 const CATEGORY_CONFIG = {
+  'Incremental Winner': {
+    label:'Incremental Winner',
+    bg:'#dff0e8', color:'#1f5d4d', border:'rgba(31,93,77,.35)',
+    action:'Top performer — scale aggressively',
+    desc:'F1 ✓ AND F2 ✓ AND F3 ✓ AND F4 ✓ — all four gates pass'
+  },
   'Winner':    {
     label:'Winner',
     bg:'#e6f0ee', color:'#4a7c6f', border:'rgba(74,124,111,.3)',
     action:'Scale budget · maintain creative format',
-    desc:'F1 ✓ + (F2 ROAS ✓ OR F3 CPC ✓) — all 3 criteria validated'
+    desc:'F1 ✓ AND F2 ✓ AND (F3 ✓ OR F4 ✓)'
   },
-  'ITE':       {
-    label:'ITE',
-    bg:'#fdf5e6', color:'#b8883a', border:'rgba(184,136,58,.3)',
-    action:'Iterate on CTA, offer clarity & conversion path',
-    desc:'F1 ✓ Impressions — but F2 ROAS ✗ AND F3 CPC ✗'
+  'ITE Priority 1': {
+    label:'ITE Priority 1',
+    bg:'#fdf5e6', color:'#b8883a', border:'rgba(184,136,58,.35)',
+    action:'Iterate — Cost/NCP efficient, push ROAS',
+    desc:'F1 ✓ AND F2 ✗ AND F3 ✓ — new-customer cost healthy, ROAS weak'
+  },
+  'ITE Priority 2': {
+    label:'ITE Priority 2',
+    bg:'#fbeed6', color:'#92620a', border:'rgba(146,98,10,.3)',
+    action:'Iterate harder — Cost/NCP AND ROAS failing',
+    desc:'F1 ✓ AND F2 ✗ AND F3 ✗ — both ROAS and Cost/NCP weak'
   },
   'Analyse':   {
     label:'Analyse',
     bg:'#eaf0f8', color:'#4a6fa5', border:'rgba(74,111,165,.3)',
     action:'Study signal · find pattern · create learnings',
-    desc:'F1 ✗ Low impressions — but has conversions or CPC signal'
+    desc:'Low impressions with signal, OR strong ROAS without efficiency signal'
   },
   'Discarded': {
     label:'Discarded',
     bg:'#f5ebe6', color:'#c0603a', border:'rgba(192,96,58,.3)',
     action:'Do not replicate · review creative & targeting',
-    desc:'F1 ✗ Low impressions + F2 ✗ no ROAS + F3 ✗ CPC too high'
+    desc:'F1 ✗ AND no conversions AND F3 ✗ — no signal at all'
   },
 };
 
 /**
- * getAdCategory — 3-Filter Logic
- * @param {number} impr        - Total impressions for this ad
- * @param {number} ctRoas      - CT ROAS (convValue / spend)
- * @param {number} cpc         - CPC (spend / outClicks), 0 if no clicks
- * @param {number} targetImp   - Impression threshold (F1)
- * @param {number} targetRoas  - ROAS threshold (F2)
- * @param {number} targetCpc   - CPC ceiling (F3) — lower is better
+ * getAdCategory — 4-Filter Logic
+ * @param {number} impr            - Total impressions for this ad
+ * @param {number} ctRoas          - CT ROAS (convValue / spend)
+ * @param {number} costPerNcp      - Cost per NCP (spend / ncp_count), 0 if no NCP signal
+ * @param {number} costPerFtewv    - Cost per FTEWV (spend / ftewv_count), 0 if no FTEWV signal
+ * @param {number} targetImp       - F1 impression threshold
+ * @param {number} targetRoas      - F2 ROAS threshold
+ * @param {number} targetCpn       - F3 cost-per-NCP ceiling (lower is better)
+ * @param {number} targetFtewv     - F4 cost-per-FTEWV ceiling
  * @param {boolean} hasConversions - true if convValue > 0
- * @returns {'Winner'|'ITE'|'Analyse'|'Discarded'}
+ * @returns {'Incremental Winner'|'Winner'|'ITE Priority 1'|'ITE Priority 2'|'Analyse'|'Discarded'}
  */
-function getAdCategory(impr, ctRoas, cpc, targetImp, targetRoas, targetCpc, hasConversions){
+function getAdCategory(impr, ctRoas, costPerNcp, costPerFtewv, targetImp, targetRoas, targetCpn, targetFtewv, hasConversions){
   const f1 = impr >= targetImp;
   const f2 = ctRoas >= targetRoas;
-  // F3: CPC must be ≤ target AND there must be actual clicks (cpc=0 means no clicks = no signal)
-  const f3 = cpc > 0 && cpc <= targetCpc;
+  const f3 = costPerNcp > 0 && costPerNcp <= targetCpn;
+  const f4 = costPerFtewv > 0 && costPerFtewv <= targetFtewv;
 
-  if(f1 && (f2 || f3)) return 'Winner';
-  if(f1 && !f2 && !f3) return 'ITE';
-  if(!f1 && (hasConversions || f3)) return 'Analyse';
+  if(f1 && f2 && f3 && f4)            return 'Incremental Winner';
+  if(f1 && f2 && (f3 || f4))          return 'Winner';
+  if(f1 && f2)                        return 'Analyse';      // strong ROAS, no efficiency signal
+  if(f1 && !f2 && f3)                 return 'ITE Priority 1';
+  if(f1 && !f2 && !f3)                return 'ITE Priority 2';
+  if(!f1 && (hasConversions || f3))   return 'Analyse';
   return 'Discarded';
 }
 
 // ════════════════════════════════════════
 // RENDER — Results Summary
 // ════════════════════════════════════════
+const CAT_KEYS = ['Incremental Winner','Winner','ITE Priority 1','ITE Priority 2','Analyse','Discarded'];
+
 function renderResults(ads){
-  const targetImp  = parseFloat(document.getElementById('targetImp')?.value)  || 20000;
-  const targetRoas = parseFloat(document.getElementById('targetRoas')?.value) || 3.2;
-  const targetCpc  = parseFloat(document.getElementById('targetCpc')?.value)  || 12;
+  const targetImp   = parseFloat(document.getElementById('targetImp')?.value)   || 50000;
+  const targetRoas  = parseFloat(document.getElementById('targetRoas')?.value)  || 3.2;
+  const targetCpn   = parseFloat(document.getElementById('targetCpn')?.value)   || 525;
+  const targetFtewv = parseFloat(document.getElementById('targetFtewv')?.value) || 12;
 
   // ── Aggregate per unique ad ──
   const adMap = {};
   ads.forEach(a => {
     const key = a.adId || a.name;
-    if(!adMap[key]) adMap[key] = { impr:0, spend:0, convValue:0, outClicks:0, cpcSheetSum:0, cpcSheetCount:0, ctype:a.ctype||'VID' };
+    if(!adMap[key]) adMap[key] = {
+      adName:a.name||'', adStatus:a.status||'',
+      impr:0, spend:0, convValue:0, outClicks:0,
+      ftewvCount:0, ncpCount:0,
+      thruPlays:0, videoPlays:0,
+      ctype:a.ctype||'Graphic AD'
+    };
+    // Keep the most "active" status seen across rows for this ad
+    if(a.status && (!adMap[key].adStatus || a.status.toUpperCase() === 'ACTIVE')){
+      adMap[key].adStatus = a.status;
+    }
     adMap[key].spend      += a.spend      || 0;
     adMap[key].convValue  += a.convValue  || 0;
     adMap[key].outClicks  += a.outClicks  || 0;
-    // Accumulate sheet CPC for weighted average (only when non-zero)
-    if((a.cpcSheet||0) > 0){
-      adMap[key].cpcSheetSum   += a.cpcSheet;
-      adMap[key].cpcSheetCount += 1;
-    }
+    adMap[key].ftewvCount += a.ftewvCount || 0;
+    adMap[key].ncpCount   += a.ncpCount   || 0;
+    adMap[key].thruPlays  += a.thruPlays  || 0;
+    adMap[key].videoPlays += a.videoPlays || 0;
     if((a.impr||0) > 0) adMap[key].impr += a.impr;
   });
 
-  const counts = { Winner:0, ITE:0, Analyse:0, Discarded:0 };
+  // ── Creative-type metric override ──
+  // If ad has any video plays (3-sec or thru), it's a video — even if name had no marker.
+  // If ad has zero video plays AND name detection said VID (default fallback), demote to Graphic AD.
+  Object.values(adMap).forEach(m => {
+    const hasVideoSignal = (m.videoPlays||0) > 0 || (m.thruPlays||0) > 0;
+    const nameUpper = (m.adName||'').toUpperCase();
+    const explicitVid = nameUpper.includes('VRP') || nameUpper.includes('NNC') ||
+                        nameUpper.includes('VIDEO') || nameUpper.includes('IGP') ||
+                        /^VID-AD/.test(nameUpper);
+    if(m.ctype === 'VID' && !hasVideoSignal && !explicitVid){
+      m.ctype = 'Graphic AD';
+    } else if(m.ctype !== 'IFAD' && m.ctype !== 'Graphic AD' && hasVideoSignal){
+      m.ctype = 'VID';
+    }
+  });
+
+  const counts = {}; CAT_KEYS.forEach(k => counts[k] = 0);
   const ctypeOrder  = ['IFAD','Graphic AD','VID','STATIC'];
   const ctypeCounts = {};
-  ctypeOrder.forEach(ct => { ctypeCounts[ct] = { Winner:0, ITE:0, Analyse:0, Discarded:0, total:0 }; });
+  ctypeOrder.forEach(ct => {
+    ctypeCounts[ct] = { total:0 };
+    CAT_KEYS.forEach(k => ctypeCounts[ct][k] = 0);
+  });
+
+  // Statuses that indicate an ad is still "alive" — zero-delivery ads with these
+  // statuses are kept (matches Meta Ads Manager which shows non-delivering active ads).
+  const ACTIVE_STATUSES = ['ACTIVE','WITH_ISSUES','PENDING_REVIEW','PREAPPROVED','IN_PROCESS','PENDING_BILLING_INFO'];
 
   Object.values(adMap).forEach(m => {
-    const ctRoas      = m.spend > 0 ? m.convValue / m.spend : 0;
-    // CPC priority: 1) avg of sheet CPC column, 2) computed spend/outClicks, 3) 0 (no signal)
-    const cpcFromSheet   = m.cpcSheetCount > 0 ? m.cpcSheetSum / m.cpcSheetCount : 0;
-    const cpcComputed    = m.outClicks > 0 ? m.spend / m.outClicks : 0;
-    const cpc            = cpcFromSheet > 0 ? cpcFromSheet : cpcComputed;
+    // ── Drop ads with 0 impressions AND non-active status (e.g., paused / deleted) ──
+    if(m.impr <= 0){
+      const st = (m.adStatus||'').toUpperCase();
+      if(!ACTIVE_STATUSES.includes(st)) return;
+    }
+
+    const ctRoas         = m.spend > 0 ? m.convValue / m.spend : 0;
+    const costPerNcp     = m.ncpCount   > 0 ? m.spend / m.ncpCount   : 0;  // F3 — Σspend / Σncp
+    const costPerFtewv   = m.ftewvCount > 0 ? m.spend / m.ftewvCount : 0;
     const hasConv        = m.convValue > 0;
-    const cat            = getAdCategory(m.impr, ctRoas, cpc, targetImp, targetRoas, targetCpc, hasConv);
+    const cat            = getAdCategory(m.impr, ctRoas, costPerNcp, costPerFtewv, targetImp, targetRoas, targetCpn, targetFtewv, hasConv);
     counts[cat]++;
     const ct = ctypeOrder.includes(m.ctype) ? m.ctype : 'VID';
     if(ctypeCounts[ct]){ ctypeCounts[ct][cat]++; ctypeCounts[ct].total++; }
@@ -1092,25 +1202,26 @@ function renderResults(ads){
   if(!summary) return;
   const totalAds = Object.values(counts).reduce((s,c)=>s+c,0);
 
-  summary.innerHTML = Object.entries(CATEGORY_CONFIG).map(([key,cfg]) => {
+  const filterBadges = {
+    'Incremental Winner': '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-pass">F2 ✓</span><span class="logic-pill lp-pass">F3 ✓</span><span class="logic-pill lp-pass">F4 ✓</span>',
+    'Winner':             '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-pass">F2 ✓</span><span class="logic-pill lp-pass">F3 OR F4 ✓</span>',
+    'ITE Priority 1':     '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-fail">F2 ✗</span><span class="logic-pill lp-pass">F3 ✓</span>',
+    'ITE Priority 2':     '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-fail">F2 ✗</span><span class="logic-pill lp-fail">F3 ✗</span>',
+    'Analyse':            '<span class="logic-pill lp-warn">signal ✓</span>',
+    'Discarded':          '<span class="logic-pill lp-fail">F1 ✗</span><span class="logic-pill lp-fail">no signal</span>',
+  };
+
+  summary.innerHTML = CAT_KEYS.map(key => {
+    const cfg = CATEGORY_CONFIG[key];
     const n   = counts[key];
     const pct = totalAds > 0 ? (n/totalAds*100) : 0;
     const pctStr = pct===0?'0%':pct<1?'<1%':Math.round(pct)+'%';
-
-    // Show which filters define this category
-    const filterBadges = {
-      'Winner':    '<span class="logic-pill lp-pass">F1 Imp ✓</span><span style="font-size:.5rem;color:var(--muted)">+</span><span class="logic-pill lp-pass">F2 ROAS ✓</span><span style="font-size:.5rem;color:var(--muted)">or</span><span class="logic-pill lp-pass">F3 CPC ✓</span>',
-      'ITE':       '<span class="logic-pill lp-pass">F1 Imp ✓</span><span style="font-size:.5rem;color:var(--muted)">+</span><span class="logic-pill lp-fail">F2 ROAS ✗</span><span style="font-size:.5rem;color:var(--muted)">+</span><span class="logic-pill lp-fail">F3 CPC ✗</span>',
-      'Analyse':   '<span class="logic-pill lp-fail">F1 Imp ✗</span><span style="font-size:.5rem;color:var(--muted)">+</span><span class="logic-pill lp-warn">signal ✓</span>',
-      'Discarded': '<span class="logic-pill lp-fail">F1 Imp ✗</span><span style="font-size:.5rem;color:var(--muted)">+</span><span class="logic-pill lp-fail">F2 ✗</span><span style="font-size:.5rem;color:var(--muted)">+</span><span class="logic-pill lp-fail">F3 ✗</span>',
-    };
-
-    return `<div style="display:flex;flex-direction:column;gap:4px;background:${cfg.bg};border:1px solid ${cfg.border};border-radius:14px;padding:14px 20px;min-width:160px">
+    return `<div style="display:flex;flex-direction:column;gap:4px;background:${cfg.bg};border:1px solid ${cfg.border};border-radius:14px;padding:14px 18px;min-width:155px">
       <div style="display:flex;align-items:baseline;gap:6px">
-        <span style="font-family:'Roboto',sans-serif;font-size:2rem;font-weight:900;color:${cfg.color};line-height:1">${pctStr}</span>
+        <span style="font-family:'Roboto',sans-serif;font-size:1.85rem;font-weight:900;color:${cfg.color};line-height:1">${pctStr}</span>
       </div>
-      <div style="font-size:.65rem;font-weight:700;color:${cfg.color};margin-top:2px">${cfg.label}</div>
-      <div style="font-size:.58rem;color:${cfg.color};opacity:.65;margin-top:1px">${n} ads · ${cfg.action}</div>
+      <div style="font-size:.62rem;font-weight:700;color:${cfg.color};margin-top:2px">${cfg.label}</div>
+      <div style="font-size:.55rem;color:${cfg.color};opacity:.65;margin-top:1px">${n} ads · ${cfg.action}</div>
       <div class="logic-pills">${filterBadges[key]}</div>
     </div>`;
   }).join('');
@@ -1119,71 +1230,92 @@ function renderResults(ads){
 }
 
 // ════════════════════════════════════════
-// RENDER — Creative Type Funnel
+// RENDER — Creative Type Funnel (3 master groups, 6 sub-columns)
 // ════════════════════════════════════════
 function renderCtypeFunnel(ctypeCounts, ctypeOrder, totalAds, globalCounts){
   const wrap  = document.getElementById('ctypeFunnel');
   const table = document.getElementById('ctypeFunnelTable');
   if(!wrap||!table) return;
 
-  const cats = ['Winner','ITE','Analyse','Discarded'];
-  const CAT_CFG = {
-    Winner:   { color:'#2d6a4f', bg:'rgba(45,106,79,.08)',  label:'🟢 Winner',    pill:'rgba(45,106,79,.12)'  },
-    ITE:      { color:'#92620a', bg:'rgba(146,98,10,.07)',   label:'🟡 ITE',       pill:'rgba(146,98,10,.12)'  },
-    Analyse:  { color:'#2c5282', bg:'rgba(44,82,130,.07)',   label:'🔵 Analyse',   pill:'rgba(44,82,130,.12)'  },
-    Discarded:{ color:'#9b2335', bg:'rgba(155,35,53,.07)',   label:'🔴 Discarded', pill:'rgba(155,35,53,.12)'  },
+  const SUB_CATS = ['Incremental Winner','Winner','ITE Priority 1','ITE Priority 2','Discarded','Analyse'];
+  const GROUPS = [
+    { label:'🟢 Winner',     master:'#2d6a4f', cats:['Incremental Winner','Winner'] },
+    { label:'🟡 ITE',        master:'#92620a', cats:['ITE Priority 1','ITE Priority 2'] },
+    { label:'🔴 Failed Ad',  master:'#9b2335', cats:['Discarded','Analyse'] },
+  ];
+  const SUB_CFG = {
+    'Incremental Winner': { color:'#1f5d4d', bg:'rgba(31,93,77,.10)',   pill:'rgba(31,93,77,.15)',   short:'Inc. Winner' },
+    'Winner':             { color:'#2d6a4f', bg:'rgba(45,106,79,.07)',  pill:'rgba(45,106,79,.12)',  short:'Winner' },
+    'ITE Priority 1':     { color:'#92620a', bg:'rgba(146,98,10,.06)',  pill:'rgba(146,98,10,.12)',  short:'Priority 1' },
+    'ITE Priority 2':     { color:'#b8883a', bg:'rgba(184,136,58,.07)', pill:'rgba(184,136,58,.13)', short:'Priority 2' },
+    'Discarded':          { color:'#9b2335', bg:'rgba(155,35,53,.06)',  pill:'rgba(155,35,53,.12)',  short:'Discarded' },
+    'Analyse':            { color:'#2c5282', bg:'rgba(44,82,130,.06)',  pill:'rgba(44,82,130,.12)',  short:'Analyse' },
   };
   const CTYPE_ICONS = { 'IFAD':'🎬', 'Graphic AD':'🖼️', 'VID':'📹', 'STATIC':'📷' };
   const activeCTypes = ctypeOrder.filter(ct=>ctypeCounts[ct]?.total>0);
   if(!activeCTypes.length){ wrap.style.display='none'; return; }
   wrap.style.display='';
   const maxPerCat = {};
-  cats.forEach(cat=>{ maxPerCat[cat]=Math.max(...activeCTypes.map(ct=>ctypeCounts[ct][cat]||0),1); });
+  SUB_CATS.forEach(cat=>{ maxPerCat[cat]=Math.max(...activeCTypes.map(ct=>ctypeCounts[ct][cat]||0),1); });
+
+  const gridCols = '180px 70px repeat(6,1fr)';
+
+  // Master header row: name+total leftmost, then 3 master cells each spanning 2 sub-columns
+  const masterHeader = `
+    <div style="grid-column:span 2;background:var(--surface2);border-bottom:1px solid var(--border)"></div>
+    ${GROUPS.map(g=>`<div style="grid-column:span 2;padding:10px 14px;text-align:center;background:${g.master}1A;border-left:1px solid var(--border);border-bottom:1px solid var(--border)">
+      <div style="font-size:.7rem;font-weight:900;letter-spacing:.06em;color:${g.master}">${g.label}</div>
+    </div>`).join('')}
+  `;
+
+  const subHeader = `
+    <div style="padding:10px 18px;font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)">Creative Type</div>
+    <div style="padding:10px 8px;font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);text-align:center">Total</div>
+    ${SUB_CATS.map(cat=>{const c=SUB_CFG[cat];return`<div style="padding:10px 12px;text-align:center;background:${c.bg};border-left:1px solid var(--border)">
+      <div style="font-size:.58rem;font-weight:800;letter-spacing:.05em;color:${c.color}">${c.short}</div>
+    </div>`;}).join('')}
+  `;
 
   table.innerHTML = `
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden">
-    <div style="display:grid;grid-template-columns:180px 70px repeat(4,1fr);background:var(--surface2);border-bottom:2px solid var(--border)">
-      <div style="padding:12px 18px;font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)">Creative Type</div>
-      <div style="padding:12px 8px;font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);text-align:center">Total</div>
-      ${cats.map(cat=>{const c=CAT_CFG[cat];return`<div style="padding:12px 16px;text-align:center;background:${c.bg};border-left:1px solid var(--border)"><div style="font-size:.62rem;font-weight:800;letter-spacing:.08em;color:${c.color}">${c.label}</div></div>`;}).join('')}
-    </div>
+    <div style="display:grid;grid-template-columns:${gridCols};background:var(--surface2)">${masterHeader}</div>
+    <div style="display:grid;grid-template-columns:${gridCols};background:var(--surface2);border-bottom:2px solid var(--border)">${subHeader}</div>
     ${activeCTypes.map((ct,ri)=>{
       const row=ctypeCounts[ct];const isLast=ri===activeCTypes.length-1;const icon=CTYPE_ICONS[ct]||'📌';
-      return`<div style="display:grid;grid-template-columns:180px 70px repeat(4,1fr);${isLast?'':'border-bottom:1px solid var(--border);'}align-items:stretch">
-        <div style="padding:16px 18px;display:flex;align-items:center;gap:10px;background:var(--surface)">
-          <span style="font-size:1.1rem">${icon}</span>
-          <div><div style="font-size:.72rem;font-weight:700;color:var(--ink)">${ct}</div><div style="font-size:.58rem;color:var(--muted);margin-top:1px">${row.total} ads total</div></div>
+      return`<div style="display:grid;grid-template-columns:${gridCols};${isLast?'':'border-bottom:1px solid var(--border);'}align-items:stretch">
+        <div style="padding:14px 18px;display:flex;align-items:center;gap:10px;background:var(--surface)">
+          <span style="font-size:1.05rem">${icon}</span>
+          <div><div style="font-size:.7rem;font-weight:700;color:var(--ink)">${ct}</div><div style="font-size:.55rem;color:var(--muted);margin-top:1px">${row.total} ads</div></div>
         </div>
-        <div style="padding:16px 8px;display:flex;align-items:center;justify-content:center;background:var(--surface);border-left:1px solid var(--border)">
-          <div style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--ink)">${row.total}</div>
+        <div style="padding:14px 8px;display:flex;align-items:center;justify-content:center;background:var(--surface);border-left:1px solid var(--border)">
+          <div style="font-family:'Roboto',sans-serif;font-size:1.05rem;font-weight:900;color:var(--ink)">${row.total}</div>
         </div>
-        ${cats.map(cat=>{
+        ${SUB_CATS.map(cat=>{
           const n=row[cat]||0;const pct=row.total>0?Math.round(n/row.total*100):0;
-          const barPct=maxPerCat[cat]>0?(n/maxPerCat[cat]*100):0;const c=CAT_CFG[cat];
-          return`<div style="padding:14px 16px;background:${c.bg};border-left:1px solid var(--border);display:flex;flex-direction:column;gap:6px;justify-content:center">
-            <div style="display:flex;align-items:baseline;gap:6px">
-              <span style="font-family:'Roboto',sans-serif;font-size:1.4rem;font-weight:900;color:${c.color};line-height:1">${n}</span>
-              <span style="font-size:.6rem;font-weight:700;color:${c.color};opacity:.7">${pct}%</span>
+          const barPct=maxPerCat[cat]>0?(n/maxPerCat[cat]*100):0;const c=SUB_CFG[cat];
+          return`<div style="padding:12px 12px;background:${c.bg};border-left:1px solid var(--border);display:flex;flex-direction:column;gap:5px;justify-content:center">
+            <div style="display:flex;align-items:baseline;gap:5px">
+              <span style="font-family:'Roboto',sans-serif;font-size:1.2rem;font-weight:900;color:${c.color};line-height:1">${n}</span>
+              <span style="font-size:.55rem;font-weight:700;color:${c.color};opacity:.7">${pct}%</span>
             </div>
-            <div style="height:5px;background:rgba(0,0,0,.06);border-radius:99px;overflow:hidden">
+            <div style="height:4px;background:rgba(0,0,0,.06);border-radius:99px;overflow:hidden">
               <div style="height:100%;width:${barPct.toFixed(1)}%;background:${c.color};border-radius:99px;opacity:.75;transition:width .5s cubic-bezier(.4,0,.2,1)"></div>
             </div>
-            <div style="font-size:.55rem;color:${c.color};opacity:.65">${n} of ${row.total}</div>
           </div>`;
         }).join('')}
       </div>`;
     }).join('')}
-    <div style="display:grid;grid-template-columns:180px 70px repeat(4,1fr);border-top:2px solid var(--border);background:var(--surface2)">
-      <div style="padding:14px 18px;display:flex;align-items:center"><span style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--terra)">Grand Total</span></div>
-      <div style="padding:14px 8px;display:flex;align-items:center;justify-content:center;border-left:1px solid var(--border)">
-        <span style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--terra)">${totalAds}</span>
+    <div style="display:grid;grid-template-columns:${gridCols};border-top:2px solid var(--border);background:var(--surface2)">
+      <div style="padding:13px 18px;display:flex;align-items:center"><span style="font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--terra)">Grand Total</span></div>
+      <div style="padding:13px 8px;display:flex;align-items:center;justify-content:center;border-left:1px solid var(--border)">
+        <span style="font-family:'Roboto',sans-serif;font-size:1.05rem;font-weight:900;color:var(--terra)">${totalAds}</span>
       </div>
-      ${cats.map(cat=>{
+      ${SUB_CATS.map(cat=>{
         const n=activeCTypes.reduce((s,ct)=>s+(ctypeCounts[ct][cat]||0),0);
-        const pct=totalAds>0?Math.round(n/totalAds*100):0;const c=CAT_CFG[cat];
-        return`<div style="padding:14px 16px;background:${c.bg};border-left:1px solid var(--border);display:flex;align-items:center;gap:8px">
-          <span style="font-family:'Roboto',sans-serif;font-size:1.2rem;font-weight:900;color:${c.color}">${n}</span>
-          <span style="font-size:.62rem;font-weight:700;color:${c.color};opacity:.75;background:${c.pill};padding:2px 7px;border-radius:99px">${pct}%</span>
+        const pct=totalAds>0?Math.round(n/totalAds*100):0;const c=SUB_CFG[cat];
+        return`<div style="padding:13px 12px;background:${c.bg};border-left:1px solid var(--border);display:flex;align-items:center;gap:6px">
+          <span style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:${c.color}">${n}</span>
+          <span style="font-size:.58rem;font-weight:700;color:${c.color};opacity:.75;background:${c.pill};padding:2px 6px;border-radius:99px">${pct}%</span>
         </div>`;
       }).join('')}
     </div>
@@ -1199,23 +1331,27 @@ function toggleDefModal(){
   const isOpen=modal.style.display==='flex';
   modal.style.display=isOpen?'none':'flex';
   if(!isOpen){
-    const ti=document.getElementById('targetImp')?.value||'20000';
+    const ti=document.getElementById('targetImp')?.value||'50000';
     const tr=document.getElementById('targetRoas')?.value||'3.2';
-    const tc=document.getElementById('targetCpc')?.value||'12';
+    const tc=document.getElementById('targetCpn')?.value||'525';
+    const tf=document.getElementById('targetFtewv')?.value||'12';
     const di=document.getElementById('def_targetImp');
     const dr=document.getElementById('def_targetRoas');
-    const dc=document.getElementById('def_targetCpc');
+    const dc=document.getElementById('def_targetCpn');
+    const df=document.getElementById('def_targetFtewv');
     if(di) di.value=ti;
     if(dr) dr.value=tr;
     if(dc) dc.value=tc;
+    if(df) df.value=tf;
   }
 }
 document.addEventListener('click',e=>{ const modal=document.getElementById('defModal'); if(modal&&e.target===modal) toggleDefModal(); });
 
 function syncThreshold(type,val){
-  if(type==='imp')      { const el=document.getElementById('targetImp');  if(el) el.value=val; }
-  else if(type==='roas'){ const el=document.getElementById('targetRoas'); if(el) el.value=val; }
-  else if(type==='cpc') { const el=document.getElementById('targetCpc');  if(el) el.value=val; }
+  if(type==='imp')        { const el=document.getElementById('targetImp');    if(el) el.value=val; }
+  else if(type==='roas')  { const el=document.getElementById('targetRoas');   if(el) el.value=val; }
+  else if(type==='cpn')   { const el=document.getElementById('targetCpn');    if(el) el.value=val; }
+  else if(type==='ftewv') { const el=document.getElementById('targetFtewv');  if(el) el.value=val; }
   if(typeof applyFilters==='function') applyFilters();
 }
 
@@ -1258,6 +1394,10 @@ function populateDashboardFromResult(row,label){
     videoPlays:Number(a.vid3)||0,postEng:Number(a.eng)||0,
     convValue:Number(a.convV)||0,vpt:Number(a.vpt)||0,
     cpcSheet:Number(a.cpc)||0,
+    ftewvCount:Number(a.ftewv)||0,
+    costPerFtewvSheet:Number(a.cpf)||0,
+    ncpCount:Number(a.ncp)||0,
+    costPerNcpSheet:Number(a.cpn)||0,
     thruRate:0,frame1:0,engRate:0,
   }));
   const bar=document.getElementById('syncTimestampBar');
@@ -1304,7 +1444,7 @@ async function fetchFromPrimaryForDateRange(fromVal,toVal){
   setFetchSt('Fetching range…','as-loading'); setStatus('Fetching '+fromVal+' → '+toVal+' from primary_table…','info');
   const dfNote=document.getElementById('dateFilterNote');
   if(dfNote){dfNote.textContent='⏳ Fetching from primary_table for this date range…';dfNote.style.display='inline';}
-  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','conversion_value','video_play_time','ad_created_date'].join(',');
+  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','conversion_value','video_play_time','ad_created_date','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp'].join(',');
   const accountNames=ACTIVE_ACCT===0?SHEET_ACCOUNTS.map(a=>a.name):[SHEET_ACCOUNTS[ACTIVE_ACCT-1].name];
   const BATCH=1000; let combined=[];
   try{
@@ -1383,9 +1523,10 @@ function ctExportCSV(){
   const nameMode   = document.getElementById('nameFilterMode')?.value||'contains';
   const nameVal    = (document.getElementById('nameFilterValue')?.value||'').trim();
   const exclCopy   = EXCLUDE_COPY_TOGGLE;
-  const tImp       = parseFloat(document.getElementById('targetImp')?.value)||20000;
+  const tImp       = parseFloat(document.getElementById('targetImp')?.value)||50000;
   const tRoas      = parseFloat(document.getElementById('targetRoas')?.value)||3.2;
-  const tCpc       = parseFloat(document.getElementById('targetCpc')?.value)||12;
+  const tCpn       = parseFloat(document.getElementById('targetCpn')?.value)||525;
+  const tFtewv     = parseFloat(document.getElementById('targetFtewv')?.value)||12;
   const acctName   = ACTIVE_ACCT===0?'All Accounts':(SHEET_ACCOUNTS[ACTIVE_ACCT-1]?.name||'All Accounts');
   const now        = new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 
@@ -1395,11 +1536,12 @@ function ctExportCSV(){
     const key = a.adId || a.name;
     if(!adMap[key]) adMap[key] = {
       name:a.name, adId:a.adId||'', campName:a.campName||'', status:a.status||'',
-      product:a.product||'Other', ctype:a.ctype||'VID', isCopy:a.isCopy,
+      product:a.product||'Other', ctype:a.ctype||'Graphic AD', isCopy:a.isCopy,
       accountName:a.accountName||acctName,
       adCreated:a.adCreated?a.adCreated.toISOString().split('T')[0]:'',
       firstDate:a.sheetDateObj?a.sheetDateObj.toISOString().split('T')[0]:'',
-      impr:0, spend:0, convValue:0, outClicks:0, cpcSheetSum:0, cpcSheetCount:0,
+      impr:0, spend:0, convValue:0, outClicks:0,
+      ftewvCount:0, ncpCount:0,
       thruPlays:0, videoPlays:0, postEng:0, reach:0
     };
     const m = adMap[key];
@@ -1411,10 +1553,34 @@ function ctExportCSV(){
     m.videoPlays += a.videoPlays||0;
     m.postEng    += a.postEng||0;
     m.reach      += a.reach||0;
-    if((a.cpcSheet||0)>0){ m.cpcSheetSum+=a.cpcSheet; m.cpcSheetCount++; }
-    // track earliest date seen
+    m.ftewvCount += a.ftewvCount||0;
+    m.ncpCount   += a.ncpCount  ||0;
     if(a.sheetDateObj&&(!m._firstDate||a.sheetDateObj<m._firstDate)) m._firstDate=a.sheetDateObj;
     if(a.adCreated&&(!m._createdDate||a.adCreated<m._createdDate)) m._createdDate=a.adCreated;
+  });
+
+  // ── Drop paused/disabled ads with 0 impressions; KEEP active-zero-delivery ads ──
+  const ACTIVE_STATUSES = ['ACTIVE','WITH_ISSUES','PENDING_REVIEW','PREAPPROVED','IN_PROCESS','PENDING_BILLING_INFO'];
+  Object.keys(adMap).forEach(k => {
+    const m = adMap[k];
+    if((m.impr||0) <= 0){
+      const st = (m.status||'').toUpperCase();
+      if(!ACTIVE_STATUSES.includes(st)) delete adMap[k];
+    }
+  });
+
+  // ── Creative-type metric override (same as renderResults) ──
+  Object.values(adMap).forEach(m => {
+    const hasVideoSignal = (m.videoPlays||0) > 0 || (m.thruPlays||0) > 0;
+    const nameUpper = (m.name||'').toUpperCase();
+    const explicitVid = nameUpper.includes('VRP') || nameUpper.includes('NNC') ||
+                        nameUpper.includes('VIDEO') || nameUpper.includes('IGP') ||
+                        /^VID-AD/.test(nameUpper);
+    if(m.ctype === 'VID' && !hasVideoSignal && !explicitVid){
+      m.ctype = 'Graphic AD';
+    } else if(m.ctype !== 'IFAD' && m.ctype !== 'Graphic AD' && hasVideoSignal){
+      m.ctype = 'VID';
+    }
   });
 
   const esc = v => '"'+String(v==null?'':v).replace(/"/g,'""')+'"';
@@ -1434,11 +1600,16 @@ function ctExportCSV(){
     ['# ─── WINNER LOGIC THRESHOLDS ───'],
     ['# F1 — Min Impressions', tImp],
     ['# F2 — Min ROAS', tRoas],
-    ['# F3 — Max CPC (₹)', tCpc],
-    ['# Winner = F1 AND (F2 OR F3)'],
-    ['# ITE    = F1 AND NOT F2 AND NOT F3'],
-    ['# Analyse= NOT F1 AND (conversions OR F3)'],
-    ['# Discarded = NOT F1 AND no conversions AND NOT F3'],
+    ['# F3 — Max Cost per NCP (₹)', tCpn],
+    ['# F4 — Max Cost per FTEWV (₹)', tFtewv],
+    ['# Cost/NCP   = Σ(spend) ÷ Σ(ncp_count)   over the selected date range'],
+    ['# Cost/FTEWV = Σ(spend) ÷ Σ(ftewv_count) over the selected date range'],
+    ['# Incremental Winner = F1 AND F2 AND F3 AND F4'],
+    ['# Winner             = F1 AND F2 AND (F3 OR F4)'],
+    ['# ITE Priority 1     = F1 AND NOT F2 AND F3'],
+    ['# ITE Priority 2     = F1 AND NOT F2 AND NOT F3'],
+    ['# Analyse            = (F1 AND F2 AND NOT F3 AND NOT F4) OR (NOT F1 AND (conv OR F3))'],
+    ['# Discarded          = NOT F1 AND no conv AND NOT F3'],
     ['# ─── EXPORT SUMMARY ───'],
     ['# Unique Ads in Export', Object.keys(adMap).length],
     ['# Raw Rows Filtered', ads.length],
@@ -1450,35 +1621,38 @@ function ctExportCSV(){
     'Ad Name','Ad ID','Campaign','Account','Product','Creative Type','Is Copy',
     'Ad Created','First Report Date',
     'Impressions','Spend (₹)','Conv. Value (₹)','ROAS',
-    'Outbound Clicks','CPC (₹)','ThruPlays','3-Sec Video Plays','Post Engagements','Reach',
-    'F1 Pass','F2 Pass','F3 Pass','Category (Winner/ITE/Analyse/Discarded)',
+    'Outbound Clicks',
+    'NCP Count','Cost per NCP (₹)',
+    'FTEWV Count','Cost per FTEWV (₹)',
+    'ThruPlays','3-Sec Video Plays','Post Engagements','Reach',
+    'F1 Pass','F2 Pass','F3 Pass','F4 Pass',
+    'Category (Inc.Winner/Winner/ITE P1/ITE P2/Analyse/Discarded)',
     'Ad Status'
   ];
 
   // ── Data rows ──
   const dataRows = Object.values(adMap).map(m => {
-    const ctRoas     = m.spend>0 ? m.convValue/m.spend : 0;
-    const cpcSheet   = m.cpcSheetCount>0 ? m.cpcSheetSum/m.cpcSheetCount : 0;
-    const cpcComp    = m.outClicks>0 ? m.spend/m.outClicks : 0;
-    const cpc        = cpcSheet>0 ? cpcSheet : cpcComp;
+    const ctRoas       = m.spend>0 ? m.convValue/m.spend : 0;
+    const costPerNcp   = m.ncpCount  >0 ? m.spend/m.ncpCount   : 0;
+    const costPerFtewv = m.ftewvCount>0 ? m.spend/m.ftewvCount : 0;
     const f1 = m.impr >= tImp;
     const f2 = ctRoas >= tRoas;
-    const f3 = cpc>0 && cpc<=tCpc;
+    const f3 = costPerNcp>0   && costPerNcp<=tCpn;
+    const f4 = costPerFtewv>0 && costPerFtewv<=tFtewv;
     const hasConv = m.convValue>0;
-    let cat;
-    if(f1&&(f2||f3))      cat='Winner';
-    else if(f1&&!f2&&!f3) cat='ITE';
-    else if(!f1&&(hasConv||f3)) cat='Analyse';
-    else cat='Discarded';
+    const cat = getAdCategory(m.impr, ctRoas, costPerNcp, costPerFtewv, tImp, tRoas, tCpn, tFtewv, hasConv);
     const firstDate = m._firstDate?m._firstDate.toISOString().split('T')[0]:(m.firstDate||'');
     const createdDate = m._createdDate?m._createdDate.toISOString().split('T')[0]:(m.adCreated||'');
     return [
       m.name, m.adId, m.campName, m.accountName, m.product, m.ctype, m.isCopy?'Yes':'No',
       createdDate, firstDate,
       m.impr, m.spend.toFixed(0), m.convValue.toFixed(0), ctRoas.toFixed(2),
-      m.outClicks, cpc>0?cpc.toFixed(2):'', m.thruPlays, m.videoPlays, m.postEng, m.reach,
-      f1?'TRUE':'FALSE', f2?'TRUE':'FALSE', f3?'TRUE':'FALSE', cat,
-      m.status
+      m.outClicks,
+      m.ncpCount,   costPerNcp  >0?costPerNcp.toFixed(2):'',
+      m.ftewvCount, costPerFtewv>0?costPerFtewv.toFixed(2):'',
+      m.thruPlays, m.videoPlays, m.postEng, m.reach,
+      f1?'TRUE':'FALSE', f2?'TRUE':'FALSE', f3?'TRUE':'FALSE', f4?'TRUE':'FALSE',
+      cat, m.status
     ];
   });
 
@@ -1518,27 +1692,27 @@ function ctExportCSV(){
 
     <div style="padding:24px 28px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
       <div>
-        <div style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--ink)">Algorithm Definitions — 3-Filter Logic</div>
-        <div style="font-size:.65rem;color:var(--muted);margin-top:3px;letter-spacing:.08em;text-transform:uppercase">F1 (Impressions) AND (F2 ROAS OR F3 CPC)</div>
+        <div style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--ink)">Algorithm Definitions — 4-Filter Logic</div>
+        <div style="font-size:.65rem;color:var(--muted);margin-top:3px;letter-spacing:.08em;text-transform:uppercase">F1 Impr · F2 ROAS · F3 CPC · F4 Cost/FTEWV</div>
       </div>
       <button onclick="toggleDefModal()" style="border:none;background:var(--bg2);color:var(--muted);border-radius:8px;width:32px;height:32px;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Roboto',sans-serif">✕</button>
     </div>
 
     <div style="overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:22px">
 
-      <!-- SECTION 1: THRESHOLDS (3 inputs) -->
+      <!-- SECTION 1: THRESHOLDS (4 inputs) -->
       <div>
         <div style="font-size:.58rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--terra);margin-bottom:10px;display:flex;align-items:center;gap:8px">
           <span style="flex:1;height:1px;background:var(--terra-lt)"></span>Evaluation Thresholds<span style="flex:1;height:1px;background:var(--terra-lt)"></span>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
           <!-- F1 -->
           <div style="background:var(--sage-lt);border:1px solid rgba(74,124,111,.2);border-radius:12px;padding:14px 16px">
             <div style="font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--sage);margin-bottom:2px">F1 — Min Impressions</div>
-            <div style="font-size:.58rem;color:var(--sage);opacity:.7;margin-bottom:6px">Must pass for any category</div>
+            <div style="font-size:.58rem;color:var(--sage);opacity:.7;margin-bottom:6px">Must pass for Winner / ITE</div>
             <div style="display:flex;align-items:baseline;gap:8px">
-              <input type="number" id="def_targetImp" value="20000" onchange="syncThreshold('imp',this.value)"
-                style="font-family:'Roboto',sans-serif;font-size:1.3rem;font-weight:900;color:var(--sage);background:transparent;border:none;outline:none;border-bottom:2px solid var(--sage);width:110px;padding-bottom:2px"/>
+              <input type="number" id="def_targetImp" value="50000" onchange="syncThreshold('imp',this.value)"
+                style="font-family:'Roboto',sans-serif;font-size:1.2rem;font-weight:900;color:var(--sage);background:transparent;border:none;outline:none;border-bottom:2px solid var(--sage);width:100px;padding-bottom:2px"/>
               <span style="font-size:.65rem;color:var(--sage);font-weight:600">impr.</span>
             </div>
             <div style="font-size:.6rem;color:var(--muted);margin-top:6px">Minimum impressions before evaluation is valid</div>
@@ -1546,25 +1720,37 @@ function ctExportCSV(){
           <!-- F2 -->
           <div style="background:var(--terra-lt);border:1px solid rgba(192,96,58,.2);border-radius:12px;padding:14px 16px">
             <div style="font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--terra);margin-bottom:2px">F2 — Min ROAS</div>
-            <div style="font-size:.58rem;color:var(--terra);opacity:.7;margin-bottom:6px">F1 AND (F2 OR F3) = Winner</div>
+            <div style="font-size:.58rem;color:var(--terra);opacity:.7;margin-bottom:6px">Required for Winner</div>
             <div style="display:flex;align-items:baseline;gap:8px">
               <input type="number" id="def_targetRoas" value="3.2" step="0.1" onchange="syncThreshold('roas',this.value)"
-                style="font-family:'Roboto',sans-serif;font-size:1.3rem;font-weight:900;color:var(--terra);background:transparent;border:none;outline:none;border-bottom:2px solid var(--terra);width:80px;padding-bottom:2px"/>
+                style="font-family:'Roboto',sans-serif;font-size:1.2rem;font-weight:900;color:var(--terra);background:transparent;border:none;outline:none;border-bottom:2px solid var(--terra);width:70px;padding-bottom:2px"/>
               <span style="font-size:.65rem;color:var(--terra);font-weight:600">× return</span>
             </div>
             <div style="font-size:.6rem;color:var(--muted);margin-top:6px">CT ROAS must be ≥ this value (Conv. Value ÷ Spend)</div>
           </div>
           <!-- F3 -->
           <div style="background:var(--gold-lt);border:1px solid rgba(184,136,58,.2);border-radius:12px;padding:14px 16px">
-            <div style="font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);margin-bottom:2px">F3 — Max CPC</div>
-            <div style="font-size:.58rem;color:var(--gold);opacity:.7;margin-bottom:6px">Alternate to F2 — OR condition</div>
+            <div style="font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);margin-bottom:2px">F3 — Cost / NCP</div>
+            <div style="font-size:.58rem;color:var(--gold);opacity:.7;margin-bottom:6px">F3 OR F4 = Winner gate</div>
             <div style="display:flex;align-items:baseline;gap:8px">
-              <span style="font-size:.9rem;color:var(--gold);font-weight:700">₹</span>
-              <input type="number" id="def_targetCpc" value="12" step="1" onchange="syncThreshold('cpc',this.value)"
-                style="font-family:'Roboto',sans-serif;font-size:1.3rem;font-weight:900;color:var(--gold);background:transparent;border:none;outline:none;border-bottom:2px solid var(--gold);width:80px;padding-bottom:2px"/>
-              <span style="font-size:.65rem;color:var(--gold);font-weight:600">per click</span>
+              <span style="font-size:.85rem;color:var(--gold);font-weight:700">₹</span>
+              <input type="number" id="def_targetCpn" value="525" step="1" onchange="syncThreshold('cpn',this.value)"
+                style="font-family:'Roboto',sans-serif;font-size:1.2rem;font-weight:900;color:var(--gold);background:transparent;border:none;outline:none;border-bottom:2px solid var(--gold);width:80px;padding-bottom:2px"/>
+              <span style="font-size:.65rem;color:var(--gold);font-weight:600">/ NCP</span>
             </div>
-            <div style="font-size:.6rem;color:var(--muted);margin-top:6px">CPC = Spend ÷ Outbound Clicks — must be ≤ this value</div>
+            <div style="font-size:.6rem;color:var(--muted);margin-top:6px">Cost/NCP = Σ(Spend) ÷ Σ(NCP count) over date range — must be ≤ this value</div>
+          </div>
+          <!-- F4 -->
+          <div style="background:var(--slate-lt);border:1px solid rgba(74,111,165,.2);border-radius:12px;padding:14px 16px">
+            <div style="font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--slate);margin-bottom:2px">F4 — Cost/FTEWV</div>
+            <div style="font-size:.58rem;color:var(--slate);opacity:.7;margin-bottom:6px">F3 ✓ AND F4 ✓ = Incremental</div>
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span style="font-size:.85rem;color:var(--slate);font-weight:700">₹</span>
+              <input type="number" id="def_targetFtewv" value="12" step="1" onchange="syncThreshold('ftewv',this.value)"
+                style="font-family:'Roboto',sans-serif;font-size:1.2rem;font-weight:900;color:var(--slate);background:transparent;border:none;outline:none;border-bottom:2px solid var(--slate);width:70px;padding-bottom:2px"/>
+              <span style="font-size:.65rem;color:var(--slate);font-weight:600">/ FTEWV</span>
+            </div>
+            <div style="font-size:.6rem;color:var(--muted);margin-top:6px">Spend ÷ FTEWV count — first-time engaged-view-purchase cost</div>
           </div>
         </div>
       </div>
@@ -1575,48 +1761,71 @@ function ctExportCSV(){
           <span style="flex:1;height:1px;background:var(--terra-lt)"></span>Categorisation Algorithm<span style="flex:1;height:1px;background:var(--terra-lt)"></span>
         </div>
         <div style="font-size:.68rem;color:var(--ink2);margin-bottom:10px;line-height:1.7">
-          Each unique ad is evaluated against a <strong>3-filter matrix</strong>. <strong>F1 is mandatory</strong> (impression gate). Winners need F1 AND (F2 OR F3) — meaning strong ROAS <em>or</em> efficient CPC qualifies alongside sufficient impressions.
+          Each unique ad is evaluated against a <strong>4-filter matrix</strong>. <strong>F1 is mandatory</strong> for Winner / ITE. Incremental Winners pass all four. Winners pass F1+F2 plus at least one of F3/F4. ITE splits by F3 (CPC) outcome. Failed ads are Discarded or sent to Analyse.
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;flex-direction:column;gap:6px">
           <!-- Header row -->
-          <div style="display:grid;grid-template-columns:100px 90px 90px 90px 1fr;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:.63rem">
+          <div style="display:grid;grid-template-columns:120px 70px 70px 70px 70px 1fr;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:.6rem">
             <div style="background:var(--surface2);padding:8px 12px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-right:1px solid var(--border)">Category</div>
-            <div style="background:var(--surface2);padding:8px 12px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--sage);border-right:1px solid var(--border);text-align:center">F1 Impr</div>
-            <div style="background:var(--surface2);padding:8px 12px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--terra);border-right:1px solid var(--border);text-align:center">F2 ROAS</div>
-            <div style="background:var(--surface2);padding:8px 12px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--gold);border-right:1px solid var(--border);text-align:center">F3 CPC</div>
+            <div style="background:var(--surface2);padding:8px 8px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--sage);border-right:1px solid var(--border);text-align:center">F1 Impr</div>
+            <div style="background:var(--surface2);padding:8px 8px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--terra);border-right:1px solid var(--border);text-align:center">F2 ROAS</div>
+            <div style="background:var(--surface2);padding:8px 8px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--gold);border-right:1px solid var(--border);text-align:center">F3 NCP</div>
+            <div style="background:var(--surface2);padding:8px 8px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--slate);border-right:1px solid var(--border);text-align:center">F4 FTEWV</div>
             <div style="background:var(--surface2);padding:8px 12px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Action</div>
           </div>
+          <!-- Incremental Winner -->
+          <div style="display:grid;grid-template-columns:120px 70px 70px 70px 70px 1fr;border:1px solid rgba(31,93,77,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#dff0e8">
+            <div style="padding:9px 12px;font-weight:800;color:#1f5d4d;border-right:1px solid rgba(31,93,77,.2)">🟢 Inc. Winner</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(31,93,77,.2);color:#1f5d4d;font-weight:700">✓</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(31,93,77,.2);color:#1f5d4d;font-weight:700">✓</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(31,93,77,.2);color:#1f5d4d;font-weight:700">✓</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(31,93,77,.2);color:#1f5d4d;font-weight:700">✓</div>
+            <div style="padding:9px 12px;color:#1f5d4d">Top performer — scale aggressively</div>
+          </div>
           <!-- Winner -->
-          <div style="display:grid;grid-template-columns:100px 90px 90px 90px 1fr;border:1px solid rgba(74,124,111,.25);border-radius:10px;overflow:hidden;font-size:.65rem;background:#e6f0ee">
-            <div style="padding:10px 12px;font-weight:800;color:#4a7c6f;border-right:1px solid rgba(74,124,111,.2)">🟢 Winner</div>
-            <div style="padding:10px 12px;text-align:center;border-right:1px solid rgba(74,124,111,.2);color:#4a7c6f;font-weight:700">✓ ≥ F1</div>
-            <div style="padding:10px 12px;text-align:center;border-right:1px solid rgba(74,124,111,.2);color:#4a7c6f;font-size:.6rem">≥ F2 <span style="font-weight:700">OR</span></div>
-            <div style="padding:10px 12px;text-align:center;border-right:1px solid rgba(74,124,111,.2);color:#4a7c6f;font-size:.6rem">≤ F3 <span style="font-weight:700">✓</span></div>
-            <div style="padding:10px 12px;color:#4a7c6f">Scale budget immediately · maintain format</div>
+          <div style="display:grid;grid-template-columns:120px 70px 70px 70px 70px 1fr;border:1px solid rgba(74,124,111,.25);border-radius:10px;overflow:hidden;font-size:.62rem;background:#e6f0ee">
+            <div style="padding:9px 12px;font-weight:800;color:#4a7c6f;border-right:1px solid rgba(74,124,111,.2)">🟢 Winner</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(74,124,111,.2);color:#4a7c6f;font-weight:700">✓</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(74,124,111,.2);color:#4a7c6f;font-weight:700">✓</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(74,124,111,.2);color:#4a7c6f;font-size:.58rem">✓ <span style="font-weight:700">OR</span></div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(74,124,111,.2);color:#4a7c6f;font-size:.58rem">✓</div>
+            <div style="padding:9px 12px;color:#4a7c6f">Scale budget · maintain format</div>
           </div>
-          <!-- ITE -->
-          <div style="display:grid;grid-template-columns:100px 90px 90px 90px 1fr;border:1px solid rgba(184,136,58,.25);border-radius:10px;overflow:hidden;font-size:.65rem;background:#fdf5e6">
-            <div style="padding:10px 12px;font-weight:800;color:#b8883a;border-right:1px solid rgba(184,136,58,.2)">🟡 ITE</div>
-            <div style="padding:10px 12px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:#b8883a;font-weight:700">✓ ≥ F1</div>
-            <div style="padding:10px 12px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:#c0603a;font-size:.6rem">✗ &lt; F2</div>
-            <div style="padding:10px 12px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:#c0603a;font-size:.6rem">✗ &gt; F3</div>
-            <div style="padding:10px 12px;color:#b8883a">Iterate CTA · improve offer · check landing page</div>
+          <!-- ITE Priority 1 -->
+          <div style="display:grid;grid-template-columns:120px 70px 70px 70px 70px 1fr;border:1px solid rgba(146,98,10,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#fdf5e6">
+            <div style="padding:9px 12px;font-weight:800;color:#92620a;border-right:1px solid rgba(146,98,10,.2)">🟡 ITE P1</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(146,98,10,.2);color:#92620a;font-weight:700">✓</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(146,98,10,.2);color:#c0603a">✗</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(146,98,10,.2);color:#92620a;font-weight:700">✓</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(146,98,10,.2);color:var(--muted);font-size:.58rem">—</div>
+            <div style="padding:9px 12px;color:#92620a">Cost/NCP efficient — iterate offer / LP</div>
           </div>
-          <!-- Analyse -->
-          <div style="display:grid;grid-template-columns:100px 90px 90px 90px 1fr;border:1px solid rgba(74,111,165,.25);border-radius:10px;overflow:hidden;font-size:.65rem;background:#eaf0f8">
-            <div style="padding:10px 12px;font-weight:800;color:#4a6fa5;border-right:1px solid rgba(74,111,165,.2)">🔵 Analyse</div>
-            <div style="padding:10px 12px;text-align:center;border-right:1px solid rgba(74,111,165,.2);color:#c0603a;font-size:.6rem">✗ &lt; F1</div>
-            <div style="padding:10px 12px;text-align:center;border-right:1px solid rgba(74,111,165,.2);color:#4a6fa5;font-size:.6rem">conv. ✓ <em>or</em></div>
-            <div style="padding:10px 12px;text-align:center;border-right:1px solid rgba(74,111,165,.2);color:#4a6fa5;font-size:.6rem">≤ F3 ✓</div>
-            <div style="padding:10px 12px;color:#4a6fa5">Study signal · find pattern · create learnings</div>
+          <!-- ITE Priority 2 -->
+          <div style="display:grid;grid-template-columns:120px 70px 70px 70px 70px 1fr;border:1px solid rgba(184,136,58,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#fbeed6">
+            <div style="padding:9px 12px;font-weight:800;color:#b8883a;border-right:1px solid rgba(184,136,58,.2)">🟡 ITE P2</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:#b8883a;font-weight:700">✓</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:#c0603a">✗</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:#c0603a">✗</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:var(--muted);font-size:.58rem">—</div>
+            <div style="padding:9px 12px;color:#b8883a">Both ROAS &amp; CPC weak — full overhaul</div>
           </div>
           <!-- Discarded -->
-          <div style="display:grid;grid-template-columns:100px 90px 90px 90px 1fr;border:1px solid rgba(192,96,58,.25);border-radius:10px;overflow:hidden;font-size:.65rem;background:#f5ebe6">
-            <div style="padding:10px 12px;font-weight:800;color:#c0603a;border-right:1px solid rgba(192,96,58,.2)">🔴 Discarded</div>
-            <div style="padding:10px 12px;text-align:center;border-right:1px solid rgba(192,96,58,.2);color:#c0603a;font-size:.6rem">✗ &lt; F1</div>
-            <div style="padding:10px 12px;text-align:center;border-right:1px solid rgba(192,96,58,.2);color:#c0603a;font-size:.6rem">✗ no conv.</div>
-            <div style="padding:10px 12px;text-align:center;border-right:1px solid rgba(192,96,58,.2);color:#c0603a;font-size:.6rem">✗ &gt; F3</div>
-            <div style="padding:10px 12px;color:#c0603a">Do not replicate · review creative &amp; targeting</div>
+          <div style="display:grid;grid-template-columns:120px 70px 70px 70px 70px 1fr;border:1px solid rgba(155,35,53,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#f5ebe6">
+            <div style="padding:9px 12px;font-weight:800;color:#9b2335;border-right:1px solid rgba(155,35,53,.2)">🔴 Discarded</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(155,35,53,.2);color:#9b2335">✗</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(155,35,53,.2);color:#9b2335;font-size:.55rem">no conv</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(155,35,53,.2);color:#9b2335">✗</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(155,35,53,.2);color:var(--muted);font-size:.58rem">—</div>
+            <div style="padding:9px 12px;color:#9b2335">Do not replicate · review creative</div>
+          </div>
+          <!-- Analyse -->
+          <div style="display:grid;grid-template-columns:120px 70px 70px 70px 70px 1fr;border:1px solid rgba(44,82,130,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#eaf0f8">
+            <div style="padding:9px 12px;font-weight:800;color:#2c5282;border-right:1px solid rgba(44,82,130,.2)">🔵 Analyse</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(44,82,130,.2);color:#2c5282;font-size:.55rem">any</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(44,82,130,.2);color:#2c5282;font-size:.55rem">conv ✓</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(44,82,130,.2);color:#2c5282;font-size:.55rem">or ≤ F3</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(44,82,130,.2);color:var(--muted);font-size:.58rem">—</div>
+            <div style="padding:9px 12px;color:#2c5282">Sparse data with signal · study pattern</div>
           </div>
         </div>
       </div>
@@ -1628,9 +1837,9 @@ function ctExportCSV(){
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div style="background:var(--gold-lt);border:2px solid rgba(184,136,58,.3);border-radius:10px;padding:12px 14px">
-            <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--gold);margin-bottom:4px">★ CPC (New — F3)</div>
-            <div style="font-family:'Roboto Mono',monospace;font-size:.68rem;color:var(--ink);background:rgba(184,136,58,.08);padding:5px 8px;border-radius:5px">Sum(Spend) ÷ Sum(Outbound Clicks)</div>
-            <div style="font-size:.6rem;color:var(--muted);margin-top:5px">Computed per unique ad across all filtered dates. ₹0 CPC (no clicks) = no F3 signal</div>
+            <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--gold);margin-bottom:4px">★ Cost / NCP (F3)</div>
+            <div style="font-family:'Roboto Mono',monospace;font-size:.68rem;color:var(--ink);background:rgba(184,136,58,.08);padding:5px 8px;border-radius:5px">Σ(Spend) ÷ Σ(NCP Count)</div>
+            <div style="font-size:.6rem;color:var(--muted);margin-top:5px">Computed per unique ad across all filtered dates. ₹0 cost (no NCPs) = no F3 signal</div>
           </div>
           <div style="background:var(--terra-lt);border:2px solid rgba(192,96,58,.2);border-radius:10px;padding:12px 14px">
             <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--terra);margin-bottom:4px">★ CT ROAS (F2)</div>
@@ -1669,7 +1878,7 @@ function ctExportCSV(){
     </div>
 
     <div style="padding:14px 28px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--surface2)">
-      <div style="font-size:.6rem;color:var(--muted)">Threshold changes apply instantly · Winner = F1 AND (F2 OR F3)</div>
+      <div style="font-size:.6rem;color:var(--muted)">F3 = Cost/NCP (Σ Spend ÷ Σ NCP) · Inc.Winner = F1 ✓ F2 ✓ F3 ✓ F4 ✓ · Winner = F1 ✓ F2 ✓ (F3 ✓ OR F4 ✓)</div>
       <button onclick="toggleDefModal()" style="background:var(--terra);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-family:'Roboto',sans-serif;font-size:.72rem;font-weight:600;cursor:pointer">Close</button>
     </div>
 
@@ -1800,7 +2009,7 @@ function ctExportCSV(){
           ROAS≥:<input id="ae-target-roas" type="number" value="3.2" step="0.1" oninput="aeRecompute()" style="width:50px;padding:6px 8px;border-radius:7px;border:1px solid #e0dbd0;background:#faf8f5;color:#1c1916;font-family:inherit;font-size:11px;outline:none">
         </div>
         <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#9a9187;font-weight:600">
-          CPC≤₹:<input id="ae-target-cpc" type="number" value="12" step="1" oninput="aeRecompute()" style="width:48px;padding:6px 8px;border-radius:7px;border:1px solid #e0dbd0;background:#faf8f5;color:#1c1916;font-family:inherit;font-size:11px;outline:none">
+          Cost/NCP≤₹:<input id="ae-target-cpn" type="number" value="525" step="1" oninput="aeRecompute()" style="width:60px;padding:6px 8px;border-radius:7px;border:1px solid #e0dbd0;background:#faf8f5;color:#1c1916;font-family:inherit;font-size:11px;outline:none">
         </div>
         <button onclick="aeReload()" style="padding:7px 14px;background:#f5ebe6;border:1px solid rgba(192,96,58,.3);color:#c0603a;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">↻ Refresh</button>
       </div>
@@ -1836,7 +2045,7 @@ function ctExportCSV(){
         <span style="font-size:11px;color:#9a9187;font-weight:600">AND</span>
         <span style="font-size:11px;font-weight:700;background:#f5ebe6;color:#c0603a;padding:3px 10px;border-radius:100px;border:1px solid rgba(192,96,58,.25)">F2 ROAS ≥ <span id="ae-leg-roas">3.2</span></span>
         <span style="font-size:11px;color:#9a9187;font-weight:600">OR</span>
-        <span style="font-size:11px;font-weight:700;background:#fdf5e6;color:#b8883a;padding:3px 10px;border-radius:100px;border:1px solid rgba(184,136,58,.25)">F3 CPC ≤ ₹<span id="ae-leg-cpc">12</span></span>
+        <span style="font-size:11px;font-weight:700;background:#fdf5e6;color:#b8883a;padding:3px 10px;border-radius:100px;border:1px solid rgba(184,136,58,.25)">F3 Cost/NCP ≤ ₹<span id="ae-leg-cpn">525</span></span>
       </div>
       <div style="border-left:3px solid #c0603a;background:linear-gradient(90deg,#f5ebe6,transparent);border-radius:10px;padding:14px 16px;margin-bottom:20px">
         <div style="display:flex;align-items:flex-start;gap:12px">
@@ -1930,28 +2139,40 @@ const AEW={X:.10,Y:.25,Z:.15,AA:.20,AB:.20,AC:.10};
 
 // Updated AEA descriptions to reflect 3-filter logic
 const AEA={
-  Winner:{
-    type:"Proven Creative — F1 Imp ✓ + (F2 ROAS ✓ OR F3 CPC ✓)",
-    action:"Scale budget immediately · maintain creative",
-    perf:"Strong delivery AND efficient conversion or click cost",
+  'Incremental Winner':{
+    type:"Top Performer — F1 ✓ + F2 ROAS ✓ + F3 CPC ✓ + F4 FTEWV ✓",
+    action:"Scale aggressively · top performer across all gates",
+    perf:"All four signals firing — highest confidence creative",
+    creative:"Replicate format · launch many variations"
+  },
+  'Winner':{
+    type:"Proven — F1 ✓ + F2 ROAS ✓ + (F3 CPC ✓ OR F4 FTEWV ✓)",
+    action:"Scale budget · maintain creative format",
+    perf:"Strong ROAS with efficient cost on at least one axis",
     creative:"Replicate format & messaging · launch new variations"
   },
-  ITE:{
-    type:"F1 Impression threshold met — but ROAS below target AND CPC too high",
-    action:"Investigate conversion drop · optimise CTA & offer",
-    perf:"Good delivery but weak ROAS and inefficient CPC — funnel leak",
-    creative:"Iterate on message, urgency, landing page & CTA"
+  'ITE Priority 1':{
+    type:"F1 ✓ + F2 ROAS ✗ + F3 CPC ✓ — clicks cheap, ROAS weak",
+    action:"Iterate offer / landing page — clicks are working",
+    perf:"Cheap traffic but low conversion — funnel leak",
+    creative:"Optimise CTA, offer, post-click experience"
   },
-  Discarded:{
-    type:"F1 not met — Low delivery · no conversion signal · CPC too high",
-    action:"Do not scale · review creative format, audience & bid",
+  'ITE Priority 2':{
+    type:"F1 ✓ + F2 ROAS ✗ + F3 CPC ✗ — both ROAS and CPC failing",
+    action:"Iterate harder — both delivery efficiency and conv weak",
+    perf:"Good impressions but expensive clicks AND poor ROAS",
+    creative:"Rework hook, message, audience, CTA — full overhaul"
+  },
+  'Discarded':{
+    type:"F1 ✗ — low delivery, no conv signal, CPC too high",
+    action:"Do not scale · review creative, audience & bid",
     perf:"Negative signal — useful as a learning data point",
     creative:"—"
   },
-  Analyse:{
-    type:"F1 not met but shows conversion OR efficient CPC signal",
-    action:"Analyse data for learnings · identify niche potential",
-    perf:"Low impressions but promising signal — needs more budget test",
+  'Analyse':{
+    type:"Low delivery with signal, OR strong ROAS without efficiency",
+    action:"Analyse for learnings · identify niche potential",
+    perf:"Promising signal but data sparse — more budget needed",
     creative:"Find pattern · create learning data point"
   }
 };
@@ -2198,28 +2419,27 @@ async function aeReload(){
 
 function aeRecompute(){
   if(!aeLoaded) return;
-  // Update legend badges
-  const tI=document.getElementById('ae-target-imp')?.value||'20000';
+  const tI=document.getElementById('ae-target-imp')?.value||'50000';
   const tR=document.getElementById('ae-target-roas')?.value||'3.2';
-  const tC=document.getElementById('ae-target-cpc')?.value||'12';
+  const tC=document.getElementById('ae-target-cpn')?.value||'525';
+  const tF=document.getElementById('ae-target-ftewv')?.value||'12';
   setEl('ae-leg-imp',Number(tI).toLocaleString('en-IN'));
   setEl('ae-leg-roas',tR);
-  setEl('ae-leg-cpc',tC);
+  setEl('ae-leg-cpn',tC);
+  setEl('ae-leg-ftewv',tF);
   aeCompute();
 }
 
 // ════════════════════════════════════════
 // aeCompute — Updated 3-Filter Logic
-// Winner: impr >= tImp AND (roas >= tRoas OR cpc <= tCpc)
-// ITE:    impr >= tImp AND roas < tRoas AND cpc > tCpc
-// Analyse: impr < tImp AND (conversions > 0 OR cpc <= tCpc)
-// Discarded: impr < tImp AND no conv AND cpc > tCpc
+// 4-Filter logic — see getAdCategory() at top of file. F3 = Cost/NCP, F4 = Cost/FTEWV.
 // ════════════════════════════════════════
 function aeCompute(){
   const rows=aeRaw;
-  const tImp  = parseFloat(document.getElementById('ae-target-imp')?.value)||20000;
+  const tImp   = parseFloat(document.getElementById('ae-target-imp')?.value)||50000;
   const tRoas  = parseFloat(document.getElementById('ae-target-roas')?.value)||3.2;
-  const tCpc   = parseFloat(document.getElementById('ae-target-cpc')?.value)||12;
+  const tCpn   = parseFloat(document.getElementById('ae-target-cpn')?.value)||525;
+  const tFtewv = parseFloat(document.getElementById('ae-target-ftewv')?.value)||12;
   const grp    = document.getElementById('ae-group-by').value;
 
   const adMap={};let gR=0,gS=0,gF=0,gN=0,gP=0;
@@ -2252,21 +2472,20 @@ function aeCompute(){
 
   for(const k in adMap){
     const ad=adMap[k];
-    // ── 3-FILTER CATEGORISATION ──
-    const ctRoas = ad.avgR;
-    // CPC: prefer sheet column avg, fall back to spend/outClicks
+    // ── 4-FILTER CATEGORISATION (F3 = Cost per NCP) ──
+    const ctRoas       = ad.avgR;
+    const costPerNcp   = ad.ncp   > 0 ? ad.spend / ad.ncp   : 0;
+    const costPerFtewv = ad.ftewv > 0 ? ad.spend / ad.ftewv : 0;
+    const hasConv      = ad.purV > 0;
+    const cat = getAdCategory(ad.imp, ctRoas, costPerNcp, costPerFtewv, tImp, tRoas, tCpn, tFtewv, hasConv);
+    const f1 = ad.imp >= tImp;
+    const f2 = ctRoas >= tRoas;
+    const f3 = costPerNcp > 0   && costPerNcp <= tCpn;
+    const f4 = costPerFtewv > 0 && costPerFtewv <= tFtewv;
+    // CPC kept for legacy AE sub-panels that still display it (not used for category)
     const cpcFromSheet = ad.cpcSheetCount > 0 ? ad.cpcSheetSum / ad.cpcSheetCount : 0;
     const cpcComputed  = ad.outClicks > 0 ? ad.spend / ad.outClicks : 0;
     const cpc          = cpcFromSheet > 0 ? cpcFromSheet : cpcComputed;
-    const f1     = ad.imp >= tImp;
-    const f2     = ctRoas >= tRoas;
-    const f3     = cpc > 0 && cpc <= tCpc;
-    const hasConv= ad.purV > 0;
-    let cat;
-    if(f1 && (f2 || f3))    cat = 'Winner';
-    else if(f1 && !f2 && !f3) cat = 'ITE';
-    else if(!f1 && (hasConv || f3)) cat = 'Analyse';
-    else cat = 'Discarded';
 
     const fR=ad.ltvR>0?ad.ltvR:ad.ltvRS,fF=ad.ltvF>0?ad.ltvF:(ad.ltvRS>0?ad.ltvI/ad.ltvRS:0);
     const ded=ad.ltvRS>0?(fR/ad.ltvRS):1;
@@ -2303,8 +2522,16 @@ function aeCompute(){
     });
   }
 
+  // Roll up new 6 categories into AE's 4-card display
+  // Winner card = Incremental Winner + Winner; ITE card = ITE Priority 1 + ITE Priority 2
   const cnts={Winner:0,ITE:0,Analyse:0,Discarded:0};
-  res.forEach(r=>{ if(cnts[r.category]!==undefined) cnts[r.category]++; });
+  res.forEach(r=>{
+    const c=r.category;
+    if(c==='Incremental Winner'||c==='Winner') cnts.Winner++;
+    else if(c==='ITE Priority 1'||c==='ITE Priority 2') cnts.ITE++;
+    else if(c==='Analyse') cnts.Analyse++;
+    else if(c==='Discarded') cnts.Discarded++;
+  });
   document.getElementById('ae-c-total').textContent=res.length.toLocaleString();
   document.getElementById('ae-c-winner').textContent=cnts.Winner.toLocaleString();
   document.getElementById('ae-c-ite').textContent=cnts.ITE.toLocaleString();
@@ -2341,9 +2568,19 @@ function aeClearFilters(){
 }
 
 function aeApplyFilters(){
+  // Map AE chip macro-categories to the new 6-bucket categories
+  const chipMatchers = {
+    'Winner':    c => c==='Incremental Winner' || c==='Winner',
+    'ITE':       c => c==='ITE Priority 1' || c==='ITE Priority 2',
+    'Analyse':   c => c==='Analyse',
+    'Discarded': c => c==='Discarded',
+  };
   aeFiltered=aeResults.filter(r=>{
     if(aeActiveAcct&&r.acct!==aeActiveAcct) return false;
-    if(aeChipActive&&r.category!==aeChipActive) return false;
+    if(aeChipActive){
+      const matcher = chipMatchers[aeChipActive];
+      if(matcher ? !matcher(r.category) : r.category!==aeChipActive) return false;
+    }
     for(const row of document.querySelectorAll('#ae-filter-rows .ae-filter-row')){
       const col=row.querySelector('.ae-fcol').value;
       const cond=row.querySelector('.ae-fcond').value;
@@ -2388,9 +2625,10 @@ function aeExportCSV(){
   const dateTo    = document.getElementById('ae-date-to')?.value||'';
   const drpLabel  = document.getElementById('ae-drp-label')?.textContent?.replace('📅 ','').trim()||'All time';
   const groupBy   = document.getElementById('ae-group-by')?.value==='campaign'?'Campaign Level':'Ad Level';
-  const tImp      = document.getElementById('ae-target-imp')?.value||'20000';
+  const tImp      = document.getElementById('ae-target-imp')?.value||'50000';
   const tRoas     = document.getElementById('ae-target-roas')?.value||'3.2';
-  const tCpc      = document.getElementById('ae-target-cpc')?.value||'12';
+  const tCpn      = document.getElementById('ae-target-cpn')?.value||'525';
+  const tFtewv    = document.getElementById('ae-target-ftewv')?.value||'12';
   const acctLabel = aeActiveAcct||'All Accounts';
   const catFilter = aeChipActive||'All Categories';
   const now       = new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -2418,11 +2656,14 @@ function aeExportCSV(){
     ['# ─── WINNER LOGIC THRESHOLDS ───'],
     ['# F1 — Min Impressions',tImp],
     ['# F2 — Min ROAS',tRoas],
-    ['# F3 — Max CPC (₹)',tCpc],
-    ['# Winner = F1 AND (F2 OR F3)'],
-    ['# ITE    = F1 AND NOT F2 AND NOT F3'],
-    ['# Analyse= NOT F1 AND (conversions OR F3)'],
-    ['# Discarded = NOT F1 AND no conversions AND NOT F3'],
+    ['# F3 — Max Cost per NCP (₹)',tCpn],
+    ['# F4 — Max Cost per FTEWV (₹)',tFtewv],
+    ['# Incremental Winner = F1 AND F2 AND F3 AND F4'],
+    ['# Winner             = F1 AND F2 AND (F3 OR F4)'],
+    ['# ITE Priority 1     = F1 AND NOT F2 AND F3'],
+    ['# ITE Priority 2     = F1 AND NOT F2 AND NOT F3'],
+    ['# Analyse            = (F1 AND F2 AND NOT F3 AND NOT F4) OR (NOT F1 AND (conv OR F3))'],
+    ['# Discarded          = NOT F1 AND no conv AND NOT F3'],
     ['# ─── ACTIVE FILTERS ───'],
     ['# Category Filter',catFilter],
     ['# Multi-Filter Rules',filterRules.length?filterRules.join(' | '):'(none)'],

@@ -193,6 +193,8 @@ def compute_results(
         eng = float(r.get("post_engagements") or 0)
         conv_v = float(r.get("conversion_value") or 0)
         vpt = float(r.get("video_play_time") or 0)
+        ftewv = float(r.get("ftewv_count") or 0)
+        ncp = float(r.get("ncp_count") or 0)
 
         if ad_id not in ad_map:
             ad_map[ad_id] = {
@@ -214,6 +216,8 @@ def compute_results(
                 "eng": 0,
                 "convV": 0,
                 "vpt_sum": 0,
+                "ftewv": 0,
+                "ncp": 0,
             }
 
         ad = ad_map[ad_id]
@@ -226,6 +230,8 @@ def compute_results(
         ad["eng"] += eng
         ad["convV"] += conv_v
         ad["vpt_sum"] += vpt * impr  # weighted for later avg
+        ad["ftewv"] += ftewv
+        ad["ncp"] += ncp
 
     # ── Overview totals (all rows, not deduplicated) ───────────────────
     total_spend = sum(float(r.get("amount_spent_inr") or 0) for r in rows)
@@ -300,6 +306,10 @@ def compute_results(
             "eng": round(ad["eng"]),
             "convV": round(ad["convV"], 2),
             "vpt": round(sdv(ad["vpt_sum"], ad["impr"]), 3),
+            "ftewv": round(ad.get("ftewv", 0)),
+            "cpf": round(sdv(ad["spend"], ad.get("ftewv", 0)), 2),
+            "ncp": round(ad.get("ncp", 0)),
+            "cpn": round(sdv(ad["spend"], ad.get("ncp", 0)), 2),
         }
         for ad in ad_map.values()
     ]

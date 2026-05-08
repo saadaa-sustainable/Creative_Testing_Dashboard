@@ -150,3 +150,163 @@ STATUS | primary_table | GMT today: 2026-05-04
 2026-05-05 11:33:06 [INFO] DONE | 11,139 fetched | 11,139 upserted | 603s
 2026-05-05 11:33:06 [INFO] ============================================================
 
+2026-05-07 17:43:18 [ERROR] Cannot connect: connection to server at "localhost" (::1), port 5432 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+
+2026-05-07 17:55:13 [INFO] Connected. primary_table has 91,213 rows.
+2026-05-07 17:55:13 [INFO] 
+============================================================
+2026-05-07 17:55:13 [INFO] DAILY SYNC | 2026-04-22 → 2026-05-07 (GMT)
+2026-05-07 17:55:13 [INFO] ============================================================
+2026-05-07 17:55:13 [INFO] 
+▶  Raho Saadaa
+2026-05-07 17:55:14 [INFO]   Custom conversions found: ['kp-pdp-fts', 'ft-v90', 'pdp view', 'nc-atc', 'ftv-atc', 'ncp > 1200', 'kp-ev', 'new customer purchase', 'purchase (v) > 1000', 'mkr visit', 'mkr.bio visit', 'purchase (hv) > 1500', 'purchase (q) - 2+', 'repeatcustomerpurchase(cc)', 'newcustomerpurchase(cc)', '2minvisit', 'ncp ( v > 1500 )', 'first-time ewv', 'new-kwikpass user', 'first time visitors (gk)', 'ncp ( q > 1 )', 'rcp - repeat pur', 'ncp']
+2026-05-07 17:55:14 [INFO]   FTEWV ID: 1133449967928420
+2026-05-07 17:55:14 [INFO]   NCP ID: 1109740267306786
+2026-05-07 17:55:14 [INFO]   Fetching Raho Saadaa | 2026-04-22 → 2026-05-06
+2026-05-07 17:56:33 [WARNING]   Meta 500 server error — waiting 15s (attempt 1/3)
+2026-05-07 17:57:07 [WARNING]   Meta 500 server error — waiting 30s (attempt 2/3)
+2026-05-07 17:58:37 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-07 18:01:31 [INFO]   7261 rows to insert | 827 unique ad IDs for metadata + LTV lookup...
+2026-05-07 18:03:34 [INFO]   ✅ 7261 fetched, 7261 upserted (updated if existed, inserted if new)
+2026-05-07 18:03:34 [INFO]   Fetching Raho Saadaa | 2026-05-07 → 2026-05-07
+2026-05-07 18:03:49 [INFO]   423 rows to insert | 423 unique ad IDs for metadata + LTV lookup...
+2026-05-07 18:04:24 [INFO]   ✅ 423 fetched, 423 upserted (updated if existed, inserted if new)
+2026-05-07 18:04:24 [INFO]   ── Raho Saadaa: 7,684 fetched, 7,684 upserted
+2026-05-07 18:04:24 [INFO] 
+▶  Fourth Ad Account - SD
+2026-05-07 18:04:25 [INFO]   Custom conversions found: ['ncp ( v > 1500 )', 'first-time ewv', 'new-kwikpass user', 'first time visitors (gk)', 'ncp ( q > 1 )', 'rcp - repeat pur', 'ncp']
+2026-05-07 18:04:25 [INFO]   FTEWV ID: 1133449967928420
+2026-05-07 18:04:25 [INFO]   NCP ID: 1109740267306786
+2026-05-07 18:04:25 [INFO]   Fetching Fourth Ad Account - SD | 2026-04-22 → 2026-05-06
+2026-05-07 18:05:14 [INFO]   1578 rows to insert | 225 unique ad IDs for metadata + LTV lookup...
+2026-05-07 18:05:47 [INFO]   ✅ 1578 fetched, 1578 upserted (updated if existed, inserted if new)
+2026-05-07 18:05:47 [INFO]   Fetching Fourth Ad Account - SD | 2026-05-07 → 2026-05-07
+2026-05-07 18:05:52 [INFO]   111 rows to insert | 111 unique ad IDs for metadata + LTV lookup...
+2026-05-07 18:06:03 [INFO]   ✅ 111 fetched, 111 upserted (updated if existed, inserted if new)
+2026-05-07 18:06:03 [INFO]   ── Fourth Ad Account - SD: 1,689 fetched, 1,689 upserted
+2026-05-07 18:06:03 [INFO] 
+▶  Third Ad Account - SD
+2026-05-07 18:06:04 [INFO]   Custom conversions found: ['purchase (google)', 'pur ( v > 2000)', 'pur (v>1200)', 'kp-pdp-fts', 'ncp( v >1200 )', 'new-kwikpass user', 'first time visitors (gk)', 'first-time ewv', 'ncp ( q > 1 )', 'ncp ( v > 1500 )', 'purchase ( v > 1500 )', 'purchase (q > 1 )', 'rcp - repeat pur', 'ncp', 'purchase (v) >1000', 'mqp_2+', 'mq_event', 'ic_mq_2+', 'purchase - hv', 'purchase ( q > 2 )', 'organic google visit', 'paid google visit', '2minvisit', 'repeatcustomerpur (cc)', 'adb_ncp']
+2026-05-07 18:06:04 [INFO]   FTEWV ID: 1133449967928420
+2026-05-07 18:06:04 [INFO]   NCP ID: 1532250197416964
+2026-05-07 18:06:04 [INFO]   Fetching Third Ad Account - SD | 2026-04-22 → 2026-05-06
+2026-05-07 18:06:36 [INFO]   1678 rows to insert | 181 unique ad IDs for metadata + LTV lookup...
+2026-05-07 18:07:05 [INFO]   ✅ 1678 fetched, 1678 upserted (updated if existed, inserted if new)
+2026-05-07 18:07:05 [INFO]   Fetching Third Ad Account - SD | 2026-05-07 → 2026-05-07
+2026-05-07 18:07:08 [INFO]   100 rows to insert | 100 unique ad IDs for metadata + LTV lookup...
+2026-05-07 18:07:18 [INFO]   ✅ 100 fetched, 100 upserted (updated if existed, inserted if new)
+2026-05-07 18:07:18 [INFO]   ── Third Ad Account - SD: 1,778 fetched, 1,778 upserted
+2026-05-07 18:07:18 [INFO] 
+============================================================
+2026-05-07 18:07:18 [INFO] DONE | 11,151 fetched | 11,151 upserted | 725s
+2026-05-07 18:07:18 [INFO] ============================================================
+
+2026-05-08 11:35:08 [INFO] Connected. primary_table has 92,722 rows.
+2026-05-08 11:35:08 [INFO] 
+============================================================
+2026-05-08 11:35:08 [INFO] DAILY SYNC | 2026-04-23 → 2026-05-08 (GMT)
+2026-05-08 11:35:08 [INFO] ============================================================
+2026-05-08 11:35:08 [INFO] 
+▶  Raho Saadaa
+2026-05-08 11:35:10 [INFO]   Custom conversions found: ['kp-pdp-fts', 'ft-v90', 'pdp view', 'nc-atc', 'ftv-atc', 'ncp > 1200', 'kp-ev', 'new customer purchase', 'purchase (v) > 1000', 'mkr visit', 'mkr.bio visit', 'purchase (hv) > 1500', 'purchase (q) - 2+', 'repeatcustomerpurchase(cc)', 'newcustomerpurchase(cc)', '2minvisit', 'ncp ( v > 1500 )', 'first-time ewv', 'new-kwikpass user', 'first time visitors (gk)', 'ncp ( q > 1 )', 'rcp - repeat pur', 'ncp']
+2026-05-08 11:35:10 [INFO]   FTEWV ID: 1133449967928420
+2026-05-08 11:35:10 [INFO]   NCP ID: 1109740267306786
+2026-05-08 11:35:10 [INFO]   Fetching Raho Saadaa | 2026-04-23 → 2026-05-07
+2026-05-08 11:35:18 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-08 11:36:47 [WARNING]   Meta 500 server error — waiting 30s (attempt 2/3)
+2026-05-08 11:37:25 [WARNING]   Meta 403 persists — skipping page
+2026-05-08 11:37:25 [INFO]   No data returned
+2026-05-08 11:37:25 [INFO]   Fetching Raho Saadaa | 2026-05-08 → 2026-05-08
+2026-05-08 11:37:37 [INFO]   330 rows to insert | 330 unique ad IDs for metadata + LTV lookup...
+2026-05-08 11:38:19 [INFO]   ✅ 330 fetched, 330 upserted (updated if existed, inserted if new)
+2026-05-08 11:38:19 [INFO]   ── Raho Saadaa: 330 fetched, 330 upserted
+2026-05-08 11:38:19 [INFO] 
+▶  Fourth Ad Account - SD
+2026-05-08 11:38:27 [INFO]   Custom conversions found: ['ncp ( v > 1500 )', 'first-time ewv', 'new-kwikpass user', 'first time visitors (gk)', 'ncp ( q > 1 )', 'rcp - repeat pur', 'ncp']
+2026-05-08 11:38:27 [INFO]   FTEWV ID: 1133449967928420
+2026-05-08 11:38:27 [INFO]   NCP ID: 1109740267306786
+2026-05-08 11:38:27 [INFO]   Fetching Fourth Ad Account - SD | 2026-04-23 → 2026-05-07
+2026-05-08 11:39:04 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-08 11:40:08 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 2/3)
+2026-05-08 11:41:31 [INFO]   1579 rows to insert | 212 unique ad IDs for metadata + LTV lookup...
+2026-05-08 11:42:07 [INFO]   ✅ 1579 fetched, 1579 upserted (updated if existed, inserted if new)
+2026-05-08 11:42:07 [INFO]   Fetching Fourth Ad Account - SD | 2026-05-08 → 2026-05-08
+2026-05-08 11:42:12 [INFO]   93 rows to insert | 93 unique ad IDs for metadata + LTV lookup...
+2026-05-08 11:42:22 [INFO]   ✅ 93 fetched, 93 upserted (updated if existed, inserted if new)
+2026-05-08 11:42:22 [INFO]   ── Fourth Ad Account - SD: 1,672 fetched, 1,672 upserted
+2026-05-08 11:42:22 [INFO] 
+▶  Third Ad Account - SD
+2026-05-08 11:42:23 [INFO]   Custom conversions found: ['purchase (google)', 'pur ( v > 2000)', 'pur (v>1200)', 'kp-pdp-fts', 'ncp( v >1200 )', 'new-kwikpass user', 'first time visitors (gk)', 'first-time ewv', 'ncp ( q > 1 )', 'ncp ( v > 1500 )', 'purchase ( v > 1500 )', 'purchase (q > 1 )', 'rcp - repeat pur', 'ncp', 'purchase (v) >1000', 'mqp_2+', 'mq_event', 'ic_mq_2+', 'purchase - hv', 'purchase ( q > 2 )', 'organic google visit', 'paid google visit', '2minvisit', 'repeatcustomerpur (cc)', 'adb_ncp']
+2026-05-08 11:42:23 [INFO]   FTEWV ID: 1133449967928420
+2026-05-08 11:42:23 [INFO]   NCP ID: 1532250197416964
+2026-05-08 11:42:23 [INFO]   Fetching Third Ad Account - SD | 2026-04-23 → 2026-05-07
+2026-05-08 11:43:04 [INFO]   1674 rows to insert | 183 unique ad IDs for metadata + LTV lookup...
+2026-05-08 11:43:34 [INFO]   ✅ 1674 fetched, 1674 upserted (updated if existed, inserted if new)
+2026-05-08 11:43:34 [INFO]   Fetching Third Ad Account - SD | 2026-05-08 → 2026-05-08
+2026-05-08 11:43:40 [INFO]   79 rows to insert | 79 unique ad IDs for metadata + LTV lookup...
+2026-05-08 11:43:50 [INFO]   ✅ 79 fetched, 79 upserted (updated if existed, inserted if new)
+2026-05-08 11:43:50 [INFO]   ── Third Ad Account - SD: 1,753 fetched, 1,753 upserted
+2026-05-08 11:43:50 [INFO] 
+============================================================
+2026-05-08 11:43:50 [INFO] DONE | 3,755 fetched | 3,755 upserted | 521s
+2026-05-08 11:43:50 [INFO] ============================================================
+
+2026-05-08 13:20:08 [INFO] Connected. primary_table has 93,242 rows.
+2026-05-08 13:20:08 [INFO] 
+============================================================
+2026-05-08 13:20:08 [INFO] DAILY SYNC | 2026-04-23 → 2026-05-08 (GMT)
+2026-05-08 13:20:08 [INFO] ============================================================
+2026-05-08 13:20:08 [INFO] 
+▶  Raho Saadaa
+2026-05-08 13:20:10 [INFO]   Custom conversions found: ['kp-pdp-fts', 'ft-v90', 'pdp view', 'nc-atc', 'ftv-atc', 'ncp > 1200', 'kp-ev', 'new customer purchase', 'purchase (v) > 1000', 'mkr visit', 'mkr.bio visit', 'purchase (hv) > 1500', 'purchase (q) - 2+', 'repeatcustomerpurchase(cc)', 'newcustomerpurchase(cc)', '2minvisit', 'ncp ( v > 1500 )', 'first-time ewv', 'new-kwikpass user', 'first time visitors (gk)', 'ncp ( q > 1 )', 'rcp - repeat pur', 'ncp']
+2026-05-08 13:20:10 [INFO]   FTEWV ID: 1133449967928420
+2026-05-08 13:20:10 [INFO]   NCP ID: 1109740267306786
+2026-05-08 13:20:10 [INFO]   Fetching Raho Saadaa | 2026-04-23 → 2026-05-07
+2026-05-08 13:21:24 [WARNING]   Meta 500 server error — waiting 15s (attempt 1/3)
+2026-05-08 13:23:31 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-08 13:24:38 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 2/3)
+2026-05-08 13:27:04 [INFO]   7254 rows to insert | 830 unique ad IDs for metadata + LTV lookup...
+2026-05-08 13:29:37 [INFO]   ✅ 7254 fetched, 7254 upserted (updated if existed, inserted if new)
+2026-05-08 13:29:37 [INFO]   Fetching Raho Saadaa | 2026-05-08 → 2026-05-08
+2026-05-08 13:29:52 [INFO]   354 rows to insert | 354 unique ad IDs for metadata + LTV lookup...
+2026-05-08 13:30:28 [INFO]   ✅ 354 fetched, 354 upserted (updated if existed, inserted if new)
+2026-05-08 13:31:24 [INFO]   /ads endpoint returned 9262 ads for account 1136644150469466
+2026-05-08 13:31:24 [INFO]   Inserting placeholders: 492 non-delivering active ads × 16 days = 7872 rows
+2026-05-08 14:01:41 [WARNING]   Batch 15 retry 1: connection already closed
+2026-05-08 14:01:55 [INFO]   ── Raho Saadaa: 7,608 fetched, 7,608 upserted, 7,872 placeholders
+2026-05-08 14:01:55 [INFO] 
+▶  Fourth Ad Account - SD
+2026-05-08 14:01:55 [INFO]   Custom conversions found: ['ncp ( v > 1500 )', 'first-time ewv', 'new-kwikpass user', 'first time visitors (gk)', 'ncp ( q > 1 )', 'rcp - repeat pur', 'ncp']
+2026-05-08 14:01:55 [INFO]   FTEWV ID: 1133449967928420
+2026-05-08 14:01:55 [INFO]   NCP ID: 1109740267306786
+2026-05-08 14:01:55 [INFO]   Fetching Fourth Ad Account - SD | 2026-04-23 → 2026-05-07
+2026-05-08 14:02:41 [INFO]   1579 rows to insert | 212 unique ad IDs for metadata + LTV lookup...
+2026-05-08 14:03:11 [INFO]   ✅ 1579 fetched, 1579 upserted (updated if existed, inserted if new)
+2026-05-08 14:03:11 [INFO]   Fetching Fourth Ad Account - SD | 2026-05-08 → 2026-05-08
+2026-05-08 14:03:15 [INFO]   97 rows to insert | 97 unique ad IDs for metadata + LTV lookup...
+2026-05-08 14:03:24 [INFO]   ✅ 97 fetched, 97 upserted (updated if existed, inserted if new)
+2026-05-08 14:03:30 [INFO]   /ads endpoint returned 1188 ads for account 1349767139294217
+2026-05-08 14:03:30 [INFO]   Inserting placeholders: 81 non-delivering active ads × 16 days = 1296 rows
+2026-05-08 14:03:41 [INFO]   ── Fourth Ad Account - SD: 1,676 fetched, 1,676 upserted, 1,296 placeholders
+2026-05-08 14:03:41 [INFO] 
+▶  Third Ad Account - SD
+2026-05-08 14:03:42 [INFO]   Custom conversions found: ['purchase (google)', 'pur ( v > 2000)', 'pur (v>1200)', 'kp-pdp-fts', 'ncp( v >1200 )', 'new-kwikpass user', 'first time visitors (gk)', 'first-time ewv', 'ncp ( q > 1 )', 'ncp ( v > 1500 )', 'purchase ( v > 1500 )', 'purchase (q > 1 )', 'rcp - repeat pur', 'ncp', 'purchase (v) >1000', 'mqp_2+', 'mq_event', 'ic_mq_2+', 'purchase - hv', 'purchase ( q > 2 )', 'organic google visit', 'paid google visit', '2minvisit', 'repeatcustomerpur (cc)', 'adb_ncp']
+2026-05-08 14:03:42 [INFO]   FTEWV ID: 1133449967928420
+2026-05-08 14:03:42 [INFO]   NCP ID: 1532250197416964
+2026-05-08 14:03:42 [INFO]   Fetching Third Ad Account - SD | 2026-04-23 → 2026-05-07
+2026-05-08 14:04:12 [INFO]   1674 rows to insert | 183 unique ad IDs for metadata + LTV lookup...
+2026-05-08 14:04:42 [INFO]   ✅ 1674 fetched, 1674 upserted (updated if existed, inserted if new)
+2026-05-08 14:04:42 [INFO]   Fetching Third Ad Account - SD | 2026-05-08 → 2026-05-08
+2026-05-08 14:04:45 [INFO]   87 rows to insert | 87 unique ad IDs for metadata + LTV lookup...
+2026-05-08 14:04:53 [INFO]   ✅ 87 fetched, 87 upserted (updated if existed, inserted if new)
+2026-05-08 14:05:07 [INFO]   /ads endpoint returned 3401 ads for account 264868699479122
+2026-05-08 14:05:07 [INFO]   Inserting placeholders: 70 non-delivering active ads × 16 days = 1120 rows
+2026-05-08 14:05:17 [INFO]   ── Third Ad Account - SD: 1,761 fetched, 1,761 upserted, 1,120 placeholders
+2026-05-08 14:05:17 [INFO] 
+============================================================
+2026-05-08 14:05:17 [INFO] DONE | 11,045 fetched | 11,045 upserted | 10,288 placeholders | 2708s
+2026-05-08 14:05:17 [INFO] ============================================================
+

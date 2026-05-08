@@ -218,6 +218,51 @@ def get_custom_conversion_ids(account_id: str) -> dict:
     return ids
 
 
+def fetch_all_ads(account_id: str) -> list:
+    """
+    Fetches the full ad list for an account from /act_<id>/ads — every ad regardless
+    of delivery state. Returned as a list of dicts with id, name, status, created_time,
+    campaign_id, campaign_name.
+
+    Why: Meta's /insights endpoint only returns rows for date×ad combinations that
+    actually delivered impressions. Active-but-not-delivering ads never show up there,
+    so the dashboard's count is lower than what Meta Ads Manager UI displays. We use
+    this list to fill in metadata-only placeholder rows so the counts reconcile.
+    """
+    ads = []
+    url = f"{BASE_URL}/act_{account_id}/ads"
+    params = {
+        "fields": "id,name,effective_status,created_time,campaign{id,name}",
+        "limit": 500,
+        "access_token": ACCESS_TOKEN,
+    }
+    page = 0
+    while url:
+        page += 1
+        data = _get(url, params if page == 1 else None)
+        batch = data.get("data", [])
+        for a in batch:
+            camp = a.get("campaign") or {}
+            ct = a.get("created_time", "")
+            ads.append(
+                {
+                    "id": a.get("id", ""),
+                    "name": a.get("name", ""),
+                    "effective_status": a.get("effective_status", ""),
+                    "created_date": ct[:10] if ct else None,
+                    "campaign_id": camp.get("id", ""),
+                    "campaign_name": camp.get("name", ""),
+                }
+            )
+        url = (data.get("paging") or {}).get("next")
+        params = None
+        # Also handle params from "next" URL — paging.next already encodes them
+        if url and "?" not in url:
+            params = {"access_token": ACCESS_TOKEN}
+    log.info(f"  /ads endpoint returned {len(ads)} ads for account {account_id}")
+    return ads
+
+
 def get_ad_metadata(ad_ids: list) -> dict:
     """
     Returns {ad_id: {status, created_date}} for all given IDs.
@@ -540,7 +585,7 @@ def fetch_and_upsert(
 
     if not raw_rows:
         log.info(f"  No data returned")
-        return 0, 0
+        return 0, 0, set()
 
     # Collect unique ad IDs
     ad_ids = list({r["ad_id"] for r in raw_rows if r.get("ad_id")})
@@ -562,16 +607,145 @@ def fetch_and_upsert(
     log.info(
         f"  ✅ {len(rows)} fetched, {n} upserted (updated if existed, inserted if new)"
     )
-    return len(rows), n
+    return len(rows), n, set(ad_ids)
 
 
 # ── Sync functions ────────────────────────────────────────────
+# Statuses Meta returns for ads that are "alive" (eligible to deliver, even if not delivering today).
+# We insert placeholder rows for these so the dashboard can display them even when /insights
+# returned no impressions in the date range.
+ACTIVE_LIKE_STATUSES = {
+    "ACTIVE",
+    "WITH_ISSUES",
+    "PENDING_REVIEW",
+    "PREAPPROVED",
+    "IN_PROCESS",
+    "PENDING_BILLING_INFO",
+}
+
+
+def upsert_placeholders(
+    account_name: str,
+    active_ads: list,
+    delivered_keys: set,
+    since: str,
+    until: str,
+) -> int:
+    """
+    For every active ad that didn't appear in the /insights pull for [since, until],
+    upsert one zero-metrics row per date in the range so the dashboard reflects the
+    same ad list as Meta Ads Manager.
+
+    `delivered_keys` is the set of ad_ids that did appear in /insights.
+    `active_ads` is the list returned by fetch_all_ads().
+    """
+    candidates = [
+        a
+        for a in active_ads
+        if a["id"]
+        and a["id"] not in delivered_keys
+        and (a.get("effective_status") or "").upper() in ACTIVE_LIKE_STATUSES
+    ]
+    if not candidates:
+        log.info("  No placeholder rows needed (all active ads delivered)")
+        return 0
+
+    # Only fill placeholders for ads that have ever delivered impressions —
+    # matches Meta Ads Manager's CSV behavior, which excludes never-delivered
+    # ads from filtered exports even when their status is active.
+    candidate_ids = [a["id"] for a in candidates]
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT DISTINCT ad_id
+                  FROM primary_table
+                 WHERE account_name = %s
+                   AND ad_id = ANY(%s)
+                   AND impressions > 0
+                """,
+                (account_name, candidate_ids),
+            )
+            ever_delivered = {r[0] for r in cur.fetchall()}
+
+    needs_placeholder = [a for a in candidates if a["id"] in ever_delivered]
+    skipped = len(candidates) - len(needs_placeholder)
+    if skipped:
+        log.info(
+            f"  Skipping {skipped} active ads that never delivered (excluded by Meta CSV behavior)"
+        )
+    if not needs_placeholder:
+        log.info("  No placeholder rows needed after past-delivery filter")
+        return 0
+
+    # One row per (ad, date) across the sync range so dashboard date filters always match
+    start_d = date.fromisoformat(since)
+    end_d = date.fromisoformat(until)
+    days = []
+    cur = start_d
+    while cur <= end_d:
+        days.append(cur.isoformat())
+        cur += timedelta(days=1)
+
+    rows = []
+    for ad in needs_placeholder:
+        for d in days:
+            rows.append(
+                {
+                    "account_name": account_name,
+                    "date": d,
+                    "date_stop": d,
+                    "ad_created_date": ad.get("created_date"),
+                    "ad_name": ad.get("name", ""),
+                    "ad_id": ad["id"],
+                    "campaign_name": ad.get("campaign_name", ""),
+                    "campaign_id": ad.get("campaign_id", ""),
+                    "ad_status": ad.get("effective_status", ""),
+                    "impressions": 0,
+                    "reach": 0,
+                    "frequency": 0,
+                    "amount_spent_inr": 0,
+                    "outbound_clicks": 0,
+                    "inline_link_clicks": 0,
+                    "ctr": 0,
+                    "cpc": 0,
+                    "cpm": 0,
+                    "thruplays": 0,
+                    "three_sec_video_plays": 0,
+                    "video_play_time": 0,
+                    "purchase_roas": 0,
+                    "purchases": 0,
+                    "cost_per_purchase": 0,
+                    "conversion_value": 0,
+                    "initiate_checkout": 0,
+                    "add_to_cart": 0,
+                    "post_engagements": 0,
+                    "checkout_completion": 0,
+                    "atc_rate": 0,
+                    "ci_atc_rate": 0,
+                    "purchase_rate": 0,
+                    "ftewv_count": 0,
+                    "cost_per_ftewv": 0,
+                    "ncp_count": 0,
+                    "cost_per_ncp": 0,
+                    "ltv_reach": 0,
+                    "ltv_frequency": 0,
+                }
+            )
+
+    log.info(
+        f"  Inserting placeholders: {len(needs_placeholder)} non-delivering active ads × {len(days)} days = {len(rows)} rows"
+    )
+    return upsert_rows(rows)
+
+
 def sync(since: str, until: str, label: str):
     log.info(f"\n{'='*60}")
     log.info(f"{label.upper()} | {since} → {until} (GMT)")
     log.info(f"{'='*60}")
 
     total_f = total_u = 0
+    total_p = 0
     start = datetime.now()
 
     for acct in ACCOUNTS:
@@ -593,20 +767,37 @@ def sync(since: str, until: str, label: str):
             log.warning(f"  NCP custom conversion not found — will store 0")
 
         af = au = 0
+        delivered_ad_ids: set = set()
         for chunk_since, chunk_until in date_chunks(since, until):
-            f, u = fetch_and_upsert(
+            f, u, ids = fetch_and_upsert(
                 acct["id"], acct["name"], chunk_since, chunk_until, ftewv_id, ncp_id
             )
             af += f
             au += u
+            delivered_ad_ids.update(ids)
 
-        log.info(f"  ── {acct['name']}: {af:,} fetched, {au:,} upserted")
+        # Pull every ad in the account, then placeholder-fill ones that didn't deliver
+        try:
+            active_ads = fetch_all_ads(acct["id"])
+            placeholder_n = upsert_placeholders(
+                acct["name"], active_ads, delivered_ad_ids, since, until
+            )
+            total_p += placeholder_n
+        except Exception as e:
+            log.error(f"  Placeholder fill failed: {e}")
+            placeholder_n = 0
+
+        log.info(
+            f"  ── {acct['name']}: {af:,} fetched, {au:,} upserted, {placeholder_n:,} placeholders"
+        )
         total_f += af
         total_u += au
 
     elapsed = (datetime.now() - start).total_seconds()
     log.info(f"\n{'='*60}")
-    log.info(f"DONE | {total_f:,} fetched | {total_u:,} upserted | {elapsed:.0f}s")
+    log.info(
+        f"DONE | {total_f:,} fetched | {total_u:,} upserted | {total_p:,} placeholders | {elapsed:.0f}s"
+    )
     log.info(f"{'='*60}\n")
 
 
