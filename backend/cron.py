@@ -97,6 +97,43 @@ def run_primary_sync():
         return False
 
 
+def run_lifecycle_classifier():
+    """
+    14-day-buffer lifecycle resolver — recomputes ad_results for every ad in
+    primary_table. Runs after each successful primary sync so today's
+    Result Pending → Failed transitions land same-night.
+    """
+    log.info("-" * 60)
+    log.info("▶  LIFECYCLE CLASSIFIER — ad_results update")
+    log.info(f"   Started: {fmt(now_ist())}")
+    log.info("-" * 60)
+
+    script = PROJECT_DIR / "result_classifier.py"
+    if not script.exists():
+        log.error(f"result_classifier.py not found at {script}")
+        return False
+
+    try:
+        result = subprocess.run(
+            [PYTHON, str(script)],
+            cwd=str(PROJECT_DIR),
+            capture_output=False,
+            timeout=600,  # 10min — pure compute, no Meta API
+        )
+        success = result.returncode == 0
+        log.info(
+            f'   Lifecycle classifier {"✓ done" if success else "❌ FAILED"} — exit code {result.returncode}'
+        )
+        return success
+    except subprocess.TimeoutExpired:
+        log.error("   Lifecycle classifier TIMED OUT after 10 minutes")
+        return False
+    except Exception as e:
+        log.error(f"   Lifecycle classifier ERROR: {e}")
+        traceback.print_exc()
+        return False
+
+
 def run_results_sync():
     """
     Results table sync — reads primary_table → computes metrics → results_table.
@@ -216,9 +253,11 @@ def run_scheduler():
                 log.info(f"\n🌙 Nightly primary sync triggered at {fmt(now)}")
                 ok = run_primary_sync()
 
-                # After primary, also refresh results_table
+                # After primary, refresh ad_results lifecycle and results_table
                 if ok:
-                    log.info("  → Also refreshing results_table after primary sync...")
+                    log.info("  → Recomputing ad_results lifecycle...")
+                    run_lifecycle_classifier()
+                    log.info("  → Refreshing results_table...")
                     run_results_sync()
 
                 primary_next, _ = next_run_times()
@@ -261,12 +300,16 @@ if __name__ == "__main__":
         elif job == "results":
             log.info("Running results sync immediately (--now)")
             run_results_sync()
+        elif job == "lifecycle":
+            log.info("Running lifecycle classifier immediately (--now)")
+            run_lifecycle_classifier()
         elif job == "both":
             log.info("Running both syncs immediately (--now)")
             run_primary_sync()
+            run_lifecycle_classifier()
             run_results_sync()
         else:
-            print("Usage: python cron_runner.py --now [primary|results|both]")
+            print("Usage: python cron_runner.py --now [primary|results|lifecycle|both]")
 
     elif "--status" in args:
         primary_next, results_next = next_run_times()

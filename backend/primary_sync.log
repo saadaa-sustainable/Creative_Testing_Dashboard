@@ -310,3 +310,171 @@ connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection re
 2026-05-08 14:05:17 [INFO] DONE | 11,045 fetched | 11,045 upserted | 10,288 placeholders | 2708s
 2026-05-08 14:05:17 [INFO] ============================================================
 
+2026-05-09 13:27:52 [INFO] Connected. primary_table has 96,092 rows.
+2026-05-09 13:27:53 [INFO] 
+PRIMARY TABLE BACKFILL
+2026-05-09 13:27:53 [INFO] Range:     2026-01-01 → 2026-05-09 (128 days)
+2026-05-09 13:27:53 [INFO] Accounts:  3
+2026-05-09 13:27:53 [INFO] API calls: ~27 chunks × 3 accounts
+2026-05-09 13:27:53 [INFO] Note: LTV stats fetched per chunk (lifetime per ad)
+2026-05-09 13:27:53 [INFO] Tip: tail -f primary_sync.log to watch
+
+2026-05-09 13:27:53 [INFO] 
+============================================================
+2026-05-09 13:27:53 [INFO] PRIMARY BACKFILL | 2026-01-01 → 2026-05-09 (GMT)
+2026-05-09 13:27:53 [INFO] ============================================================
+2026-05-09 13:27:53 [INFO] 
+▶  Raho Saadaa
+2026-05-09 13:27:56 [INFO]   Custom conversions found: ['kp-pdp-fts', 'ft-v90', 'pdp view', 'nc-atc', 'ftv-atc', 'ncp > 1200', 'kp-ev', 'new customer purchase', 'purchase (v) > 1000', 'mkr visit', 'mkr.bio visit', 'purchase (hv) > 1500', 'purchase (q) - 2+', 'repeatcustomerpurchase(cc)', 'newcustomerpurchase(cc)', '2minvisit', 'ncp ( v > 1500 )', 'first-time ewv', 'new-kwikpass user', 'first time visitors (gk)', 'ncp ( q > 1 )', 'rcp - repeat pur', 'ncp']
+2026-05-09 13:27:56 [INFO]   FTEWV ID: 1133449967928420
+2026-05-09 13:27:56 [INFO]   NCP ID: 1109740267306786
+2026-05-09 13:27:56 [INFO]   Fetching Raho Saadaa | 2026-01-01 → 2026-01-15
+2026-05-09 13:28:27 [WARNING]   Meta 500 server error — waiting 15s (attempt 1/3)
+2026-05-09 13:31:07 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 13:32:27 [WARNING]   Meta 500 server error — waiting 30s (attempt 2/3)
+2026-05-09 13:33:13 [WARNING]   Meta 500 persists — skipping page
+2026-05-09 13:33:13 [INFO]   5000 rows to insert | 823 unique ad IDs for metadata + LTV lookup...
+2026-05-09 13:34:30 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 13:36:49 [INFO]   ✅ 5000 fetched, 5000 upserted (updated if existed, inserted if new)
+2026-05-09 13:36:49 [INFO]   Fetching Raho Saadaa | 2026-01-16 → 2026-01-30
+2026-05-09 13:40:26 [INFO]   7989 rows to insert | 851 unique ad IDs for metadata + LTV lookup...
+2026-05-09 13:43:28 [INFO]   ✅ 7989 fetched, 7989 upserted (updated if existed, inserted if new)
+2026-05-09 13:43:28 [INFO]   Fetching Raho Saadaa | 2026-01-31 → 2026-02-14
+2026-05-09 13:43:37 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 13:45:27 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 13:47:36 [WARNING]   Meta 500 server error — waiting 15s (attempt 1/3)
+2026-05-09 13:49:06 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 13:50:53 [INFO]   7081 rows to insert | 733 unique ad IDs for metadata + LTV lookup...
+2026-05-09 13:53:25 [INFO]   ✅ 7081 fetched, 7081 upserted (updated if existed, inserted if new)
+2026-05-09 13:53:25 [INFO]   Fetching Raho Saadaa | 2026-02-15 → 2026-03-01
+2026-05-09 13:53:41 [WARNING]   Meta 500 server error — waiting 15s (attempt 1/3)
+2026-05-09 14:06:03 [WARNING]   Retry 1/3: HTTPSConnectionPool(host='graph.facebook.com', port=443): Read timed out. (read timeout=90)
+2026-05-09 14:06:14 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 2/3)
+2026-05-09 14:08:22 [INFO]   6536 rows to insert | 717 unique ad IDs for metadata + LTV lookup...
+2026-05-09 14:11:04 [INFO]   ✅ 6536 fetched, 6536 upserted (updated if existed, inserted if new)
+2026-05-09 14:11:04 [INFO]   Fetching Raho Saadaa | 2026-03-02 → 2026-03-16
+2026-05-09 14:11:35 [WARNING]   Meta 500 server error — waiting 15s (attempt 1/3)
+2026-05-09 14:12:11 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 14:14:01 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 14:17:57 [INFO]   7857 rows to insert | 821 unique ad IDs for metadata + LTV lookup...
+2026-05-09 14:37:50 [WARNING]   Retry 1/3: HTTPSConnectionPool(host='graph.facebook.com', port=443): Read timed out. (read timeout=90)
+2026-05-09 14:39:08 [INFO]   ✅ 7857 fetched, 7857 upserted (updated if existed, inserted if new)
+2026-05-09 14:39:08 [INFO]   Fetching Raho Saadaa | 2026-03-17 → 2026-03-31
+2026-05-09 14:39:25 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 14:41:08 [WARNING]   Meta 500 server error — waiting 15s (attempt 1/3)
+2026-05-09 14:42:24 [WARNING]   Meta 500 server error — waiting 15s (attempt 1/3)
+2026-05-09 14:42:53 [WARNING]   Meta 500 server error — waiting 30s (attempt 2/3)
+2026-05-09 14:44:16 [WARNING]   Meta 500 server error — waiting 15s (attempt 1/3)
+2026-05-09 14:44:53 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 14:46:48 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 14:48:10 [INFO]   7663 rows to insert | 766 unique ad IDs for metadata + LTV lookup...
+2026-05-09 14:50:48 [INFO]   ✅ 7663 fetched, 7663 upserted (updated if existed, inserted if new)
+2026-05-09 14:50:48 [INFO]   Fetching Raho Saadaa | 2026-04-01 → 2026-04-15
+2026-05-09 14:50:59 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 14:54:55 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 14:56:34 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 14:57:59 [WARNING]   Meta 500 server error — waiting 15s (attempt 1/3)
+2026-05-09 14:58:18 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 2/3)
+2026-05-09 14:59:39 [INFO]   7691 rows to insert | 738 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:02:16 [INFO]   ✅ 7691 fetched, 7691 upserted (updated if existed, inserted if new)
+2026-05-09 15:02:16 [INFO]   Fetching Raho Saadaa | 2026-04-16 → 2026-04-30
+2026-05-09 15:03:12 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 15:06:36 [INFO]   7473 rows to insert | 770 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:09:12 [INFO]   ✅ 7473 fetched, 7473 upserted (updated if existed, inserted if new)
+2026-05-09 15:09:12 [INFO]   Fetching Raho Saadaa | 2026-05-01 → 2026-05-09
+2026-05-09 15:09:23 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 15:11:07 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 15:13:40 [INFO]   4381 rows to insert | 813 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:15:53 [INFO]   ✅ 4381 fetched, 4381 upserted (updated if existed, inserted if new)
+2026-05-09 15:15:55 [WARNING]   Retry 1/3: 400 Client Error: Bad Request for url: https://graph.facebook.com/v21.0/act_1136644150469466/ads?fields=id%2Cname%2Ceffective_status%2Ccreated_time%2Ccampaign%7Bid%2Cname%7D&limit=500&access_token=EAAOynCMdNl4BRH2jfp6hBbZC6zopuIpEHnXtunh7H9cZBVKuHQQdZBgIct6ZCGFpYZAIhGUbHl7Akzaz4y32jaryD5pZCwocOkKxySf7nYkN9RNSVZCA6fGSGWraJuG8LmMXX7xybbWbDrr5JJHNeoQLE5K4e45AlHKmuFjcjof8eO6nfbR4WHFsamh3jtmYAZDZD
+2026-05-09 15:16:02 [WARNING]   Retry 2/3: 400 Client Error: Bad Request for url: https://graph.facebook.com/v21.0/act_1136644150469466/ads?fields=id%2Cname%2Ceffective_status%2Ccreated_time%2Ccampaign%7Bid%2Cname%7D&limit=500&access_token=EAAOynCMdNl4BRH2jfp6hBbZC6zopuIpEHnXtunh7H9cZBVKuHQQdZBgIct6ZCGFpYZAIhGUbHl7Akzaz4y32jaryD5pZCwocOkKxySf7nYkN9RNSVZCA6fGSGWraJuG8LmMXX7xybbWbDrr5JJHNeoQLE5K4e45AlHKmuFjcjof8eO6nfbR4WHFsamh3jtmYAZDZD
+2026-05-09 15:16:14 [ERROR]   Placeholder fill failed: 400 Client Error: Bad Request for url: https://graph.facebook.com/v21.0/act_1136644150469466/ads?fields=id%2Cname%2Ceffective_status%2Ccreated_time%2Ccampaign%7Bid%2Cname%7D&limit=500&access_token=EAAOynCMdNl4BRH2jfp6hBbZC6zopuIpEHnXtunh7H9cZBVKuHQQdZBgIct6ZCGFpYZAIhGUbHl7Akzaz4y32jaryD5pZCwocOkKxySf7nYkN9RNSVZCA6fGSGWraJuG8LmMXX7xybbWbDrr5JJHNeoQLE5K4e45AlHKmuFjcjof8eO6nfbR4WHFsamh3jtmYAZDZD
+2026-05-09 15:16:14 [INFO]   ── Raho Saadaa: 61,671 fetched, 61,671 upserted, 0 placeholders
+2026-05-09 15:16:14 [INFO] 
+▶  Fourth Ad Account - SD
+2026-05-09 15:16:14 [INFO]   Custom conversions found: ['ncp ( v > 1500 )', 'first-time ewv', 'new-kwikpass user', 'first time visitors (gk)', 'ncp ( q > 1 )', 'rcp - repeat pur', 'ncp']
+2026-05-09 15:16:14 [INFO]   FTEWV ID: 1133449967928420
+2026-05-09 15:16:14 [INFO]   NCP ID: 1109740267306786
+2026-05-09 15:16:14 [INFO]   Fetching Fourth Ad Account - SD | 2026-01-01 → 2026-01-15
+2026-05-09 15:16:53 [INFO]   1397 rows to insert | 135 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:17:22 [INFO]   ✅ 1397 fetched, 1397 upserted (updated if existed, inserted if new)
+2026-05-09 15:17:22 [INFO]   Fetching Fourth Ad Account - SD | 2026-01-16 → 2026-01-30
+2026-05-09 15:17:58 [INFO]   1773 rows to insert | 187 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:18:35 [INFO]   ✅ 1773 fetched, 1773 upserted (updated if existed, inserted if new)
+2026-05-09 15:18:35 [INFO]   Fetching Fourth Ad Account - SD | 2026-01-31 → 2026-02-14
+2026-05-09 15:19:19 [INFO]   2225 rows to insert | 239 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:20:06 [INFO]   ✅ 2225 fetched, 2225 upserted (updated if existed, inserted if new)
+2026-05-09 15:20:06 [INFO]   Fetching Fourth Ad Account - SD | 2026-02-15 → 2026-03-01
+2026-05-09 15:20:30 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 15:21:56 [INFO]   2190 rows to insert | 255 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:22:21 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 15:23:46 [INFO]   ✅ 2190 fetched, 2190 upserted (updated if existed, inserted if new)
+2026-05-09 15:23:46 [INFO]   Fetching Fourth Ad Account - SD | 2026-03-02 → 2026-03-16
+2026-05-09 15:24:48 [INFO]   2449 rows to insert | 275 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:25:45 [INFO]   ✅ 2449 fetched, 2449 upserted (updated if existed, inserted if new)
+2026-05-09 15:25:45 [INFO]   Fetching Fourth Ad Account - SD | 2026-03-17 → 2026-03-31
+2026-05-09 15:26:41 [INFO]   2259 rows to insert | 231 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:27:37 [INFO]   ✅ 2259 fetched, 2259 upserted (updated if existed, inserted if new)
+2026-05-09 15:27:37 [INFO]   Fetching Fourth Ad Account - SD | 2026-04-01 → 2026-04-15
+2026-05-09 15:28:09 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 15:29:29 [INFO]   1818 rows to insert | 199 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:30:09 [INFO]   ✅ 1818 fetched, 1818 upserted (updated if existed, inserted if new)
+2026-05-09 15:30:09 [INFO]   Fetching Fourth Ad Account - SD | 2026-04-16 → 2026-04-30
+2026-05-09 15:30:15 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 15:32:08 [INFO]   1563 rows to insert | 181 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:32:45 [INFO]   ✅ 1563 fetched, 1563 upserted (updated if existed, inserted if new)
+2026-05-09 15:32:45 [INFO]   Fetching Fourth Ad Account - SD | 2026-05-01 → 2026-05-09
+2026-05-09 15:33:13 [INFO]   1050 rows to insert | 189 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:33:48 [INFO]   ✅ 1050 fetched, 1050 upserted (updated if existed, inserted if new)
+2026-05-09 15:33:52 [INFO]   /ads endpoint returned 1188 ads for account 1349767139294217
+2026-05-09 15:33:53 [INFO]   Skipping 49 active ads that never delivered (excluded by Meta CSV behavior)
+2026-05-09 15:33:53 [INFO]   No placeholder rows needed after past-delivery filter
+2026-05-09 15:33:53 [INFO]   ── Fourth Ad Account - SD: 16,724 fetched, 16,724 upserted, 0 placeholders
+2026-05-09 15:33:53 [INFO] 
+▶  Third Ad Account - SD
+2026-05-09 15:33:54 [INFO]   Custom conversions found: ['purchase (google)', 'pur ( v > 2000)', 'pur (v>1200)', 'kp-pdp-fts', 'ncp( v >1200 )', 'new-kwikpass user', 'first time visitors (gk)', 'first-time ewv', 'ncp ( q > 1 )', 'ncp ( v > 1500 )', 'purchase ( v > 1500 )', 'purchase (q > 1 )', 'rcp - repeat pur', 'ncp', 'purchase (v) >1000', 'mqp_2+', 'mq_event', 'ic_mq_2+', 'purchase - hv', 'purchase ( q > 2 )', 'organic google visit', 'paid google visit', '2minvisit', 'repeatcustomerpur (cc)', 'adb_ncp']
+2026-05-09 15:33:54 [INFO]   FTEWV ID: 1133449967928420
+2026-05-09 15:33:54 [INFO]   NCP ID: 1532250197416964
+2026-05-09 15:33:54 [INFO]   Fetching Third Ad Account - SD | 2026-01-01 → 2026-01-15
+2026-05-09 15:34:32 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 15:35:43 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 2/3)
+2026-05-09 15:36:49 [WARNING]   Meta 403 persists — skipping page
+2026-05-09 15:36:49 [INFO]   1000 rows to insert | 234 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:37:23 [INFO]   ✅ 1000 fetched, 1000 upserted (updated if existed, inserted if new)
+2026-05-09 15:37:23 [INFO]   Fetching Third Ad Account - SD | 2026-01-16 → 2026-01-30
+2026-05-09 15:38:10 [INFO]   1374 rows to insert | 286 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:38:57 [INFO]   ✅ 1374 fetched, 1374 upserted (updated if existed, inserted if new)
+2026-05-09 15:38:57 [INFO]   Fetching Third Ad Account - SD | 2026-01-31 → 2026-02-14
+2026-05-09 15:39:37 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 15:59:05 [INFO]   1729 rows to insert | 226 unique ad IDs for metadata + LTV lookup...
+2026-05-09 15:59:47 [INFO]   ✅ 1729 fetched, 1729 upserted (updated if existed, inserted if new)
+2026-05-09 15:59:47 [INFO]   Fetching Third Ad Account - SD | 2026-02-15 → 2026-03-01
+2026-05-09 16:00:15 [INFO]   1370 rows to insert | 251 unique ad IDs for metadata + LTV lookup...
+2026-05-09 16:00:57 [INFO]   ✅ 1370 fetched, 1370 upserted (updated if existed, inserted if new)
+2026-05-09 16:00:57 [INFO]   Fetching Third Ad Account - SD | 2026-03-02 → 2026-03-16
+2026-05-09 16:01:26 [INFO]   1168 rows to insert | 171 unique ad IDs for metadata + LTV lookup...
+2026-05-09 16:02:06 [INFO]   ✅ 1168 fetched, 1168 upserted (updated if existed, inserted if new)
+2026-05-09 16:02:06 [INFO]   Fetching Third Ad Account - SD | 2026-03-17 → 2026-03-31
+2026-05-09 16:02:29 [INFO]   1372 rows to insert | 170 unique ad IDs for metadata + LTV lookup...
+2026-05-09 16:03:03 [INFO]   ✅ 1372 fetched, 1372 upserted (updated if existed, inserted if new)
+2026-05-09 16:03:03 [INFO]   Fetching Third Ad Account - SD | 2026-04-01 → 2026-04-15
+2026-05-09 16:03:27 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 1/3)
+2026-05-09 16:04:35 [WARNING]   Meta 403 rate limit — waiting 60s (attempt 2/3)
+2026-05-09 16:05:49 [INFO]   1585 rows to insert | 178 unique ad IDs for metadata + LTV lookup...
+2026-05-09 16:06:36 [INFO]   ✅ 1585 fetched, 1585 upserted (updated if existed, inserted if new)
+2026-05-09 16:06:36 [INFO]   Fetching Third Ad Account - SD | 2026-04-16 → 2026-04-30
+2026-05-09 16:07:11 [INFO]   1686 rows to insert | 174 unique ad IDs for metadata + LTV lookup...
+2026-05-09 16:07:49 [INFO]   ✅ 1686 fetched, 1686 upserted (updated if existed, inserted if new)
+2026-05-09 16:07:49 [INFO]   Fetching Third Ad Account - SD | 2026-05-01 → 2026-05-09
+2026-05-09 16:08:03 [INFO]   985 rows to insert | 153 unique ad IDs for metadata + LTV lookup...
+2026-05-09 16:08:32 [INFO]   ✅ 985 fetched, 985 upserted (updated if existed, inserted if new)
+2026-05-09 16:08:43 [INFO]   /ads endpoint returned 3402 ads for account 264868699479122
+2026-05-09 16:08:45 [INFO]   Skipping 49 active ads that never delivered (excluded by Meta CSV behavior)
+2026-05-09 16:08:45 [INFO]   No placeholder rows needed after past-delivery filter
+2026-05-09 16:08:45 [INFO]   ── Third Ad Account - SD: 12,269 fetched, 12,269 upserted, 0 placeholders
+2026-05-09 16:08:45 [INFO] 
+============================================================
+2026-05-09 16:08:45 [INFO] DONE | 90,664 fetched | 90,664 upserted | 0 placeholders | 9652s
+2026-05-09 16:08:45 [INFO] ============================================================
+
+2026-05-09 16:08:46 [INFO] Total rows in primary_table: 96,991

@@ -144,6 +144,10 @@ def fetch_primary(conn, account_name: str | None = None):
         "conversion_value",
         "video_play_time",
         "purchase_roas",
+        "ftewv_count",
+        "ncp_count",
+        "preview_link",
+        "ad_link",
     ]
     col_str = ", ".join(cols)
 
@@ -207,6 +211,8 @@ def compute_results(
                 "ctype": detect_ctype(ad_name),
                 "product": detect_product(ad_name),
                 "isCopy": is_copy(ad_name),
+                "previewLink": str(r.get("preview_link") or ""),
+                "adLink": str(r.get("ad_link") or ""),
                 "impr": 0,
                 "spend": 0,
                 "reach": 0,
@@ -219,6 +225,12 @@ def compute_results(
                 "ftewv": 0,
                 "ncp": 0,
             }
+        else:
+            # Keep the most recent non-empty link values seen
+            if (r.get("preview_link") or "") and not ad_map[ad_id].get("previewLink"):
+                ad_map[ad_id]["previewLink"] = str(r.get("preview_link") or "")
+            if (r.get("ad_link") or "") and not ad_map[ad_id].get("adLink"):
+                ad_map[ad_id]["adLink"] = str(r.get("ad_link") or "")
 
         ad = ad_map[ad_id]
         ad["impr"] += impr
@@ -310,6 +322,8 @@ def compute_results(
             "cpf": round(sdv(ad["spend"], ad.get("ftewv", 0)), 2),
             "ncp": round(ad.get("ncp", 0)),
             "cpn": round(sdv(ad["spend"], ad.get("ncp", 0)), 2),
+            "preview": ad.get("previewLink", ""),
+            "adLink": ad.get("adLink", ""),
         }
         for ad in ad_map.values()
     ]

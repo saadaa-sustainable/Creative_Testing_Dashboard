@@ -1,0 +1,9 @@
+2026-05-09 16:57:42 [INFO] Pulling primary_table rows for classification…
+2026-05-09 16:59:21 [INFO]   Loaded 96,991 primary_table rows
+2026-05-09 16:59:21 [INFO]   3,550 unique ads to classify
+2026-05-09 16:59:21 [INFO] Upserting 3,550 rows into ad_results…
+2026-05-09 16:59:32 [INFO] Classification complete.
+2026-05-09 16:59:32 [INFO]   Winner:             246
+2026-05-09 16:59:32 [INFO]   Result Pending:     283
+2026-05-09 16:59:32 [INFO]   Failed:           3,021
+2026-05-09 16:59:32 [INFO]   TOTAL:            3,550

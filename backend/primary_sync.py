@@ -140,6 +140,8 @@ COLUMNS = [
     "cost_per_ncp",
     "ltv_reach",
     "ltv_frequency",
+    "preview_link",
+    "ad_link",
 ]
 UPDATE_COLS = [c for c in COLUMNS if c not in ("account_name", "ad_id", "date")]
 
@@ -263,13 +265,38 @@ def fetch_all_ads(account_id: str) -> list:
     return ads
 
 
+def _extract_ad_link(creative: dict) -> str:
+    """
+    Extracts the destination URL from a Meta creative object. Tries the most-likely
+    fields in order — link_url (link ads), object_story_spec.link_data.link (page-post
+    link ads), object_url (catalog / dynamic ads).
+    """
+    if not isinstance(creative, dict):
+        return ""
+    direct = creative.get("link_url")
+    if direct:
+        return direct
+    spec = creative.get("object_story_spec") or {}
+    link_data = spec.get("link_data") or {}
+    if link_data.get("link"):
+        return link_data["link"]
+    if creative.get("object_url"):
+        return creative["object_url"]
+    return ""
+
+
 def get_ad_metadata(ad_ids: list) -> dict:
     """
-    Returns {ad_id: {status, created_date}} for all given IDs.
-    Batches 25 per request. Matches Apps Script's getAdStatusMap + getTargetedAdCreationMap.
+    Returns {ad_id: {status, created_date, preview_link, ad_link}} for all given IDs.
+    Batches 25 per request. Matches Apps Script's getAdStatusMap + getTargetedAdCreationMap
+    plus the two new link fields surfaced in the AE panel.
     """
     metadata = {}
     unique_ids = list(set(ad_ids))
+    fields = (
+        "effective_status,created_time,preview_shareable_link,"
+        "creative{link_url,object_url,object_story_spec{link_data{link}}}"
+    )
     for i in range(0, len(unique_ids), 25):
         chunk = unique_ids[i : i + 25]
         try:
@@ -277,7 +304,7 @@ def get_ad_metadata(ad_ids: list) -> dict:
                 f"{BASE_URL}/",
                 {
                     "ids": ",".join(chunk),
-                    "fields": "effective_status,created_time",
+                    "fields": fields,
                     "access_token": ACCESS_TOKEN,
                 },
             )
@@ -287,6 +314,8 @@ def get_ad_metadata(ad_ids: list) -> dict:
                     metadata[ad_id] = {
                         "status": info.get("effective_status", ""),
                         "created_date": ct[:10] if ct else None,
+                        "preview_link": info.get("preview_shareable_link", "") or "",
+                        "ad_link": _extract_ad_link(info.get("creative") or {}),
                     }
         except Exception as e:
             log.error(f"  Ad metadata error (chunk {i}): {e}")
@@ -456,6 +485,8 @@ def parse_row(
         "cost_per_ncp": round(cost_per_ncp, 2),
         "ltv_reach": round(ltv_ad["reach"], 2),
         "ltv_frequency": round(ltv_ad["frequency"], 4),
+        "preview_link": ad_meta.get("preview_link", ""),
+        "ad_link": ad_meta.get("ad_link", ""),
     }
 
 
@@ -730,6 +761,8 @@ def upsert_placeholders(
                     "cost_per_ncp": 0,
                     "ltv_reach": 0,
                     "ltv_frequency": 0,
+                    "preview_link": ad.get("preview_link", "") or "",
+                    "ad_link": ad.get("ad_link", "") or "",
                 }
             )
 

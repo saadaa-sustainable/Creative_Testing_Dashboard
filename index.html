@@ -313,6 +313,13 @@
         <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;background:linear-gradient(90deg,#00bcd4,#9d00ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-top:1px">All Accounts</div>
         <div style="position:absolute;top:6px;right:8px;width:6px;height:6px;border-radius:50%;background:#00bcd4;box-shadow:0 0 6px #00bcd4;animation:blink 2s ease infinite"></div>
       </div>
+      <!-- Lifecycle tab hidden until database schema changes are finalised. The
+           panel + classifier + ad_results table remain in place so the tab can be
+           re-enabled by removing display:none. -->
+      <div class="acct-sel-tab" id="aSelTabLifecycle" onclick="selectLifecycle(this)" style="display:none;background:linear-gradient(135deg,rgba(74,124,111,0.08),rgba(184,136,58,0.08));border:1px solid rgba(74,124,111,0.25);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s;position:relative">
+        <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#4a7c6f">Lifecycle</div>
+        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;background:linear-gradient(90deg,#4a7c6f,#b8883a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-top:1px">14-Day Buffer</div>
+      </div>
     </div>
     <div class="acct-st as-idle" id="fetchStatus" style="margin-left:auto">
       <div class="as-dot"></div><span id="fetchStatusMsg">Not loaded</span>
@@ -676,6 +683,7 @@ function parseRows(rows){
 // ════════════════════════════════════════
 function selectAccount(num,el){
   var aep=document.getElementById('analysisEnginePanel');if(aep)aep.style.display='none';
+  var lcp=document.getElementById('lifecyclePanel');if(lcp)lcp.style.display='none';
   var ctw=document.getElementById('ctDashboardWrap');if(ctw)ctw.style.display='';
   ACTIVE_ACCT=num;
   const C=[
@@ -731,7 +739,7 @@ async function fetchSheet(){
 async function fetchAllAccountsSupabase(btn){
   try{ const row=await fetchFromResultsTable('All Accounts'); if(row&&row.ads_json){ populateDashboardFromResult(row,'All Accounts (Combined)'); return; } }catch(e){ console.warn('[CT] results_table fast path failed:',e.message); }
   setStatus('results_table empty — fetching primary_table…','info');
-  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','conversion_value','video_play_time','ad_created_date','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp'].join(',');
+  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','conversion_value','video_play_time','ad_created_date','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp','preview_link','ad_link'].join(',');
   const BATCH=1000; let combined=[];
   for(const acct of SHEET_ACCOUNTS){
     let offset=0,hasMore=true;
@@ -795,6 +803,8 @@ function mapSupabaseRows(rows){
       costPerFtewvSheet:Number(r.cost_per_ftewv)||0,
       ncpCount:Number(r.ncp_count)||0,
       costPerNcpSheet:Number(r.cost_per_ncp)||0,
+      previewLink:String(r.preview_link||''),
+      adLink:String(r.ad_link||''),
       thruRate:0,frame1:0,engRate:0,
     };
   });
@@ -1398,6 +1408,8 @@ function populateDashboardFromResult(row,label){
     costPerFtewvSheet:Number(a.cpf)||0,
     ncpCount:Number(a.ncp)||0,
     costPerNcpSheet:Number(a.cpn)||0,
+    previewLink:String(a.preview||''),
+    adLink:String(a.adLink||''),
     thruRate:0,frame1:0,engRate:0,
   }));
   const bar=document.getElementById('syncTimestampBar');
@@ -1444,7 +1456,7 @@ async function fetchFromPrimaryForDateRange(fromVal,toVal){
   setFetchSt('Fetching range…','as-loading'); setStatus('Fetching '+fromVal+' → '+toVal+' from primary_table…','info');
   const dfNote=document.getElementById('dateFilterNote');
   if(dfNote){dfNote.textContent='⏳ Fetching from primary_table for this date range…';dfNote.style.display='inline';}
-  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','conversion_value','video_play_time','ad_created_date','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp'].join(',');
+  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','conversion_value','video_play_time','ad_created_date','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp','preview_link','ad_link'].join(',');
   const accountNames=ACTIVE_ACCT===0?SHEET_ACCOUNTS.map(a=>a.name):[SHEET_ACCOUNTS[ACTIVE_ACCT-1].name];
   const BATCH=1000; let combined=[];
   try{
@@ -2123,6 +2135,8 @@ function ctExportCSV(){
             <th style="text-align:left;min-width:200px">Performance Move</th>
             <th style="text-align:left;min-width:200px">Creative Move</th>
             <th style="text-align:left;min-width:110px">Ad Status</th>
+            <th style="text-align:center;min-width:80px">Preview</th>
+            <th style="text-align:center;min-width:80px">Ad Link</th>
           </tr></thead>
           <tbody id="aeTableBody"></tbody>
         </table>
@@ -2206,7 +2220,7 @@ async function aeReloadForAccount(acctName){
       if(Array.isArray(data)&&data.length&&data[0].ads_json){
         const row=data[0];
         const ads=typeof row.ads_json==='string'?JSON.parse(row.ads_json):(row.ads_json||[]);
-        aeRaw=ads.map(a=>({account_name:acctName,date:row.data_date_to||'',ad_name:a.adName||'',ad_id:a.adId||'',campaign_name:a.campName||'',ad_status:a.adStatus||'',ad_created_date:a.adCreated||'',impressions:a.impr||0,reach:a.reach||0,amount_spent_inr:a.spend||0,purchase_roas:a.convV>0&&a.spend>0?(a.convV/a.spend):0,outbound_clicks:a.clicks||0,ftewv_count:0,ncp_count:0,cost_per_ncp:0,ltv_reach:0,ltv_frequency:0}));
+        aeRaw=ads.map(a=>({account_name:acctName,date:row.data_date_to||'',ad_name:a.adName||'',ad_id:a.adId||'',campaign_name:a.campName||'',ad_status:a.adStatus||'',ad_created_date:a.adCreated||'',impressions:a.impr||0,reach:a.reach||0,amount_spent_inr:a.spend||0,purchase_roas:a.convV>0&&a.spend>0?(a.convV/a.spend):0,outbound_clicks:a.clicks||0,ftewv_count:Number(a.ftewv)||0,ncp_count:Number(a.ncp)||0,cost_per_ncp:Number(a.cpn)||0,ltv_reach:0,ltv_frequency:0,preview_link:String(a.preview||''),ad_link:String(a.adLink||'')}));
         aeLoaded=true;aeFromResultsTable=true;
         const badge=document.getElementById('ae-row-badge');
         badge.textContent='Pre-computed · '+acctName+' · '+ads.length.toLocaleString()+' ads';badge.style.display='inline';
@@ -2234,8 +2248,19 @@ function selectAnalysisEngine(el){
   el.style.background='linear-gradient(135deg,rgba(192,96,58,0.1),rgba(74,124,111,0.08))';
   el.style.border='2px solid rgba(192,96,58,0.3)';
   var ct=document.getElementById('ctDashboardWrap');if(ct)ct.style.display='none';
+  var lp=document.getElementById('lifecyclePanel');if(lp)lp.style.display='none';
   var p=document.getElementById('analysisEnginePanel');p.style.display='block';p.scrollTop=0;
   if(!aeLoaded) aeReload();
+}
+
+function selectLifecycle(el){
+  document.querySelectorAll('.acct-sel-tab').forEach(t=>{t.style.background='var(--surface2)';t.style.border='1px solid var(--border)';t.style.transform='none';t.style.boxShadow='none';});
+  el.style.background='linear-gradient(135deg,rgba(74,124,111,0.1),rgba(184,136,58,0.08))';
+  el.style.border='2px solid rgba(74,124,111,0.3)';
+  var ct=document.getElementById('ctDashboardWrap');if(ct)ct.style.display='none';
+  var ae=document.getElementById('analysisEnginePanel');if(ae)ae.style.display='none';
+  var p=document.getElementById('lifecyclePanel');p.style.display='block';p.scrollTop=0;
+  if(!lcLoaded) lcReload();
 }
 
 function aeHandleDateChange(){
@@ -2361,7 +2386,7 @@ async function aeFetchPrimaryForRange(fromVal,toVal){
   document.getElementById('ae-loading').style.display='block';
   document.getElementById('ae-content').style.display='none';
   document.getElementById('ae-load-sub').textContent='Fetching primary_table: '+fromVal+' to '+toVal+'...';
-  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','ad_created_date','impressions','reach','amount_spent_inr','purchase_roas','outbound_clicks','ftewv_count','ncp_count','cost_per_ncp','ltv_reach','ltv_frequency'].join(',');
+  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','ad_created_date','impressions','reach','amount_spent_inr','purchase_roas','outbound_clicks','ftewv_count','ncp_count','cost_per_ncp','ltv_reach','ltv_frequency','preview_link','ad_link'].join(',');
   const BATCH=1000;let all=[],more=true,offset=0,pg=0;
   try{
     while(more){pg++;document.getElementById('ae-load-sub').textContent='Page '+pg+' — '+all.length.toLocaleString()+' rows...';
@@ -2393,7 +2418,7 @@ async function aeReload(){
       if(Array.isArray(rtData)&&rtData.length&&rtData[0].ads_json){
         const row=rtData[0];
         const ads=typeof row.ads_json==='string'?JSON.parse(row.ads_json):(row.ads_json||[]);
-        aeRaw=ads.map(a=>({account_name:a.acct||row.account_name||'',date:row.data_date_to||'',ad_name:a.adName||'',ad_id:a.adId||'',campaign_name:a.campName||'',ad_status:a.adStatus||'',ad_created_date:a.adCreated||'',impressions:a.impr||0,reach:a.reach||0,amount_spent_inr:a.spend||0,purchase_roas:a.convV>0&&a.spend>0?(a.convV/a.spend):0,outbound_clicks:a.clicks||0,ftewv_count:0,ncp_count:0,cost_per_ncp:0,ltv_reach:0,ltv_frequency:0}));
+        aeRaw=ads.map(a=>({account_name:a.acct||row.account_name||'',date:row.data_date_to||'',ad_name:a.adName||'',ad_id:a.adId||'',campaign_name:a.campName||'',ad_status:a.adStatus||'',ad_created_date:a.adCreated||'',impressions:a.impr||0,reach:a.reach||0,amount_spent_inr:a.spend||0,purchase_roas:a.convV>0&&a.spend>0?(a.convV/a.spend):0,outbound_clicks:a.clicks||0,ftewv_count:Number(a.ftewv)||0,ncp_count:Number(a.ncp)||0,cost_per_ncp:Number(a.cpn)||0,ltv_reach:0,ltv_frequency:0,preview_link:String(a.preview||''),ad_link:String(a.adLink||'')}));
         aeFromResultsTable=true;aeLoaded=true;
         const ct=row.computed_at?new Date(row.computed_at).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}):'?';
         const badge=document.getElementById('ae-row-badge');badge.textContent='Pre-computed · '+ads.length.toLocaleString()+' ads · '+ct;badge.style.display='inline';
@@ -2403,7 +2428,7 @@ async function aeReload(){
     }
   }catch(e){console.warn('AE results_table check:',e.message);}
   document.getElementById('ae-load-sub').textContent='Loading primary_table...';
-  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','ad_created_date','impressions','reach','amount_spent_inr','purchase_roas','outbound_clicks','ftewv_count','ncp_count','cost_per_ncp','ltv_reach','ltv_frequency'].join(',');
+  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','ad_created_date','impressions','reach','amount_spent_inr','purchase_roas','outbound_clicks','ftewv_count','ncp_count','cost_per_ncp','ltv_reach','ltv_frequency','preview_link','ad_link'].join(',');
   const BATCH=1000;let all=[],offset=0,more=true,pg=0;
   try{
     while(more){pg++;document.getElementById('ae-load-sub').textContent='Page '+pg+' — '+all.length.toLocaleString()+' rows loaded...';
@@ -2453,8 +2478,11 @@ function aeCompute(){
     const ncpC=Number(r.cost_per_ncp)||0,ncp=ncpC>0?spend/ncpC:0;
     const purV=roas*spend,ltvR=Number(r.ltv_reach)||0,ltvF=Number(r.ltv_frequency)||0;
     const dMs=r.date?new Date(r.date+'T00:00:00').getTime():0;
-    if(!adMap[key]){adMap[key]={name:grp==='campaign'?camp:String(r.ad_name||'?'),campName:camp,adId,acct:String(r.account_name||''),status:String(r.ad_status||''),created:String(r.ad_created_date||''),ltvR:0,ltvF:0,firstD:dMs,days:[],imp:0,reach:0,spend:0,outClicks:0,cpcSheetSum:0,cpcSheetCount:0,ftewv:0,ncp:0,purV:0,ltvI:0,ltvS:0,ltvRS:0};}
+    if(!adMap[key]){adMap[key]={name:grp==='campaign'?camp:String(r.ad_name||'?'),campName:camp,adId,acct:String(r.account_name||''),status:String(r.ad_status||''),created:String(r.ad_created_date||''),previewLink:'',adLink:'',ltvR:0,ltvF:0,firstD:dMs,days:[],imp:0,reach:0,spend:0,outClicks:0,cpcSheetSum:0,cpcSheetCount:0,ftewv:0,ncp:0,purV:0,ltvI:0,ltvS:0,ltvRS:0};}
     const ad=adMap[key];
+    // Capture first non-empty links seen for this ad
+    if(!ad.previewLink && (r.preview_link||'')) ad.previewLink = String(r.preview_link);
+    if(!ad.adLink     && (r.ad_link||''))      ad.adLink     = String(r.ad_link);
     if(ltvR>ad.ltvR)ad.ltvR=ltvR;if(ltvF>ad.ltvF)ad.ltvF=ltvF;
     if(dMs&&dMs<ad.firstD)ad.firstD=dMs;
     ad.imp+=imp;ad.reach+=reach;ad.spend+=spend;ad.outClicks+=outClicks;
@@ -2512,6 +2540,7 @@ function aeCompute(){
       campName:ad.campName,adId:grp==='campaign'?'[Grp]':String(k),
       adName:ad.name,acct:ad.acct,created:ad.created||'—',firstDate:fmt(ad.firstD),
       adStatus:ad.status,category:cat,
+      previewLink:ad.previewLink||'',adLink:ad.adLink||'',
       imp:ad.imp,rawRoas:N,rawCpc:cpc,rawSpend:ad.ltvS,rawProfit:S,rawBlended:bl,
       // Filter flag display
       f1Pass:f1,f2Pass:f2,f3Pass:f3,
@@ -2765,9 +2794,295 @@ function aeRender(){
 <td style="padding:11px 14px;color:#9a9187;font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${r.perf}">${r.perf}</td>
 <td style="padding:11px 14px;color:#9a9187;font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${r.creative}">${r.creative}</td>
 <td style="padding:11px 14px"><span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:9.5px;font-weight:700;text-transform:uppercase;${as_s}">${r.adStatus||'—'}</span></td>
+<td style="padding:11px 14px;text-align:center">${r.previewLink?`<a href="${r.previewLink.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" style="color:#4a6fa5;text-decoration:none;font-weight:600;font-size:11px">↗ Preview</a>`:'<span style="color:#cdc8bc">—</span>'}</td>
+<td style="padding:11px 14px;text-align:center">${r.adLink?`<a href="${r.adLink.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" style="color:#4a7c6f;text-decoration:none;font-weight:600;font-size:11px">↗ Open</a>`:'<span style="color:#cdc8bc">—</span>'}</td>
 </tr>`;
   }).join('');
-  document.getElementById('aeTableBody').innerHTML=rows||'<tr><td colspan="27" style="padding:40px;text-align:center;color:#9a9187;font-size:13px">No ads match current filters</td></tr>';
+  document.getElementById('aeTableBody').innerHTML=rows||'<tr><td colspan="29" style="padding:40px;text-align:center;color:#9a9187;font-size:13px">No ads match current filters</td></tr>';
+}
+</script>
+
+<!-- ════════════════════════════════════════ -->
+<!-- LIFECYCLE PANEL — 14-Day Buffer View     -->
+<!-- ════════════════════════════════════════ -->
+<div id="lifecyclePanel" style="display:none;position:fixed;inset:0;z-index:100;overflow-y:auto;background:#f4f1eb;font-family:'Roboto',sans-serif">
+  <style>
+    #lifecyclePanel{--lc-bg:#f4f1eb;--lc-surface:#fff;--lc-surface2:#faf8f5;--lc-border:#e0dbd0;--lc-ink:#1c1916;--lc-ink2:#4a4540;--lc-muted:#9a9187;--lc-sage:#4a7c6f;--lc-sage-lt:#e6f0ee;--lc-gold:#b8883a;--lc-gold-lt:#fdf5e6;--lc-terra:#c0603a;--lc-terra-lt:#f5ebe6;--lc-slate:#4a6fa5;--lc-slate-lt:#eaf0f8}
+    #lifecyclePanel *{box-sizing:border-box}
+    #lifecyclePanel .lc-card{background:var(--lc-surface);border:1px solid var(--lc-border);border-radius:14px}
+    #lifecyclePanel .lc-chip{cursor:pointer;padding:14px 18px;border-radius:12px;border:1px solid var(--lc-border);transition:all .15s;background:var(--lc-surface)}
+    #lifecyclePanel .lc-chip:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(28,25,22,.06)}
+    #lifecyclePanel .lc-chip.active{box-shadow:0 0 0 2px currentColor inset}
+    #lifecyclePanel input,#lifecyclePanel select{font-family:inherit;font-size:12px;padding:7px 10px;border-radius:8px;border:1px solid var(--lc-border);background:var(--lc-surface2);color:var(--lc-ink);outline:none}
+    #lifecyclePanel input:focus,#lifecyclePanel select:focus{border-color:var(--lc-sage);box-shadow:0 0 0 3px rgba(74,124,111,.1)}
+    #lifecyclePanel table.lc-tbl{width:100%;border-collapse:separate;border-spacing:0}
+    #lifecyclePanel table.lc-tbl thead th{background:var(--lc-surface2);color:var(--lc-muted);border-bottom:1px solid var(--lc-border);font-weight:700;text-transform:uppercase;font-size:9.5px;letter-spacing:1px;white-space:nowrap;padding:11px 14px;cursor:pointer;user-select:none;position:sticky;top:0;z-index:3}
+    #lifecyclePanel table.lc-tbl thead th:hover{color:var(--lc-sage)}
+    #lifecyclePanel table.lc-tbl tbody tr{background:var(--lc-surface);transition:background .15s}
+    #lifecyclePanel table.lc-tbl tbody tr:nth-child(even){background:var(--lc-surface2)}
+    #lifecyclePanel table.lc-tbl tbody tr:hover{background:var(--lc-sage-lt) !important}
+    #lifecyclePanel table.lc-tbl tbody td{border-bottom:1px solid #edeae2;color:var(--lc-ink2);padding:11px 14px;vertical-align:middle;white-space:nowrap;font-size:12px}
+    #lifecyclePanel .lc-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
+  </style>
+
+  <div style="max-width:1600px;margin:0 auto;padding:32px 24px">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:.62rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--lc-muted)">Creative Testing · Lifecycle</div>
+        <div style="font-family:'Roboto',sans-serif;font-size:1.6rem;font-weight:900;color:var(--lc-ink);margin-top:4px">14-Day Buffer Resolver</div>
+        <div style="font-size:.7rem;color:var(--lc-muted);margin-top:2px">From ad_created_date · 50,000 impression threshold · re-classified after every primary sync</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="lcReload()" style="background:var(--lc-surface2);border:1px solid var(--lc-border);color:var(--lc-ink2);border-radius:8px;padding:8px 14px;font-size:.72rem;font-weight:600;cursor:pointer">↻ Refresh</button>
+        <button onclick="lcExport()" style="background:#e6f0ee;border:1px solid rgba(74,124,111,.3);color:var(--lc-sage);border-radius:8px;padding:8px 14px;font-size:.72rem;font-weight:600;cursor:pointer">↓ Export CSV</button>
+      </div>
+    </div>
+
+    <!-- Status Chips -->
+    <div id="lcChips" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px"></div>
+
+    <!-- Filters -->
+    <div class="lc-card" style="padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--lc-muted)">Filters</span>
+      <select id="lc-acct" onchange="lcApplyFilters()">
+        <option value="">All Accounts</option>
+        <option value="Raho Saadaa">Raho Saadaa</option>
+        <option value="Fourth Ad Account - SD">Fourth Ad Account - SD</option>
+        <option value="Third Ad Account - SD">Third Ad Account - SD</option>
+      </select>
+      <input id="lc-name" type="text" placeholder="Ad name contains…" oninput="lcApplyFilters()" style="min-width:240px"/>
+      <span style="font-size:.6rem;color:var(--lc-muted)">Created</span>
+      <input id="lc-created-from" type="date" onchange="lcApplyFilters()"/>
+      <span style="color:var(--lc-muted)">→</span>
+      <input id="lc-created-to" type="date" onchange="lcApplyFilters()"/>
+      <button onclick="lcClearFilters()" style="background:var(--lc-surface2);border:1px solid var(--lc-border);color:var(--lc-muted);border-radius:8px;padding:7px 12px;font-size:.7rem;cursor:pointer">Clear</button>
+      <span id="lc-row-info" style="margin-left:auto;font-size:.7rem;color:var(--lc-muted)"></span>
+    </div>
+
+    <!-- Loading -->
+    <div id="lc-loading" style="text-align:center;padding:40px;color:var(--lc-muted);font-size:.8rem">Loading lifecycle data…</div>
+
+    <!-- Table -->
+    <div id="lc-content" style="display:none">
+      <div class="lc-card" style="overflow-x:auto;padding:0">
+        <table class="lc-tbl">
+          <thead><tr>
+            <th onclick="lcSort('account_name')" style="text-align:left;min-width:160px">Account &#8597;</th>
+            <th onclick="lcSort('ad_name')" style="text-align:left;min-width:280px">Ad Name &#8597;</th>
+            <th onclick="lcSort('campaign_name')" style="text-align:left;min-width:200px">Campaign &#8597;</th>
+            <th onclick="lcSort('result_status')" style="text-align:center;min-width:140px">Status &#8597;</th>
+            <th onclick="lcSort('ad_created_date')" style="text-align:left;min-width:120px">Created &#8597;</th>
+            <th onclick="lcSort('evaluation_end_date')" style="text-align:left;min-width:120px">Eval Ends &#8597;</th>
+            <th onclick="lcSort('impressions_14d')" style="text-align:right;min-width:130px">Impr (14d) &#8597;</th>
+            <th onclick="lcSort('crossed_threshold_at')" style="text-align:left;min-width:130px">Crossed 50K &#8597;</th>
+            <th onclick="lcSort('ad_status')" style="text-align:left;min-width:120px">Ad Status &#8597;</th>
+          </tr></thead>
+          <tbody id="lcTableBody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:.7rem;color:var(--lc-muted)">
+        <span id="lc-pager-info"></span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button onclick="lcPage(-1)" style="border:1px solid var(--lc-border);background:var(--lc-surface);border-radius:7px;padding:5px 10px;cursor:pointer;font-size:11px">‹ Prev</button>
+          <button onclick="lcPage(1)" style="border:1px solid var(--lc-border);background:var(--lc-surface);border-radius:7px;padding:5px 10px;cursor:pointer;font-size:11px">Next ›</button>
+          <select id="lc-page-size" onchange="lcSetPageSize()" style="font-size:11px">
+            <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option><option value="250">250</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+// LIFECYCLE PANEL — 14-day buffer view
+// ════════════════════════════════════════
+let lcLoaded=false, lcAll=[], lcFiltered=[], lcChip='', lcSortKey='ad_created_date', lcSortDir=-1;
+let lcPageNum=0, lcPerPage=50;
+
+const LC_STATUS_CFG = {
+  'Winner':         { color:'#2d6a4f', bg:'#e6f0ee', border:'rgba(45,106,79,.3)',  emoji:'🟢', desc:'Crossed 50K in window' },
+  'Result Pending': { color:'#92620a', bg:'#fdf5e6', border:'rgba(146,98,10,.3)',  emoji:'🟡', desc:'Inside 14-day buffer' },
+  'Failed':         { color:'#9b2335', bg:'#f5ebe6', border:'rgba(155,35,53,.3)',  emoji:'🔴', desc:'Window expired without 50K' },
+};
+
+async function lcReload(){
+  lcLoaded=false;
+  document.getElementById('lc-loading').style.display='block';
+  document.getElementById('lc-content').style.display='none';
+  try{
+    if(!SUPABASE_URL || !SUPABASE_ANON){
+      document.getElementById('lc-loading').textContent='Supabase credentials missing — cannot load ad_results.';
+      return;
+    }
+    const url=SUPABASE_URL+'/rest/v1/ad_results?select=*&order=ad_created_date.desc&limit=10000';
+    const res=await fetch(url,{headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,'Prefer':'count=none'}});
+    if(!res.ok){
+      document.getElementById('lc-loading').textContent='Failed to load: '+res.status+' '+res.statusText;
+      return;
+    }
+    lcAll = await res.json();
+    lcLoaded=true;
+    document.getElementById('lc-loading').style.display='none';
+    document.getElementById('lc-content').style.display='block';
+    lcApplyFilters();
+  } catch(e){
+    document.getElementById('lc-loading').textContent='Error: '+e.message;
+  }
+}
+
+function lcApplyFilters(){
+  const acct=document.getElementById('lc-acct').value;
+  const nm=(document.getElementById('lc-name').value||'').toLowerCase().trim();
+  const cf=document.getElementById('lc-created-from').value;
+  const ct=document.getElementById('lc-created-to').value;
+
+  lcFiltered = lcAll.filter(r=>{
+    if(acct && r.account_name!==acct) return false;
+    if(nm && !(r.ad_name||'').toLowerCase().includes(nm)) return false;
+    if(cf && (!r.ad_created_date || r.ad_created_date < cf)) return false;
+    if(ct && (!r.ad_created_date || r.ad_created_date > ct)) return false;
+    if(lcChip && r.result_status !== lcChip) return false;
+    return true;
+  });
+
+  lcSortApply();
+  lcPageNum=0;
+  lcRenderChips();
+  lcRender();
+}
+
+function lcSortApply(){
+  lcFiltered.sort((a,b)=>{
+    const av=a[lcSortKey] ?? '', bv=b[lcSortKey] ?? '';
+    if(typeof av==='number' && typeof bv==='number') return (av-bv)*lcSortDir;
+    return String(av).localeCompare(String(bv))*lcSortDir;
+  });
+}
+
+function lcSort(key){
+  if(lcSortKey===key) lcSortDir*=-1;
+  else { lcSortKey=key; lcSortDir=-1; }
+  lcSortApply(); lcRender();
+}
+
+function lcChipSet(status){
+  lcChip = (lcChip===status) ? '' : status;
+  lcApplyFilters();
+}
+
+function lcClearFilters(){
+  document.getElementById('lc-acct').value='';
+  document.getElementById('lc-name').value='';
+  document.getElementById('lc-created-from').value='';
+  document.getElementById('lc-created-to').value='';
+  lcChip='';
+  lcApplyFilters();
+}
+
+function lcRenderChips(){
+  // Counts based on the *unfiltered chip* set (so chip flipping doesn't zero itself out)
+  const baseFiltered = lcAll.filter(r=>{
+    const acct=document.getElementById('lc-acct').value;
+    const nm=(document.getElementById('lc-name').value||'').toLowerCase().trim();
+    const cf=document.getElementById('lc-created-from').value;
+    const ct=document.getElementById('lc-created-to').value;
+    if(acct && r.account_name!==acct) return false;
+    if(nm && !(r.ad_name||'').toLowerCase().includes(nm)) return false;
+    if(cf && (!r.ad_created_date || r.ad_created_date < cf)) return false;
+    if(ct && (!r.ad_created_date || r.ad_created_date > ct)) return false;
+    return true;
+  });
+  const counts = {Winner:0,'Result Pending':0,Failed:0};
+  baseFiltered.forEach(r=>{ if(counts[r.result_status]!==undefined) counts[r.result_status]++; });
+  const total = baseFiltered.length;
+
+  const chipDefs = [
+    {key:'',                label:'All',             color:'#4a6fa5', bg:'#eaf0f8', border:'rgba(74,111,165,.3)', n:total, emoji:'📊'},
+    {key:'Winner',          label:'Winner',          color:'#2d6a4f', bg:'#e6f0ee', border:'rgba(45,106,79,.3)',  n:counts.Winner, emoji:'🟢'},
+    {key:'Result Pending',  label:'Result Pending',  color:'#92620a', bg:'#fdf5e6', border:'rgba(146,98,10,.3)',  n:counts['Result Pending'], emoji:'🟡'},
+    {key:'Failed',          label:'Failed',          color:'#9b2335', bg:'#f5ebe6', border:'rgba(155,35,53,.3)',  n:counts.Failed, emoji:'🔴'},
+  ];
+
+  document.getElementById('lcChips').innerHTML = chipDefs.map(c=>{
+    const active = (c.key===lcChip);
+    const pct = total>0 ? Math.round((c.n/total)*100) : 0;
+    return `<div class="lc-chip${active?' active':''}" style="color:${c.color};background:${c.bg};border:1px solid ${c.border}" onclick="lcChipSet('${c.key.replace(/'/g,"\\'")}')">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+        <span style="font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase">${c.emoji} ${c.label}</span>
+        ${c.key!==''?`<span style="font-size:.55rem;font-weight:600;opacity:.65">${pct}%</span>`:''}
+      </div>
+      <div style="font-family:'Roboto',sans-serif;font-size:1.85rem;font-weight:900;line-height:1;margin-top:4px">${c.n.toLocaleString()}</div>
+    </div>`;
+  }).join('');
+}
+
+function lcRender(){
+  const st=lcPageNum*lcPerPage, en=st+lcPerPage, pg=lcFiltered.slice(st,en), tot=lcFiltered.length;
+  document.getElementById('lc-row-info').textContent = tot.toLocaleString()+' ads';
+  document.getElementById('lc-pager-info').textContent = (tot===0?0:st+1).toLocaleString()+'–'+Math.min(en,tot).toLocaleString()+' of '+tot.toLocaleString()+' · Page '+(lcPageNum+1)+' / '+Math.max(1,Math.ceil(tot/lcPerPage));
+
+  const fmtN = n => (n||0).toLocaleString('en-IN');
+  const rows = pg.map(r=>{
+    const sc = LC_STATUS_CFG[r.result_status] || {color:'#9a9187',bg:'#edeae2',border:'#cdc8bc',emoji:'•'};
+    const safeName = String(r.ad_name||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+    const safeCamp = String(r.campaign_name||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    const adStatus = r.ad_status||'—';
+    return `<tr>
+<td style="color:#4a4540">${r.account_name||''}</td>
+<td style="color:#1c1916;font-weight:600;max-width:300px;overflow:hidden;text-overflow:ellipsis" title="${safeName}">${safeName}</td>
+<td style="color:#9a9187;max-width:220px;overflow:hidden;text-overflow:ellipsis" title="${safeCamp}">${safeCamp||'—'}</td>
+<td style="text-align:center"><span class="lc-badge" style="background:${sc.bg};color:${sc.color};border:1px solid ${sc.border}">${sc.emoji} ${r.result_status}</span></td>
+<td style="color:#4a4540;font-family:'Roboto Mono',monospace;font-size:11px">${r.ad_created_date||'—'}</td>
+<td style="color:#9a9187;font-family:'Roboto Mono',monospace;font-size:11px">${r.evaluation_end_date||'—'}</td>
+<td style="text-align:right;font-family:'Roboto Mono',monospace;font-weight:700;color:${(r.impressions_14d||0)>=50000?'#2d6a4f':'#4a4540'}">${fmtN(r.impressions_14d)}</td>
+<td style="color:${r.crossed_threshold_at?'#2d6a4f':'#cdc8bc'};font-family:'Roboto Mono',monospace;font-size:11px;font-weight:${r.crossed_threshold_at?'700':'400'}">${r.crossed_threshold_at||'—'}</td>
+<td style="color:#9a9187;font-size:11px">${adStatus}</td>
+</tr>`;
+  }).join('');
+  document.getElementById('lcTableBody').innerHTML = rows || '<tr><td colspan="9" style="padding:40px;text-align:center;color:#9a9187">No ads match current filters</td></tr>';
+}
+
+function lcPage(d){
+  const max = Math.ceil(lcFiltered.length/lcPerPage)-1;
+  lcPageNum = Math.max(0, Math.min(max, lcPageNum+d));
+  lcRender();
+}
+function lcSetPageSize(){
+  lcPerPage = parseInt(document.getElementById('lc-page-size').value)||50;
+  lcPageNum=0; lcRender();
+}
+
+function lcExport(){
+  const headers = ['Account','Ad Name','Campaign','Status','Ad Created','Eval Ends','Impressions (14d)','Crossed 50K','Ad Status','Ad ID'];
+  const esc = v => '"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const rows = lcFiltered.map(r=>[
+    r.account_name, r.ad_name, r.campaign_name, r.result_status,
+    r.ad_created_date, r.evaluation_end_date, r.impressions_14d,
+    r.crossed_threshold_at||'', r.ad_status||'', r.ad_id
+  ]);
+  const meta = [
+    ['# Lifecycle Export'],
+    ['# Exported At', new Date().toLocaleString('en-IN')],
+    ['# Status Filter', lcChip||'All'],
+    ['# Account Filter', document.getElementById('lc-acct').value||'All Accounts'],
+    ['# Name Filter', document.getElementById('lc-name').value||'(none)'],
+    ['# Total Rows', lcFiltered.length],
+    ['#'],
+  ];
+  const lines = [];
+  meta.forEach(row => lines.push(row.map(esc).join(',')));
+  lines.push(headers.map(esc).join(','));
+  rows.forEach(row => lines.push(row.map(esc).join(',')));
+  const blob = new Blob(['﻿'+lines.join('\r\n')], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'Lifecycle_Export_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 </script>
 </body>
