@@ -598,14 +598,16 @@ function parseSheetDate(raw){
 }
 function parseInputDate(s){ if(!s) return null; const [y,mo,d]=s.split('-').map(Number); return new Date(y,mo-1,d); }
 function setDefaultDates(){
-  // Default view = rolling last 30 days (matches results_table snapshot window).
-  // Today inclusive minus 29 = 30 days. Uses local-date components to avoid the
-  // toISOString UTC shift bug that previously caused off-by-one in IST.
+  // Default view = rolling last 30 days ending YESTERDAY (excludes today's partial day
+  // so the dashboard's totals line up with Meta's typical CSV exports, which also
+  // omit today's partial delivery). Window: today-30 → today-1, inclusive = 30 days.
+  // Uses local-date components to avoid the toISOString UTC shift bug.
   const today=new Date();
-  const from=new Date(today); from.setDate(today.getDate()-29);
+  const from=new Date(today); from.setDate(today.getDate()-30);
+  const to  =new Date(today); to.setDate(today.getDate()-1);
   const fmt=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return`${y}-${m}-${dd}`;};
   document.getElementById('dateFrom').value=fmt(from);
-  document.getElementById('dateTo').value  =fmt(today);
+  document.getElementById('dateTo').value  =fmt(to);
 }
 function fmtDate(d){ return d?d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'?'; }
 
@@ -949,16 +951,27 @@ function applyFilters(){
   const fromVal=document.getElementById('dateFrom').value;
   const toVal=document.getElementById('dateTo').value;
   const from=parseInputDate(fromVal),to=parseInputDate(toVal);
-  // Detect whether the current selection is the rolling 30-day default
+  // Build a label that's honest about what data window is actually being shown.
+  // - When inputs are populated: show the explicit range, flag if it's the rolling 30d default.
+  // - When inputs are cleared but results_table data is in memory: show its cached window,
+  //   not "All dates" (the chip used to lie about lifetime when only 30d data was present).
   let label;
   if(!from && !to){
-    label='All dates';
+    const rw = window._resultsWindow || {};
+    if(rw.from && rw.to){
+      const fmtIso = s => fmtDate(new Date(s+'T00:00:00'));
+      label = 'Last 30 days · '+fmtIso(rw.from)+' → '+fmtIso(rw.to);
+    } else {
+      label = 'All dates';
+    }
   } else {
+    // The new default is today-30 → today-1 (excludes today's partial day).
     const today=new Date(); today.setHours(0,0,0,0);
-    const defaultFrom=new Date(today); defaultFrom.setDate(today.getDate()-29);
+    const defaultFrom=new Date(today); defaultFrom.setDate(today.getDate()-30);
+    const defaultTo  =new Date(today); defaultTo.setDate(today.getDate()-1);
     const isDefault30 = from && to &&
                         from.getTime()===defaultFrom.getTime() &&
-                        Math.abs(to.getTime()-today.getTime()) < 86400000;
+                        Math.abs(to.getTime()-defaultTo.getTime()) < 86400000;
     label = isDefault30
       ? 'Last 30 days · '+fmtDate(from)+' → '+fmtDate(to)
       : fmtDate(from)+' → '+fmtDate(to);
