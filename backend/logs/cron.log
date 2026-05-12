@@ -199,3 +199,63 @@
 2026-05-08 18:00:29 [INFO] ------------------------------------------------------------
 2026-05-08 18:01:56 [INFO]    Results sync ❌ FAILED — exit code 1
 2026-05-08 18:01:56 [INFO]   Next results sync: 2026-05-08 21:00:00 IST
+2026-05-09 15:00:27 [INFO] 
+⏰ Results sync triggered at 2026-05-09 15:00:27 IST
+2026-05-09 15:00:27 [INFO] ------------------------------------------------------------
+2026-05-09 15:00:27 [INFO] ▶  RESULTS SYNC — results_table update
+2026-05-09 15:00:27 [INFO]    Started: 2026-05-09 15:00:27 IST
+2026-05-09 15:00:27 [INFO] ------------------------------------------------------------
+2026-05-09 15:05:13 [INFO]    Results sync ✓ done — exit code 0
+2026-05-09 15:05:13 [INFO]   Next results sync: 2026-05-09 18:00:00 IST
+2026-05-09 18:00:06 [INFO] 
+⏰ Results sync triggered at 2026-05-09 18:00:06 IST
+2026-05-09 18:00:06 [INFO] ------------------------------------------------------------
+2026-05-09 18:00:06 [INFO] ▶  RESULTS SYNC — results_table update
+2026-05-09 18:00:06 [INFO]    Started: 2026-05-09 18:00:06 IST
+2026-05-09 18:00:06 [INFO] ------------------------------------------------------------
+2026-05-09 18:01:08 [INFO]    Results sync ✓ done — exit code 0
+2026-05-09 18:01:08 [INFO]   Next results sync: 2026-05-09 21:00:00 IST
+2026-05-11 12:05:05 [INFO] ============================================================
+2026-05-11 12:05:05 [INFO]   SAADAA Meta Ads Cron Runner — starting
+2026-05-11 12:05:05 [INFO]   Project dir : D:\Creative_Testing_Dashboard\backend
+2026-05-11 12:05:05 [INFO]   Python      : C:\Users\Saadaa\AppData\Local\Programs\Python\Python312\pythonw.exe
+2026-05-11 12:05:05 [INFO]   Log dir     : D:\Creative_Testing_Dashboard\backend\logs
+2026-05-11 12:05:05 [INFO] ============================================================
+2026-05-11 12:05:05 [INFO]   Next primary sync  : 2026-05-12 00:30:00 IST
+2026-05-11 12:05:05 [INFO]   Next results sync  : 2026-05-11 15:00:00 IST
+2026-05-11 12:05:05 [INFO] 
+2026-05-11 14:27:38 [INFO] ============================================================
+2026-05-11 14:27:38 [INFO]   SAADAA Meta Ads Cron Runner — starting
+2026-05-11 14:27:38 [INFO]   Project dir : D:\Creative_Testing_Dashboard\backend
+2026-05-11 14:27:38 [INFO]   Python      : C:\Users\Saadaa\AppData\Local\Programs\Python\Python312\pythonw.exe
+2026-05-11 14:27:38 [INFO]   Log dir     : D:\Creative_Testing_Dashboard\backend\logs
+2026-05-11 14:27:38 [INFO] ============================================================
+2026-05-11 14:27:38 [INFO]   Next primary sync  : 2026-05-12 00:30:00 IST
+2026-05-11 14:27:38 [INFO]   Next results sync  : 2026-05-11 15:00:00 IST
+2026-05-11 14:27:38 [INFO] 
+2026-05-11 15:00:08 [INFO] 
+⏰ Results sync triggered at 2026-05-11 15:00:08 IST
+2026-05-11 15:00:08 [INFO] ------------------------------------------------------------
+2026-05-11 15:00:08 [INFO] ▶  RESULTS SYNC — results_table update
+2026-05-11 15:00:08 [INFO]    Started: 2026-05-11 15:00:08 IST
+2026-05-11 15:00:08 [INFO] ------------------------------------------------------------
+2026-05-11 15:03:01 [INFO]    Results sync ✓ done — exit code 0
+2026-05-11 15:03:01 [INFO]   Next results sync: 2026-05-11 18:00:00 IST
+2026-05-11 17:24:05 [INFO] ============================================================
+2026-05-11 17:24:05 [INFO]   SAADAA Meta Ads Cron Runner — starting
+2026-05-11 17:24:05 [INFO]   Project dir : D:\Creative_Testing_Dashboard\backend
+2026-05-11 17:24:05 [INFO]   Python      : C:\Users\Saadaa\AppData\Local\Programs\Python\Python312\pythonw.exe
+2026-05-11 17:24:05 [INFO]   Log dir     : D:\Creative_Testing_Dashboard\backend\logs
+2026-05-11 17:24:05 [INFO] ============================================================
+2026-05-11 17:24:05 [INFO]   Next primary sync  : 2026-05-12 00:30:00 IST
+2026-05-11 17:24:05 [INFO]   (results_table refreshes immediately after each primary sync)
+2026-05-11 17:24:05 [INFO] 
+2026-05-12 11:56:35 [INFO] ============================================================
+2026-05-12 11:56:35 [INFO]   SAADAA Meta Ads Cron Runner — starting
+2026-05-12 11:56:35 [INFO]   Project dir : D:\Creative_Testing_Dashboard\backend
+2026-05-12 11:56:35 [INFO]   Python      : C:\Users\Saadaa\AppData\Local\Programs\Python\Python312\pythonw.exe
+2026-05-12 11:56:35 [INFO]   Log dir     : D:\Creative_Testing_Dashboard\backend\logs
+2026-05-12 11:56:35 [INFO] ============================================================
+2026-05-12 11:56:35 [INFO]   Next primary sync  : 2026-05-13 00:30:00 IST
+2026-05-12 11:56:35 [INFO]   (results_table refreshes immediately after each primary sync)
+2026-05-12 11:56:35 [INFO] 

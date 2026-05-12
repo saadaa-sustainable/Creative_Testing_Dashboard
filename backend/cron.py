@@ -1,16 +1,20 @@
 """
 cron_runner.py — SAADAA Meta Ads Sync Scheduler
 ═══════════════════════════════════════════════════════════════════════
-Schedule:
-  primary_table  → every night at 12:30 AM IST (7:00 PM UTC prev day)
-  results_table  → every 3 hours (00:00, 03:00, 06:00, 09:00, 12:00,
-                                   15:00, 18:00, 21:00 IST)
+Schedule (post-refactor — only one cadence):
+  primary_table  → every night at 12:30 AM IST. Immediately after the primary
+                   sync completes, the lifecycle classifier and results_table
+                   (rolling-30-day snapshot) are refreshed in sequence.
+
+The previous 3-hourly results_sync trigger has been removed: results_table
+now only stores ONE rolling-30-day snapshot per account, refreshed nightly,
+so intra-day refreshes added churn without value.
 
 Run:
   python cron.py           # starts the scheduler (runs forever)
   python cron.py --now primary   # run primary sync immediately
-  python cron.py --now results   # run results sync immediately
-  python cron.py --status        # show next run times
+  python cron.py --now results   # run results sync immediately (manual)
+  python cron.py --status        # show next run time
 
 Keep alive:  nohup python cron.py > logs/cron.log 2>&1 &
 Or Windows:  pythonw cron.py
@@ -175,49 +179,23 @@ def run_results_sync():
 # SCHEDULE LOGIC
 # ════════════════════════════════════════════════════════════════════════
 
-# Results sync fires every 3 hours at these IST hours
-RESULTS_HOURS_IST = [0, 3, 6, 9, 12, 15, 18, 21]
-
-# Primary sync fires at 00:30 IST
+# Primary sync fires at 00:30 IST; results_table refresh chains after it.
 PRIMARY_HOUR_IST = 0
 PRIMARY_MINUTE_IST = 30
 
 
 def next_run_times():
-    """Return next scheduled run time for each job."""
+    """Return the next scheduled primary-sync time (only cadence left)."""
     now = now_ist()
-
-    # ── Next primary sync (daily at 00:30 IST) ─────────────────────
     primary_today = now.replace(
         hour=PRIMARY_HOUR_IST, minute=PRIMARY_MINUTE_IST, second=0, microsecond=0
     )
-    if now >= primary_today:
-        primary_next = primary_today + timedelta(days=1)
-    else:
-        primary_next = primary_today
-
-    # ── Next results sync (every 3hrs) ─────────────────────────────
-    results_next = None
-    for h in sorted(RESULTS_HOURS_IST):
-        candidate = now.replace(hour=h, minute=0, second=0, microsecond=0)
-        if candidate > now:
-            results_next = candidate
-            break
-    if results_next is None:
-        # Next one is first slot tomorrow
-        results_next = now.replace(
-            hour=RESULTS_HOURS_IST[0], minute=0, second=0, microsecond=0
-        ) + timedelta(days=1)
-
-    return primary_next, results_next
+    primary_next = primary_today + timedelta(days=1) if now >= primary_today else primary_today
+    return primary_next
 
 
 def should_run_primary(now):
     return now.hour == PRIMARY_HOUR_IST and now.minute == PRIMARY_MINUTE_IST
-
-
-def should_run_results(now):
-    return now.hour in RESULTS_HOURS_IST and now.minute == 0
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -233,14 +211,12 @@ def run_scheduler():
     log.info(f"  Log dir     : {LOG_DIR}")
     log.info("=" * 60)
 
-    primary_next, results_next = next_run_times()
+    primary_next = next_run_times()
     log.info(f"  Next primary sync  : {fmt(primary_next)}")
-    log.info(f"  Next results sync  : {fmt(results_next)}")
+    log.info("  (results_table refreshes immediately after each primary sync)")
     log.info("")
 
-    # Track which minute we last fired each job (prevent double-firing)
     last_primary_fired = None
-    last_results_fired = None
 
     while True:
         try:
@@ -257,19 +233,11 @@ def run_scheduler():
                 if ok:
                     log.info("  → Recomputing ad_results lifecycle...")
                     run_lifecycle_classifier()
-                    log.info("  → Refreshing results_table...")
+                    log.info("  → Refreshing results_table (rolling 30-day snapshot)...")
                     run_results_sync()
 
-                primary_next, _ = next_run_times()
+                primary_next = next_run_times()
                 log.info(f"  Next primary sync: {fmt(primary_next)}")
-
-            # ── Results sync every 3hrs ───────────────────────────
-            elif should_run_results(now) and last_results_fired != minute_key:
-                last_results_fired = minute_key
-                log.info(f"\n⏰ Results sync triggered at {fmt(now)}")
-                run_results_sync()
-                _, results_next = next_run_times()
-                log.info(f"  Next results sync: {fmt(results_next)}")
 
             # Sleep 30 seconds between checks
             time.sleep(30)
@@ -312,15 +280,13 @@ if __name__ == "__main__":
             print("Usage: python cron_runner.py --now [primary|results|lifecycle|both]")
 
     elif "--status" in args:
-        primary_next, results_next = next_run_times()
+        primary_next = next_run_times()
         now = now_ist()
         print(f"\nCurrent time     : {fmt(now)}")
         print(f"Next primary sync: {fmt(primary_next)}  (nightly 12:30 AM IST)")
-        print(f"Next results sync: {fmt(results_next)}  (every 3hrs)")
+        print(f"                   (results_table refresh chains after it)")
         secs_p = int((primary_next - now).total_seconds())
-        secs_r = int((results_next - now).total_seconds())
         print(f"  Primary in: {secs_p//3600}h {(secs_p%3600)//60}m")
-        print(f"  Results in: {secs_r//3600}h {(secs_r%3600)//60}m")
 
     else:
         run_scheduler()

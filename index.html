@@ -254,19 +254,6 @@
     <div>
       <div class="cp-title" style="margin-bottom:2px">Creative Testing Dashboard</div>
       <div class="cp-sub" style="margin-bottom:0">Live · Supabase Connected · Meta Ads</div>
-      <div id="edgeFnStatus" style="display:none;margin-top:4px;font-size:.62rem;background:var(--sage-lt);color:var(--sage);border:1px solid rgba(74,124,111,.25);border-radius:7px;padding:4px 12px;font-weight:600;width:fit-content">&#9889; results_table active</div>
-      <div id="syncTimestampBar" style="display:none;margin-top:8px;align-items:center;gap:10px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:6px;background:var(--sage-lt);border:1px solid rgba(74,124,111,.25);border-radius:7px;padding:4px 12px">
-          <div style="width:6px;height:6px;border-radius:50%;background:var(--sage);animation:blink 2s ease infinite;flex-shrink:0"></div>
-          <span style="font-size:.62rem;font-weight:600;color:var(--sage)">Computed at &middot;</span>
-          <span id="syncComputedAt" style="font-family:'Roboto Mono',monospace;font-size:.62rem;color:var(--sage);font-weight:500">&#8212;</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;background:var(--slate-lt);border:1px solid rgba(74,111,165,.2);border-radius:7px;padding:4px 12px">
-          <span style="font-size:.62rem;font-weight:600;color:var(--slate)">Data up to &middot;</span>
-          <span id="syncDataTo" style="font-family:'Roboto Mono',monospace;font-size:.62rem;color:var(--slate);font-weight:500">&#8212;</span>
-        </div>
-        <span id="syncRowCount" style="font-size:.6rem;color:var(--muted);font-weight:500"></span>
-      </div>
     </div>
 
     <div id="credOverride" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
@@ -313,9 +300,12 @@
         <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;background:linear-gradient(90deg,#00bcd4,#9d00ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-top:1px">All Accounts</div>
         <div style="position:absolute;top:6px;right:8px;width:6px;height:6px;border-radius:50%;background:#00bcd4;box-shadow:0 0 6px #00bcd4;animation:blink 2s ease infinite"></div>
       </div>
-      <!-- Lifecycle tab hidden until database schema changes are finalised. The
-           panel + classifier + ad_results table remain in place so the tab can be
-           re-enabled by removing display:none. -->
+      <!-- Lifecycle tab — opens the combined panel (frequency buckets + 14-day buffer table) -->
+      <div class="acct-sel-tab" id="aSelTabFatigue" onclick="selectFatigue(this)" style="background:linear-gradient(135deg,rgba(192,96,58,0.08),rgba(184,136,58,0.08));border:1px solid rgba(192,96,58,0.25);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s;position:relative">
+        <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#c0603a">Lifecycle</div>
+        <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;background:linear-gradient(90deg,#c0603a,#b8883a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-top:1px">Buckets + 14-Day</div>
+      </div>
+      <!-- Old separate Lifecycle tab — hidden; content was merged into the combined Lifecycle tab above. -->
       <div class="acct-sel-tab" id="aSelTabLifecycle" onclick="selectLifecycle(this)" style="display:none;background:linear-gradient(135deg,rgba(74,124,111,0.08),rgba(184,136,58,0.08));border:1px solid rgba(74,124,111,0.25);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s;position:relative">
         <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#4a7c6f">Lifecycle</div>
         <div style="font-family:'Roboto',sans-serif;font-size:.82rem;font-weight:700;background:linear-gradient(90deg,#4a7c6f,#b8883a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-top:1px">14-Day Buffer</div>
@@ -345,9 +335,9 @@
         <span style="color:var(--muted);font-size:.8rem;font-weight:500">→</span>
         <input type="date" id="dateTo" onchange="applyFilters()" style="background:transparent;border:none;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;padding:4px 6px"/>
       </div>
-      <button onclick="clearFilters()" style="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:5px 13px;font-size:.65rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .15s" onmouseover="this.style.color='var(--ink)';this.style.borderColor='var(--border2)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Clear all</button>
+      <button onclick="clearFilters()" title="Reset filters to default (last 30 days)" style="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:5px 13px;font-size:.65rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .15s" onmouseover="this.style.color='var(--ink)';this.style.borderColor='var(--border2)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Reset to 30d</button>
       <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-        <span id="dateRangeLabel" style="font-size:.62rem;color:var(--terra);font-weight:600;background:var(--terra-lt);border:1px solid rgba(192,96,58,.2);padding:3px 11px;border-radius:100px">All dates</span>
+        <span id="dateRangeLabel" style="font-size:.62rem;color:var(--terra);font-weight:600;background:var(--terra-lt);border:1px solid rgba(192,96,58,.2);padding:3px 11px;border-radius:100px">Last 30 days</span>
         <span id="totalBadge" style="font-size:.62rem;color:var(--muted);font-weight:600;background:var(--bg2);border:1px solid var(--border);padding:3px 11px;border-radius:100px"></span>
       </div>
     </div>
@@ -371,6 +361,12 @@
           <div id="copyToggleThumb" style="position:absolute;top:2px;right:2px;width:12px;height:12px;background:#fff;border-radius:50%;transition:right .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
         </div>
         <span style="font-size:.68rem;font-weight:600;color:var(--ink2)" id="copyToggleLabel">Excl. copy</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;user-select:none;transition:all .15s" onclick="toggleActiveOnly()" onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='var(--border)'" title="Match Meta's default — exclude CAMPAIGN_PAUSED / PAUSED / WITH_ISSUES ads">
+        <div id="activeToggleDot" style="width:28px;height:16px;background:var(--terra);border-radius:99px;position:relative;transition:background .2s;flex-shrink:0">
+          <div id="activeToggleThumb" style="position:absolute;top:2px;right:2px;width:12px;height:12px;background:#fff;border-radius:50%;transition:right .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
+        </div>
+        <span style="font-size:.68rem;font-weight:600;color:var(--ink2)" id="activeToggleLabel">Active only</span>
       </div>
     </div>
 
@@ -413,23 +409,20 @@
       <span style="font-size:.6rem;color:var(--ink2)">Impressions ≥ <span id="legendImp" style="font-weight:700;color:var(--sage)">50,000</span></span>
     </div>
     <span style="font-size:.7rem;color:var(--muted);font-weight:700">AND</span>
-    <div style="display:flex;align-items:center;gap:6px;background:var(--terra-lt);border:1px solid rgba(192,96,58,.25);border-radius:8px;padding:6px 12px">
-      <span style="font-size:.6rem;font-weight:700;color:var(--terra)">F2</span>
+    <!-- F2 and F3 share a single combined gate — passes if either ROAS or Cost/NCP meets target. -->
+    <div style="display:flex;align-items:center;gap:8px;background:var(--terra-lt);border:1px solid rgba(192,96,58,.25);border-radius:8px;padding:6px 12px">
+      <span style="font-size:.6rem;font-weight:700;color:var(--terra)">F2 / F3</span>
       <span style="font-size:.6rem;color:var(--ink2)">ROAS ≥ <span id="legendRoas" style="font-weight:700;color:var(--terra)">3.2</span></span>
-    </div>
-    <span style="font-size:.7rem;color:var(--muted);font-weight:700">AND</span>
-    <span style="font-size:.55rem;color:var(--muted);font-weight:600">(</span>
-    <div style="display:flex;align-items:center;gap:6px;background:var(--gold-lt);border:1px solid rgba(184,136,58,.25);border-radius:8px;padding:6px 12px">
-      <span style="font-size:.6rem;font-weight:700;color:var(--gold)">F3</span>
+      <span style="font-size:.55rem;color:var(--muted);font-weight:700">OR</span>
       <span style="font-size:.6rem;color:var(--ink2)">Cost/NCP ≤ ₹<span id="legendCpn" style="font-weight:700;color:var(--gold)">525</span></span>
     </div>
-    <span style="font-size:.7rem;color:var(--muted);font-weight:700">OR</span>
+    <span style="font-size:.7rem;color:var(--muted);font-weight:700">[ AND</span>
     <div style="display:flex;align-items:center;gap:6px;background:var(--slate-lt);border:1px solid rgba(74,111,165,.25);border-radius:8px;padding:6px 12px">
       <span style="font-size:.6rem;font-weight:700;color:var(--slate)">F4</span>
       <span style="font-size:.6rem;color:var(--ink2)">Cost/FTEWV ≤ ₹<span id="legendFtewv" style="font-weight:700;color:var(--slate)">12</span></span>
     </div>
-    <span style="font-size:.55rem;color:var(--muted);font-weight:600">)</span>
-    <span style="font-size:.55rem;color:var(--muted);margin-left:auto">F3 ✓ AND F4 ✓ = Incremental Winner</span>
+    <span style="font-size:.7rem;color:var(--muted);font-weight:700">]</span>
+    <span style="font-size:.55rem;color:var(--muted);margin-left:auto">F1 + F2/F3 = Winner · + F4 = Incremental Winner</span>
   </div>
 
   <!-- Category chips row -->
@@ -605,12 +598,14 @@ function parseSheetDate(raw){
 }
 function parseInputDate(s){ if(!s) return null; const [y,mo,d]=s.split('-').map(Number); return new Date(y,mo-1,d); }
 function setDefaultDates(){
-  const today=new Date(), day=today.getDay();
-  const mon=new Date(today); mon.setDate(today.getDate()-(day===0?6:day-1));
-  const sun=new Date(mon);   sun.setDate(mon.getDate()+6);
-  const fmt=d=>d.toISOString().split('T')[0];
-  document.getElementById('dateFrom').value=fmt(mon);
-  document.getElementById('dateTo').value  =fmt(sun);
+  // Default view = rolling last 30 days (matches results_table snapshot window).
+  // Today inclusive minus 29 = 30 days. Uses local-date components to avoid the
+  // toISOString UTC shift bug that previously caused off-by-one in IST.
+  const today=new Date();
+  const from=new Date(today); from.setDate(today.getDate()-29);
+  const fmt=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return`${y}-${m}-${dd}`;};
+  document.getElementById('dateFrom').value=fmt(from);
+  document.getElementById('dateTo').value  =fmt(today);
 }
 function fmtDate(d){ return d?d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'?'; }
 
@@ -684,7 +679,10 @@ function parseRows(rows){
 function selectAccount(num,el){
   var aep=document.getElementById('analysisEnginePanel');if(aep)aep.style.display='none';
   var lcp=document.getElementById('lifecyclePanel');if(lcp)lcp.style.display='none';
+  var ftp=document.getElementById('fatiguePanel');if(ftp)ftp.style.display='none';
   var ctw=document.getElementById('ctDashboardWrap');if(ctw)ctw.style.display='';
+  // Closing the overlay panels — restore the outer scrollbar.
+  if(typeof _unlockBodyScroll==='function') _unlockBodyScroll();
   ACTIVE_ACCT=num;
   const C=[
     {bg:'var(--surface2)',bd:'rgba(28,25,22,.25)',   lc:'var(--ink)'},
@@ -720,6 +718,26 @@ function toggleExcludeCopy(){
   if(dot)   dot.style.background  =EXCLUDE_COPY_TOGGLE?'var(--terra)':'var(--border2)';
   if(thumb) thumb.style.right     =EXCLUDE_COPY_TOGGLE?'2px':'13px';
   if(label) label.textContent     =EXCLUDE_COPY_TOGGLE?'Excl. copy':'Incl. copy';
+  applyFilters();
+}
+
+// ════════════════════════════════════════
+// ACTIVE-ONLY TOGGLE — mirrors Meta's default Ad report behavior.
+// When ON, only ACTIVE + ADSET_PAUSED ads pass — drops CAMPAIGN_PAUSED,
+// PAUSED, WITH_ISSUES (and other inactive states). This is what the user's
+// Meta CSV export had implicitly applied, and what causes the dashboard's
+// totals to diverge when this filter is off.
+// ════════════════════════════════════════
+const ACTIVE_STATUS_WHITELIST = new Set(['ACTIVE','ADSET_PAUSED']);
+let ACTIVE_ONLY_TOGGLE = true;
+function toggleActiveOnly(){
+  ACTIVE_ONLY_TOGGLE=!ACTIVE_ONLY_TOGGLE;
+  const dot=document.getElementById('activeToggleDot');
+  const thumb=document.getElementById('activeToggleThumb');
+  const label=document.getElementById('activeToggleLabel');
+  if(dot)   dot.style.background  =ACTIVE_ONLY_TOGGLE?'var(--terra)':'var(--border2)';
+  if(thumb) thumb.style.right     =ACTIVE_ONLY_TOGGLE?'2px':'13px';
+  if(label) label.textContent     =ACTIVE_ONLY_TOGGLE?'Active only':'All statuses';
   applyFilters();
 }
 
@@ -894,7 +912,13 @@ function filteredAds(){
  
     // ── 2. Copy filter ────────────────────────────────────────────────
     if(EXCLUDE_COPY_TOGGLE && a.isCopy) return false;
- 
+
+    // ── 2b. Active-status filter (Meta default behavior) ─────────────
+    if(ACTIVE_ONLY_TOGGLE){
+      const st = String(a.status||'').toUpperCase();
+      if(st && !ACTIVE_STATUS_WHITELIST.has(st)) return false;
+    }
+
     // ── 3. Ad name filter ─────────────────────────────────────────────
     if(nf.terms.length > 0){
       const name = a.name.toLowerCase();
@@ -925,7 +949,21 @@ function applyFilters(){
   const fromVal=document.getElementById('dateFrom').value;
   const toVal=document.getElementById('dateTo').value;
   const from=parseInputDate(fromVal),to=parseInputDate(toVal);
-  setEl('dateRangeLabel',(!from&&!to)?'All dates':fmtDate(from)+' → '+fmtDate(to));
+  // Detect whether the current selection is the rolling 30-day default
+  let label;
+  if(!from && !to){
+    label='All dates';
+  } else {
+    const today=new Date(); today.setHours(0,0,0,0);
+    const defaultFrom=new Date(today); defaultFrom.setDate(today.getDate()-29);
+    const isDefault30 = from && to &&
+                        from.getTime()===defaultFrom.getTime() &&
+                        Math.abs(to.getTime()-today.getTime()) < 86400000;
+    label = isDefault30
+      ? 'Last 30 days · '+fmtDate(from)+' → '+fmtDate(to)
+      : fmtDate(from)+' → '+fmtDate(to);
+  }
+  setEl('dateRangeLabel',label);
   // Update legend labels from threshold inputs
   const ti=document.getElementById('targetImp')?.value||'50000';
   const tr=document.getElementById('targetRoas')?.value||'3.2';
@@ -935,12 +973,22 @@ function applyFilters(){
   setEl('legendRoas',tr);
   setEl('legendCpn',tc);
   setEl('legendFtewv',tf);
-  if(window._fromResultsTable&&(from||to)){fetchFromPrimaryForDateRange(fromVal,toVal);return;}
+  // If we're showing results_table data and the user's date range exactly
+  // matches the cached snapshot window, no need to refetch primary_table —
+  // the cached aggregate already represents this window.
+  const cachedRange = window._resultsWindow || {};
+  const sameAsCached = window._fromResultsTable &&
+                       fromVal === (cachedRange.from || '') &&
+                       toVal   === (cachedRange.to   || '');
+  if(window._fromResultsTable && (from||to) && !sameAsCached){
+    fetchFromPrimaryForDateRange(fromVal,toVal);
+    return;
+  }
   if(!from&&!to&&window._inPrimaryDateMode){window._inPrimaryDateMode=false;autoLoadSupabase();return;}
   _renderAll();
 }
 
-function clearFilters(){ document.getElementById('dateFrom').value=''; document.getElementById('dateTo').value=''; clearNameFilter(); clearCreatedFilter(); applyFilters(); }
+function clearFilters(){ setDefaultDates(); clearNameFilter(); clearCreatedFilter(); applyFilters(); }
 function clearCreatedFilter(){ const cf=document.getElementById('createdFrom'); const ct=document.getElementById('createdTo'); if(cf)cf.value=''; if(ct)ct.value=''; applyFilters(); }
 function clearNameFilter(){ const el=document.getElementById('nameFilterValue'); if(el) el.value=''; applyFilters(); }
 
@@ -1044,19 +1092,18 @@ function renderCreatives(ads){
 }
 
 // ════════════════════════════════════════
-// ★ 4-FILTER WINNER LOGIC ★
+// ★ 4-FILTER WINNER LOGIC (updated) ★
 //
-// INCREMENTAL WINNER: F1 ✓ AND F2 ✓ AND F3 ✓ AND F4 ✓ — all four pass
-// WINNER:             F1 ✓ AND F2 ✓ AND (F3 ✓ OR F4 ✓)
-// ITE PRIORITY 1:     F1 ✓ AND F2 ✗ AND F3 ✓ — Cost/NCP efficient, salvageable
-// ITE PRIORITY 2:     F1 ✓ AND F2 ✗ AND F3 ✗ — Cost/NCP also failing
-// ANALYSE:            F1 ✓ AND F2 ✓ AND NOT F3 AND NOT F4 (good ROAS, no efficiency signal)
-//                  OR NOT F1 AND (has conversions OR F3 ✓)
+// INCREMENTAL WINNER: F1 ✓ AND (F2 ✓ OR F3 ✓) AND F4 ✓
+// WINNER:             F1 ✓ AND (F2 ✓ OR F3 ✓)            ← F4 not mandatory
+// ITE PRIORITY 1:     (deprecated — F1 ✓ AND F3 ✓ alone now qualifies as Winner)
+// ITE PRIORITY 2:     F1 ✓ AND F2 ✗ AND F3 ✗
+// ANALYSE:            NOT F1 AND (has conversions OR F3 ✓)
 // DISCARDED:          NOT F1 AND no conversions AND NOT F3
 //
 // F1 — Min Impressions
 // F2 — Min ROAS
-// F3 — Cost/NCP   = Σ(spend) / Σ(ncp_count)    ← was CPC, now Cost per New Customer Purchase
+// F3 — Cost/NCP   = Σ(spend) / Σ(ncp_count)
 // F4 — Cost/FTEWV = Σ(spend) / Σ(ftewv_count)
 // ════════════════════════════════════════
 const CATEGORY_CONFIG = {
@@ -1064,25 +1111,27 @@ const CATEGORY_CONFIG = {
     label:'Incremental Winner',
     bg:'#dff0e8', color:'#1f5d4d', border:'rgba(31,93,77,.35)',
     action:'Top performer — scale aggressively',
-    desc:'F1 ✓ AND F2 ✓ AND F3 ✓ AND F4 ✓ — all four gates pass'
+    desc:'F1 ✓ AND (F2 ✓ OR F3 ✓) AND F4 ✓ — F1 mandatory, F4 mandatory, plus ROAS or Cost/NCP'
   },
   'Winner':    {
     label:'Winner',
     bg:'#e6f0ee', color:'#4a7c6f', border:'rgba(74,124,111,.3)',
     action:'Scale budget · maintain creative format',
-    desc:'F1 ✓ AND F2 ✓ AND (F3 ✓ OR F4 ✓)'
+    desc:'F1 ✓ AND (F2 ✓ OR F3 ✓) — F1 mandatory plus either ROAS or Cost/NCP (F4 not required)'
   },
   'ITE Priority 1': {
+    // Deprecated — under updated logic, F1 ✓ AND F3 ✓ alone now qualifies as Winner.
+    // Kept in the config to avoid breaking any downstream references; never assigned.
     label:'ITE Priority 1',
     bg:'#fdf5e6', color:'#b8883a', border:'rgba(184,136,58,.35)',
-    action:'Iterate — Cost/NCP efficient, push ROAS',
-    desc:'F1 ✓ AND F2 ✗ AND F3 ✓ — new-customer cost healthy, ROAS weak'
+    action:'(deprecated — folded into Winner)',
+    desc:'No longer assigned — F1 ✓ AND F3 ✓ now qualifies as Winner outright.'
   },
   'ITE Priority 2': {
     label:'ITE Priority 2',
     bg:'#fbeed6', color:'#92620a', border:'rgba(146,98,10,.3)',
     action:'Iterate harder — Cost/NCP AND ROAS failing',
-    desc:'F1 ✓ AND F2 ✗ AND F3 ✗ — both ROAS and Cost/NCP weak'
+    desc:'F1 ✓ AND F2 ✗ AND F3 ✗ — impressions met but neither ROAS nor Cost/NCP signal'
   },
   'Analyse':   {
     label:'Analyse',
@@ -1117,11 +1166,12 @@ function getAdCategory(impr, ctRoas, costPerNcp, costPerFtewv, targetImp, target
   const f3 = costPerNcp > 0 && costPerNcp <= targetCpn;
   const f4 = costPerFtewv > 0 && costPerFtewv <= targetFtewv;
 
-  if(f1 && f2 && f3 && f4)            return 'Incremental Winner';
-  if(f1 && f2 && (f3 || f4))          return 'Winner';
-  if(f1 && f2)                        return 'Analyse';      // strong ROAS, no efficiency signal
-  if(f1 && !f2 && f3)                 return 'ITE Priority 1';
-  if(f1 && !f2 && !f3)                return 'ITE Priority 2';
+  // Updated definitions:
+  //   Incremental Winner = F1 AND (F2 OR F3) AND F4
+  //   Winner             = F1 AND (F2 OR F3)            ← F4 not mandatory
+  if(f1 && (f2 || f3) && f4)          return 'Incremental Winner';
+  if(f1 && (f2 || f3))                return 'Winner';
+  if(f1 && !f2 && !f3)                return 'ITE Priority 2';   // F1 only, no ROAS / Cost/NCP signal
   if(!f1 && (hasConversions || f3))   return 'Analyse';
   return 'Discarded';
 }
@@ -1213,10 +1263,10 @@ function renderResults(ads){
   const totalAds = Object.values(counts).reduce((s,c)=>s+c,0);
 
   const filterBadges = {
-    'Incremental Winner': '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-pass">F2 ✓</span><span class="logic-pill lp-pass">F3 ✓</span><span class="logic-pill lp-pass">F4 ✓</span>',
-    'Winner':             '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-pass">F2 ✓</span><span class="logic-pill lp-pass">F3 OR F4 ✓</span>',
-    'ITE Priority 1':     '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-fail">F2 ✗</span><span class="logic-pill lp-pass">F3 ✓</span>',
-    'ITE Priority 2':     '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-fail">F2 ✗</span><span class="logic-pill lp-fail">F3 ✗</span>',
+    'Incremental Winner': '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-pass">F2/F3 ✓</span><span class="logic-pill lp-pass">F4 ✓</span>',
+    'Winner':             '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-pass">F2/F3 ✓</span>',
+    'ITE Priority 1':     '<span class="logic-pill lp-warn">(deprecated)</span>',
+    'ITE Priority 2':     '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-fail">F2/F3 ✗</span>',
     'Analyse':            '<span class="logic-pill lp-warn">signal ✓</span>',
     'Discarded':          '<span class="logic-pill lp-fail">F1 ✗</span><span class="logic-pill lp-fail">no signal</span>',
   };
@@ -1389,6 +1439,12 @@ async function fetchFromResultsTable(accountName){
 
 function populateDashboardFromResult(row,label){
   window._fromResultsTable=true; window._inPrimaryDateMode=false;
+  // Remember the snapshot's window so applyFilters() can skip the primary_table
+  // refetch when the user's date range matches what's already cached here.
+  window._resultsWindow = {
+    from: row.data_date_from || null,
+    to:   row.data_date_to   || null,
+  };
   const ads=typeof row.ads_json==='string'?JSON.parse(row.ads_json):(row.ads_json||[]);
   ALL=ads.map((a,i)=>({
     i,name:a.adName||'',adId:a.adId||'',accountName:a.acct||row.account_name||'',
@@ -1535,6 +1591,7 @@ function ctExportCSV(){
   const nameMode   = document.getElementById('nameFilterMode')?.value||'contains';
   const nameVal    = (document.getElementById('nameFilterValue')?.value||'').trim();
   const exclCopy   = EXCLUDE_COPY_TOGGLE;
+  const activeOnly = ACTIVE_ONLY_TOGGLE;
   const tImp       = parseFloat(document.getElementById('targetImp')?.value)||50000;
   const tRoas      = parseFloat(document.getElementById('targetRoas')?.value)||3.2;
   const tCpn       = parseFloat(document.getElementById('targetCpn')?.value)||525;
@@ -1609,6 +1666,7 @@ function ctExportCSV(){
     ['# Created Date To', createdTo||'(all)'],
     ['# Ad Name Filter', nameVal?(nameMode+' "'+nameVal+'"'):'(none)'],
     ['# Exclude Copy Ads', exclCopy?'Yes':'No'],
+    ['# Active Only (status filter)', activeOnly?'Yes (ACTIVE + ADSET_PAUSED) — matches Meta default':'No (all statuses included)'],
     ['# ─── WINNER LOGIC THRESHOLDS ───'],
     ['# F1 — Min Impressions', tImp],
     ['# F2 — Min ROAS', tRoas],
@@ -1616,11 +1674,11 @@ function ctExportCSV(){
     ['# F4 — Max Cost per FTEWV (₹)', tFtewv],
     ['# Cost/NCP   = Σ(spend) ÷ Σ(ncp_count)   over the selected date range'],
     ['# Cost/FTEWV = Σ(spend) ÷ Σ(ftewv_count) over the selected date range'],
-    ['# Incremental Winner = F1 AND F2 AND F3 AND F4'],
-    ['# Winner             = F1 AND F2 AND (F3 OR F4)'],
-    ['# ITE Priority 1     = F1 AND NOT F2 AND F3'],
+    ['# Incremental Winner = F1 AND (F2 OR F3) AND F4'],
+    ['# Winner             = F1 AND (F2 OR F3)   — F4 not mandatory'],
+    ['# ITE Priority 1     = (deprecated — now folded into Winner)'],
     ['# ITE Priority 2     = F1 AND NOT F2 AND NOT F3'],
-    ['# Analyse            = (F1 AND F2 AND NOT F3 AND NOT F4) OR (NOT F1 AND (conv OR F3))'],
+    ['# Analyse            = NOT F1 AND (conv OR F3)'],
     ['# Discarded          = NOT F1 AND no conv AND NOT F3'],
     ['# ─── EXPORT SUMMARY ───'],
     ['# Unique Ads in Export', Object.keys(adMap).length],
@@ -1637,8 +1695,8 @@ function ctExportCSV(){
     'NCP Count','Cost per NCP (₹)',
     'FTEWV Count','Cost per FTEWV (₹)',
     'ThruPlays','3-Sec Video Plays','Post Engagements','Reach',
-    'F1 Pass','F2 Pass','F3 Pass','F4 Pass',
-    'Category (Inc.Winner/Winner/ITE P1/ITE P2/Analyse/Discarded)',
+    'F1 Pass','F2/F3 Pass (ROAS or Cost/NCP)','F4 Pass',
+    'Category (Inc.Winner/Winner/ITE P2/Analyse/Discarded)',
     'Ad Status'
   ];
 
@@ -1663,7 +1721,7 @@ function ctExportCSV(){
       m.ncpCount,   costPerNcp  >0?costPerNcp.toFixed(2):'',
       m.ftewvCount, costPerFtewv>0?costPerFtewv.toFixed(2):'',
       m.thruPlays, m.videoPlays, m.postEng, m.reach,
-      f1?'TRUE':'FALSE', f2?'TRUE':'FALSE', f3?'TRUE':'FALSE', f4?'TRUE':'FALSE',
+      f1?'TRUE':'FALSE', (f2||f3)?'TRUE':'FALSE', f4?'TRUE':'FALSE',
       cat, m.status
     ];
   });
@@ -1705,7 +1763,7 @@ function ctExportCSV(){
     <div style="padding:24px 28px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
       <div>
         <div style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:var(--ink)">Algorithm Definitions — 4-Filter Logic</div>
-        <div style="font-size:.65rem;color:var(--muted);margin-top:3px;letter-spacing:.08em;text-transform:uppercase">F1 Impr · F2 ROAS · F3 CPC · F4 Cost/FTEWV</div>
+        <div style="font-size:.65rem;color:var(--muted);margin-top:3px;letter-spacing:.08em;text-transform:uppercase">F1 Impr · F2/F3 (ROAS or Cost/NCP) · F4 Cost/FTEWV</div>
       </div>
       <button onclick="toggleDefModal()" style="border:none;background:var(--bg2);color:var(--muted);border-radius:8px;width:32px;height:32px;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Roboto',sans-serif">✕</button>
     </div>
@@ -1773,69 +1831,54 @@ function ctExportCSV(){
           <span style="flex:1;height:1px;background:var(--terra-lt)"></span>Categorisation Algorithm<span style="flex:1;height:1px;background:var(--terra-lt)"></span>
         </div>
         <div style="font-size:.68rem;color:var(--ink2);margin-bottom:10px;line-height:1.7">
-          Each unique ad is evaluated against a <strong>4-filter matrix</strong>. <strong>F1 is mandatory</strong> for Winner / ITE. Incremental Winners pass all four. Winners pass F1+F2 plus at least one of F3/F4. ITE splits by F3 (CPC) outcome. Failed ads are Discarded or sent to Analyse.
+          Each unique ad is evaluated against a <strong>4-filter matrix</strong>. <strong>F1 is mandatory</strong> for Winner. <strong>Incremental Winners</strong> pass F1 + at least one of F2/F3 + F4. <strong>Winners</strong> pass F1 + at least one of F2/F3 (F4 not required). Ads that pass only F1 are sent to ITE Priority 2. Failed ads land in Analyse (with signal) or Discarded (no signal).
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          <!-- Header row -->
-          <div style="display:grid;grid-template-columns:120px 70px 70px 70px 70px 1fr;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:.6rem">
+          <!-- Header row — F2 and F3 share one combined gate (passes if either is ✓) -->
+          <div style="display:grid;grid-template-columns:120px 70px 110px 70px 1fr;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:.6rem">
             <div style="background:var(--surface2);padding:8px 12px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-right:1px solid var(--border)">Category</div>
             <div style="background:var(--surface2);padding:8px 8px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--sage);border-right:1px solid var(--border);text-align:center">F1 Impr</div>
-            <div style="background:var(--surface2);padding:8px 8px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--terra);border-right:1px solid var(--border);text-align:center">F2 ROAS</div>
-            <div style="background:var(--surface2);padding:8px 8px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--gold);border-right:1px solid var(--border);text-align:center">F3 NCP</div>
+            <div style="background:var(--surface2);padding:8px 8px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--terra);border-right:1px solid var(--border);text-align:center">F2/F3 (ROAS or Cost/NCP)</div>
             <div style="background:var(--surface2);padding:8px 8px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--slate);border-right:1px solid var(--border);text-align:center">F4 FTEWV</div>
             <div style="background:var(--surface2);padding:8px 12px;font-weight:700;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Action</div>
           </div>
           <!-- Incremental Winner -->
-          <div style="display:grid;grid-template-columns:120px 70px 70px 70px 70px 1fr;border:1px solid rgba(31,93,77,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#dff0e8">
+          <div style="display:grid;grid-template-columns:120px 70px 110px 70px 1fr;border:1px solid rgba(31,93,77,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#dff0e8">
             <div style="padding:9px 12px;font-weight:800;color:#1f5d4d;border-right:1px solid rgba(31,93,77,.2)">🟢 Inc. Winner</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(31,93,77,.2);color:#1f5d4d;font-weight:700">✓</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(31,93,77,.2);color:#1f5d4d;font-weight:700">✓</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(31,93,77,.2);color:#1f5d4d;font-weight:700">✓</div>
-            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(31,93,77,.2);color:#1f5d4d;font-weight:700">✓</div>
-            <div style="padding:9px 12px;color:#1f5d4d">Top performer — scale aggressively</div>
+            <div style="padding:9px 12px;color:#1f5d4d">F1 + F2/F3 + F4 — scale aggressively</div>
           </div>
           <!-- Winner -->
-          <div style="display:grid;grid-template-columns:120px 70px 70px 70px 70px 1fr;border:1px solid rgba(74,124,111,.25);border-radius:10px;overflow:hidden;font-size:.62rem;background:#e6f0ee">
+          <div style="display:grid;grid-template-columns:120px 70px 110px 70px 1fr;border:1px solid rgba(74,124,111,.25);border-radius:10px;overflow:hidden;font-size:.62rem;background:#e6f0ee">
             <div style="padding:9px 12px;font-weight:800;color:#4a7c6f;border-right:1px solid rgba(74,124,111,.2)">🟢 Winner</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(74,124,111,.2);color:#4a7c6f;font-weight:700">✓</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(74,124,111,.2);color:#4a7c6f;font-weight:700">✓</div>
-            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(74,124,111,.2);color:#4a7c6f;font-size:.58rem">✓ <span style="font-weight:700">OR</span></div>
-            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(74,124,111,.2);color:#4a7c6f;font-size:.58rem">✓</div>
-            <div style="padding:9px 12px;color:#4a7c6f">Scale budget · maintain format</div>
-          </div>
-          <!-- ITE Priority 1 -->
-          <div style="display:grid;grid-template-columns:120px 70px 70px 70px 70px 1fr;border:1px solid rgba(146,98,10,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#fdf5e6">
-            <div style="padding:9px 12px;font-weight:800;color:#92620a;border-right:1px solid rgba(146,98,10,.2)">🟡 ITE P1</div>
-            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(146,98,10,.2);color:#92620a;font-weight:700">✓</div>
-            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(146,98,10,.2);color:#c0603a">✗</div>
-            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(146,98,10,.2);color:#92620a;font-weight:700">✓</div>
-            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(146,98,10,.2);color:var(--muted);font-size:.58rem">—</div>
-            <div style="padding:9px 12px;color:#92620a">Cost/NCP efficient — iterate offer / LP</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(74,124,111,.2);color:var(--muted);font-size:.58rem">—</div>
+            <div style="padding:9px 12px;color:#4a7c6f">F1 + F2/F3 — F4 not required</div>
           </div>
           <!-- ITE Priority 2 -->
-          <div style="display:grid;grid-template-columns:120px 70px 70px 70px 70px 1fr;border:1px solid rgba(184,136,58,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#fbeed6">
+          <div style="display:grid;grid-template-columns:120px 70px 110px 70px 1fr;border:1px solid rgba(184,136,58,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#fbeed6">
             <div style="padding:9px 12px;font-weight:800;color:#b8883a;border-right:1px solid rgba(184,136,58,.2)">🟡 ITE P2</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:#b8883a;font-weight:700">✓</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:#c0603a">✗</div>
-            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:#c0603a">✗</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:var(--muted);font-size:.58rem">—</div>
-            <div style="padding:9px 12px;color:#b8883a">Both ROAS &amp; CPC weak — full overhaul</div>
+            <div style="padding:9px 12px;color:#b8883a">F1 met but neither ROAS nor Cost/NCP signal</div>
           </div>
           <!-- Discarded -->
-          <div style="display:grid;grid-template-columns:120px 70px 70px 70px 70px 1fr;border:1px solid rgba(155,35,53,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#f5ebe6">
+          <div style="display:grid;grid-template-columns:120px 70px 110px 70px 1fr;border:1px solid rgba(155,35,53,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#f5ebe6">
             <div style="padding:9px 12px;font-weight:800;color:#9b2335;border-right:1px solid rgba(155,35,53,.2)">🔴 Discarded</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(155,35,53,.2);color:#9b2335">✗</div>
-            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(155,35,53,.2);color:#9b2335;font-size:.55rem">no conv</div>
-            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(155,35,53,.2);color:#9b2335">✗</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(155,35,53,.2);color:#9b2335;font-size:.55rem">no signal</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(155,35,53,.2);color:var(--muted);font-size:.58rem">—</div>
             <div style="padding:9px 12px;color:#9b2335">Do not replicate · review creative</div>
           </div>
           <!-- Analyse -->
-          <div style="display:grid;grid-template-columns:120px 70px 70px 70px 70px 1fr;border:1px solid rgba(44,82,130,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#eaf0f8">
+          <div style="display:grid;grid-template-columns:120px 70px 110px 70px 1fr;border:1px solid rgba(44,82,130,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#eaf0f8">
             <div style="padding:9px 12px;font-weight:800;color:#2c5282;border-right:1px solid rgba(44,82,130,.2)">🔵 Analyse</div>
-            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(44,82,130,.2);color:#2c5282;font-size:.55rem">any</div>
-            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(44,82,130,.2);color:#2c5282;font-size:.55rem">conv ✓</div>
-            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(44,82,130,.2);color:#2c5282;font-size:.55rem">or ≤ F3</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(44,82,130,.2);color:#2c5282;font-size:.55rem">✗</div>
+            <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(44,82,130,.2);color:#2c5282;font-size:.55rem">conv ✓ or Cost/NCP ✓</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(44,82,130,.2);color:var(--muted);font-size:.58rem">—</div>
             <div style="padding:9px 12px;color:#2c5282">Sparse data with signal · study pattern</div>
           </div>
@@ -1890,7 +1933,7 @@ function ctExportCSV(){
     </div>
 
     <div style="padding:14px 28px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--surface2)">
-      <div style="font-size:.6rem;color:var(--muted)">F3 = Cost/NCP (Σ Spend ÷ Σ NCP) · Inc.Winner = F1 ✓ F2 ✓ F3 ✓ F4 ✓ · Winner = F1 ✓ F2 ✓ (F3 ✓ OR F4 ✓)</div>
+      <div style="font-size:.6rem;color:var(--muted)">F2/F3 = ROAS ≥ target OR Cost/NCP ≤ target · Winner = F1 ✓ F2/F3 ✓ · Inc.Winner = F1 ✓ F2/F3 ✓ F4 ✓</div>
       <button onclick="toggleDefModal()" style="background:var(--terra);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-family:'Roboto',sans-serif;font-size:.72rem;font-weight:600;cursor:pointer">Close</button>
     </div>
 
@@ -2055,9 +2098,14 @@ function ctExportCSV(){
         <span style="font-size:10px;font-weight:700;color:#9a9187;text-transform:uppercase;letter-spacing:.8px">Winner Logic</span>
         <span style="font-size:11px;font-weight:700;background:#e6f0ee;color:#4a7c6f;padding:3px 10px;border-radius:100px;border:1px solid rgba(74,124,111,.25)">F1 Imp ≥ <span id="ae-leg-imp">20,000</span></span>
         <span style="font-size:11px;color:#9a9187;font-weight:600">AND</span>
-        <span style="font-size:11px;font-weight:700;background:#f5ebe6;color:#c0603a;padding:3px 10px;border-radius:100px;border:1px solid rgba(192,96,58,.25)">F2 ROAS ≥ <span id="ae-leg-roas">3.2</span></span>
-        <span style="font-size:11px;color:#9a9187;font-weight:600">OR</span>
-        <span style="font-size:11px;font-weight:700;background:#fdf5e6;color:#b8883a;padding:3px 10px;border-radius:100px;border:1px solid rgba(184,136,58,.25)">F3 Cost/NCP ≤ ₹<span id="ae-leg-cpn">525</span></span>
+        <!-- F2 and F3 share a single combined gate — pill below shows both. -->
+        <span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;background:#f5ebe6;color:#c0603a;padding:3px 10px;border-radius:100px;border:1px solid rgba(192,96,58,.25)">
+          <span>F2/F3</span>
+          <span style="color:#9a9187;font-weight:600">·</span>
+          <span>ROAS ≥ <span id="ae-leg-roas">3.2</span></span>
+          <span style="color:#9a9187;font-weight:600">OR</span>
+          <span style="color:#b8883a">Cost/NCP ≤ ₹<span id="ae-leg-cpn">525</span></span>
+        </span>
       </div>
       <div style="border-left:3px solid #c0603a;background:linear-gradient(90deg,#f5ebe6,transparent);border-radius:10px;padding:14px 16px;margin-bottom:20px">
         <div style="display:flex;align-items:flex-start;gap:12px">
@@ -2071,7 +2119,7 @@ function ctExportCSV(){
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
         <div class="ae-metric-card active" id="ae-card-all" onclick="aeChipFilter('')" style="--card-accent:var(--ae-slate);--card-border:rgba(74,111,165,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Total Analysed</div><div id="ae-c-total" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-slate)">—</div></div>
         <div class="ae-metric-card" id="ae-card-Winner" onclick="aeChipFilter('Winner')" style="--card-accent:var(--ae-sage);--card-border:rgba(74,124,111,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Winners</div><div id="ae-c-winner" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-sage)">—</div><div style="font-size:9px;color:var(--ae-muted);margin-top:4px">F1 + (F2 or F3) ✓</div></div>
-        <div class="ae-metric-card" id="ae-card-ITE" onclick="aeChipFilter('ITE')" style="--card-accent:var(--ae-gold);--card-border:rgba(184,136,58,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">ITE</div><div id="ae-c-ite" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-gold)">—</div><div style="font-size:9px;color:var(--ae-muted);margin-top:4px">F1 ✓, F2 ✗, F3 ✗</div></div>
+        <div class="ae-metric-card" id="ae-card-ITE" onclick="aeChipFilter('ITE')" style="--card-accent:var(--ae-gold);--card-border:rgba(184,136,58,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">ITE</div><div id="ae-c-ite" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-gold)">—</div><div style="font-size:9px;color:var(--ae-muted);margin-top:4px">F1 ✓, F2/F3 ✗</div></div>
         <div class="ae-metric-card" id="ae-card-Analyse" onclick="aeChipFilter('Analyse')" style="--card-accent:var(--ae-slate);--card-border:rgba(74,111,165,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Analyse</div><div id="ae-c-analyse" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-slate)">—</div><div style="font-size:9px;color:var(--ae-muted);margin-top:4px">F1 ✗ + signal</div></div>
         <div class="ae-metric-card" id="ae-card-Discarded" onclick="aeChipFilter('Discarded')" style="--card-accent:var(--ae-terra);--card-border:rgba(192,96,58,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Discarded</div><div id="ae-c-discarded" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-terra)">—</div><div style="font-size:9px;color:var(--ae-muted);margin-top:4px">F1 ✗, no signal</div></div>
       </div>
@@ -2119,8 +2167,7 @@ function ctExportCSV(){
             <th onclick="aeSort('rawCpc')" style="text-align:right;min-width:80px;color:#b8883a">CPC ₹ &#8597;</th>
             <th onclick="aeSort('rawSpend')" style="text-align:right;min-width:130px">LTV Spend &#8597;</th>
             <th style="text-align:center;min-width:70px">F1</th>
-            <th style="text-align:center;min-width:70px">F2</th>
-            <th style="text-align:center;min-width:70px">F3</th>
+            <th style="text-align:center;min-width:90px">F2 / F3</th>
             <th style="text-align:center;min-width:120px">Days to Target</th>
             <th style="text-align:right;min-width:120px">Reach @ Freq 2</th>
             <th style="text-align:right;min-width:90px">LTV R/F</th>
@@ -2143,6 +2190,16 @@ function ctExportCSV(){
       </div>
     </div>
   </div>
+
+  <!-- Floating hover tooltip — shows full ad name + campaign name per row -->
+  <style>
+    #ae-row-tip{position:fixed;display:none;z-index:99999;background:#1c1916;color:#fff;padding:12px 14px;border-radius:9px;font-family:'Roboto',sans-serif;font-size:11.5px;max-width:480px;box-shadow:0 10px 32px rgba(28,25,22,.35);pointer-events:none;line-height:1.45}
+    #ae-row-tip .tip-label{font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:#c0603a;margin-bottom:3px}
+    #ae-row-tip .tip-value{color:#f4f1eb;font-weight:500;margin-bottom:9px;word-break:break-word}
+    #ae-row-tip .tip-value:last-child{margin-bottom:0}
+    #analysisEnginePanel table.ae-tbl tbody tr[data-hover-tip]:hover{cursor:default}
+  </style>
+  <div id="ae-row-tip"></div>
 </div>
 
 <script>
@@ -2151,25 +2208,27 @@ function ctExportCSV(){
 // ══════════════════════════════════════════════════
 const AEW={X:.10,Y:.25,Z:.15,AA:.20,AB:.20,AC:.10};
 
-// Updated AEA descriptions to reflect 3-filter logic
+// AEA descriptions — updated definitions:
+//   Incremental Winner = F1 AND (F2 OR F3) AND F4
+//   Winner             = F1 AND (F2 OR F3)            ← F4 not mandatory
 const AEA={
   'Incremental Winner':{
-    type:"Top Performer — F1 ✓ + F2 ROAS ✓ + F3 CPC ✓ + F4 FTEWV ✓",
-    action:"Scale aggressively · top performer across all gates",
-    perf:"All four signals firing — highest confidence creative",
+    type:"Top Performer — F1 ✓ + (F2 ROAS ✓ OR F3 CPC ✓) + F4 FTEWV ✓",
+    action:"Scale aggressively · top performer with efficiency confirmed",
+    perf:"F1 + at least one of ROAS/Cost-NCP + cost-per-FTEWV all firing",
     creative:"Replicate format · launch many variations"
   },
   'Winner':{
-    type:"Proven — F1 ✓ + F2 ROAS ✓ + (F3 CPC ✓ OR F4 FTEWV ✓)",
+    type:"Proven — F1 ✓ + (F2 ROAS ✓ OR F3 CPC ✓), F4 not required",
     action:"Scale budget · maintain creative format",
-    perf:"Strong ROAS with efficient cost on at least one axis",
+    perf:"F1 met plus either strong ROAS or efficient Cost/NCP",
     creative:"Replicate format & messaging · launch new variations"
   },
   'ITE Priority 1':{
-    type:"F1 ✓ + F2 ROAS ✗ + F3 CPC ✓ — clicks cheap, ROAS weak",
-    action:"Iterate offer / landing page — clicks are working",
-    perf:"Cheap traffic but low conversion — funnel leak",
-    creative:"Optimise CTA, offer, post-click experience"
+    type:"(deprecated — F1 ✓ + F3 ✓ now qualifies as Winner)",
+    action:"No longer assigned — see Winner",
+    perf:"Folded into the Winner category under the updated logic.",
+    creative:"—"
   },
   'ITE Priority 2':{
     type:"F1 ✓ + F2 ROAS ✗ + F3 CPC ✗ — both ROAS and CPC failing",
@@ -2235,8 +2294,15 @@ async function aeReloadForAccount(acctName){
   aeApplyFilters();
 }
 
+// Lock/unlock the outer page scrollbar while a fixed-overlay panel
+// (analysis engine, lifecycle) is open — otherwise you see two scrollbars:
+// one for the body underneath, one for the panel itself.
+function _lockBodyScroll(){document.body.style.overflow='hidden';}
+function _unlockBodyScroll(){document.body.style.overflow='';}
+
 function aeGoBack(){
   document.getElementById('analysisEnginePanel').style.display='none';
+  _unlockBodyScroll();
   var ct=document.getElementById('ctDashboardWrap');if(ct)ct.style.display='';
   document.querySelectorAll('.acct-sel-tab').forEach(t=>{t.style.background='var(--surface2)';t.style.border='1px solid var(--border)';t.style.transform='none';t.style.boxShadow='none';});
   var t1=document.getElementById('aSelTab1');
@@ -2249,7 +2315,9 @@ function selectAnalysisEngine(el){
   el.style.border='2px solid rgba(192,96,58,0.3)';
   var ct=document.getElementById('ctDashboardWrap');if(ct)ct.style.display='none';
   var lp=document.getElementById('lifecyclePanel');if(lp)lp.style.display='none';
+  var ftp=document.getElementById('fatiguePanel');if(ftp)ftp.style.display='none';
   var p=document.getElementById('analysisEnginePanel');p.style.display='block';p.scrollTop=0;
+  _lockBodyScroll();
   if(!aeLoaded) aeReload();
 }
 
@@ -2259,8 +2327,34 @@ function selectLifecycle(el){
   el.style.border='2px solid rgba(74,124,111,0.3)';
   var ct=document.getElementById('ctDashboardWrap');if(ct)ct.style.display='none';
   var ae=document.getElementById('analysisEnginePanel');if(ae)ae.style.display='none';
+  var ftp=document.getElementById('fatiguePanel');if(ftp)ftp.style.display='none';
   var p=document.getElementById('lifecyclePanel');p.style.display='block';p.scrollTop=0;
+  _lockBodyScroll();
   if(!lcLoaded) lcReload();
+}
+
+function selectFatigue(el){
+  document.querySelectorAll('.acct-sel-tab').forEach(t=>{t.style.background='var(--surface2)';t.style.border='1px solid var(--border)';t.style.transform='none';t.style.boxShadow='none';});
+  el.style.background='linear-gradient(135deg,rgba(192,96,58,0.12),rgba(184,136,58,0.1))';
+  el.style.border='2px solid rgba(192,96,58,0.35)';
+  var ct=document.getElementById('ctDashboardWrap');if(ct)ct.style.display='none';
+  var ae=document.getElementById('analysisEnginePanel');if(ae)ae.style.display='none';
+  var lp=document.getElementById('lifecyclePanel');if(lp)lp.style.display='none';
+  var p=document.getElementById('fatiguePanel');p.style.display='block';p.scrollTop=0;
+  _lockBodyScroll();
+  // Frequency buckets (own state)
+  ftFetchAndRender(false);
+  // 14-day buffer table (ad_results) — populates the moved-in lc-* elements
+  if(typeof lcReload === 'function' && !lcLoaded) lcReload();
+}
+
+function ftGoBack(){
+  document.getElementById('fatiguePanel').style.display='none';
+  _unlockBodyScroll();
+  var ct=document.getElementById('ctDashboardWrap');if(ct)ct.style.display='';
+  document.querySelectorAll('.acct-sel-tab').forEach(t=>{t.style.background='var(--surface2)';t.style.border='1px solid var(--border)';t.style.transform='none';t.style.boxShadow='none';});
+  var t1=document.getElementById('aSelTab1');
+  if(t1){t1.style.background='var(--a1-lt)';t1.style.border='2px solid rgba(124,77,189,.25)';}
 }
 
 function aeHandleDateChange(){
@@ -2286,6 +2380,11 @@ const AE_MONTHS=['January','February','March','April','May','June','July','Augus
 const AE_DAYS=['Su','Mo','Tu','We','Th','Fr','Sa'];
 const aeDrpState={open:false,viewYear:new Date().getFullYear(),viewMonth:new Date().getMonth()-1,from:null,to:null,hov:null,preset:'lifetime',selecting:false};
 
+// Local YYYY-MM-DD formatter — avoids the toISOString() UTC shift bug
+// that made clicks register on the previous day in IST/UTC+ zones.
+function aeFmtLocal(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return`${y}-${m}-${day}`;}
+function aeParseLocal(s){const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d,0,0,0,0);}
+
 function aeDrpToggle(){
   const panel=document.getElementById('ae-drp-panel');
   aeDrpState.open=!aeDrpState.open;window.aeDrpOpen=aeDrpState.open;
@@ -2293,7 +2392,16 @@ function aeDrpToggle(){
   const btn=document.getElementById('ae-drp-btn');
   btn.style.borderColor=aeDrpState.open?'#c0603a':'#e0dbd0';
   if(aeDrpState.open){
-    const now=new Date();aeDrpState.viewYear=now.getFullYear();aeDrpState.viewMonth=now.getMonth()-1;
+    // Always start with a clean "selecting" state so the first click is treated as the range start
+    aeDrpState.selecting=false;aeDrpState.hov=null;
+    // Restore from/to from hidden inputs (in case picker was closed without Apply)
+    const fIn=document.getElementById('ae-date-from').value;
+    const tIn=document.getElementById('ae-date-to').value;
+    if(fIn){aeDrpState.from=aeParseLocal(fIn);if(aeDrpState.preset==='lifetime')aeDrpState.preset='custom';}
+    if(tIn){aeDrpState.to=aeParseLocal(tIn);}
+    // Anchor the view on the currently-selected `from` if present, else current month on the right
+    const anchor=aeDrpState.from?aeDrpState.from:new Date();
+    aeDrpState.viewYear=anchor.getFullYear();aeDrpState.viewMonth=anchor.getMonth()-1;
     if(aeDrpState.viewMonth<0){aeDrpState.viewMonth=11;aeDrpState.viewYear--;}
     aeDrpRender();
     setTimeout(()=>{document.addEventListener('click',aeDrpOutside,{once:true});},0);
@@ -2329,19 +2437,35 @@ function aeDrpCalHTML(year,month,from,to,hov,selecting){
   if(rFrom&&rTo&&rFrom>rTo){const t=rFrom;rFrom=rTo;rTo=t;}
   let html='<div class="ae-drp-grid">';
   AE_DAYS.forEach(d=>{html+=`<div class="ae-drp-dow">${d}</div>`;});
-  for(let i=0;i<firstDay;i++){const d=daysInPrevMonth-firstDay+1+i;const dt=new Date(year,month-1,d);dt.setHours(0,0,0,0);html+=`<div class="ae-drp-day other-month" data-date="${dt.toISOString().slice(0,10)}" onclick="aeDrpDayClick(this)">${d}</div>`;}
-  for(let d=1;d<=daysInMonth;d++){const dt=new Date(year,month,d);dt.setHours(0,0,0,0);const iso=dt.toISOString().slice(0,10);let cls='ae-drp-day';if(dt.getTime()===today.getTime())cls+=' today';if(rFrom&&dt.getTime()===rFrom.getTime())cls+=' range-start';if(rTo&&dt.getTime()===rTo.getTime())cls+=' range-end';if(rFrom&&rTo&&dt>rFrom&&dt<rTo)cls+=' in-range';html+=`<div class="${cls}" data-date="${iso}" onclick="aeDrpDayClick(this)" onmouseenter="aeDrpDayHover(this)">${d}</div>`;}
+  // Prev-month leading days: shown but NOT clickable (use nav arrows to change month)
+  for(let i=0;i<firstDay;i++){const d=daysInPrevMonth-firstDay+1+i;html+=`<div class="ae-drp-day other-month">${d}</div>`;}
+  // Current-month days
+  for(let d=1;d<=daysInMonth;d++){
+    const dt=new Date(year,month,d);dt.setHours(0,0,0,0);
+    const iso=aeFmtLocal(dt);
+    const isFuture=dt.getTime()>today.getTime();
+    let cls='ae-drp-day';
+    if(dt.getTime()===today.getTime())cls+=' today';
+    if(rFrom&&dt.getTime()===rFrom.getTime())cls+=' range-start';
+    if(rTo&&dt.getTime()===rTo.getTime())cls+=' range-end';
+    if(rFrom&&rTo&&dt>rFrom&&dt<rTo)cls+=' in-range';
+    if(isFuture)cls+=' disabled';
+    const handlers=isFuture?'':`onclick="event.stopPropagation();aeDrpDayClick(this)" onmouseenter="aeDrpDayHover(this)"`;
+    html+=`<div class="${cls}" data-date="${iso}" ${handlers}>${d}</div>`;
+  }
+  // Next-month trailing days: shown but NOT clickable
   const total=firstDay+daysInMonth;const remainder=total%7===0?0:7-(total%7);
-  for(let d=1;d<=remainder;d++){const dt=new Date(year,month+1,d);dt.setHours(0,0,0,0);html+=`<div class="ae-drp-day other-month" data-date="${dt.toISOString().slice(0,10)}" onclick="aeDrpDayClick(this)">${d}</div>`;}
+  for(let d=1;d<=remainder;d++){html+=`<div class="ae-drp-day other-month">${d}</div>`;}
   html+='</div>';return html;
 }
 function aeDrpDayClick(el){
-  const dt=new Date(el.dataset.date+'T00:00:00');
+  if(el.classList.contains('other-month')||el.classList.contains('disabled'))return;
+  const dt=aeParseLocal(el.dataset.date);
   if(!aeDrpState.selecting){aeDrpState.from=dt;aeDrpState.to=null;aeDrpState.hov=null;aeDrpState.selecting=true;aeDrpState.preset='custom';aeDrpSetPresetActive('custom');}
   else{aeDrpState.to=dt;aeDrpState.hov=null;aeDrpState.selecting=false;if(aeDrpState.from>aeDrpState.to){const t=aeDrpState.from;aeDrpState.from=aeDrpState.to;aeDrpState.to=t;}}
   aeDrpRender();
 }
-function aeDrpDayHover(el){if(!aeDrpState.selecting)return;aeDrpState.hov=new Date(el.dataset.date+'T00:00:00');aeDrpRender();}
+function aeDrpDayHover(el){if(!aeDrpState.selecting)return;if(el.classList.contains('other-month')||el.classList.contains('disabled'))return;aeDrpState.hov=aeParseLocal(el.dataset.date);aeDrpRender();}
 function aeDrpPreset(key){
   const now=new Date();now.setHours(0,0,0,0);let from,to;
   if(key==='today'){from=new Date(now);to=new Date(now);}
@@ -2362,10 +2486,9 @@ function aeDrpSetPresetActive(key){document.querySelectorAll('.ae-drp-preset').f
 function aeDrpApply(){
   const {from,to,preset}=aeDrpState;
   if(preset==='lifetime'||(!from&&!to)){aeClearDateRange();return;}
-  const fmt=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return`${y}-${m}-${day}`;};
   let f=from,t=to||from;if(f>t){const tmp=f;f=t;t=tmp;}
-  document.getElementById('ae-date-from').value=fmt(f);
-  document.getElementById('ae-date-to').value=fmt(t);
+  document.getElementById('ae-date-from').value=aeFmtLocal(f);
+  document.getElementById('ae-date-to').value=aeFmtLocal(t);
   aeDrpState.open=false;window.aeDrpOpen=false;
   document.getElementById('ae-drp-panel').style.display='none';
   document.getElementById('ae-drp-btn').style.borderColor='#e0dbd0';
@@ -2396,11 +2519,23 @@ async function aeFetchPrimaryForRange(fromVal,toVal){
       if(!res.ok){more=false;break;}const b=await res.json();
       if(!Array.isArray(b)||b.length===0){more=false;break;}all=all.concat(b);offset+=b.length;if(b.length<BATCH)more=false;
     }
-    if(!all.length){document.getElementById('ae-load-sub').textContent='No data for '+fromVal+' to '+toVal;return;}
     aeRaw=all;aeLoaded=true;aeFromResultsTable=false;
-    const badge=document.getElementById('ae-row-badge');badge.textContent='Date: '+fromVal+' to '+toVal+' · '+all.length.toLocaleString()+' rows';badge.style.display='inline';
+    const badge=document.getElementById('ae-row-badge');
+    badge.textContent=all.length
+      ? 'Date: '+fromVal+' to '+toVal+' · '+all.length.toLocaleString()+' rows'
+      : 'No data for '+fromVal+' to '+toVal;
+    badge.style.display='inline';
+    // Always flow through aeCompute — it toggles loading→content even with empty data,
+    // so the user sees the result panel (with zero counts) instead of a stuck spinner.
     setTimeout(aeCompute,20);
-  }catch(e){document.getElementById('ae-load-sub').textContent='Error: '+e.message;}
+  }catch(e){
+    console.error('aeFetchPrimaryForRange:',e);
+    aeRaw=[];aeLoaded=true;aeFromResultsTable=false;
+    const badge=document.getElementById('ae-row-badge');
+    badge.textContent='Error: '+e.message;badge.style.display='inline';
+    document.getElementById('ae-load-sub').textContent='Error: '+e.message;
+    setTimeout(aeCompute,20);
+  }
 }
 
 async function aeReload(){
@@ -2515,11 +2650,27 @@ function aeCompute(){
     const cpcComputed  = ad.outClicks > 0 ? ad.spend / ad.outClicks : 0;
     const cpc          = cpcFromSheet > 0 ? cpcFromSheet : cpcComputed;
 
-    const fR=ad.ltvR>0?ad.ltvR:ad.ltvRS,fF=ad.ltvF>0?ad.ltvF:(ad.ltvRS>0?ad.ltvI/ad.ltvRS:0);
-    const ded=ad.ltvRS>0?(fR/ad.ltvRS):1;
+    // Best lifetime unique reach estimate. Meta's ltv_reach is preferred; if missing,
+    // derive from ltv_frequency (imp/freq); else fall back to max single-day reach
+    // (guaranteed lower bound for unique reach). Without this fallback, ded=1 and the
+    // running-frequency ratio almost never crosses 2 — making the column empty.
+    let lifetimeReach = ad.ltvR;
+    if(lifetimeReach<=0 && ad.ltvF>0 && ad.imp>0) lifetimeReach = ad.imp/ad.ltvF;
+    if(lifetimeReach<=0){ for(const day of ad.days) if(day.r>lifetimeReach) lifetimeReach=day.r; }
+    const fR = lifetimeReach>0 ? lifetimeReach : ad.ltvRS;
+    const fF = ad.ltvF>0 ? ad.ltvF : (fR>0 ? ad.imp/fR : 0);
+    const ded = ad.ltvRS>0 ? Math.min(1, fR/ad.ltvRS) : 1;
     ad.days.sort((a,b)=>a.d-b.d);
     let hitT=null,rf2='-',rI=0,rR=0;
-    for(const day of ad.days){rI+=day.i;rR+=day.r;if(rI>=tImp&&!hitT)hitT=day.d;const eR=rR*ded;if(eR>0&&(rI/eR)>=2&&rf2==='-')rf2=Math.round(eR).toLocaleString();}
+    for(const day of ad.days){
+      rI+=day.i; rR+=day.r;
+      if(rI>=tImp&&!hitT) hitT=day.d;
+      const eR=rR*ded;
+      if(eR>0 && (rI/eR)>=2 && rf2==='-') rf2=Math.round(eR).toLocaleString();
+    }
+    // Final safety net: if the running-cumulative check never triggered but the ad's
+    // overall lifetime frequency is ≥ 2, the column should show the lifetime unique reach.
+    if(rf2==='-' && fF>=2 && lifetimeReach>0) rf2=Math.round(lifetimeReach).toLocaleString();
     const cD=ad.created?new Date(ad.created+'T00:00:00'):new Date(ad.firstD);
     let vec='—';
     if(hitT)vec='Eval: '+fmt(hitT);
@@ -2687,11 +2838,11 @@ function aeExportCSV(){
     ['# F2 — Min ROAS',tRoas],
     ['# F3 — Max Cost per NCP (₹)',tCpn],
     ['# F4 — Max Cost per FTEWV (₹)',tFtewv],
-    ['# Incremental Winner = F1 AND F2 AND F3 AND F4'],
-    ['# Winner             = F1 AND F2 AND (F3 OR F4)'],
-    ['# ITE Priority 1     = F1 AND NOT F2 AND F3'],
+    ['# Incremental Winner = F1 AND (F2 OR F3) AND F4'],
+    ['# Winner             = F1 AND (F2 OR F3)   — F4 not mandatory'],
+    ['# ITE Priority 1     = (deprecated — now folded into Winner)'],
     ['# ITE Priority 2     = F1 AND NOT F2 AND NOT F3'],
-    ['# Analyse            = (F1 AND F2 AND NOT F3 AND NOT F4) OR (NOT F1 AND (conv OR F3))'],
+    ['# Analyse            = NOT F1 AND (conv OR F3)'],
     ['# Discarded          = NOT F1 AND no conv AND NOT F3'],
     ['# ─── ACTIVE FILTERS ───'],
     ['# Category Filter',catFilter],
@@ -2704,7 +2855,7 @@ function aeExportCSV(){
   const headers=[
     'Campaign','Ad ID','Ad Name','Account','Ad Created','First Seen',
     'Status (Category)','Impressions','ROAS','CPC (₹)','LTV Spend (₹)',
-    'F1 Pass','F2 Pass','F3 Pass',
+    'F1 Pass','F2/F3 Pass (ROAS or Cost/NCP)',
     'Days to Target (vec)','Reach @ Freq2','LTV R/F','Reach Weight%',
     'Profit Eff (₹)','Contrib %','Delivery Score','Sales Score','Blended Score',
     'System Type','Action Protocol','Performance Move','Creative Move','Ad Status'
@@ -2716,7 +2867,7 @@ function aeExportCSV(){
     r.category,r.imp,r.rawRoas.toFixed(2),
     r.rawCpc>0?r.rawCpc.toFixed(2):'',
     r.rawSpend.toFixed(0),
-    r.f1Pass?'TRUE':'FALSE',r.f2Pass?'TRUE':'FALSE',r.f3Pass?'TRUE':'FALSE',
+    r.f1Pass?'TRUE':'FALSE', (r.f2Pass||r.f3Pass)?'TRUE':'FALSE',
     r.vec,r.rf2,r.lRFN,r.rw,
     r.rawProfit.toFixed(0),r.cm,r.dE,r.sE,r.bl,
     r.type,r.action,r.perf,r.creative,r.adStatus||''
@@ -2750,6 +2901,24 @@ function copyText(txt,el){
 // ── filter flag cell helper ──
 function fFlag(pass){ return pass?'<span style="background:#e6f0ee;color:#4a7c6f;padding:2px 7px;border-radius:100px;font-size:9.5px;font-weight:700;border:1px solid rgba(74,124,111,.3)">✓</span>':'<span style="background:#f5ebe6;color:#c0603a;padding:2px 7px;border-radius:100px;font-size:9.5px;font-weight:700;border:1px solid rgba(192,96,58,.2)">✗</span>'; }
 
+// ── Row-hover tooltip (full ad name + campaign name) ──
+function aeShowTip(ev,el){
+  const tip=document.getElementById('ae-row-tip');if(!tip)return;
+  const ad=el.dataset.tipAd||'';const camp=el.dataset.tipCamp||'';
+  tip.innerHTML='<div class="tip-label">Ad Name</div><div class="tip-value">'+ad+'</div><div class="tip-label">Campaign</div><div class="tip-value">'+camp+'</div>';
+  tip.style.display='block';aeMoveTip(ev);
+}
+function aeMoveTip(ev){
+  const tip=document.getElementById('ae-row-tip');if(!tip||tip.style.display==='none')return;
+  const pad=14;let x=ev.clientX+pad,y=ev.clientY+pad;
+  const r=tip.getBoundingClientRect();
+  if(x+r.width>window.innerWidth-8) x=ev.clientX-r.width-pad;
+  if(y+r.height>window.innerHeight-8) y=ev.clientY-r.height-pad;
+  if(x<8) x=8; if(y<8) y=8;
+  tip.style.left=x+'px';tip.style.top=y+'px';
+}
+function aeHideTip(){const tip=document.getElementById('ae-row-tip');if(tip) tip.style.display='none';}
+
 function aeRender(){
   const st=aeCurPage*aePerPage,en=st+aePerPage,pg=aeFiltered.slice(st,en),tot=aeFiltered.length;
   document.getElementById('ae-row-info').textContent=(st+1).toLocaleString()+'–'+Math.min(en,tot).toLocaleString()+' of '+tot.toLocaleString()+' ads';
@@ -2766,7 +2935,7 @@ function aeRender(){
     const sn=String(r.adName).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
     const sc=String(r.campName).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     const cpcDisplay = r.rawCpc > 0 ? '₹'+r.rawCpc.toFixed(2) : '—';
-    return `<tr>
+    return `<tr data-hover-tip="1" data-tip-ad="${sn}" data-tip-camp="${sc}" onmouseenter="aeShowTip(event,this)" onmousemove="aeMoveTip(event)" onmouseleave="aeHideTip()">
 <td style="padding:11px 14px;color:#9a9187;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${sc}">${sc}</td>
 <td style="padding:11px 14px;font-family:'Roboto Mono',monospace;font-size:10px;color:#9a9187;cursor:pointer" onclick="copyText('${sid}',this)">${sid}</td>
 <td style="padding:11px 14px;color:#1c1916;font-weight:600;max-width:210px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="copyText('${sn}',this)" title="${sn}">${sn}</td>
@@ -2778,8 +2947,7 @@ function aeRender(){
 <td style="padding:11px 14px;text-align:right;font-family:'Roboto Mono',monospace;font-weight:700;color:${r.f3Pass?'#4a7c6f':'#c0603a'}">${cpcDisplay}</td>
 <td style="padding:11px 14px;text-align:right;color:#c0603a;font-weight:700;font-family:'Roboto Mono',monospace">&#8377;${r.rawSpend.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
 <td style="padding:11px 14px;text-align:center">${fFlag(r.f1Pass)}</td>
-<td style="padding:11px 14px;text-align:center">${fFlag(r.f2Pass)}</td>
-<td style="padding:11px 14px;text-align:center">${fFlag(r.f3Pass)}</td>
+<td style="padding:11px 14px;text-align:center" title="Passes if ROAS ≥ target OR Cost/NCP ≤ target">${fFlag(r.f2Pass || r.f3Pass)}</td>
 <td style="padding:11px 14px;text-align:center;font-size:10px;color:#7c4dbd">${r.vec}</td>
 <td style="padding:11px 14px;text-align:right;color:#b8883a;font-family:'Roboto Mono',monospace">${r.rf2}</td>
 <td style="padding:11px 14px;text-align:right;color:#9a9187;font-size:10px">${r.lRFN}</td>
@@ -2837,6 +3005,131 @@ function aeRender(){
         <button onclick="lcReload()" style="background:var(--lc-surface2);border:1px solid var(--lc-border);color:var(--lc-ink2);border-radius:8px;padding:8px 14px;font-size:.72rem;font-weight:600;cursor:pointer">↻ Refresh</button>
         <button onclick="lcExport()" style="background:#e6f0ee;border:1px solid rgba(74,124,111,.3);color:var(--lc-sage);border-radius:8px;padding:8px 14px;font-size:.72rem;font-weight:600;cursor:pointer">↓ Export CSV</button>
       </div>
+    </div>
+
+    <!-- Status chips, filters, loading state and the 14-day buffer table were moved
+         into #fatiguePanel (which is now the combined "Lifecycle" view). This panel
+         is kept in DOM only as a no-op fallback; its tab is hidden. -->
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- AD FATIGUE PANEL — standalone overlay panel.       -->
+<!-- Buckets ads by frequency = Σ impressions ÷ max     -->
+<!-- daily reach over a chosen delivery window. Shows   -->
+<!-- # ads, Σ spend, Σ reach per bucket (0-2 / 2-2.5    -->
+<!-- / 2.5-3). Ads with freq > 3 are excluded.          -->
+<!-- ════════════════════════════════════════════════ -->
+<div id="fatiguePanel" style="display:none;position:fixed;inset:0;z-index:100;overflow-y:auto;background:#f4f1eb;font-family:'Roboto',sans-serif">
+  <style>
+    #fatiguePanel{--ft-bg:#f4f1eb;--ft-surface:#fff;--ft-surface2:#faf8f5;--ft-border:#e0dbd0;--ft-border2:#cdc8bc;--ft-ink:#1c1916;--ft-ink2:#4a4540;--ft-muted:#9a9187;--ft-sage:#4a7c6f;--ft-sage-lt:#e6f0ee;--ft-gold:#b8883a;--ft-gold-lt:#fdf5e6;--ft-terra:#c0603a;--ft-terra-lt:#f5ebe6;--ft-slate:#4a6fa5;--ft-slate-lt:#eaf0f8}
+    #fatiguePanel *{box-sizing:border-box}
+    #fatiguePanel .ft-card{background:var(--ft-surface);border:1px solid var(--ft-border);border-radius:14px}
+    #fatiguePanel input,#fatiguePanel select{font-family:inherit;font-size:12px;padding:7px 10px;border-radius:8px;border:1px solid var(--ft-border);background:var(--ft-surface2);color:var(--ft-ink);outline:none}
+    #fatiguePanel input:focus,#fatiguePanel select:focus{border-color:var(--ft-terra);box-shadow:0 0 0 3px rgba(192,96,58,.1)}
+    #fatiguePanel .ft-btn{background:var(--ft-surface2);border:1px solid var(--ft-border);color:var(--ft-ink2);border-radius:8px;padding:8px 14px;font-size:.72rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s}
+    #fatiguePanel .ft-btn:hover{border-color:var(--ft-border2)}
+    #fatiguePanel .ft-bucket{position:relative;overflow:hidden;border-radius:14px;padding:24px 22px}
+    #fatiguePanel .ft-bucket::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;opacity:.65}
+    #fatiguePanel .ft-metric-row{display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(28,25,22,.06)}
+    #fatiguePanel .ft-metric-row:last-child{border-bottom:none}
+    #fatiguePanel .ft-metric-label{font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ft-muted)}
+    #fatiguePanel .ft-metric-value{font-family:'Roboto Mono',monospace;font-weight:800;color:var(--ft-ink);font-size:1.1rem;letter-spacing:-.3px}
+    #fatiguePanel .ft-spinner{width:38px;height:38px;border-radius:50%;border:3px solid rgba(192,96,58,.15);border-top-color:var(--ft-terra);animation:ae-spin .8s linear infinite;margin:0 auto 14px}
+
+    /* ── 14-day buffer table styles — duplicated from #lifecyclePanel so the same
+       lc-* classes work after the HTML was moved into this combined panel. ── */
+    #fatiguePanel{--lc-bg:#f4f1eb;--lc-surface:#fff;--lc-surface2:#faf8f5;--lc-border:#e0dbd0;--lc-ink:#1c1916;--lc-ink2:#4a4540;--lc-muted:#9a9187;--lc-sage:#4a7c6f;--lc-sage-lt:#e6f0ee;--lc-gold:#b8883a;--lc-gold-lt:#fdf5e6;--lc-terra:#c0603a;--lc-terra-lt:#f5ebe6;--lc-slate:#4a6fa5;--lc-slate-lt:#eaf0f8}
+    #fatiguePanel .lc-card{background:var(--lc-surface);border:1px solid var(--lc-border);border-radius:14px}
+    #fatiguePanel .lc-chip{cursor:pointer;padding:14px 18px;border-radius:12px;border:1px solid var(--lc-border);transition:all .15s;background:var(--lc-surface)}
+    #fatiguePanel .lc-chip:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(28,25,22,.06)}
+    #fatiguePanel .lc-chip.active{box-shadow:0 0 0 2px currentColor inset}
+    #fatiguePanel table.lc-tbl{width:100%;border-collapse:separate;border-spacing:0}
+    #fatiguePanel table.lc-tbl thead th{background:var(--lc-surface2);color:var(--lc-muted);border-bottom:1px solid var(--lc-border);font-weight:700;text-transform:uppercase;font-size:9.5px;letter-spacing:1px;white-space:nowrap;padding:11px 14px;cursor:pointer;user-select:none;position:sticky;top:0;z-index:3}
+    #fatiguePanel table.lc-tbl thead th:hover{color:var(--lc-sage)}
+    #fatiguePanel table.lc-tbl tbody tr{background:var(--lc-surface);transition:background .15s}
+    #fatiguePanel table.lc-tbl tbody tr:nth-child(even){background:var(--lc-surface2)}
+    #fatiguePanel table.lc-tbl tbody tr:hover{background:var(--lc-sage-lt) !important}
+    #fatiguePanel table.lc-tbl tbody td{border-bottom:1px solid #edeae2;color:var(--lc-ink2);padding:11px 14px;vertical-align:middle;white-space:nowrap;font-size:12px}
+    #fatiguePanel .lc-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
+  </style>
+
+  <!-- Sticky top nav -->
+  <div style="position:sticky;top:0;z-index:10;background:rgba(244,241,235,0.96);border-bottom:1px solid #e0dbd0;backdrop-filter:blur(20px)">
+    <div style="height:52px;display:flex;align-items:center;padding:0 24px;gap:14px">
+      <button onclick="ftGoBack()" style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:#faf8f5;border:1px solid #cdc8bc;color:#4a4540;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        <span style="font-style:italic;font-weight:800">Creative <em style="color:#c0603a">Testing</em></span>
+      </button>
+      <div style="width:1px;height:20px;background:#e0dbd0;flex-shrink:0"></div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <div style="width:6px;height:6px;border-radius:50%;background:#c0603a;animation:ae-pulse 2s infinite"></div>
+        <span style="font-size:13px;font-weight:700;color:#1c1916">Lifecycle</span>
+        <span id="ft-row-badge" style="display:none;font-size:10px;font-weight:700;color:#c0603a;background:#f5ebe6;border:1px solid rgba(192,96,58,.25);border-radius:20px;padding:2px 10px"></span>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
+        <span style="font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ft-muted)">Window</span>
+        <input id="ft-date-from" type="date" onchange="ftFetchAndRender(true)"/>
+        <span style="color:var(--ft-muted)">→</span>
+        <input id="ft-date-to" type="date" onchange="ftFetchAndRender(true)"/>
+        <button onclick="ftReset()" class="ft-btn" title="Reset to last 30 days">Last 30d</button>
+        <button onclick="ftFetchAndRender(true)" class="ft-btn">↻ Refresh</button>
+      </div>
+    </div>
+    <!-- Account rail -->
+    <div style="padding:0 24px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:#9a9187;flex-shrink:0">Account</span>
+      <div id="ft-acct-rail" style="display:flex;gap:6px;flex-wrap:wrap">
+        <div class="ft-acct-card active" data-acct="" onclick="ftSetAcct(this,'')" style="background:#f5ebe6;border:2px solid rgba(192,96,58,.25);border-radius:9px;padding:7px 13px;cursor:pointer;transition:all .15s">
+          <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#c0603a">All Accounts</div>
+          <div style="font-size:.78rem;font-weight:700;color:#1c1916;margin-top:1px">Combined</div>
+        </div>
+        <div class="ft-acct-card" data-acct="Raho Saadaa" onclick="ftSetAcct(this,'Raho Saadaa')" style="background:#faf8f5;border:1px solid #e0dbd0;border-radius:9px;padding:7px 13px;cursor:pointer;transition:all .15s">
+          <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9a9187">Account 1</div>
+          <div style="font-size:.78rem;font-weight:700;color:#1c1916;margin-top:1px">Raho Saadaa</div>
+        </div>
+        <div class="ft-acct-card" data-acct="Fourth Ad Account - SD" onclick="ftSetAcct(this,'Fourth Ad Account - SD')" style="background:#faf8f5;border:1px solid #e0dbd0;border-radius:9px;padding:7px 13px;cursor:pointer;transition:all .15s">
+          <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9a9187">Account 2</div>
+          <div style="font-size:.78rem;font-weight:700;color:#1c1916;margin-top:1px">Fourth Ad Account - SD</div>
+        </div>
+        <div class="ft-acct-card" data-acct="Third Ad Account - SD" onclick="ftSetAcct(this,'Third Ad Account - SD')" style="background:#faf8f5;border:1px solid #e0dbd0;border-radius:9px;padding:7px 13px;cursor:pointer;transition:all .15s">
+          <div style="font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9a9187">Account 3</div>
+          <div style="font-size:.78rem;font-weight:700;color:#1c1916;margin-top:1px">Third Ad Account - SD</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div style="max-width:1600px;margin:0 auto;padding:24px">
+    <div id="ft-loading" style="display:none;text-align:center;padding:80px 24px">
+      <div class="ft-spinner"></div>
+      <div style="font-size:14px;font-weight:700;color:#c0603a;margin-bottom:4px">Loading Ad Fatigue Data</div>
+      <div id="ft-load-sub" style="font-size:12px;color:#9a9187">Fetching primary_table…</div>
+    </div>
+
+    <div id="ft-content" style="display:none">
+      <div style="background:#fff;border:1px solid #e0dbd0;border-radius:10px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:18px">📊</span>
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:700;color:#c0603a;letter-spacing:.8px;text-transform:uppercase">Frequency Buckets</div>
+          <div id="ft-summary" style="font-size:12.5px;color:#4a4540;margin-top:3px">—</div>
+        </div>
+      </div>
+      <div id="ft-buckets" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px"></div>
+    </div>
+
+    <!-- ───────────────────────────────────────────────────── -->
+    <!-- 14-DAY BUFFER TABLE — moved from #lifecyclePanel.      -->
+    <!-- Same lc-* IDs / classes so the existing lcReload /     -->
+    <!-- lcRender / lcSort / etc. JS continues to work.          -->
+    <!-- ───────────────────────────────────────────────────── -->
+    <div style="margin-top:36px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+      <div>
+        <div style="font-size:.62rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--lc-muted)">14-Day Buffer Resolver</div>
+        <div style="font-size:.7rem;color:var(--lc-muted);margin-top:2px">From ad_created_date · 50,000 impression threshold · re-classified after every primary sync</div>
+      </div>
+      <button onclick="lcExport()" style="background:#e6f0ee;border:1px solid rgba(74,124,111,.3);color:var(--lc-sage);border-radius:8px;padding:8px 14px;font-size:.72rem;font-weight:600;cursor:pointer">↓ Export CSV</button>
     </div>
 
     <!-- Status Chips -->
@@ -3083,6 +3376,172 @@ function lcExport(){
   a.download = 'Lifecycle_Export_'+new Date().toISOString().slice(0,10)+'.csv';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// ════════════════════════════════════════
+// AD FATIGUE PANEL — standalone overlay.
+// Frequency = Σ impressions ÷ max(daily reach) for each ad over a chosen
+// delivery window. Max-daily-reach is a safer lower-bound proxy for window
+// unique reach than Σ(daily reach) (which overcounts due to overlap).
+// Buckets: Low 0-2, Medium 2-2.5, High 2.5-3. Ads with freq > 3 are excluded.
+// ════════════════════════════════════════
+let ftAcct='', ftRows=[], ftLastKey='';
+
+function _ftDefaultRange(){
+  const today=new Date();
+  const from=new Date(today); from.setDate(today.getDate()-29);
+  const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return {from:fmt(from), to:fmt(today)};
+}
+
+function ftReset(){
+  const d=_ftDefaultRange();
+  document.getElementById('ft-date-from').value=d.from;
+  document.getElementById('ft-date-to').value=d.to;
+  ftFetchAndRender(true);
+}
+
+function ftSetAcct(el, acct){
+  ftAcct=acct;
+  document.querySelectorAll('.ft-acct-card').forEach(c=>{
+    c.style.background='#faf8f5';
+    c.style.border='1px solid #e0dbd0';
+    const lbl=c.querySelector('div');
+    if(lbl) lbl.style.color='#9a9187';
+  });
+  el.style.background='#f5ebe6';
+  el.style.border='2px solid rgba(192,96,58,.25)';
+  const lbl=el.querySelector('div');
+  if(lbl) lbl.style.color='#c0603a';
+  ftRender(); // re-aggregate from cached rows
+}
+
+async function _ftFetchPrimary(fromVal, toVal){
+  if(!SUPABASE_URL || !SUPABASE_ANON) return [];
+  const cols='account_name,ad_id,date,impressions,reach,amount_spent_inr';
+  const BATCH=1000;
+  let all=[], offset=0, more=true, pg=0;
+  const sub=document.getElementById('ft-load-sub');
+  while(more){
+    pg++;
+    if(sub) sub.textContent='Page '+pg+' · '+all.length.toLocaleString('en-IN')+' rows loaded…';
+    let url=SUPABASE_URL+'/rest/v1/primary_table?select='+cols+'&order=date.desc&limit='+BATCH+'&offset='+offset;
+    if(fromVal) url+='&date=gte.'+fromVal;
+    if(toVal)   url+='&date=lte.'+toVal;
+    const res=await fetch(url,{headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,'Prefer':'count=none'}});
+    if(!res.ok){ more=false; break; }
+    const batch=await res.json();
+    if(!Array.isArray(batch) || batch.length===0){ more=false; break; }
+    all=all.concat(batch);
+    offset+=batch.length;
+    if(batch.length<BATCH) more=false;
+  }
+  return all;
+}
+
+async function ftFetchAndRender(forceRefetch){
+  // Default the date inputs if blank
+  let fromVal=document.getElementById('ft-date-from').value;
+  let toVal=document.getElementById('ft-date-to').value;
+  if(!fromVal && !toVal){
+    const d=_ftDefaultRange();
+    document.getElementById('ft-date-from').value=d.from;
+    document.getElementById('ft-date-to').value=d.to;
+    fromVal=d.from; toVal=d.to;
+  }
+  const cacheKey=(fromVal||'')+'|'+(toVal||'');
+  if(!forceRefetch && cacheKey===ftLastKey && ftRows.length){
+    ftRender();
+    return;
+  }
+  document.getElementById('ft-loading').style.display='block';
+  document.getElementById('ft-content').style.display='none';
+  document.getElementById('ft-load-sub').textContent='Fetching window: '+fromVal+' → '+toVal+'…';
+  try{
+    ftRows=await _ftFetchPrimary(fromVal,toVal);
+    ftLastKey=cacheKey;
+  } catch(e){
+    document.getElementById('ft-load-sub').textContent='Error: '+e.message;
+    return;
+  }
+  ftRender();
+}
+
+function ftRender(){
+  const fromVal=document.getElementById('ft-date-from').value;
+  const toVal=document.getElementById('ft-date-to').value;
+
+  // Aggregate per ad_id with optional account filter
+  const ads={};
+  for(const r of ftRows){
+    if(ftAcct && r.account_name !== ftAcct) continue;
+    const id=r.ad_id||''; if(!id) continue;
+    if(!ads[id]) ads[id]={impr:0, spend:0, maxReach:0};
+    ads[id].impr     += Number(r.impressions||0);
+    ads[id].spend    += Number(r.amount_spent_inr||0);
+    const rch=Number(r.reach||0);
+    if(rch>ads[id].maxReach) ads[id].maxReach=rch;
+  }
+
+  // Three disjoint buckets
+  const buckets=[
+    {label:'Low Fatigue', range:'Frequency 0 – 2',   color:'#4a7c6f', bg:'#e6f0ee', n:0, spend:0, reach:0},
+    {label:'Medium',      range:'Frequency 2 – 2.5', color:'#b8883a', bg:'#fdf5e6', n:0, spend:0, reach:0},
+    {label:'High',        range:'Frequency 2.5 – 3', color:'#c0603a', bg:'#f5ebe6', n:0, spend:0, reach:0},
+  ];
+  let inScope=0, over3=0;
+  for(const id in ads){
+    const a=ads[id];
+    if(a.maxReach<=0 || a.impr<=0) continue;
+    const f=a.impr/a.maxReach;
+    if(f>3){ over3++; continue; }
+    let i;
+    if(f<=2)      i=0;
+    else if(f<=2.5) i=1;
+    else            i=2;
+    buckets[i].n++; buckets[i].spend+=a.spend; buckets[i].reach+=a.maxReach;
+    inScope++;
+  }
+
+  const fmtN=v=>v.toLocaleString('en-IN');
+  const fmtINR=v=>'₹'+Math.round(v).toLocaleString('en-IN');
+
+  document.getElementById('ft-buckets').innerHTML=buckets.map(b=>`
+    <div class="ft-bucket" style="background:${b.bg};border:1px solid ${b.color}33">
+      <style>.ft-bucket{--accent:${b.color}}</style>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(28,25,22,.08)">
+        <div style="width:8px;height:8px;border-radius:50%;background:${b.color};box-shadow:0 0 6px ${b.color}55"></div>
+        <div>
+          <div style="font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:${b.color}">${b.label}</div>
+          <div style="font-size:.65rem;color:var(--ft-muted);margin-top:1px">${b.range}</div>
+        </div>
+      </div>
+      <div class="ft-metric-row">
+        <span class="ft-metric-label">Total Ads</span>
+        <span class="ft-metric-value" style="font-size:1.6rem;font-weight:900;color:${b.color}">${fmtN(b.n)}</span>
+      </div>
+      <div class="ft-metric-row">
+        <span class="ft-metric-label">Amount Spent</span>
+        <span class="ft-metric-value" style="color:${b.color}">${fmtINR(b.spend)}</span>
+      </div>
+      <div class="ft-metric-row">
+        <span class="ft-metric-label">Reach</span>
+        <span class="ft-metric-value">${fmtN(b.reach)}</span>
+      </div>
+    </div>
+  `).join('');
+
+  let msg='Window <b>'+fromVal+' → '+toVal+'</b> · '+fmtN(inScope)+' ads bucketed (freq ≤ 3)';
+  if(over3>0) msg+=' · '+fmtN(over3)+' excluded (freq > 3)';
+  if(ftAcct) msg+=' · account: '+ftAcct;
+  document.getElementById('ft-summary').innerHTML=msg;
+
+  const badge=document.getElementById('ft-row-badge');
+  badge.textContent=fmtN(inScope)+' ads · '+fromVal+' → '+toVal;
+  badge.style.display='inline';
+
+  document.getElementById('ft-loading').style.display='none';
+  document.getElementById('ft-content').style.display='block';
 }
 </script>
 </body>

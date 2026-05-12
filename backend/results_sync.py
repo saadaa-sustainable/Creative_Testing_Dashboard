@@ -1,20 +1,22 @@
 """
 results_sync.py
 ═══════════════════════════════════════════════════════════════════════════
-Runs hourly (via scheduler.py).
-Reads raw data from primary_table → computes all dashboard metrics →
+Runs once nightly (after primary sync via cron.py).
+Reads the LAST 30 DAYS of primary_table → aggregates dashboard metrics →
 writes ONE compact row per account (+ one for All Accounts) into results_table.
 
-The dashboard then fetches ONLY results_table (~4 tiny rows) instead of
-scanning 84,875 rows — load time drops from 30s → <1s.
+results_table now holds a rolling-30-day snapshot per account. The dashboard
+defaults to displaying this window. If the user picks a date range outside
+the 30-day window, the frontend hits primary_table directly.
 
 Usage:
-    python results_sync.py              # compute all accounts + combined
+    python results_sync.py              # all accounts, default 30-day window
     python results_sync.py --account 1  # single account only (for testing)
+    python results_sync.py --days 60    # custom window length (override default)
 """
 
 import os, json, math
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date, timedelta
 from collections import defaultdict
 
 import psycopg2
@@ -24,6 +26,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL")
+
+# Rolling window length for the snapshot. 30 days = today inclusive minus 29.
+DEFAULT_DAYS_WINDOW = 30
 
 # ── Account map ────────────────────────────────────────────────────────
 ACCOUNTS = [
@@ -121,9 +126,10 @@ def get_conn():
     return psycopg2.connect(SUPABASE_DB_URL)
 
 
-def fetch_primary(conn, account_name: str | None = None):
+def fetch_primary(conn, account_name: str | None = None, since_date: date | None = None):
     """
-    Pull all rows from primary_table for one account (or all accounts).
+    Pull rows from primary_table for one account (or all accounts), restricted
+    to rows with date >= since_date when provided.
     Returns list of dicts.
     """
     cols = [
@@ -151,14 +157,21 @@ def fetch_primary(conn, account_name: str | None = None):
     ]
     col_str = ", ".join(cols)
 
+    where = []
+    params: list = []
+    if account_name:
+        where.append("account_name = %s")
+        params.append(account_name)
+    if since_date:
+        where.append("date >= %s")
+        params.append(since_date)
+    where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-        if account_name:
-            cur.execute(
-                f"SELECT {col_str} FROM primary_table WHERE account_name = %s ORDER BY date DESC",
-                (account_name,),
-            )
-        else:
-            cur.execute(f"SELECT {col_str} FROM primary_table ORDER BY date DESC")
+        cur.execute(
+            f"SELECT {col_str} FROM primary_table{where_sql} ORDER BY date DESC",
+            params,
+        )
         return cur.fetchall()
 
 
@@ -373,8 +386,9 @@ def write_result(conn, result: dict):
     conn.commit()
 
 
-def purge_old_results(conn):
-    """Keep only the 3 most recent rows per account — prevent table bloat."""
+def purge_old_results(conn, keep_per_account: int = 1):
+    """Keep only the N most recent rows per account — prevent table bloat.
+    Default is 1 (the current 30-day snapshot is the only one needed)."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -388,17 +402,21 @@ def purge_old_results(conn):
                            ) AS rn
                     FROM results_table
                 ) ranked
-                WHERE rn <= 3
+                WHERE rn <= %s
             )
-        """
+        """,
+            (keep_per_account,),
         )
     conn.commit()
-    print("  Old rows purged — keeping latest 3 per account")
+    print(f"  Old rows purged — keeping latest {keep_per_account} per account")
 
 
 # ── Main ─────────────────────────────────────────────────────────────
-def run(account_name: str | None = None):
+def run(account_name: str | None = None, days_window: int = DEFAULT_DAYS_WINDOW):
+    today = date.today()
+    since_date = today - timedelta(days=days_window - 1)
     print(f"\n[results_sync] Starting — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  Window: {since_date.isoformat()} → {today.isoformat()} ({days_window} days)")
 
     conn = get_conn()
     try:
@@ -408,8 +426,8 @@ def run(account_name: str | None = None):
 
         for acct in targets:
             print(f"  Fetching primary_table for: {acct}...")
-            rows = fetch_primary(conn, acct)
-            print(f"    {len(rows):,} rows fetched")
+            rows = fetch_primary(conn, acct, since_date=since_date)
+            print(f"    {len(rows):,} rows fetched ({since_date.isoformat()} onwards)")
 
             if not rows:
                 print(f"    No data — skipping")
@@ -417,6 +435,10 @@ def run(account_name: str | None = None):
 
             result = compute_results(rows, acct)
             if result:
+                # Override data range to the requested window — keeps the frontend's
+                # date filter stable even if there are gap days with no delivery.
+                result["data_date_from"] = since_date.isoformat()
+                result["data_date_to"] = today.isoformat()
                 write_result(conn, result)
                 print(
                     f"    ✓ Wrote results_table row — "
@@ -434,12 +456,14 @@ def run(account_name: str | None = None):
             print("  Computing All Accounts combined...")
             combined = compute_results(all_rows_combined, "All Accounts")
             if combined:
+                combined["data_date_from"] = since_date.isoformat()
+                combined["data_date_to"] = today.isoformat()
                 write_result(conn, combined)
                 print(
                     f"    ✓ All Accounts row written — {combined['count_total_ads']} unique ads"
                 )
 
-        purge_old_results(conn)
+        purge_old_results(conn, keep_per_account=1)
         print(f"[results_sync] Done — {datetime.now().strftime('%H:%M:%S')}\n")
 
     finally:
@@ -450,9 +474,14 @@ if __name__ == "__main__":
     import sys
 
     acct = None
+    days = DEFAULT_DAYS_WINDOW
     if "--account" in sys.argv:
         idx = sys.argv.index("--account")
         if idx + 1 < len(sys.argv):
             num = int(sys.argv[idx + 1])
             acct = ACCOUNTS[num - 1]["name"]
-    run(acct)
+    if "--days" in sys.argv:
+        idx = sys.argv.index("--days")
+        if idx + 1 < len(sys.argv):
+            days = int(sys.argv[idx + 1])
+    run(acct, days_window=days)
