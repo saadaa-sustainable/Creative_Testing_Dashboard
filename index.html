@@ -345,22 +345,16 @@
     <!-- ROW 2: Ad Name Filter -->
     <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;flex-wrap:wrap">
       <span style="font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);min-width:80px">Ad Name</span>
-      <!-- Two-axis name filter — mirrors Meta's "contains any of" + "doesn't contain any of" -->
-      <div style="display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:1;min-width:260px;max-width:380px;transition:border-color .2s" onfocusin="this.style.borderColor='var(--sage)'" onfocusout="this.style.borderColor='var(--border)'">
-        <span style="background:var(--sage-lt);color:var(--sage);padding:7px 10px;font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;border-right:1px solid var(--border);flex-shrink:0">contains</span>
-        <input type="text" id="nameFilterValue" placeholder="e.g. 4/05/26 or 5/05/26 or BST" oninput="applyFilters()" style="border:none;background:transparent;padding:7px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;flex:1;min-width:140px"/>
+      <div style="display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:1;max-width:520px;transition:border-color .2s" onfocusin="this.style.borderColor='var(--terra)'" onfocusout="this.style.borderColor='var(--border)'">
+        <select id="nameFilterMode" onchange="applyFilters()" style="border:none;border-right:1px solid var(--border);background:var(--bg2);padding:7px 10px;font-family:'Roboto',sans-serif;font-size:.68rem;color:var(--ink2);outline:none;cursor:pointer;flex-shrink:0">
+          <option value="contains">contains</option>
+          <option value="not_contains">doesn't contain</option>
+        </select>
+        <input type="text" id="nameFilterValue" placeholder="e.g. 26/03/26 or 27/03/26 or BST" oninput="applyFilters()" style="border:none;background:transparent;padding:7px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;flex:1;min-width:180px"/>
         <button id="nameFilterClear" onclick="clearNameFilter()" style="display:none;border:none;background:transparent;color:var(--muted);padding:0 12px;font-size:1.1rem;cursor:pointer;line-height:1">&#215;</button>
       </div>
-      <div style="display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:1;min-width:260px;max-width:380px;transition:border-color .2s" onfocusin="this.style.borderColor='var(--terra)'" onfocusout="this.style.borderColor='var(--border)'">
-        <span style="background:var(--terra-lt);color:var(--terra);padding:7px 10px;font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;border-right:1px solid var(--border);flex-shrink:0">doesn't contain</span>
-        <input type="text" id="nameExcludeValue" placeholder="e.g. AL-PD or BR_BST" oninput="applyFilters()" style="border:none;background:transparent;padding:7px 12px;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;flex:1;min-width:140px"/>
-        <button id="nameExcludeClear" onclick="clearNameExclude()" style="display:none;border:none;background:transparent;color:var(--muted);padding:0 12px;font-size:1.1rem;cursor:pointer;line-height:1">&#215;</button>
-      </div>
-      <div id="nameFilterChip" style="display:none;align-items:center;gap:5px;background:var(--sage-lt);border:1px solid rgba(74,124,111,.25);border-radius:100px;padding:3px 10px;font-size:.62rem;font-weight:600;color:var(--sage)">
+      <div id="nameFilterChip" style="display:none;align-items:center;gap:5px;background:var(--terra-lt);border:1px solid rgba(192,96,58,.2);border-radius:100px;padding:3px 10px;font-size:.62rem;font-weight:600;color:var(--terra)">
         <span id="nameFilterChipText"></span>
-      </div>
-      <div id="nameExcludeChip" style="display:none;align-items:center;gap:5px;background:var(--terra-lt);border:1px solid rgba(192,96,58,.25);border-radius:100px;padding:3px 10px;font-size:.62rem;font-weight:600;color:var(--terra)">
-        <span id="nameExcludeChipText"></span>
       </div>
       <div style="margin-left:auto;display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;user-select:none;transition:all .15s" onclick="toggleExcludeCopy()" onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='var(--border)'">
         <div id="copyToggleDot" style="width:28px;height:16px;background:var(--terra);border-radius:99px;position:relative;transition:background .2s;flex-shrink:0">
@@ -927,17 +921,12 @@ function filteredAds(){
       if(st && !ACTIVE_STATUS_WHITELIST.has(st)) return false;
     }
 
-    // ── 3. Ad name filter (Meta-style two-axis) ──────────────────────
-    if(nf.include.length || nf.exclude.length){
-      const name = (a.name||'').toLowerCase();
-      if(nf.include.length){
-        const anyInc = nf.include.some(t => name.includes(t.toLowerCase()));
-        if(!anyInc) return false;
-      }
-      if(nf.exclude.length){
-        const anyExc = nf.exclude.some(t => name.includes(t.toLowerCase()));
-        if(anyExc) return false;
-      }
+    // ── 3. Ad name filter ─────────────────────────────────────────────
+    if(nf.terms.length > 0){
+      const name = a.name.toLowerCase();
+      const anyMatch = nf.terms.some(t => name.includes(t.toLowerCase()));
+      if(nf.mode === 'contains'     && !anyMatch) return false;
+      if(nf.mode === 'not_contains' &&  anyMatch) return false;
     }
  
     // ── 4. Report date filter (skip when results_table mode, no date set) ──
@@ -1012,20 +1001,13 @@ function applyFilters(){
   _renderAll();
 }
 
-function clearFilters(){ setDefaultDates(); clearNameFilter(); clearNameExclude(); clearCreatedFilter(); applyFilters(); }
+function clearFilters(){ setDefaultDates(); clearNameFilter(); clearCreatedFilter(); applyFilters(); }
 function clearCreatedFilter(){ const cf=document.getElementById('createdFrom'); const ct=document.getElementById('createdTo'); if(cf)cf.value=''; if(ct)ct.value=''; applyFilters(); }
 function clearNameFilter(){ const el=document.getElementById('nameFilterValue'); if(el) el.value=''; applyFilters(); }
-function clearNameExclude(){ const el=document.getElementById('nameExcludeValue'); if(el) el.value=''; applyFilters(); }
 
 function getNameFilter(){
-  // Two-axis filter (matches Meta UI):
-  //   include = "contains any of <terms>"  (must match AT LEAST one)
-  //   exclude = "doesn't contain any of <terms>" (must NOT match ANY)
-  const rawInc = (document.getElementById('nameFilterValue')?.value||'').trim();
-  const rawExc = (document.getElementById('nameExcludeValue')?.value||'').trim();
-  const split = s => s ? s.split(/\s+or\s+/i).map(t=>t.trim()).filter(Boolean) : [];
-  return { include: split(rawInc), exclude: split(rawExc) };
-}
+  const mode=document.getElementById('nameFilterMode')?.value||'contains';
+  const raw=(document.getElementById('nameFilterValue')?.value||'').trim();
   if(!raw) return {mode,terms:[]};
   const terms=raw.split(/\s+or\s+/i).map(t=>t.trim()).filter(Boolean);
   return {mode,terms};
@@ -1574,7 +1556,6 @@ async function fetchFromPrimaryForDateRange(fromVal,toVal){
 }
 
 function _updateFilterChips(){
-  // INCLUDE chip + clear button
   const nfVal=(document.getElementById('nameFilterValue')?.value||'').trim();
   const clearBtn=document.getElementById('nameFilterClear');
   const chip=document.getElementById('nameFilterChip');
@@ -1582,23 +1563,11 @@ function _updateFilterChips(){
   if(clearBtn) clearBtn.style.display=nfVal?'flex':'none';
   if(chip){
     if(nfVal){
+      const mode=document.getElementById('nameFilterMode')?.value||'contains';
       const terms=nfVal.split(/\s+or\s+/i).filter(Boolean);
       chip.style.display='flex';
-      chipText.innerHTML='contains '+terms.map(t=>'<strong>'+t+'</strong>').join(' <span style="color:var(--muted)">OR</span> ');
+      chipText.innerHTML=(mode==='contains'?'contains ':'not contains ')+terms.map(t=>'<strong style="color:var(--terra)">'+t+'</strong>').join(' <span style="color:var(--muted)">OR</span> ');
     }else{chip.style.display='none';}
-  }
-  // EXCLUDE chip + clear button
-  const neVal=(document.getElementById('nameExcludeValue')?.value||'').trim();
-  const eClearBtn=document.getElementById('nameExcludeClear');
-  const eChip=document.getElementById('nameExcludeChip');
-  const eChipText=document.getElementById('nameExcludeChipText');
-  if(eClearBtn) eClearBtn.style.display=neVal?'flex':'none';
-  if(eChip){
-    if(neVal){
-      const terms=neVal.split(/\s+or\s+/i).filter(Boolean);
-      eChip.style.display='flex';
-      eChipText.innerHTML="doesn't contain "+terms.map(t=>'<strong>'+t+'</strong>').join(' <span style="color:var(--muted)">OR</span> ');
-    }else{eChip.style.display='none';}
   }
   const cFrom=document.getElementById('createdFrom')?.value;
   const cTo=document.getElementById('createdTo')?.value;
@@ -1632,8 +1601,8 @@ function ctExportCSV(){
   const dateTo     = document.getElementById('dateTo')?.value||'';
   const createdFrom= document.getElementById('createdFrom')?.value||'';
   const createdTo  = document.getElementById('createdTo')?.value||'';
+  const nameMode   = document.getElementById('nameFilterMode')?.value||'contains';
   const nameVal    = (document.getElementById('nameFilterValue')?.value||'').trim();
-  const nameExcl   = (document.getElementById('nameExcludeValue')?.value||'').trim();
   const exclCopy   = EXCLUDE_COPY_TOGGLE;
   const activeOnly = ACTIVE_ONLY_TOGGLE;
   const tImp       = parseFloat(document.getElementById('targetImp')?.value)||50000;
@@ -1708,8 +1677,7 @@ function ctExportCSV(){
     ['# Report Date To', dateTo||'(all)'],
     ['# Created Date From', createdFrom||'(all)'],
     ['# Created Date To', createdTo||'(all)'],
-    ['# Ad Name — contains',   nameVal?'"'+nameVal+'"':'(none)'],
-    ['# Ad Name — doesn\'t contain', nameExcl?'"'+nameExcl+'"':'(none)'],
+    ['# Ad Name Filter', nameVal?(nameMode+' "'+nameVal+'"'):'(none)'],
     ['# Exclude Copy Ads', exclCopy?'Yes':'No'],
     ['# Active Only (status filter)', activeOnly?'Yes (ACTIVE + ADSET_PAUSED) — matches Meta default':'No (all statuses included)'],
     ['# ─── WINNER LOGIC THRESHOLDS ───'],
