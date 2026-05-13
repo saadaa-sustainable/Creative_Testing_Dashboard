@@ -49,6 +49,13 @@ BATCH_SIZE = 200
 def get_conn():
     conn = psycopg2.connect(SUPABASE_DB_URL, connect_timeout=30)
     conn.autocommit = False
+    # Bump statement_timeout to 10 minutes — the unfiltered SELECT on ~100k rows of
+    # primary_table can exceed Supabase's pooler default and get cancelled.
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SET statement_timeout = '600s'")
+    except Exception:
+        pass  # pooler may reject SET; we'll try the SELECT anyway
     try:
         yield conn
         conn.commit()
