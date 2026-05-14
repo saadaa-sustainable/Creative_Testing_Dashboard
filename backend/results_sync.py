@@ -154,6 +154,8 @@ def fetch_primary(conn, account_name: str | None = None, since_date: date | None
         "ncp_count",
         "preview_link",
         "ad_link",
+        "ltv_reach",
+        "ltv_frequency",
     ]
     col_str = ", ".join(cols)
 
@@ -237,6 +239,8 @@ def compute_results(
                 "vpt_sum": 0,
                 "ftewv": 0,
                 "ncp": 0,
+                "ltvReach": 0,
+                "ltvFreq": 0,
             }
         else:
             # Keep the most recent non-empty link values seen
@@ -257,6 +261,12 @@ def compute_results(
         ad["vpt_sum"] += vpt * impr  # weighted for later avg
         ad["ftewv"] += ftewv
         ad["ncp"] += ncp
+        # Track Meta's lifetime reach / frequency (same value across all rows for a
+        # given ad — use MAX to be safe against transient nulls during sync).
+        ltv_r = float(r.get("ltv_reach") or 0)
+        ltv_f = float(r.get("ltv_frequency") or 0)
+        if ltv_r > ad["ltvReach"]: ad["ltvReach"] = ltv_r
+        if ltv_f > ad["ltvFreq"]:  ad["ltvFreq"]  = ltv_f
 
     # ── Overview totals (all rows, not deduplicated) ───────────────────
     total_spend = sum(float(r.get("amount_spent_inr") or 0) for r in rows)
@@ -335,6 +345,8 @@ def compute_results(
             "cpf": round(sdv(ad["spend"], ad.get("ftewv", 0)), 2),
             "ncp": round(ad.get("ncp", 0)),
             "cpn": round(sdv(ad["spend"], ad.get("ncp", 0)), 2),
+            "ltvReach": int(ad.get("ltvReach", 0)),
+            "ltvFreq":  round(ad.get("ltvFreq", 0), 4),
             "preview": ad.get("previewLink", ""),
             "adLink": ad.get("adLink", ""),
         }

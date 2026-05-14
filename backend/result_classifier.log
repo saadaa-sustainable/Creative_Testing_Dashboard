@@ -1,0 +1,18 @@
+2026-05-14 11:57:13 [INFO] Pulling primary_table rows for classification…
+2026-05-14 11:58:19 [INFO]   Loaded 103,635 primary_table rows
+2026-05-14 11:58:19 [INFO]   3,626 unique ads to classify
+2026-05-14 11:58:19 [INFO] Upserting 3,626 rows into ad_results…
+2026-05-14 11:58:35 [INFO] Classification complete.
+2026-05-14 11:58:35 [INFO]   Winner:             256
+2026-05-14 11:58:35 [INFO]   Result Pending:     273
+2026-05-14 11:58:35 [INFO]   Failed:           3,097
+2026-05-14 11:58:35 [INFO]   TOTAL:            3,626
+2026-05-14 13:11:54 [INFO] Pulling primary_table rows for classification…
+2026-05-14 13:17:54 [INFO]   Loaded 104,433 primary_table rows
+2026-05-14 13:17:54 [INFO]   3,644 unique ads to classify
+2026-05-14 13:17:54 [INFO] Upserting 3,644 rows into ad_results…
+2026-05-14 13:18:28 [INFO] Classification complete.
+2026-05-14 13:18:28 [INFO]   Winner:             256
+2026-05-14 13:18:28 [INFO]   Result Pending:     291
+2026-05-14 13:18:28 [INFO]   Failed:           3,097
+2026-05-14 13:18:28 [INFO]   TOTAL:            3,644

@@ -175,6 +175,44 @@ def run_results_sync():
         return False
 
 
+def run_hourly_impressions():
+    """
+    Hourly impressions refresh — fetches today's Meta data, combines with the
+    last 30 days from primary_table (read-only), recomputes per-ad aggregates,
+    and writes a fresh row into results_table. Does NOT modify primary_table.
+    Runs every hour at :30 IST except 00:30 (which is the nightly primary slot).
+    """
+    log.info("-" * 60)
+    log.info("▶  HOURLY IMPRESSIONS — results_table refresh from Meta API")
+    log.info(f"   Started: {fmt(now_ist())}")
+    log.info("-" * 60)
+
+    script = PROJECT_DIR / "hourly_impressions.py"
+    if not script.exists():
+        log.error(f"hourly_impressions.py not found at {script}")
+        return False
+
+    try:
+        result = subprocess.run(
+            [PYTHON, str(script)],
+            cwd=str(PROJECT_DIR),
+            capture_output=False,
+            timeout=600,  # 10 min max — single Meta call + DB writes
+        )
+        success = result.returncode == 0
+        log.info(
+            f'   Hourly impressions {"✓ done" if success else "❌ FAILED"} — exit code {result.returncode}'
+        )
+        return success
+    except subprocess.TimeoutExpired:
+        log.error("   Hourly impressions TIMED OUT after 10 minutes")
+        return False
+    except Exception as e:
+        log.error(f"   Hourly impressions ERROR: {e}")
+        traceback.print_exc()
+        return False
+
+
 # ════════════════════════════════════════════════════════════════════════
 # SCHEDULE LOGIC
 # ════════════════════════════════════════════════════════════════════════
@@ -183,19 +221,35 @@ def run_results_sync():
 PRIMARY_HOUR_IST = 0
 PRIMARY_MINUTE_IST = 30
 
+# Hourly impressions refresh fires at :30 of every hour EXCEPT 00:30 (handled by primary).
+HOURLY_MINUTE_IST = 30
+
 
 def next_run_times():
-    """Return the next scheduled primary-sync time (only cadence left)."""
+    """Return next primary + next hourly times."""
     now = now_ist()
     primary_today = now.replace(
         hour=PRIMARY_HOUR_IST, minute=PRIMARY_MINUTE_IST, second=0, microsecond=0
     )
     primary_next = primary_today + timedelta(days=1) if now >= primary_today else primary_today
-    return primary_next
+
+    # Next hourly slot — the next :30 mark after `now`, skipping 00:30.
+    hourly_next = now.replace(minute=HOURLY_MINUTE_IST, second=0, microsecond=0)
+    if hourly_next <= now:
+        hourly_next += timedelta(hours=1)
+    if hourly_next.hour == PRIMARY_HOUR_IST:  # skip 00:30 — that's the primary slot
+        hourly_next += timedelta(hours=1)
+    return primary_next, hourly_next
 
 
 def should_run_primary(now):
     return now.hour == PRIMARY_HOUR_IST and now.minute == PRIMARY_MINUTE_IST
+
+
+def should_run_hourly(now):
+    # Fire at :30 of every hour, except 00:30 (handled by primary which chains
+    # the full refresh including results_table).
+    return now.minute == HOURLY_MINUTE_IST and now.hour != PRIMARY_HOUR_IST
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -211,12 +265,14 @@ def run_scheduler():
     log.info(f"  Log dir     : {LOG_DIR}")
     log.info("=" * 60)
 
-    primary_next = next_run_times()
+    primary_next, hourly_next = next_run_times()
     log.info(f"  Next primary sync  : {fmt(primary_next)}")
-    log.info("  (results_table refreshes immediately after each primary sync)")
+    log.info(f"  Next hourly refresh: {fmt(hourly_next)}")
+    log.info("  (Primary at 00:30 IST nightly; hourly impressions refresh at :30 of every other hour)")
     log.info("")
 
     last_primary_fired = None
+    last_hourly_fired = None
 
     while True:
         try:
@@ -236,8 +292,16 @@ def run_scheduler():
                     log.info("  → Refreshing results_table (rolling 30-day snapshot)...")
                     run_results_sync()
 
-                primary_next = next_run_times()
+                primary_next, hourly_next = next_run_times()
                 log.info(f"  Next primary sync: {fmt(primary_next)}")
+
+            # ── Hourly impressions refresh at :30 of every hour (except 00:30) ──
+            elif should_run_hourly(now) and last_hourly_fired != minute_key:
+                last_hourly_fired = minute_key
+                log.info(f"\n⏱  Hourly impressions refresh triggered at {fmt(now)}")
+                run_hourly_impressions()
+                primary_next, hourly_next = next_run_times()
+                log.info(f"  Next hourly refresh: {fmt(hourly_next)}")
 
             # Sleep 30 seconds between checks
             time.sleep(30)
@@ -271,22 +335,28 @@ if __name__ == "__main__":
         elif job == "lifecycle":
             log.info("Running lifecycle classifier immediately (--now)")
             run_lifecycle_classifier()
+        elif job == "hourly":
+            log.info("Running hourly impressions refresh immediately (--now)")
+            run_hourly_impressions()
         elif job == "both":
             log.info("Running both syncs immediately (--now)")
             run_primary_sync()
             run_lifecycle_classifier()
             run_results_sync()
         else:
-            print("Usage: python cron_runner.py --now [primary|results|lifecycle|both]")
+            print("Usage: python cron_runner.py --now [primary|results|lifecycle|hourly|both]")
 
     elif "--status" in args:
-        primary_next = next_run_times()
+        primary_next, hourly_next = next_run_times()
         now = now_ist()
-        print(f"\nCurrent time     : {fmt(now)}")
-        print(f"Next primary sync: {fmt(primary_next)}  (nightly 12:30 AM IST)")
-        print(f"                   (results_table refresh chains after it)")
+        print(f"\nCurrent time      : {fmt(now)}")
+        print(f"Next primary sync : {fmt(primary_next)}  (nightly 12:30 AM IST)")
+        print(f"                    (lifecycle classifier + results_table chain after it)")
+        print(f"Next hourly refresh: {fmt(hourly_next)}  (every hour at :30, skipping 00:30)")
         secs_p = int((primary_next - now).total_seconds())
+        secs_h = int((hourly_next - now).total_seconds())
         print(f"  Primary in: {secs_p//3600}h {(secs_p%3600)//60}m")
+        print(f"  Hourly in : {secs_h//3600}h {(secs_h%3600)//60}m")
 
     else:
         run_scheduler()

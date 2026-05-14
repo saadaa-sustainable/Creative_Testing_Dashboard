@@ -268,3 +268,23 @@
 2026-05-13 12:17:26 [INFO]   Next primary sync  : 2026-05-14 00:30:00 IST
 2026-05-13 12:17:26 [INFO]   (results_table refreshes immediately after each primary sync)
 2026-05-13 12:17:26 [INFO] 
+2026-05-14 12:01:09 [INFO] ============================================================
+2026-05-14 12:01:09 [INFO]   SAADAA Meta Ads Cron Runner — starting
+2026-05-14 12:01:09 [INFO]   Project dir : D:\Creative_Testing_Dashboard\backend
+2026-05-14 12:01:09 [INFO]   Python      : C:\Users\Saadaa\AppData\Local\Programs\Python\Python312\pythonw.exe
+2026-05-14 12:01:09 [INFO]   Log dir     : D:\Creative_Testing_Dashboard\backend\logs
+2026-05-14 12:01:09 [INFO] ============================================================
+2026-05-14 12:01:09 [INFO]   Next primary sync  : 2026-05-15 00:30:00 IST
+2026-05-14 12:01:09 [INFO]   Next hourly refresh: 2026-05-14 12:30:00 IST
+2026-05-14 12:01:09 [INFO]   (Primary at 00:30 IST nightly; hourly impressions refresh at :30 of every other hour)
+2026-05-14 12:01:09 [INFO] 
+2026-05-14 13:29:34 [INFO] ============================================================
+2026-05-14 13:29:34 [INFO]   SAADAA Meta Ads Cron Runner — starting
+2026-05-14 13:29:34 [INFO]   Project dir : D:\Creative_Testing_Dashboard\backend
+2026-05-14 13:29:34 [INFO]   Python      : C:\Users\Saadaa\AppData\Local\Programs\Python\Python312\pythonw.exe
+2026-05-14 13:29:34 [INFO]   Log dir     : D:\Creative_Testing_Dashboard\backend\logs
+2026-05-14 13:29:34 [INFO] ============================================================
+2026-05-14 13:29:34 [INFO]   Next primary sync  : 2026-05-15 00:30:00 IST
+2026-05-14 13:29:34 [INFO]   Next hourly refresh: 2026-05-14 13:30:00 IST
+2026-05-14 13:29:34 [INFO]   (Primary at 00:30 IST nightly; hourly impressions refresh at :30 of every other hour)
+2026-05-14 13:29:34 [INFO] 

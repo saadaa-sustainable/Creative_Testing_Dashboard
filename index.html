@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Creative Testing — Live Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&family=Fraunces:opsz,wght,SOFT@9..144,200..700,30..100&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg:#f4f1eb; --bg2:#edeae2; --surface:#fff; --surface2:#faf8f5;
@@ -1132,16 +1132,8 @@ const CATEGORY_CONFIG = {
     action:'Scale budget · maintain creative format',
     desc:'F1 ✓ AND (F2 ✓ OR F3 ✓) — F1 mandatory plus either ROAS or Cost/NCP (F4 not required)'
   },
-  'ITE Priority 1': {
-    // Deprecated — under updated logic, F1 ✓ AND F3 ✓ alone now qualifies as Winner.
-    // Kept in the config to avoid breaking any downstream references; never assigned.
-    label:'ITE Priority 1',
-    bg:'#fdf5e6', color:'#b8883a', border:'rgba(184,136,58,.35)',
-    action:'(deprecated — folded into Winner)',
-    desc:'No longer assigned — F1 ✓ AND F3 ✓ now qualifies as Winner outright.'
-  },
-  'ITE Priority 2': {
-    label:'ITE Priority 2',
+  'Priority': {
+    label:'Priority',
     bg:'#fbeed6', color:'#92620a', border:'rgba(146,98,10,.3)',
     action:'Iterate harder — Cost/NCP AND ROAS failing',
     desc:'F1 ✓ AND F2 ✗ AND F3 ✗ — impressions met but neither ROAS nor Cost/NCP signal'
@@ -1171,7 +1163,7 @@ const CATEGORY_CONFIG = {
  * @param {number} targetCpn       - F3 cost-per-NCP ceiling (lower is better)
  * @param {number} targetFtewv     - F4 cost-per-FTEWV ceiling
  * @param {boolean} hasConversions - true if convValue > 0
- * @returns {'Incremental Winner'|'Winner'|'ITE Priority 1'|'ITE Priority 2'|'Analyse'|'Discarded'}
+ * @returns {'Incremental Winner'|'Winner'|'Priority'|'Analyse'|'Discarded'}
  */
 function getAdCategory(impr, ctRoas, costPerNcp, costPerFtewv, targetImp, targetRoas, targetCpn, targetFtewv, hasConversions){
   const f1 = impr >= targetImp;
@@ -1184,7 +1176,7 @@ function getAdCategory(impr, ctRoas, costPerNcp, costPerFtewv, targetImp, target
   //   Winner             = F1 AND (F2 OR F3)            ← F4 not mandatory
   if(f1 && (f2 || f3) && f4)          return 'Incremental Winner';
   if(f1 && (f2 || f3))                return 'Winner';
-  if(f1 && !f2 && !f3)                return 'ITE Priority 2';   // F1 only, no ROAS / Cost/NCP signal
+  if(f1 && !f2 && !f3)                return 'Priority';   // F1 only, no ROAS / Cost/NCP signal
   if(!f1 && (hasConversions || f3))   return 'Analyse';
   return 'Discarded';
 }
@@ -1192,7 +1184,7 @@ function getAdCategory(impr, ctRoas, costPerNcp, costPerFtewv, targetImp, target
 // ════════════════════════════════════════
 // RENDER — Results Summary
 // ════════════════════════════════════════
-const CAT_KEYS = ['Incremental Winner','Winner','ITE Priority 1','ITE Priority 2','Analyse','Discarded'];
+const CAT_KEYS = ['Incremental Winner','Winner','Priority','Analyse','Discarded'];
 
 function renderResults(ads){
   const targetImp   = parseFloat(document.getElementById('targetImp')?.value)   || 50000;
@@ -1278,8 +1270,7 @@ function renderResults(ads){
   const filterBadges = {
     'Incremental Winner': '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-pass">F2/F3 ✓</span><span class="logic-pill lp-pass">F4 ✓</span>',
     'Winner':             '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-pass">F2/F3 ✓</span>',
-    'ITE Priority 1':     '<span class="logic-pill lp-warn">(deprecated)</span>',
-    'ITE Priority 2':     '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-fail">F2/F3 ✗</span>',
+    'Priority':           '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-fail">F2/F3 ✗</span>',
     'Analyse':            '<span class="logic-pill lp-warn">signal ✓</span>',
     'Discarded':          '<span class="logic-pill lp-fail">F1 ✗</span><span class="logic-pill lp-fail">no signal</span>',
   };
@@ -1310,17 +1301,16 @@ function renderCtypeFunnel(ctypeCounts, ctypeOrder, totalAds, globalCounts){
   const table = document.getElementById('ctypeFunnelTable');
   if(!wrap||!table) return;
 
-  const SUB_CATS = ['Incremental Winner','Winner','ITE Priority 1','ITE Priority 2','Discarded','Analyse'];
+  const SUB_CATS = ['Incremental Winner','Winner','Priority','Discarded','Analyse'];
   const GROUPS = [
     { label:'🟢 Winner',     master:'#2d6a4f', cats:['Incremental Winner','Winner'] },
-    { label:'🟡 ITE',        master:'#92620a', cats:['ITE Priority 1','ITE Priority 2'] },
+    { label:'🟡 Priority',   master:'#b8883a', cats:['Priority'] },
     { label:'🔴 Failed Ad',  master:'#9b2335', cats:['Discarded','Analyse'] },
   ];
   const SUB_CFG = {
     'Incremental Winner': { color:'#1f5d4d', bg:'rgba(31,93,77,.10)',   pill:'rgba(31,93,77,.15)',   short:'Inc. Winner' },
     'Winner':             { color:'#2d6a4f', bg:'rgba(45,106,79,.07)',  pill:'rgba(45,106,79,.12)',  short:'Winner' },
-    'ITE Priority 1':     { color:'#92620a', bg:'rgba(146,98,10,.06)',  pill:'rgba(146,98,10,.12)',  short:'Priority 1' },
-    'ITE Priority 2':     { color:'#b8883a', bg:'rgba(184,136,58,.07)', pill:'rgba(184,136,58,.13)', short:'Priority 2' },
+    'Priority':           { color:'#b8883a', bg:'rgba(184,136,58,.07)', pill:'rgba(184,136,58,.13)', short:'Priority' },
     'Discarded':          { color:'#9b2335', bg:'rgba(155,35,53,.06)',  pill:'rgba(155,35,53,.12)',  short:'Discarded' },
     'Analyse':            { color:'#2c5282', bg:'rgba(44,82,130,.06)',  pill:'rgba(44,82,130,.12)',  short:'Analyse' },
   };
@@ -1331,12 +1321,14 @@ function renderCtypeFunnel(ctypeCounts, ctypeOrder, totalAds, globalCounts){
   const maxPerCat = {};
   SUB_CATS.forEach(cat=>{ maxPerCat[cat]=Math.max(...activeCTypes.map(ct=>ctypeCounts[ct][cat]||0),1); });
 
-  const gridCols = '180px 70px repeat(6,1fr)';
+  // Grid: [Creative Type label] [Total] [one column per SUB_CAT] — size adapts
+  // to however many sub-categories exist.
+  const gridCols = '180px 70px repeat(' + SUB_CATS.length + ',1fr)';
 
-  // Master header row: name+total leftmost, then 3 master cells each spanning 2 sub-columns
+  // Master header — each group spans as many sub-columns as it has cats (Priority spans 1).
   const masterHeader = `
     <div style="grid-column:span 2;background:var(--surface2);border-bottom:1px solid var(--border)"></div>
-    ${GROUPS.map(g=>`<div style="grid-column:span 2;padding:10px 14px;text-align:center;background:${g.master}1A;border-left:1px solid var(--border);border-bottom:1px solid var(--border)">
+    ${GROUPS.map(g=>`<div style="grid-column:span ${g.cats.length};padding:10px 14px;text-align:center;background:${g.master}1A;border-left:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div style="font-size:.7rem;font-weight:900;letter-spacing:.06em;color:${g.master}">${g.label}</div>
     </div>`).join('')}
   `;
@@ -1689,8 +1681,7 @@ function ctExportCSV(){
     ['# Cost/FTEWV = Σ(spend) ÷ Σ(ftewv_count) over the selected date range'],
     ['# Incremental Winner = F1 AND (F2 OR F3) AND F4'],
     ['# Winner             = F1 AND (F2 OR F3)   — F4 not mandatory'],
-    ['# ITE Priority 1     = (deprecated — now folded into Winner)'],
-    ['# ITE Priority 2     = F1 AND NOT F2 AND NOT F3'],
+    ['# Priority           = F1 AND NOT F2 AND NOT F3'],
     ['# Analyse            = NOT F1 AND (conv OR F3)'],
     ['# Discarded          = NOT F1 AND no conv AND NOT F3'],
     ['# ─── EXPORT SUMMARY ───'],
@@ -1709,7 +1700,7 @@ function ctExportCSV(){
     'FTEWV Count','Cost per FTEWV (₹)',
     'ThruPlays','3-Sec Video Plays','Post Engagements','Reach',
     'F1 Pass','F2/F3 Pass (ROAS or Cost/NCP)','F4 Pass',
-    'Category (Inc.Winner/Winner/ITE P2/Analyse/Discarded)',
+    'Category (Inc.Winner/Winner/Priority/Analyse/Discarded)',
     'Ad Status'
   ];
 
@@ -1844,7 +1835,7 @@ function ctExportCSV(){
           <span style="flex:1;height:1px;background:var(--terra-lt)"></span>Categorisation Algorithm<span style="flex:1;height:1px;background:var(--terra-lt)"></span>
         </div>
         <div style="font-size:.68rem;color:var(--ink2);margin-bottom:10px;line-height:1.7">
-          Each unique ad is evaluated against a <strong>4-filter matrix</strong>. <strong>F1 is mandatory</strong> for Winner. <strong>Incremental Winners</strong> pass F1 + at least one of F2/F3 + F4. <strong>Winners</strong> pass F1 + at least one of F2/F3 (F4 not required). Ads that pass only F1 are sent to ITE Priority 2. Failed ads land in Analyse (with signal) or Discarded (no signal).
+          Each unique ad is evaluated against a <strong>4-filter matrix</strong>. <strong>F1 is mandatory</strong> for Winner. <strong>Incremental Winners</strong> pass F1 + at least one of F2/F3 + F4. <strong>Winners</strong> pass F1 + at least one of F2/F3 (F4 not required). Ads that pass only F1 are sent to <strong>Priority</strong>. Failed ads land in Analyse (with signal) or Discarded (no signal).
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           <!-- Header row — F2 and F3 share one combined gate (passes if either is ✓) -->
@@ -1871,9 +1862,9 @@ function ctExportCSV(){
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(74,124,111,.2);color:var(--muted);font-size:.58rem">—</div>
             <div style="padding:9px 12px;color:#4a7c6f">F1 + F2/F3 — F4 not required</div>
           </div>
-          <!-- ITE Priority 2 -->
+          <!-- Priority -->
           <div style="display:grid;grid-template-columns:120px 70px 110px 70px 1fr;border:1px solid rgba(184,136,58,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#fbeed6">
-            <div style="padding:9px 12px;font-weight:800;color:#b8883a;border-right:1px solid rgba(184,136,58,.2)">🟡 ITE P2</div>
+            <div style="padding:9px 12px;font-weight:800;color:#b8883a;border-right:1px solid rgba(184,136,58,.2)">🟡 Priority</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:#b8883a;font-weight:700">✓</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:#c0603a">✗</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:var(--muted);font-size:.58rem">—</div>
@@ -2237,13 +2228,7 @@ const AEA={
     perf:"F1 met plus either strong ROAS or efficient Cost/NCP",
     creative:"Replicate format & messaging · launch new variations"
   },
-  'ITE Priority 1':{
-    type:"(deprecated — F1 ✓ + F3 ✓ now qualifies as Winner)",
-    action:"No longer assigned — see Winner",
-    perf:"Folded into the Winner category under the updated logic.",
-    creative:"—"
-  },
-  'ITE Priority 2':{
+  'Priority':{
     type:"F1 ✓ + F2 ROAS ✗ + F3 CPC ✗ — both ROAS and CPC failing",
     action:"Iterate harder — both delivery efficiency and conv weak",
     perf:"Good impressions but expensive clicks AND poor ROAS",
@@ -2355,10 +2340,8 @@ function selectFatigue(el){
   var lp=document.getElementById('lifecyclePanel');if(lp)lp.style.display='none';
   var p=document.getElementById('fatiguePanel');p.style.display='block';p.scrollTop=0;
   _lockBodyScroll();
-  // Frequency buckets (own state)
+  // Frequency buckets (own state) — the only content of this panel now
   ftFetchAndRender(false);
-  // 14-day buffer table (ad_results) — populates the moved-in lc-* elements
-  if(typeof lcReload === 'function' && !lcLoaded) lcReload();
 }
 
 function ftGoBack(){
@@ -2716,12 +2699,12 @@ function aeCompute(){
   }
 
   // Roll up new 6 categories into AE's 4-card display
-  // Winner card = Incremental Winner + Winner; ITE card = ITE Priority 1 + ITE Priority 2
+  // Winner card = Incremental Winner + Winner; ITE card = Priority
   const cnts={Winner:0,ITE:0,Analyse:0,Discarded:0};
   res.forEach(r=>{
     const c=r.category;
     if(c==='Incremental Winner'||c==='Winner') cnts.Winner++;
-    else if(c==='ITE Priority 1'||c==='ITE Priority 2') cnts.ITE++;
+    else if(c==='Priority') cnts.ITE++;
     else if(c==='Analyse') cnts.Analyse++;
     else if(c==='Discarded') cnts.Discarded++;
   });
@@ -2764,7 +2747,7 @@ function aeApplyFilters(){
   // Map AE chip macro-categories to the new 6-bucket categories
   const chipMatchers = {
     'Winner':    c => c==='Incremental Winner' || c==='Winner',
-    'ITE':       c => c==='ITE Priority 1' || c==='ITE Priority 2',
+    'ITE':       c => c==='Priority',
     'Analyse':   c => c==='Analyse',
     'Discarded': c => c==='Discarded',
   };
@@ -2853,8 +2836,7 @@ function aeExportCSV(){
     ['# F4 — Max Cost per FTEWV (₹)',tFtewv],
     ['# Incremental Winner = F1 AND (F2 OR F3) AND F4'],
     ['# Winner             = F1 AND (F2 OR F3)   — F4 not mandatory'],
-    ['# ITE Priority 1     = (deprecated — now folded into Winner)'],
-    ['# ITE Priority 2     = F1 AND NOT F2 AND NOT F3'],
+    ['# Priority           = F1 AND NOT F2 AND NOT F3'],
     ['# Analyse            = NOT F1 AND (conv OR F3)'],
     ['# Discarded          = NOT F1 AND no conv AND NOT F3'],
     ['# ─── ACTIVE FILTERS ───'],
@@ -3065,6 +3047,175 @@ function aeRender(){
     #fatiguePanel table.lc-tbl tbody tr:hover{background:var(--lc-sage-lt) !important}
     #fatiguePanel table.lc-tbl tbody td{border-bottom:1px solid #edeae2;color:var(--lc-ink2);padding:11px 14px;vertical-align:middle;white-space:nowrap;font-size:12px}
     #fatiguePanel .lc-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
+
+    /* ════════════════════════════════════════════════════════════════════════
+       SOFT-PASTEL-MINIMAL TREATMENT — Fatigue/Lifecycle panel only.
+       Editorial typography (Fraunces display), generous whitespace,
+       hairline rules, restrained pastel washes from existing palette.
+       ════════════════════════════════════════════════════════════════════════ */
+    #fatiguePanel .sp-shell{max-width:1280px;margin:0 auto;padding:48px 56px 96px}
+    @media (max-width:840px){#fatiguePanel .sp-shell{padding:32px 24px 64px}}
+
+    /* Editorial section header */
+    #fatiguePanel .sp-section-label{
+      font-family:'Fraunces',serif; font-style:italic; font-weight:300;
+      font-size:.78rem; color:var(--ft-muted); letter-spacing:.02em;
+      display:flex; align-items:baseline; gap:14px; margin-bottom:6px;
+    }
+    #fatiguePanel .sp-section-label::before{
+      content:''; display:inline-block; width:38px; height:1px;
+      background:var(--ft-border2); transform:translateY(-4px);
+    }
+    #fatiguePanel .sp-section-title{
+      font-family:'Fraunces',serif; font-weight:300; font-style:normal;
+      font-size:clamp(1.9rem,3.4vw,2.6rem); color:var(--ft-ink);
+      letter-spacing:-.02em; line-height:1.05; margin:0 0 12px;
+    }
+    #fatiguePanel .sp-section-title em{
+      font-style:italic; font-weight:300; color:var(--ft-terra);
+    }
+    #fatiguePanel .sp-section-meta{
+      font-family:'Roboto',sans-serif; font-weight:400;
+      font-size:.74rem; color:var(--ft-muted); letter-spacing:.02em;
+      display:flex; flex-wrap:wrap; gap:6px 22px; align-items:center;
+    }
+    #fatiguePanel .sp-section-meta b{font-weight:500; color:var(--ft-ink2)}
+    #fatiguePanel .sp-section-meta .dot{
+      width:3px; height:3px; border-radius:50%; background:var(--ft-border2); display:inline-block;
+    }
+    #fatiguePanel .sp-rule{
+      height:1px; background:linear-gradient(90deg,var(--ft-border2),transparent);
+      margin:38px 0;
+    }
+    #fatiguePanel .sp-rule.thick{
+      background:var(--ft-ink); height:2px; width:60px; margin:0 0 28px;
+    }
+
+    /* Bucket grid — column-based with hairline separators instead of card borders */
+    #fatiguePanel .sp-buckets{
+      display:grid; grid-template-columns:repeat(3,1fr); gap:0;
+      position:relative;
+    }
+    #fatiguePanel .sp-bucket{
+      position:relative; padding:28px 26px 32px; cursor:pointer;
+      transition:background .35s cubic-bezier(.2,.6,.2,1);
+    }
+    #fatiguePanel .sp-bucket:not(:last-child)::after{
+      content:''; position:absolute; right:0; top:18%; bottom:18%; width:1px;
+      background:var(--ft-border2); opacity:.55;
+    }
+    #fatiguePanel .sp-bucket:hover{background:rgba(192,96,58,.025)}
+    #fatiguePanel .sp-bucket.active{background:rgba(192,96,58,.045)}
+    #fatiguePanel .sp-bucket-tag{
+      font-family:'Roboto',sans-serif; font-weight:600; font-size:.6rem;
+      letter-spacing:.16em; text-transform:uppercase;
+      display:inline-flex; align-items:center; gap:6px; margin-bottom:18px;
+    }
+    #fatiguePanel .sp-bucket-tag .swatch{
+      width:6px; height:6px; border-radius:50%; display:inline-block;
+    }
+    #fatiguePanel .sp-bucket-range{
+      font-family:'Fraunces',serif; font-style:italic; font-weight:300;
+      font-size:.78rem; color:var(--ft-muted); margin-bottom:30px;
+    }
+    #fatiguePanel .sp-bigcount{
+      font-family:'Fraunces',serif; font-weight:200; font-style:normal;
+      font-size:clamp(3.4rem,6.8vw,5.4rem); line-height:.95;
+      letter-spacing:-.04em; font-variant-numeric:tabular-nums;
+      margin-bottom:24px;
+    }
+    #fatiguePanel .sp-bigcount sup{
+      font-family:'Fraunces',serif; font-style:italic; font-weight:300;
+      font-size:.22em; letter-spacing:0; vertical-align:super; color:var(--ft-muted);
+      margin-left:6px;
+    }
+    #fatiguePanel .sp-metric{
+      display:flex; align-items:baseline; justify-content:space-between;
+      padding:9px 0; border-bottom:1px solid rgba(28,25,22,.06);
+    }
+    #fatiguePanel .sp-metric:last-child{border-bottom:none}
+    #fatiguePanel .sp-metric-label{
+      font-family:'Roboto',sans-serif; font-weight:500; font-size:.62rem;
+      color:var(--ft-muted); text-transform:uppercase; letter-spacing:.14em;
+    }
+    #fatiguePanel .sp-metric-value{
+      font-family:'Fraunces',serif; font-weight:400; font-size:1.05rem;
+      color:var(--ft-ink); font-variant-numeric:tabular-nums; letter-spacing:-.01em;
+    }
+    #fatiguePanel .sp-bucket-hint{
+      font-family:'Fraunces',serif; font-style:italic; font-weight:300;
+      font-size:.7rem; color:var(--ft-muted); margin-top:22px;
+      opacity:0; transform:translateY(4px); transition:all .3s;
+    }
+    #fatiguePanel .sp-bucket:hover .sp-bucket-hint,
+    #fatiguePanel .sp-bucket.active .sp-bucket-hint{opacity:1; transform:translateY(0)}
+    #fatiguePanel .sp-bucket-hint::after{content:' →'; font-style:normal}
+
+    /* Drill section — editorial list */
+    #fatiguePanel .sp-drill{margin-top:64px}
+    #fatiguePanel .sp-drill-head{
+      display:flex; align-items:flex-end; justify-content:space-between;
+      padding-bottom:18px; border-bottom:1px solid var(--ft-border);
+      margin-bottom:0; flex-wrap:wrap; gap:14px;
+    }
+    #fatiguePanel .sp-drill-title{
+      font-family:'Fraunces',serif; font-weight:300; font-style:italic;
+      font-size:1.5rem; letter-spacing:-.01em; line-height:1; color:var(--ft-ink);
+    }
+    #fatiguePanel .sp-drill-title strong{font-style:normal; font-weight:500; color:var(--ft-terra)}
+    #fatiguePanel .sp-drill-totals{
+      font-family:'Roboto',sans-serif; font-weight:400; font-size:.7rem;
+      color:var(--ft-muted); display:flex; gap:18px; align-items:baseline;
+      font-variant-numeric:tabular-nums;
+    }
+    #fatiguePanel .sp-drill-totals b{
+      font-family:'Fraunces',serif; font-weight:400; font-size:1rem; color:var(--ft-ink);
+      margin-left:6px;
+    }
+    #fatiguePanel .sp-drill-close{
+      background:transparent; border:none; color:var(--ft-muted); cursor:pointer;
+      font-family:'Fraunces',serif; font-style:italic; font-weight:300; font-size:.85rem;
+      padding:4px 8px; transition:color .2s;
+    }
+    #fatiguePanel .sp-drill-close:hover{color:var(--ft-terra)}
+
+    #fatiguePanel .sp-table{width:100%; border-collapse:collapse; margin-top:8px}
+    #fatiguePanel .sp-table thead th{
+      font-family:'Roboto',sans-serif; font-weight:500; font-size:.58rem;
+      color:var(--ft-muted); text-transform:uppercase; letter-spacing:.15em;
+      padding:14px 12px 12px; border-bottom:1px solid var(--ft-border);
+      cursor:pointer; user-select:none; transition:color .15s;
+    }
+    #fatiguePanel .sp-table thead th:hover{color:var(--ft-terra)}
+    #fatiguePanel .sp-table thead th.num{text-align:right}
+    #fatiguePanel .sp-table tbody td{
+      font-family:'Roboto',sans-serif; padding:14px 12px;
+      border-bottom:1px solid rgba(28,25,22,.05); font-size:.78rem; color:var(--ft-ink2);
+      vertical-align:middle;
+    }
+    #fatiguePanel .sp-table tbody td.num{
+      text-align:right; font-variant-numeric:tabular-nums; font-family:'Fraunces',serif;
+      font-weight:400; font-size:.92rem; color:var(--ft-ink); letter-spacing:-.01em;
+    }
+    #fatiguePanel .sp-table tbody td.ad-name{color:var(--ft-ink); font-weight:500;
+      max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+    #fatiguePanel .sp-table tbody td.dim{color:var(--ft-muted); font-size:.7rem}
+    #fatiguePanel .sp-table tbody tr{transition:background .15s}
+    #fatiguePanel .sp-table tbody tr:hover{background:rgba(192,96,58,.03)}
+    #fatiguePanel .sp-table tbody tr:last-child td{border-bottom:none}
+    #fatiguePanel .sp-table .freq-pill{
+      display:inline-block; padding:3px 9px; border-radius:99px;
+      font-family:'Fraunces',serif; font-weight:500; font-variant-numeric:tabular-nums;
+      font-size:.78rem; letter-spacing:0;
+    }
+
+    /* Page-in animation — stagger reveal on first paint */
+    @keyframes sp-fade-up{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:translateY(0)}}
+    #fatiguePanel .sp-anim{animation:sp-fade-up .55s cubic-bezier(.2,.6,.2,1) both}
+    #fatiguePanel .sp-anim.d1{animation-delay:.04s}
+    #fatiguePanel .sp-anim.d2{animation-delay:.10s}
+    #fatiguePanel .sp-anim.d3{animation-delay:.16s}
+    #fatiguePanel .sp-anim.d4{animation-delay:.22s}
   </style>
 
   <!-- Sticky top nav -->
@@ -3122,79 +3273,34 @@ function aeRender(){
     </div>
 
     <div id="ft-content" style="display:none">
-      <div style="background:#fff;border:1px solid #e0dbd0;border-radius:10px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:18px">📊</span>
-        <div style="flex:1">
-          <div style="font-size:11px;font-weight:700;color:#c0603a;letter-spacing:.8px;text-transform:uppercase">Frequency Buckets</div>
-          <div id="ft-summary" style="font-size:12.5px;color:#4a4540;margin-top:3px">—</div>
-        </div>
-      </div>
-      <div id="ft-buckets" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px"></div>
-    </div>
+      <div class="sp-shell">
+        <div class="sp-section-label sp-anim">N°&nbsp;01 — Creative fatigue</div>
+        <h2 class="sp-section-title sp-anim d1">Ads grouped by <em>frequency</em>.</h2>
+        <div class="sp-section-meta sp-anim d2"><span id="ft-summary">—</span></div>
+        <div class="sp-rule sp-anim d2"></div>
+        <div id="ft-buckets" class="sp-buckets sp-anim d3"></div>
 
-    <!-- ───────────────────────────────────────────────────── -->
-    <!-- 14-DAY BUFFER TABLE — moved from #lifecyclePanel.      -->
-    <!-- Same lc-* IDs / classes so the existing lcReload /     -->
-    <!-- lcRender / lcSort / etc. JS continues to work.          -->
-    <!-- ───────────────────────────────────────────────────── -->
-    <div style="margin-top:36px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px">
-      <div>
-        <div style="font-size:.62rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--lc-muted)">14-Day Buffer Resolver</div>
-        <div style="font-size:.7rem;color:var(--lc-muted);margin-top:2px">From ad_created_date · 50,000 impression threshold · re-classified after every primary sync</div>
-      </div>
-      <button onclick="lcExport()" style="background:#e6f0ee;border:1px solid rgba(74,124,111,.3);color:var(--lc-sage);border-radius:8px;padding:8px 14px;font-size:.72rem;font-weight:600;cursor:pointer">↓ Export CSV</button>
-    </div>
-
-    <!-- Status Chips -->
-    <div id="lcChips" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px"></div>
-
-    <!-- Filters -->
-    <div class="lc-card" style="padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span style="font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--lc-muted)">Filters</span>
-      <select id="lc-acct" onchange="lcApplyFilters()">
-        <option value="">All Accounts</option>
-        <option value="Raho Saadaa">Raho Saadaa</option>
-        <option value="Fourth Ad Account - SD">Fourth Ad Account - SD</option>
-        <option value="Third Ad Account - SD">Third Ad Account - SD</option>
-      </select>
-      <input id="lc-name" type="text" placeholder="Ad name contains…" oninput="lcApplyFilters()" style="min-width:240px"/>
-      <span style="font-size:.6rem;color:var(--lc-muted)">Created</span>
-      <input id="lc-created-from" type="date" onchange="lcApplyFilters()"/>
-      <span style="color:var(--lc-muted)">→</span>
-      <input id="lc-created-to" type="date" onchange="lcApplyFilters()"/>
-      <button onclick="lcClearFilters()" style="background:var(--lc-surface2);border:1px solid var(--lc-border);color:var(--lc-muted);border-radius:8px;padding:7px 12px;font-size:.7rem;cursor:pointer">Clear</button>
-      <span id="lc-row-info" style="margin-left:auto;font-size:.7rem;color:var(--lc-muted)"></span>
-    </div>
-
-    <!-- Loading -->
-    <div id="lc-loading" style="text-align:center;padding:40px;color:var(--lc-muted);font-size:.8rem">Loading lifecycle data…</div>
-
-    <!-- Table -->
-    <div id="lc-content" style="display:none">
-      <div class="lc-card" style="overflow-x:auto;padding:0">
-        <table class="lc-tbl">
-          <thead><tr>
-            <th onclick="lcSort('account_name')" style="text-align:left;min-width:160px">Account &#8597;</th>
-            <th onclick="lcSort('ad_name')" style="text-align:left;min-width:280px">Ad Name &#8597;</th>
-            <th onclick="lcSort('campaign_name')" style="text-align:left;min-width:200px">Campaign &#8597;</th>
-            <th onclick="lcSort('result_status')" style="text-align:center;min-width:140px">Status &#8597;</th>
-            <th onclick="lcSort('ad_created_date')" style="text-align:left;min-width:120px">Created &#8597;</th>
-            <th onclick="lcSort('evaluation_end_date')" style="text-align:left;min-width:120px">Eval Ends &#8597;</th>
-            <th onclick="lcSort('impressions_14d')" style="text-align:right;min-width:130px">Impr (14d) &#8597;</th>
-            <th onclick="lcSort('crossed_threshold_at')" style="text-align:left;min-width:130px">Crossed 50K &#8597;</th>
-            <th onclick="lcSort('ad_status')" style="text-align:left;min-width:120px">Ad Status &#8597;</th>
-          </tr></thead>
-          <tbody id="lcTableBody"></tbody>
-        </table>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:.7rem;color:var(--lc-muted)">
-        <span id="lc-pager-info"></span>
-        <div style="display:flex;gap:6px;align-items:center">
-          <button onclick="lcPage(-1)" style="border:1px solid var(--lc-border);background:var(--lc-surface);border-radius:7px;padding:5px 10px;cursor:pointer;font-size:11px">‹ Prev</button>
-          <button onclick="lcPage(1)" style="border:1px solid var(--lc-border);background:var(--lc-surface);border-radius:7px;padding:5px 10px;cursor:pointer;font-size:11px">Next ›</button>
-          <select id="lc-page-size" onchange="lcSetPageSize()" style="font-size:11px">
-            <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option><option value="250">250</option>
-          </select>
+        <!-- Drill-down — editorial list of ads in the selected bucket -->
+        <div id="ft-drill" class="sp-drill" style="display:none">
+          <div class="sp-drill-head">
+            <div>
+              <div id="ft-drill-title" class="sp-drill-title">—</div>
+              <div id="ft-drill-sub" class="sp-drill-totals" style="margin-top:8px"></div>
+            </div>
+            <button onclick="ftClearDrill()" class="sp-drill-close">— close</button>
+          </div>
+          <table class="sp-table">
+            <thead><tr>
+              <th onclick="ftDrillSort('name')">Ad name</th>
+              <th onclick="ftDrillSort('account')">Account</th>
+              <th onclick="ftDrillSort('created')">Created</th>
+              <th class="num" onclick="ftDrillSort('freq')">Freq</th>
+              <th class="num" onclick="ftDrillSort('impr')">Impressions</th>
+              <th class="num" onclick="ftDrillSort('reach')">Reach</th>
+              <th class="num" onclick="ftDrillSort('spend')">Spend ₹</th>
+            </tr></thead>
+            <tbody id="ft-drill-body"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -3426,30 +3532,55 @@ function ftSetAcct(el, acct){
   el.style.border='2px solid rgba(192,96,58,.25)';
   const lbl=el.querySelector('div');
   if(lbl) lbl.style.color='#c0603a';
-  ftRender(); // re-aggregate from cached rows
+  // Account changed → fetch the right results_table row for this account
+  ftFetchAndRender(true);
 }
 
+// Cache: per-ad rolled-up aggregates after fetch. Used by both bucket render and drill-down.
+let ftAds = [];
+let ftDrillBucket = null;   // {idx, label, color} when a bucket is expanded
+let ftDrillSortKey = 'spend';
+let ftDrillSortDir = -1;
+
 async function _ftFetchPrimary(fromVal, toVal){
+  // Read from results_table (one row per account with ads_json — per-ad aggregates).
+  // Hourly cron refreshes this table so the numbers are at most 1 hour stale.
+  // Then filter the parsed ads by ad_created_date in JS (date inputs).
   if(!SUPABASE_URL || !SUPABASE_ANON) return [];
-  const cols='account_name,ad_id,date,impressions,reach,amount_spent_inr';
-  const BATCH=1000;
-  let all=[], offset=0, more=true, pg=0;
   const sub=document.getElementById('ft-load-sub');
-  while(more){
-    pg++;
-    if(sub) sub.textContent='Page '+pg+' · '+all.length.toLocaleString('en-IN')+' rows loaded…';
-    let url=SUPABASE_URL+'/rest/v1/primary_table?select='+cols+'&order=date.desc&limit='+BATCH+'&offset='+offset;
-    if(fromVal) url+='&date=gte.'+fromVal;
-    if(toVal)   url+='&date=lte.'+toVal;
-    const res=await fetch(url,{headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,'Prefer':'count=none'}});
-    if(!res.ok){ more=false; break; }
-    const batch=await res.json();
-    if(!Array.isArray(batch) || batch.length===0){ more=false; break; }
-    all=all.concat(batch);
-    offset+=batch.length;
-    if(batch.length<BATCH) more=false;
-  }
-  return all;
+  if(sub) sub.textContent='Fetching results_table (hourly-refreshed aggregates)…';
+  // Decide which row(s) to pull based on the account filter
+  const acctFilter = ftAcct ? '&account_name=eq.'+encodeURIComponent(ftAcct)
+                            : '&account_name=eq.'+encodeURIComponent('All Accounts');
+  const url = SUPABASE_URL + '/rest/v1/results_table?select=account_name,ads_json,data_date_to,computed_at&order=computed_at.desc&limit=1' + acctFilter;
+  const res = await fetch(url,{headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,'Prefer':'count=none'}});
+  if(!res.ok) return [];
+  const rows = await res.json();
+  if(!Array.isArray(rows) || rows.length === 0) return [];
+  const row = rows[0];
+  let ads = row.ads_json;
+  if(typeof ads === 'string') ads = JSON.parse(ads);
+  if(!Array.isArray(ads)) return [];
+  // Tag each ad with the source account_name (combined row uses 'acct' on each entry)
+  const src = row.account_name;
+  // Filter by ad_created_date range on the parsed ads (already aggregated)
+  const filtered = ads.filter(a => {
+    if(fromVal && a.adCreated && a.adCreated < fromVal) return false;
+    if(toVal   && a.adCreated && a.adCreated > toVal)   return false;
+    return true;
+  });
+  // Re-shape to match what ftRender expects (it later iterates these)
+  return filtered.map(a => ({
+    account_name: a.acct || src,
+    ad_id: a.adId,
+    ad_name: a.adName,
+    ad_created_date: a.adCreated,
+    impressions: a.impr,
+    reach: a.reach,
+    amount_spent_inr: a.spend,
+    ltv_reach: a.ltvReach,
+    ltv_frequency: a.ltvFreq,
+  }));
 }
 
 async function ftFetchAndRender(forceRefetch){
@@ -3462,7 +3593,8 @@ async function ftFetchAndRender(forceRefetch){
     document.getElementById('ft-date-to').value=d.to;
     fromVal=d.from; toVal=d.to;
   }
-  const cacheKey=(fromVal||'')+'|'+(toVal||'');
+  // Cache key includes account because we now query a different results_table row per account.
+  const cacheKey=(fromVal||'')+'|'+(toVal||'')+'|'+(ftAcct||'_ALL_');
   if(!forceRefetch && cacheKey===ftLastKey && ftRows.length){
     ftRender();
     return;
@@ -3484,77 +3616,144 @@ function ftRender(){
   const fromVal=document.getElementById('ft-date-from').value;
   const toVal=document.getElementById('ft-date-to').value;
 
-  // Aggregate per ad_id with optional account filter
+  // Aggregate per ad — sum impressions/spend across ALL delivery days; pick the
+  // best lifetime-reach signal for the denominator (Meta's ltv_reach if present,
+  // else fall back to max single-day reach as a lower bound).
   const ads={};
   for(const r of ftRows){
     if(ftAcct && r.account_name !== ftAcct) continue;
     const id=r.ad_id||''; if(!id) continue;
-    if(!ads[id]) ads[id]={impr:0, spend:0, maxReach:0};
-    ads[id].impr     += Number(r.impressions||0);
-    ads[id].spend    += Number(r.amount_spent_inr||0);
+    if(!ads[id]) ads[id]={
+      id, name:r.ad_name||'(unnamed)', account:r.account_name||'',
+      created:r.ad_created_date||'',
+      impr:0, spend:0, maxReach:0, ltvReach:0
+    };
+    const a=ads[id];
+    a.impr     += Number(r.impressions||0);
+    a.spend    += Number(r.amount_spent_inr||0);
     const rch=Number(r.reach||0);
-    if(rch>ads[id].maxReach) ads[id].maxReach=rch;
+    if(rch>a.maxReach) a.maxReach=rch;
+    const lr=Number(r.ltv_reach||0);
+    if(lr>a.ltvReach) a.ltvReach=lr;
   }
 
-  // Three disjoint buckets
+  // Compute frequency per ad — prefer ltv_reach (true unique reach from Meta),
+  // fall back to maxReach (single-day reach is a lower bound for unique reach).
+  ftAds = Object.values(ads).filter(a => a.impr > 0).map(a => {
+    const denom = a.ltvReach > 0 ? a.ltvReach : a.maxReach;
+    a.freq = denom > 0 ? a.impr / denom : 0;
+    a.reach = denom;  // expose the chosen denominator as "reach" for the table
+    return a;
+  });
+
+  // Three disjoint buckets — freq>3 ads are excluded entirely (saturated audience).
   const buckets=[
-    {label:'Low Fatigue', range:'Frequency 0 – 2',   color:'#4a7c6f', bg:'#e6f0ee', n:0, spend:0, reach:0},
-    {label:'Medium',      range:'Frequency 2 – 2.5', color:'#b8883a', bg:'#fdf5e6', n:0, spend:0, reach:0},
-    {label:'High',        range:'Frequency 2.5 – 3', color:'#c0603a', bg:'#f5ebe6', n:0, spend:0, reach:0},
+    {label:'Low Fatigue', range:'Frequency 0 – 2',   color:'#4a7c6f', bg:'#e6f0ee', n:0, spend:0, reach:0, idx:0},
+    {label:'Medium',      range:'Frequency 2 – 2.5', color:'#b8883a', bg:'#fdf5e6', n:0, spend:0, reach:0, idx:1},
+    {label:'High',        range:'Frequency 2.5 – 3', color:'#c0603a', bg:'#f5ebe6', n:0, spend:0, reach:0, idx:2},
   ];
   let inScope=0, over3=0;
-  for(const id in ads){
-    const a=ads[id];
-    if(a.maxReach<=0 || a.impr<=0) continue;
-    const f=a.impr/a.maxReach;
-    if(f>3){ over3++; continue; }
-    let i;
-    if(f<=2)      i=0;
-    else if(f<=2.5) i=1;
-    else            i=2;
-    buckets[i].n++; buckets[i].spend+=a.spend; buckets[i].reach+=a.maxReach;
+  for(const a of ftAds){
+    if(a.freq <= 0){ continue; }
+    if(a.freq > 3){ a.bucketIdx = -1; over3++; continue; }
+    const i = a.freq<=2 ? 0 : (a.freq<=2.5 ? 1 : 2);
+    a.bucketIdx = i;
+    buckets[i].n++;
+    buckets[i].spend += a.spend;
+    buckets[i].reach += a.reach;
     inScope++;
   }
 
   const fmtN=v=>v.toLocaleString('en-IN');
   const fmtINR=v=>'₹'+Math.round(v).toLocaleString('en-IN');
+  const romanNum = ['Ⅰ','Ⅱ','Ⅲ'];
 
-  document.getElementById('ft-buckets').innerHTML=buckets.map(b=>`
-    <div class="ft-bucket" style="background:${b.bg};border:1px solid ${b.color}33">
-      <style>.ft-bucket{--accent:${b.color}}</style>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(28,25,22,.08)">
-        <div style="width:8px;height:8px;border-radius:50%;background:${b.color};box-shadow:0 0 6px ${b.color}55"></div>
-        <div>
-          <div style="font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:${b.color}">${b.label}</div>
-          <div style="font-size:.65rem;color:var(--ft-muted);margin-top:1px">${b.range}</div>
-        </div>
+  // Soft-pastel-minimal bucket rendering — column-based, editorial type.
+  document.getElementById('ft-buckets').innerHTML=buckets.map((b,i)=>`
+    <div class="sp-bucket${ftDrillBucket && ftDrillBucket.idx===b.idx ? ' active' : ''}"
+         onclick="ftOpenDrill(${b.idx},'${b.label.replace(/'/g,"&#39;")}','${b.color}')">
+      <div class="sp-bucket-tag" style="color:${b.color}">
+        <span class="swatch" style="background:${b.color}"></span>
+        ${romanNum[i]} &nbsp;·&nbsp; ${b.label}
       </div>
-      <div class="ft-metric-row">
-        <span class="ft-metric-label">Total Ads</span>
-        <span class="ft-metric-value" style="font-size:1.6rem;font-weight:900;color:${b.color}">${fmtN(b.n)}</span>
+      <div class="sp-bucket-range">${b.range.toLowerCase()}</div>
+      <div class="sp-bigcount" style="color:${b.color}">${fmtN(b.n)}<sup>ads</sup></div>
+      <div class="sp-metric">
+        <span class="sp-metric-label">Spend</span>
+        <span class="sp-metric-value" style="color:${b.color}">${fmtINR(b.spend)}</span>
       </div>
-      <div class="ft-metric-row">
-        <span class="ft-metric-label">Amount Spent</span>
-        <span class="ft-metric-value" style="color:${b.color}">${fmtINR(b.spend)}</span>
+      <div class="sp-metric">
+        <span class="sp-metric-label">Reach</span>
+        <span class="sp-metric-value">${fmtN(b.reach)}</span>
       </div>
-      <div class="ft-metric-row">
-        <span class="ft-metric-label">Reach</span>
-        <span class="ft-metric-value">${fmtN(b.reach)}</span>
-      </div>
+      <div class="sp-bucket-hint">view the ads</div>
     </div>
   `).join('');
 
-  let msg='Window <b>'+fromVal+' → '+toVal+'</b> · '+fmtN(inScope)+' ads bucketed (freq ≤ 3)';
-  if(over3>0) msg+=' · '+fmtN(over3)+' excluded (freq > 3)';
-  if(ftAcct) msg+=' · account: '+ftAcct;
+  let msg='Created window <b>'+fromVal+'</b> → <b>'+toVal+'</b><span class="dot"></span>'+fmtN(inScope)+' ads bucketed <em style="font-family:Fraunces,serif;font-style:italic;font-weight:300">(freq ≤ 3)</em>';
+  if(over3>0) msg+='<span class="dot"></span>'+fmtN(over3)+' excluded <em style="font-family:Fraunces,serif;font-style:italic;font-weight:300">(freq > 3)</em>';
+  if(ftAcct) msg+='<span class="dot"></span>account: <b>'+ftAcct+'</b>';
   document.getElementById('ft-summary').innerHTML=msg;
 
   const badge=document.getElementById('ft-row-badge');
-  badge.textContent=fmtN(inScope)+' ads · '+fromVal+' → '+toVal;
+  badge.textContent=fmtN(inScope)+' ads · created '+fromVal+' → '+toVal;
   badge.style.display='inline';
 
   document.getElementById('ft-loading').style.display='none';
   document.getElementById('ft-content').style.display='block';
+
+  // If a drill is already open, refresh it against the new data
+  if(ftDrillBucket) ftOpenDrill(ftDrillBucket.idx, ftDrillBucket.label, ftDrillBucket.color);
+}
+
+// ── Drill-down table for a clicked frequency bucket ───────────────────
+function ftOpenDrill(idx, label, color){
+  ftDrillBucket = {idx, label, color};
+  const target = document.getElementById('ft-drill');
+  const body   = document.getElementById('ft-drill-body');
+  const title  = document.getElementById('ft-drill-title');
+  const sub    = document.getElementById('ft-drill-sub');
+  const ads    = ftAds.filter(a => a.bucketIdx === idx);
+  // Sort
+  const cmp = (a,b) => {
+    const av=a[ftDrillSortKey], bv=b[ftDrillSortKey];
+    if(typeof av==='number' && typeof bv==='number') return (av-bv)*ftDrillSortDir;
+    return String(av||'').localeCompare(String(bv||''))*ftDrillSortDir;
+  };
+  ads.sort(cmp);
+  const fmtN=v=>(+v).toLocaleString('en-IN');
+  const fmtINR=v=>'₹'+Math.round(+v).toLocaleString('en-IN');
+  body.innerHTML = ads.map(a=>`
+    <tr>
+      <td class="ad-name" title="${(a.name||'').replace(/"/g,'&quot;')}">${a.name||'—'}</td>
+      <td class="dim">${a.account||'—'}</td>
+      <td class="dim">${a.created||'—'}</td>
+      <td class="num"><span class="freq-pill" style="background:${color}1a;color:${color}">${a.freq.toFixed(2)}</span></td>
+      <td class="num">${fmtN(a.impr)}</td>
+      <td class="num">${fmtN(a.reach)}</td>
+      <td class="num" style="color:${color}">${fmtINR(a.spend)}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="7" style="text-align:center;padding:60px 14px;color:var(--ft-muted);font-family:'Fraunces',serif;font-style:italic;font-weight:300;font-size:.95rem">No ads in this bucket for the current filter.</td></tr>`;
+  title.innerHTML = '<em>' + label.toLowerCase() + '</em> — <strong>' + ads.length + '</strong> ad' + (ads.length===1?'':'s');
+  title.style.setProperty('--accent', color);
+  const totSpend = ads.reduce((s,a)=>s+a.spend,0);
+  const totImpr  = ads.reduce((s,a)=>s+a.impr,0);
+  const totReach = ads.reduce((s,a)=>s+a.reach,0);
+  sub.innerHTML = `Σ impr <b>${fmtN(totImpr)}</b> &nbsp;·&nbsp; Σ reach <b>${fmtN(totReach)}</b> &nbsp;·&nbsp; Σ spend <b style="color:${color}">${fmtINR(totSpend)}</b>`;
+  target.style.display='block';
+  // Scroll to drill section gently
+  setTimeout(()=>target.scrollIntoView({behavior:'smooth', block:'start'}), 80);
+}
+
+function ftClearDrill(){
+  ftDrillBucket = null;
+  document.getElementById('ft-drill').style.display='none';
+}
+
+function ftDrillSort(key){
+  if(ftDrillSortKey === key) ftDrillSortDir *= -1;
+  else { ftDrillSortKey = key; ftDrillSortDir = -1; }
+  if(ftDrillBucket) ftOpenDrill(ftDrillBucket.idx, ftDrillBucket.label, ftDrillBucket.color);
 }
 </script>
 </body>
