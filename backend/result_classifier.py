@@ -70,24 +70,28 @@ UPSERT_SQL = """
 INSERT INTO ad_results (
     account_name, ad_id, ad_name, campaign_name, ad_status,
     ad_created_date, evaluation_end_date,
-    impressions_14d, crossed_threshold_at, result_status,
+    impressions_14d, impressions, impressions_last_seen,
+    crossed_threshold_at, result_status,
     last_computed_at
 ) VALUES (
     %(account_name)s, %(ad_id)s, %(ad_name)s, %(campaign_name)s, %(ad_status)s,
     %(ad_created_date)s, %(evaluation_end_date)s,
-    %(impressions_14d)s, %(crossed_threshold_at)s, %(result_status)s,
+    %(impressions_14d)s, %(impressions)s, %(impressions_last_seen)s,
+    %(crossed_threshold_at)s, %(result_status)s,
     NOW()
 )
 ON CONFLICT (account_name, ad_id) DO UPDATE SET
-    ad_name              = EXCLUDED.ad_name,
-    campaign_name        = EXCLUDED.campaign_name,
-    ad_status            = EXCLUDED.ad_status,
-    ad_created_date      = EXCLUDED.ad_created_date,
-    evaluation_end_date  = EXCLUDED.evaluation_end_date,
-    impressions_14d      = EXCLUDED.impressions_14d,
-    crossed_threshold_at = EXCLUDED.crossed_threshold_at,
-    result_status        = EXCLUDED.result_status,
-    last_computed_at     = NOW()
+    ad_name               = EXCLUDED.ad_name,
+    campaign_name         = EXCLUDED.campaign_name,
+    ad_status             = EXCLUDED.ad_status,
+    ad_created_date       = EXCLUDED.ad_created_date,
+    evaluation_end_date   = EXCLUDED.evaluation_end_date,
+    impressions_14d       = EXCLUDED.impressions_14d,
+    impressions           = EXCLUDED.impressions,
+    impressions_last_seen = EXCLUDED.impressions_last_seen,
+    crossed_threshold_at  = EXCLUDED.crossed_threshold_at,
+    result_status         = EXCLUDED.result_status,
+    last_computed_at      = NOW()
 """
 
 
@@ -97,7 +101,14 @@ def compute_all() -> dict:
 
     with get_conn() as conn:
         log.info("Pulling primary_table rows for classification…")
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        # Use a server-side (named) cursor with bounded itersize so the
+        # Supabase pooler doesn't drop the connection mid-stream on the ~100k
+        # row pull. fetchall() on an unnamed cursor was causing
+        # "lost synchronization with server / insufficient data in D message".
+        rows = []
+        with conn.cursor(name="primary_stream",
+                         cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.itersize = 2000
             cur.execute(
                 """
                 SELECT account_name, ad_id, ad_name, campaign_name, ad_status,
@@ -106,7 +117,8 @@ def compute_all() -> dict:
                  WHERE ad_created_date IS NOT NULL
                 """
             )
-            rows = cur.fetchall()
+            for row in cur:
+                rows.append(row)
         log.info(f"  Loaded {len(rows):,} primary_table rows")
 
         # Group rows by (account_name, ad_id)
@@ -151,6 +163,11 @@ def compute_all() -> dict:
             )
             impr_14d = sum(imp for _, imp in window_rows)
 
+            # Lifetime totals from primary_table (sum across ALL dates we have for this ad)
+            all_days_sorted = sorted(ad["days"], key=lambda x: x[0])
+            impressions_total    = sum(imp for _, imp in all_days_sorted)
+            impressions_last_day = all_days_sorted[-1][1] if all_days_sorted else 0
+
             # First date the cumulative total crossed the threshold (if any)
             crossed = None
             cum = 0
@@ -179,6 +196,8 @@ def compute_all() -> dict:
                     "ad_created_date": created,
                     "evaluation_end_date": eval_end,
                     "impressions_14d": impr_14d,
+                    "impressions": impressions_total,
+                    "impressions_last_seen": impressions_last_day,
                     "crossed_threshold_at": crossed,
                     "result_status": status,
                 }

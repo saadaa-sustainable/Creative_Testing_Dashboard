@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Creative Testing — Live Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&family=Fraunces:opsz,wght,SOFT@9..144,200..700,30..100&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg:#f4f1eb; --bg2:#edeae2; --surface:#fff; --surface2:#faf8f5;
@@ -35,11 +35,110 @@
   .ap.a2{background:var(--a2-lt);color:var(--a2)}
   .ap.a3{background:var(--a3-lt);color:var(--a3)}
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;padding:28px 36px;
-    background-image:radial-gradient(ellipse 800px 500px at 85% 0%,rgba(192,96,58,.05),transparent 70%),
-                     radial-gradient(ellipse 600px 400px at 5% 100%,rgba(74,124,111,.04),transparent 70%)}
+  body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;padding:32px 44px 56px 84px;
+    background-image:radial-gradient(ellipse 900px 560px at 92% -4%,rgba(192,96,58,.045),transparent 72%),
+                     radial-gradient(ellipse 700px 460px at -2% 104%,rgba(74,124,111,.035),transparent 72%)}
 
-  header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:26px}
+  /* ═══════════════════════════════════════════════════════════════════════
+     LEFT SIDEBAR — collapsed by default (60px), expands on hover (240px).
+     Replaces the horizontal account-tab row from .connect-panel.
+     ═══════════════════════════════════════════════════════════════════════ */
+  #acctSidebar{
+    position:fixed; top:0; left:0; bottom:0; width:60px; z-index:50;
+    background:var(--surface); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; padding:18px 0;
+    transition:width .25s cubic-bezier(.2,.6,.2,1);
+    box-shadow:0 0 0 transparent; overflow:hidden;
+  }
+  #acctSidebar:hover{ width:240px; box-shadow:6px 0 22px rgba(28,25,22,.06); }
+  #acctSidebar .as-logo{
+    display:flex; align-items:center; gap:10px; padding:0 18px; margin-bottom:18px;
+    height:32px; flex-shrink:0;
+  }
+  #acctSidebar .as-logo-dot{
+    width:24px; height:24px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(135deg,var(--terra),var(--gold));
+    box-shadow:0 2px 8px rgba(192,96,58,.22);
+  }
+  #acctSidebar .as-logo-text{
+    font-family:'Roboto',sans-serif; font-weight:700; font-size:.95rem; letter-spacing:-.01em;
+    color:var(--ink); white-space:nowrap; opacity:0; transition:opacity .2s .1s;
+  }
+  #acctSidebar:hover .as-logo-text{ opacity:1; }
+  #acctSidebar .as-section{
+    font-size:.52rem; font-weight:800; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--muted); padding:0 18px; margin:18px 0 6px;
+    white-space:nowrap; opacity:0; transition:opacity .2s .05s;
+  }
+  #acctSidebar:hover .as-section{ opacity:1; }
+  #acctSidebar .as-rule{
+    height:1px; background:var(--border); margin:8px 12px; opacity:.7;
+  }
+  #acctSidebar .as-item{
+    display:flex; align-items:center; gap:14px; padding:9px 18px;
+    cursor:pointer; user-select:none; color:var(--ink2);
+    transition:background .15s, color .15s;
+    position:relative;
+  }
+  #acctSidebar .as-item:hover{ background:rgba(192,96,58,.06); color:var(--ink); }
+  #acctSidebar .as-item .as-icon{
+    width:24px; height:24px; display:flex; align-items:center; justify-content:center;
+    flex-shrink:0; border-radius:7px; transition:background .15s, color .15s;
+    color:var(--ink2);
+  }
+  #acctSidebar .as-item:hover .as-icon{ color:var(--terra); }
+  #acctSidebar .as-item .as-label{
+    display:flex; flex-direction:column; line-height:1.15;
+    white-space:nowrap; opacity:0; transition:opacity .2s .08s;
+  }
+  #acctSidebar:hover .as-item .as-label{ opacity:1; }
+  #acctSidebar .as-item .as-label-eyebrow{
+    font-size:.52rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--muted);
+  }
+  #acctSidebar .as-item .as-label-name{
+    font-size:.78rem; font-weight:600; color:var(--ink);
+  }
+  /* Active state — terra accent indicator on the left, soft bg */
+  #acctSidebar .as-item.active{
+    background:var(--terra-lt); color:var(--terra);
+  }
+  #acctSidebar .as-item.active::before{
+    content:''; position:absolute; left:0; top:8px; bottom:8px; width:3px;
+    background:var(--terra); border-radius:0 3px 3px 0;
+  }
+  #acctSidebar .as-item.active .as-icon{ color:var(--terra); }
+  #acctSidebar .as-item.active .as-label-name{ color:var(--terra); }
+  /* Account-specific icon accents — only on collapsed view (subtle) */
+  #acctSidebar .as-item[data-acct="1"] .as-icon{ background:var(--a1-lt); color:var(--a1); }
+  #acctSidebar .as-item[data-acct="2"] .as-icon{ background:var(--terra-lt); color:var(--terra); }
+  #acctSidebar .as-item[data-acct="3"] .as-icon{ background:var(--sage-lt); color:var(--sage); }
+  #acctSidebar .as-item[data-key="engine"] .as-icon{ background:var(--slate-lt); color:var(--slate); }
+  #acctSidebar .as-item[data-key="fatigue"] .as-icon{ background:var(--gold-lt); color:var(--gold); }
+  /* Footer status pill */
+  #acctSidebar .as-footer{
+    margin-top:auto; padding:14px 18px; border-top:1px solid var(--border);
+    display:flex; align-items:center; gap:10px;
+  }
+  #acctSidebar .as-footer .as-pulse{
+    width:8px; height:8px; border-radius:50%; background:var(--sage); flex-shrink:0;
+    box-shadow:0 0 0 0 var(--sage); animation:asPulse 2s ease infinite;
+  }
+  @keyframes asPulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(74,124,111,.4)}
+    50%{box-shadow:0 0 0 6px rgba(74,124,111,0)}
+  }
+  #acctSidebar .as-footer-text{
+    font-size:.7rem; font-weight:600; color:var(--ink2); white-space:nowrap;
+    opacity:0; transition:opacity .2s .1s;
+  }
+  #acctSidebar:hover .as-footer-text{ opacity:1; }
+  @media (max-width:840px){
+    #acctSidebar{ width:0; border:none; }
+    #acctSidebar:hover{ width:0; }
+    body{ padding-left:44px; }
+  }
+
+  header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px}
   .logo h1{font-family:'Roboto',sans-serif;font-size:2rem;font-weight:900;letter-spacing:-.02em;color:var(--ink)}
   .logo h1 em{font-style:italic;color:var(--terra)}
   .logo p{font-size:.65rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-top:5px}
@@ -48,8 +147,8 @@
   .gs-pill svg{width:15px;height:15px;fill:#fff}
   .last-sync{font-size:.62rem;color:var(--muted);text-align:right}
 
-  .connect-panel{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px 28px;margin-bottom:20px;position:relative;overflow:hidden}
-  .connect-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#0f9d58,var(--terra));border-radius:18px 18px 0 0}
+  .connect-panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px 26px;margin-bottom:22px;position:relative;overflow:hidden;box-shadow:0 1px 0 rgba(28,25,22,.02)}
+  .connect-panel::before{content:'';position:absolute;top:0;left:24px;width:36px;height:2px;background:var(--terra);border-radius:0 0 2px 2px}
   .cp-title{font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;margin-bottom:3px}
   .cp-sub{font-size:.65rem;color:var(--muted);margin-bottom:18px;line-height:1.6}
   .cp-grid{display:grid;grid-template-columns:2fr 1.4fr 0.8fr 0.8fr auto;gap:11px;align-items:end}
@@ -82,8 +181,9 @@
   #statusBar.error{background:var(--miss-lt);color:var(--miss);border:1px solid rgba(192,96,58,.2)}
   .sdot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
 
-  .sec{font-size:.6rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);
-    margin-bottom:12px;display:flex;align-items:center;gap:9px}
+  .sec{font-size:.58rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);
+    margin-bottom:16px;margin-top:8px;display:flex;align-items:center;gap:12px}
+  .sec::before{content:'';width:24px;height:1px;background:var(--ink);opacity:.45;flex-shrink:0}
   .sec::after{content:'';flex:1;height:1px;background:var(--border)}
   .stag{font-size:.55rem;padding:2px 7px;border-radius:4px;font-weight:700;letter-spacing:.04em}
   .stag-terra{background:var(--terra-lt);color:var(--terra)}
@@ -97,21 +197,21 @@
   #weekSelect:focus{border-color:var(--terra)}
   .total-badge{margin-left:auto;font-size:.62rem;color:var(--muted);font-weight:500}
 
-  .kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:22px}
-  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:16px 15px;
-    transition:box-shadow .2s,transform .2s;position:relative;overflow:hidden}
-  .kpi:hover{box-shadow:0 6px 22px rgba(28,25,22,.07);transform:translateY(-2px)}
-  .kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 15px 15px}
+  .kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:28px}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 16px 16px;
+    transition:border-color .2s,box-shadow .2s;position:relative;overflow:hidden}
+  .kpi:hover{border-color:var(--border2);box-shadow:0 4px 14px rgba(28,25,22,.045)}
+  .kpi::after{content:'';position:absolute;top:16px;left:0;width:3px;height:18px;border-radius:0 2px 2px 0;opacity:.85}
   .kpi.k-terra::after{background:var(--terra)} .kpi.k-sage::after{background:var(--sage)}
   .kpi.k-blush::after{background:var(--blush)} .kpi.k-slate::after{background:var(--slate)}
   .kpi.k-gold::after{background:var(--gold)}
-  .kpi-lbl{font-size:.57rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px}
-  .kpi-val{font-family:'Roboto',sans-serif;font-size:1.55rem;font-weight:700;color:var(--ink);line-height:1}
-  .kpi-sub{font-size:.58rem;color:var(--muted);margin-top:4px}
+  .kpi-lbl{font-size:.55rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:10px;padding-left:8px}
+  .kpi-val{font-family:'Roboto',sans-serif;font-size:1.55rem;font-weight:700;color:var(--ink);line-height:1;padding-left:8px;letter-spacing:-.01em}
+  .kpi-sub{font-size:.58rem;color:var(--muted);margin-top:5px;padding-left:8px}
 
-  .split-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
-  .perf-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px}
-  .perf-head{display:flex;align-items:center;gap:9px;margin-bottom:16px}
+  .split-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:28px}
+  .perf-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px 24px 22px}
+  .perf-head{display:flex;align-items:center;gap:10px;margin-bottom:18px}
   .seg-badge{font-size:.57rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:3px 11px;border-radius:100px}
   .seg-badge.w{background:var(--blush-lt);color:var(--blush)}
   .seg-badge.m{background:var(--slate-lt);color:var(--slate)}
@@ -124,19 +224,19 @@
   .p-val{font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;color:var(--ink)}
   .p-row.hw .p-val{color:var(--blush)} .p-row.hm .p-val{color:var(--slate)}
 
-  .roas-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
-  .roas-card{border-radius:15px;padding:18px 22px;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden}
-  .roas-card.w{background:linear-gradient(135deg,var(--blush),#e06080)}
-  .roas-card.m{background:linear-gradient(135deg,var(--slate),#3a5a95)}
-  .roas-card::after{content:'ROAS';position:absolute;right:-6px;top:-8px;font-family:'Roboto',sans-serif;
-    font-size:4rem;font-weight:900;color:rgba(255,255,255,.07);pointer-events:none}
-  .roas-big{font-family:'Roboto',sans-serif;font-size:2.6rem;font-weight:900;color:#fff;line-height:1}
-  .roas-dvd{width:1px;height:38px;background:rgba(255,255,255,.2)}
+  .roas-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:28px}
+  .roas-card{border-radius:14px;padding:20px 24px;display:flex;align-items:center;gap:18px;position:relative;overflow:hidden}
+  .roas-card.w{background:var(--blush)}
+  .roas-card.m{background:var(--slate)}
+  .roas-card::after{content:'ROAS';position:absolute;right:18px;top:14px;font-family:'Roboto',sans-serif;
+    font-size:.55rem;font-weight:600;letter-spacing:.18em;color:rgba(255,255,255,.45);pointer-events:none}
+  .roas-big{font-family:'Roboto',sans-serif;font-size:2.4rem;font-weight:700;color:#fff;line-height:1;letter-spacing:-.02em}
+  .roas-dvd{width:1px;height:34px;background:rgba(255,255,255,.22)}
   .roas-card .ri-l{font-size:.54rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:3px}
   .roas-card .ri-s{font-size:.8rem;font-weight:500;color:#fff}
 
-  .bottom-grid{display:grid;grid-template-columns:1.3fr 0.9fr 1fr;gap:16px;margin-bottom:22px}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px}
+  .bottom-grid{display:grid;grid-template-columns:1.3fr 0.9fr 1fr;gap:18px;margin-bottom:28px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px}
 
   .mini-table{width:100%;border-collapse:collapse}
   .mini-table th{font-size:.55rem;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);
@@ -161,7 +261,7 @@
   .ct-chip .ct-bar{flex:1;height:4px;background:var(--bg2);border-radius:99px;margin:0 10px;overflow:hidden}
   .ct-chip .ct-fill{height:100%;border-radius:99px;background:var(--terra)}
 
-  .tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:auto;max-height:520px}
+  .tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:auto;max-height:520px}
   table.main-tbl{width:100%;border-collapse:collapse;font-size:.65rem}
   table.main-tbl thead th{background:var(--surface2);font-size:.53rem;font-weight:600;text-transform:uppercase;
     letter-spacing:.08em;color:var(--muted);padding:10px 12px;text-align:left;
@@ -201,22 +301,24 @@
 
   .divider{height:1px;background:var(--border);margin:14px 0}
 
-  .overview-perf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
-  .ov-card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:18px 16px;
-    position:relative;overflow:hidden;transition:box-shadow .2s,transform .2s}
-  .ov-card:hover{box-shadow:0 6px 22px rgba(28,25,22,.07);transform:translateY(-2px)}
-  .ov-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 15px 15px}
+  .overview-perf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:30px}
+  .ov-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 18px 18px;
+    position:relative;overflow:hidden;transition:border-color .2s,box-shadow .2s}
+  .ov-card:hover{border-color:var(--border2);box-shadow:0 4px 14px rgba(28,25,22,.045)}
+  .ov-card::after{content:'';position:absolute;top:18px;left:0;width:3px;height:20px;border-radius:0 2px 2px 0;opacity:.85}
   .ov-card.k-terra::after{background:var(--terra)}
   .ov-card.k-sage::after{background:var(--sage)}
   .ov-card.k-blush::after{background:var(--blush)}
   .ov-card.k-slate::after{background:var(--slate)}
   .ov-card.k-gold::after{background:var(--gold)}
   .ov-card.roas-ov{background:var(--terra)}
+  .ov-card.roas-ov::after{display:none}
   .ov-card.roas-ov .ov-label,.ov-card.roas-ov .ov-sub{color:rgba(255,255,255,.65)}
   .ov-card.roas-ov .ov-val{color:#fff}
-  .ov-label{font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px}
-  .ov-val{font-family:'Roboto',sans-serif;font-size:1.6rem;font-weight:700;color:var(--ink);line-height:1}
-  .ov-sub{font-size:.58rem;color:var(--muted);margin-top:5px}
+  .ov-card.roas-ov .ov-label,.ov-card.roas-ov .ov-val,.ov-card.roas-ov .ov-sub{padding-left:0}
+  .ov-label{font-size:.55rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:10px;padding-left:10px}
+  .ov-val{font-family:'Roboto',sans-serif;font-size:1.6rem;font-weight:700;color:var(--ink);line-height:1;padding-left:10px;letter-spacing:-.01em}
+  .ov-sub{font-size:.58rem;color:var(--muted);margin-top:6px;padding-left:10px}
 
   /* ── LOGIC BADGE — shows which filters validated ── */
   .logic-pills{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
@@ -227,6 +329,114 @@
 </style>
 </head>
 <body>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     LEFT SIDEBAR — collapsed 60px / hover-expanded 240px
+     Mirrors the account tabs (All / 1 / 2 / 3 / Analysis Engine / Lifecycle)
+     and forwards clicks to the existing selectAccount/selectAnalysisEngine
+     /selectFatigue handlers (which also drive the hidden horizontal tabs).
+     ═══════════════════════════════════════════════════════════════════ -->
+<aside id="acctSidebar">
+  <div class="as-logo" title="Creative Testing">
+    <div class="as-logo-dot"></div>
+    <div class="as-logo-text">Creative <em style="color:var(--terra);font-style:normal;font-weight:800">Testing</em></div>
+  </div>
+
+  <div class="as-section">Accounts</div>
+
+  <div class="as-item" data-key="all" onclick="sidebarPick('all',this)" title="All Accounts — Combined">
+    <div class="as-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    </div>
+    <div class="as-label">
+      <span class="as-label-eyebrow">All Accounts</span>
+      <span class="as-label-name">Combined View</span>
+    </div>
+  </div>
+
+  <div class="as-item" data-key="acct1" data-acct="1" onclick="sidebarPick('acct1',this)" title="Account 1 — Raho Saadaa">
+    <div class="as-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+    </div>
+    <div class="as-label">
+      <span class="as-label-eyebrow">Account 1</span>
+      <span class="as-label-name">Raho Saadaa</span>
+    </div>
+  </div>
+
+  <div class="as-item" data-key="acct2" data-acct="2" onclick="sidebarPick('acct2',this)" title="Account 2 — Fourth Ad Account - SD">
+    <div class="as-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+    </div>
+    <div class="as-label">
+      <span class="as-label-eyebrow">Account 2</span>
+      <span class="as-label-name">Fourth Ad Account - SD</span>
+    </div>
+  </div>
+
+  <div class="as-item" data-key="acct3" data-acct="3" onclick="sidebarPick('acct3',this)" title="Account 3 — Third Ad Account - SD">
+    <div class="as-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+    </div>
+    <div class="as-label">
+      <span class="as-label-eyebrow">Account 3</span>
+      <span class="as-label-name">Third Ad Account - SD</span>
+    </div>
+  </div>
+
+  <div class="as-rule"></div>
+  <div class="as-section">Engines</div>
+
+  <div class="as-item" data-key="engine" onclick="sidebarPick('engine',this)" title="Analysis Engine — All Accounts">
+    <div class="as-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    </div>
+    <div class="as-label">
+      <span class="as-label-eyebrow">Analysis Engine</span>
+      <span class="as-label-name">All Accounts</span>
+    </div>
+  </div>
+
+  <div class="as-item" data-key="fatigue" onclick="sidebarPick('fatigue',this)" title="Lifecycle — Buckets + 14-Day">
+    <div class="as-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    </div>
+    <div class="as-label">
+      <span class="as-label-eyebrow">Lifecycle</span>
+      <span class="as-label-name">Buckets + 14-Day</span>
+    </div>
+  </div>
+
+  <div class="as-footer">
+    <div class="as-pulse"></div>
+    <span class="as-footer-text" id="sidebarStatusText">Live · Supabase</span>
+  </div>
+</aside>
+
+<script>
+// Routes a sidebar click to the existing select* handler and syncs the active
+// indicator in both the sidebar and the (now-hidden) horizontal tab row.
+function sidebarPick(key, el){
+  // Clear active state on all sidebar items
+  document.querySelectorAll('#acctSidebar .as-item').forEach(i => i.classList.remove('active'));
+  if(el) el.classList.add('active');
+  // Forward to the appropriate legacy handler
+  const map = {
+    all:     () => selectAccount(0, document.getElementById('aSelTabAll')),
+    acct1:   () => selectAccount(1, document.getElementById('aSelTab1')),
+    acct2:   () => selectAccount(2, document.getElementById('aSelTab2')),
+    acct3:   () => selectAccount(3, document.getElementById('aSelTab3')),
+    engine:  () => selectAnalysisEngine(document.getElementById('aSelTabEngine')),
+    fatigue: () => selectFatigue(document.getElementById('aSelTabFatigue')),
+  };
+  if(map[key]) map[key]();
+}
+// On load: highlight the default selection (Account 1) in the sidebar
+document.addEventListener('DOMContentLoaded', () => {
+  const def = document.querySelector('#acctSidebar .as-item[data-key="acct1"]');
+  if(def) def.classList.add('active');
+});
+</script>
 
 <!-- HEADER -->
 <header>
@@ -276,7 +486,10 @@
     </div>
   </div>
 
-  <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+  <!-- Horizontal account selector — superseded by #acctSidebar.
+       Kept in DOM (display:none) because selectAccount/selectAnalysisEngine/
+       selectFatigue handlers reference these element IDs by getElementById. -->
+  <div style="display:none;gap:8px;align-items:center;margin-bottom:4px">
     <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)">Account</span>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       <div class="acct-sel-tab" id="aSelTabAll" onclick="selectAccount(0,this)" style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .15s">
@@ -324,8 +537,8 @@
 <!-- FILTER BAR -->
 <div id="controls" style="display:none">
 
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:14px;overflow:hidden;position:relative">
-    <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--terra),var(--sage))"></div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:16px;overflow:hidden;position:relative">
+    <div style="position:absolute;top:0;left:24px;width:36px;height:2px;background:var(--terra);border-radius:0 0 2px 2px"></div>
 
     <!-- ROW 1: Date Range -->
     <div style="display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap">
@@ -367,6 +580,12 @@
           <div id="activeToggleThumb" style="position:absolute;top:2px;right:2px;width:12px;height:12px;background:#fff;border-radius:50%;transition:right .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
         </div>
         <span style="font-size:.68rem;font-weight:600;color:var(--ink2)" id="activeToggleLabel">Active only</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;user-select:none;transition:all .15s" onclick="toggleCtFormat()" onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='var(--border)'" title="Restrict to CT-sheet naming format (ad name starts with CLP- or CTP-) — matches the Creative Testing Results sheet exactly">
+        <div id="ctFmtToggleDot" style="width:28px;height:16px;background:var(--border2);border-radius:99px;position:relative;transition:background .2s;flex-shrink:0">
+          <div id="ctFmtToggleThumb" style="position:absolute;top:2px;right:13px;width:12px;height:12px;background:#fff;border-radius:50%;transition:right .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
+        </div>
+        <span style="font-size:.68rem;font-weight:600;color:var(--ink2)" id="ctFmtToggleLabel">CT Format</span>
       </div>
     </div>
 
@@ -429,8 +648,8 @@
   <div id="resultSummary" style="display:flex;gap:10px;flex-wrap:wrap"></div>
 
   <!-- Creative Type Funnel Breakdown -->
-  <div id="ctypeFunnel" style="margin-top:16px;display:none">
-    <div class="sec" style="margin-bottom:12px">Creative Type Breakdown
+  <div id="ctypeFunnel" style="margin-top:20px;display:none;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px">
+    <div class="sec" style="margin-bottom:14px;margin-top:0">Creative Type Breakdown
       <span class="stag stag-terra">Winner · ITE · Failed Ad</span>
     </div>
     <div id="ctypeFunnelTable" style="overflow-x:auto"></div>
@@ -743,6 +962,21 @@ function toggleActiveOnly(){
   applyFilters();
 }
 
+// CT-format toggle — when ON, restrict to ads whose name starts with CLP- or CTP-,
+// matching the Creative Testing Results sheet's naming convention.
+let CT_FORMAT_TOGGLE = false;
+const CT_FORMAT_RE = /^(CLP-|CTP-)/i;
+function toggleCtFormat(){
+  CT_FORMAT_TOGGLE=!CT_FORMAT_TOGGLE;
+  const dot=document.getElementById('ctFmtToggleDot');
+  const thumb=document.getElementById('ctFmtToggleThumb');
+  const label=document.getElementById('ctFmtToggleLabel');
+  if(dot)   dot.style.background = CT_FORMAT_TOGGLE?'var(--terra)':'var(--border2)';
+  if(thumb) thumb.style.right    = CT_FORMAT_TOGGLE?'2px':'13px';
+  if(label) label.textContent    = CT_FORMAT_TOGGLE?'CT Format only':'CT Format';
+  applyFilters();
+}
+
 // ════════════════════════════════════════
 // FETCH
 // ════════════════════════════════════════
@@ -920,6 +1154,9 @@ function filteredAds(){
       const st = String(a.status||'').toUpperCase();
       if(st && !ACTIVE_STATUS_WHITELIST.has(st)) return false;
     }
+
+    // ── 2c. CT-format filter (CLP- / CTP- prefix only) ───────────────
+    if(CT_FORMAT_TOGGLE && !CT_FORMAT_RE.test(String(a.name||''))) return false;
 
     // ── 3. Ad name filter ─────────────────────────────────────────────
     if(nf.terms.length > 0){
@@ -1342,7 +1579,7 @@ function renderCtypeFunnel(ctypeCounts, ctypeOrder, totalAds, globalCounts){
   `;
 
   table.innerHTML = `
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
     <div style="display:grid;grid-template-columns:${gridCols};background:var(--surface2)">${masterHeader}</div>
     <div style="display:grid;grid-template-columns:${gridCols};background:var(--surface2);border-bottom:2px solid var(--border)">${subHeader}</div>
     ${activeCTypes.map((ct,ri)=>{
@@ -1997,7 +2234,179 @@ function ctExportCSV(){
     @keyframes ae-spin{to{transform:rotate(360deg)}}
     @keyframes ae-pulse{0%,100%{opacity:1}50%{opacity:.3}}
     #analysisEnginePanel .ae-spinner{width:40px;height:40px;border-radius:50%;border:3px solid rgba(192,96,58,.15);border-top-color:var(--ae-terra);animation:ae-spin .8s linear infinite;margin:0 auto 14px}
+
+    /* ═══════════════════════════════════════════════════════════════════
+       AE INTERNAL SIDEBAR — collapsed 60px, hover-expanded 240px.
+       Replaces the horizontal #aeAcctRail account selector that used to
+       sit under the top nav.
+       ═══════════════════════════════════════════════════════════════════ */
+    #aeSidebar{
+      position:fixed; top:0; left:0; bottom:0; width:60px; z-index:200;
+      background:var(--ae-surface); border-right:1px solid var(--ae-border);
+      display:flex; flex-direction:column; padding:18px 0;
+      transition:width .25s cubic-bezier(.2,.6,.2,1);
+      overflow:hidden;
+    }
+    #aeSidebar:hover{ width:240px; box-shadow:6px 0 22px rgba(28,25,22,.06); }
+    #aeSidebar .aes-logo{display:flex;align-items:center;gap:10px;padding:0 18px;margin-bottom:18px;height:32px;flex-shrink:0}
+    #aeSidebar .aes-logo-dot{
+      width:24px;height:24px;border-radius:50%;flex-shrink:0;
+      background:linear-gradient(135deg,#00bcd4,#9d00ff);
+      box-shadow:0 2px 8px rgba(0,188,212,.22);
+    }
+    #aeSidebar .aes-logo-text{
+      font-family:'Roboto',sans-serif;font-weight:700;font-size:.92rem;letter-spacing:-.01em;color:var(--ae-ink);
+      white-space:nowrap;opacity:0;transition:opacity .2s .1s;
+    }
+    #aeSidebar:hover .aes-logo-text{ opacity:1; }
+    #aeSidebar .aes-section{
+      font-size:.52rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--ae-muted);
+      padding:0 18px;margin:14px 0 6px;white-space:nowrap;opacity:0;transition:opacity .2s .05s;
+    }
+    #aeSidebar:hover .aes-section{ opacity:1; }
+    #aeSidebar .aes-rule{height:1px;background:var(--ae-border);margin:8px 12px;opacity:.7}
+    #aeSidebar .aes-item{
+      display:flex;align-items:center;gap:14px;padding:9px 18px;
+      cursor:pointer;user-select:none;color:var(--ae-ink2);
+      transition:background .15s,color .15s;position:relative;
+    }
+    #aeSidebar .aes-item:hover{ background:rgba(192,96,58,.06); color:var(--ae-ink); }
+    #aeSidebar .aes-item .aes-icon{
+      width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;border-radius:7px;transition:background .15s,color .15s;color:var(--ae-ink2);
+    }
+    #aeSidebar .aes-item .aes-label{
+      display:flex;flex-direction:column;line-height:1.15;white-space:nowrap;
+      opacity:0;transition:opacity .2s .08s;
+    }
+    #aeSidebar:hover .aes-item .aes-label{ opacity:1; }
+    #aeSidebar .aes-item .aes-label-eyebrow{
+      font-size:.52rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ae-muted);
+    }
+    #aeSidebar .aes-item .aes-label-name{font-size:.78rem;font-weight:600;color:var(--ae-ink)}
+    #aeSidebar .aes-item.active{ background:var(--ae-terra-lt); color:var(--ae-terra); }
+    #aeSidebar .aes-item.active::before{
+      content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;
+      background:var(--ae-terra);border-radius:0 3px 3px 0;
+    }
+    #aeSidebar .aes-item.active .aes-icon{ color:var(--ae-terra); }
+    #aeSidebar .aes-item.active .aes-label-name{ color:var(--ae-terra); }
+    /* Per-account icon-color accents (visible when collapsed) */
+    #aeSidebar .aes-item[data-key="all"] .aes-icon{ background:var(--ae-terra-lt); color:var(--ae-terra); }
+    #aeSidebar .aes-item[data-key="acct1"] .aes-icon{ background:var(--ae-a1-lt); color:var(--ae-a1); }
+    #aeSidebar .aes-item[data-key="acct2"] .aes-icon{ background:var(--ae-a2-lt); color:var(--ae-a2); }
+    #aeSidebar .aes-item[data-key="acct3"] .aes-icon{ background:var(--ae-a3-lt); color:var(--ae-a3); }
+    /* "Back to Dashboard" sits at top, separated by a rule */
+    #aeSidebar .aes-item[data-key="back"] .aes-icon{ background:var(--ae-surface2); color:var(--ae-ink2); }
+    #aeSidebar .aes-item[data-key="back"]:hover .aes-icon{ background:var(--ae-bg2); color:var(--ae-ink); }
+    #aeSidebar .aes-footer{
+      margin-top:auto;padding:14px 18px;border-top:1px solid var(--ae-border);
+      display:flex;align-items:center;gap:10px;
+    }
+    #aeSidebar .aes-footer .aes-pulse{
+      width:8px;height:8px;border-radius:50%;background:#00bcd4;flex-shrink:0;
+      box-shadow:0 0 0 0 #00bcd4;animation:aesPulse 2s ease infinite;
+    }
+    @keyframes aesPulse{
+      0%,100%{box-shadow:0 0 0 0 rgba(0,188,212,.4)}
+      50%{box-shadow:0 0 0 6px rgba(0,188,212,0)}
+    }
+    #aeSidebar .aes-footer-text{
+      font-size:.7rem;font-weight:600;color:var(--ae-ink2);white-space:nowrap;
+      opacity:0;transition:opacity .2s .1s;
+    }
+    #aeSidebar:hover .aes-footer-text{ opacity:1; }
+    /* Shift the AE panel content right to make room for the 60px sidebar
+       PLUS 24px breathing-room gap (= 84px total).
+       !important is needed because the AE panel's direct-child divs use the
+       `padding` shorthand inline (`padding:20px 24px 40px`), which would
+       otherwise reset our padding-left to 0. */
+    #analysisEnginePanel > div:not(#aeSidebar){ padding-left:84px !important; }
+    @media (max-width:840px){
+      #aeSidebar{width:0;border:none}
+      #aeSidebar:hover{width:0}
+      #analysisEnginePanel > div:not(#aeSidebar){ padding-left:24px !important; }
+    }
   </style>
+
+  <!-- AE INTERNAL SIDEBAR — replaces the horizontal #aeAcctRail -->
+  <aside id="aeSidebar">
+    <div class="aes-logo" title="Analysis Engine">
+      <div class="aes-logo-dot"></div>
+      <div class="aes-logo-text">Analysis <em style="color:#9d00ff;font-style:normal;font-weight:800">Engine</em></div>
+    </div>
+
+    <div class="aes-item" data-key="back" onclick="aeGoBack()" title="Back to Creative Testing">
+      <div class="aes-icon">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      </div>
+      <div class="aes-label">
+        <span class="aes-label-eyebrow">Exit</span>
+        <span class="aes-label-name">Back to Dashboard</span>
+      </div>
+    </div>
+
+    <div class="aes-rule"></div>
+    <div class="aes-section">Accounts</div>
+
+    <div class="aes-item active" data-key="all" onclick="aeSidebarPick('',this)" title="All Accounts — Combined View">
+      <div class="aes-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      </div>
+      <div class="aes-label">
+        <span class="aes-label-eyebrow">All Accounts</span>
+        <span class="aes-label-name">Combined View</span>
+      </div>
+    </div>
+
+    <div class="aes-item" data-key="acct1" onclick="aeSidebarPick('Raho Saadaa',this)" title="Account 1 — Raho Saadaa">
+      <div class="aes-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+      </div>
+      <div class="aes-label">
+        <span class="aes-label-eyebrow">Account 1</span>
+        <span class="aes-label-name">Raho Saadaa</span>
+      </div>
+    </div>
+
+    <div class="aes-item" data-key="acct2" onclick="aeSidebarPick('Fourth Ad Account - SD',this)" title="Account 2 — Fourth Ad Account - SD">
+      <div class="aes-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+      </div>
+      <div class="aes-label">
+        <span class="aes-label-eyebrow">Account 2</span>
+        <span class="aes-label-name">Fourth Ad Account - SD</span>
+      </div>
+    </div>
+
+    <div class="aes-item" data-key="acct3" onclick="aeSidebarPick('Third Ad Account - SD',this)" title="Account 3 — Third Ad Account - SD">
+      <div class="aes-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+      </div>
+      <div class="aes-label">
+        <span class="aes-label-eyebrow">Account 3</span>
+        <span class="aes-label-name">Third Ad Account - SD</span>
+      </div>
+    </div>
+
+    <div class="aes-footer">
+      <div class="aes-pulse"></div>
+      <span class="aes-footer-text">Live · Supabase</span>
+    </div>
+  </aside>
+
+  <script>
+    // Routes an AE-sidebar click into the existing aeSetAcct() handler and
+    // syncs the active indicator across sidebar items.
+    function aeSidebarPick(acctName, el){
+      document.querySelectorAll('#aeSidebar .aes-item[data-key^="acct"], #aeSidebar .aes-item[data-key="all"]').forEach(i => i.classList.remove('active'));
+      if(el) el.classList.add('active');
+      // Map account name to the legacy rail's <div> so aeSetAcct can sync its styles
+      const railIdx = {'':'.tab-all','Raho Saadaa':'.tab-1','Fourth Ad Account - SD':'.tab-2','Third Ad Account - SD':'.tab-3'};
+      const legacyEl = document.querySelector('#aeAcctRail '+railIdx[acctName]);
+      if(typeof aeSetAcct === 'function') aeSetAcct(acctName, legacyEl);
+    }
+  </script>
 
   <!-- STICKY TOP NAV -->
   <div style="position:sticky;top:0;z-index:10;background:rgba(244,241,235,0.96);border-bottom:1px solid #e0dbd0;backdrop-filter:blur(20px)">
@@ -2020,31 +2429,31 @@ function ctExportCSV(){
         <div style="position:relative;flex-shrink:0" id="ae-drp-wrap">
           <input type="hidden" id="ae-date-from"/>
           <input type="hidden" id="ae-date-to"/>
-          <button id="ae-drp-btn" onclick="aeDrpToggle()" style="display:flex;align-items:center;gap:7px;padding:6px 12px;background:#faf8f5;border:1px solid #e0dbd0;border-radius:8px;font-family:inherit;font-size:11px;color:#1c1916;cursor:pointer;transition:all .15s;min-width:180px;justify-content:space-between">
+          <button id="ae-drp-btn" onclick="aeDrpToggle(event)" style="display:flex;align-items:center;gap:7px;padding:6px 12px;background:#faf8f5;border:1px solid #e0dbd0;border-radius:8px;font-family:inherit;font-size:11px;color:#1c1916;cursor:pointer;transition:all .15s;min-width:180px;justify-content:space-between">
             <span id="ae-drp-label" style="font-weight:600;color:#9a9187">📅 All time</span>
             <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:#9a9187;flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>
           </button>
           <div id="ae-drp-panel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:999;background:#fff;border:1px solid #e0dbd0;border-radius:14px;box-shadow:0 12px 40px rgba(28,25,22,.15);overflow:hidden;width:680px;font-family:'Roboto',sans-serif">
             <div style="display:flex">
               <div id="ae-drp-presets" style="width:140px;flex-shrink:0;border-right:1px solid #f0ece4;padding:8px 0;background:#faf8f5">
-                <div class="ae-drp-preset" onclick="aeDrpPreset('today')" data-key="today">Today</div>
-                <div class="ae-drp-preset" onclick="aeDrpPreset('yesterday')" data-key="yesterday">Yesterday</div>
-                <div class="ae-drp-preset" onclick="aeDrpPreset('last7')" data-key="last7">Last 7 Days</div>
-                <div class="ae-drp-preset" onclick="aeDrpPreset('last30')" data-key="last30">Last 30 Days</div>
-                <div class="ae-drp-preset" onclick="aeDrpPreset('thisMonth')" data-key="thisMonth">This Month</div>
-                <div class="ae-drp-preset" onclick="aeDrpPreset('lastMonth')" data-key="lastMonth">Last Month</div>
-                <div class="ae-drp-preset" onclick="aeDrpPreset('last90')" data-key="last90">Last 90 Days</div>
-                <div class="ae-drp-preset active" onclick="aeDrpPreset('lifetime')" data-key="lifetime">Lifetime</div>
-                <div class="ae-drp-preset" onclick="aeDrpPreset('custom')" data-key="custom">Custom Range</div>
+                <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('today')" data-key="today">Today</div>
+                <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('yesterday')" data-key="yesterday">Yesterday</div>
+                <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('last7')" data-key="last7">Last 7 Days</div>
+                <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('last30')" data-key="last30">Last 30 Days</div>
+                <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('thisMonth')" data-key="thisMonth">This Month</div>
+                <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('lastMonth')" data-key="lastMonth">Last Month</div>
+                <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('last90')" data-key="last90">Last 90 Days</div>
+                <div class="ae-drp-preset active" onclick="event.stopPropagation();aeDrpPreset('lifetime')" data-key="lifetime">Lifetime</div>
+                <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('custom')" data-key="custom">Custom Range</div>
               </div>
               <div style="flex:1;padding:16px 20px">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-                  <button onclick="aeDrpNavMonth(-1)" style="background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px;font-size:14px;color:#4a4540;font-weight:700">&#8249;</button>
+                  <button onclick="event.stopPropagation();aeDrpNavMonth(-1)" style="background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px;font-size:14px;color:#4a4540;font-weight:700">&#8249;</button>
                   <div style="display:flex;gap:40px">
                     <div id="ae-drp-month-l" style="font-size:13px;font-weight:700;color:#1c1916;min-width:90px;text-align:center"></div>
                     <div id="ae-drp-month-r" style="font-size:13px;font-weight:700;color:#1c1916;min-width:90px;text-align:center"></div>
                   </div>
-                  <button onclick="aeDrpNavMonth(1)" style="background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px;font-size:14px;color:#4a4540;font-weight:700">&#8250;</button>
+                  <button onclick="event.stopPropagation();aeDrpNavMonth(1)" style="background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px;font-size:14px;color:#4a4540;font-weight:700">&#8250;</button>
                 </div>
                 <div style="display:flex;gap:24px">
                   <div id="ae-drp-cal-l" style="flex:1"></div>
@@ -2053,8 +2462,8 @@ function ctExportCSV(){
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid #f0ece4">
                   <div id="ae-drp-footer-range" style="font-size:11px;font-weight:600;color:#9a9187;font-family:'Roboto Mono',monospace"></div>
                   <div style="display:flex;gap:8px">
-                    <button onclick="aeDrpCancel()" style="padding:6px 14px;background:#faf8f5;border:1px solid #e0dbd0;border-radius:7px;font-size:11px;font-weight:600;color:#9a9187;cursor:pointer;font-family:inherit">Cancel</button>
-                    <button id="ae-drp-apply" onclick="aeDrpApply()" style="padding:6px 14px;background:#c0603a;border:none;border-radius:7px;font-size:11px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit">Apply</button>
+                    <button onclick="event.stopPropagation();aeDrpCancel()" style="padding:6px 14px;background:#faf8f5;border:1px solid #e0dbd0;border-radius:7px;font-size:11px;font-weight:600;color:#9a9187;cursor:pointer;font-family:inherit">Cancel</button>
+                    <button id="ae-drp-apply" onclick="event.stopPropagation();aeDrpApply()" style="padding:6px 14px;background:#c0603a;border:none;border-radius:7px;font-size:11px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit">Apply</button>
                   </div>
                 </div>
               </div>
@@ -2062,7 +2471,7 @@ function ctExportCSV(){
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#9a9187;font-weight:600">
-          Min Imp:<input id="ae-target-imp" type="number" value="20000" oninput="aeRecompute()" style="width:72px;padding:6px 8px;border-radius:7px;border:1px solid #e0dbd0;background:#faf8f5;color:#1c1916;font-family:inherit;font-size:11px;outline:none">
+          Min Imp:<input id="ae-target-imp" type="number" value="50000" oninput="aeRecompute()" style="width:72px;padding:6px 8px;border-radius:7px;border:1px solid #e0dbd0;background:#faf8f5;color:#1c1916;font-family:inherit;font-size:11px;outline:none">
         </div>
         <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#9a9187;font-weight:600">
           ROAS≥:<input id="ae-target-roas" type="number" value="3.2" step="0.1" oninput="aeRecompute()" style="width:50px;padding:6px 8px;border-radius:7px;border:1px solid #e0dbd0;background:#faf8f5;color:#1c1916;font-family:inherit;font-size:11px;outline:none">
@@ -2073,8 +2482,9 @@ function ctExportCSV(){
         <button onclick="aeReload()" style="padding:7px 14px;background:#f5ebe6;border:1px solid rgba(192,96,58,.3);color:#c0603a;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">↻ Refresh</button>
       </div>
     </div>
-    <!-- Account Rail -->
-    <div style="padding:0 24px 12px;display:flex;align-items:center;gap:8px">
+    <!-- Account Rail — superseded by #aeSidebar.
+         Kept in DOM (hidden) because aeSetAcct() still styles its .tab-* elements. -->
+    <div style="display:none;align-items:center;gap:8px">
       <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:#9a9187;flex-shrink:0">Account</span>
       <div style="display:flex;gap:6px;flex-wrap:wrap" id="aeAcctRail">
         <div class="ae-acct-card active tab-all" onclick="aeSetAcct('',this)"><div class="ae-acct-card-label">All Accounts</div><div class="ae-acct-card-name">Combined View</div></div>
@@ -2082,7 +2492,10 @@ function ctExportCSV(){
         <div class="ae-acct-card tab-2" onclick="aeSetAcct('Fourth Ad Account - SD',this)"><div class="ae-acct-card-label">Account 2</div><div class="ae-acct-card-name">Fourth Ad Account - SD</div></div>
         <div class="ae-acct-card tab-3" onclick="aeSetAcct('Third Ad Account - SD',this)"><div class="ae-acct-card-label">Account 3</div><div class="ae-acct-card-name">Third Ad Account - SD</div></div>
       </div>
-      <button onclick="aeExportCSV()" id="ae-export-btn" title="Export filtered results as CSV with all active filter metadata" style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:1px solid rgba(74,124,111,.35);background:#e6f0ee;color:#4a7c6f;font-size:11.5px;font-weight:700;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .15s;flex-shrink:0;white-space:nowrap" onmouseover="this.style.background='#4a7c6f';this.style.color='#fff'" onmouseout="this.style.background='#e6f0ee';this.style.color='#4a7c6f'">
+    </div>
+    <!-- Export CSV button — moved out of the rail since the rail is hidden -->
+    <div style="padding:0 24px 12px;display:flex;align-items:center;gap:8px;justify-content:flex-end">
+      <button onclick="aeExportCSV()" id="ae-export-btn" title="Export filtered results as CSV with all active filter metadata" style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:1px solid rgba(74,124,111,.35);background:#e6f0ee;color:#4a7c6f;font-size:11.5px;font-weight:700;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .15s;flex-shrink:0;white-space:nowrap" onmouseover="this.style.background='#4a7c6f';this.style.color='#fff'" onmouseout="this.style.background='#e6f0ee';this.style.color='#4a7c6f'">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         ↓ Export CSV
       </button>
@@ -2097,6 +2510,90 @@ function ctExportCSV(){
       <div id="ae-load-sub" style="font-size:12px;color:#9a9187">Checking results_table...</div>
     </div>
     <div id="ae-content" style="display:none">
+      <!-- ════════════════════════════════════════════════════════════
+           FORMULA REFERENCE PANEL — exactly how every column in the
+           table below is computed. Collapsed by default to keep the
+           panel quiet; expand to audit math.
+           ════════════════════════════════════════════════════════════ -->
+      <details id="ae-formulas-panel" style="background:#fff;border:1px solid #e0dbd0;border-radius:12px;margin-bottom:16px;overflow:hidden">
+        <summary style="cursor:pointer;list-style:none;padding:12px 18px;display:flex;align-items:center;gap:10px;background:linear-gradient(90deg,#f5ebe6 0%,#fff 60%);font-family:'Roboto',sans-serif;user-select:none">
+          <span style="font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#c0603a">Formulas Reference</span>
+          <span style="font-size:11px;color:#9a9187;font-weight:500">— how every column in the table below is calculated</span>
+          <span style="margin-left:auto;font-size:11px;color:#9a9187">click to expand ▾</span>
+        </summary>
+        <div style="padding:16px 22px 22px;border-top:1px solid #f0ece4">
+          <!-- Globals: the account-wide totals & averages every per-row metric references -->
+          <div style="margin-bottom:14px">
+            <div style="font-size:9.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#4a7c6f;margin-bottom:8px">① Account-Level Totals &amp; Averages</div>
+            <table style="width:100%;border-collapse:collapse;font-size:11.5px;font-family:'Roboto Mono',monospace">
+              <thead><tr style="background:#e6f0ee">
+                <th style="text-align:left;padding:6px 10px;color:#4a7c6f;font-weight:700">Name</th>
+                <th style="text-align:left;padding:6px 10px;color:#4a7c6f;font-weight:700">Meaning</th>
+                <th style="text-align:left;padding:6px 10px;color:#4a7c6f;font-weight:700">Formula</th>
+              </tr></thead>
+              <tbody>
+                <tr><td style="padding:5px 10px;color:#c0603a;font-weight:700">Total Reach</td><td style="padding:5px 10px;color:#1c1916">Sum of all ads' reach</td><td style="padding:5px 10px;color:#4a4540">Σ Reach</td></tr>
+                <tr style="background:#faf8f5"><td style="padding:5px 10px;color:#c0603a;font-weight:700">Total Spend</td><td style="padding:5px 10px">Sum of all ads' Amount Spent (INR)</td><td style="padding:5px 10px;color:#4a4540">Σ Spend</td></tr>
+                <tr><td style="padding:5px 10px;color:#c0603a;font-weight:700">Total FTEWV</td><td style="padding:5px 10px">Sum of all First-time EWV counts</td><td style="padding:5px 10px;color:#4a4540">Σ FTEWV</td></tr>
+                <tr style="background:#faf8f5"><td style="padding:5px 10px;color:#c0603a;font-weight:700">Avg Cost / 1k Reach</td><td style="padding:5px 10px">Account-level CPR baseline</td><td style="padding:5px 10px;color:#4a4540">(Total Spend ÷ Total Reach) × 1000</td></tr>
+                <tr><td style="padding:5px 10px;color:#c0603a;font-weight:700">Avg Cost / NCP</td><td style="padding:5px 10px">Weighted-avg Cost per NCP (capped at ₹500)</td><td style="padding:5px 10px;color:#4a4540">MIN(500, WeightedAvg(Cost/NCP, by Reach))</td></tr>
+                <tr style="background:#faf8f5"><td style="padding:5px 10px;color:#c0603a;font-weight:700">Avg ROAS</td><td style="padding:5px 10px">Weighted-avg ROAS</td><td style="padding:5px 10px;color:#4a4540">Total Conv. Value ÷ Total Spend</td></tr>
+                <tr><td style="padding:5px 10px;color:#c0603a;font-weight:700">Global FTEWV / Reach</td><td style="padding:5px 10px">Account-wide first-time-engaged-viewer rate</td><td style="padding:5px 10px;color:#4a4540">Total FTEWV ÷ Total Reach</td></tr>
+                <tr style="background:#faf8f5"><td style="padding:5px 10px;color:#c0603a;font-weight:700">Avg Cost / FTEWV</td><td style="padding:5px 10px">Account-wide cost per first-time view</td><td style="padding:5px 10px;color:#4a4540">Total Spend ÷ Total FTEWV</td></tr>
+                <tr><td style="padding:5px 10px;color:#c0603a;font-weight:700">Median FTEWV</td><td style="padding:5px 10px">Middle ad's FTEWV count across all ads</td><td style="padding:5px 10px;color:#4a4540">MEDIAN(FTEWV across all ads)</td></tr>
+                <tr style="background:#faf8f5"><td style="padding:5px 10px;color:#c0603a;font-weight:700">Median Profit Eff.</td><td style="padding:5px 10px">Middle ad's profit across all ads</td><td style="padding:5px 10px;color:#4a4540">MEDIAN(Profit Eff. across all ads)</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Per-row metrics, named exactly as they appear in the AE table header -->
+          <div style="margin-bottom:14px">
+            <div style="font-size:9.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#4a7c6f;margin-bottom:8px">② Per-Ad Metrics (table columns)</div>
+            <table style="width:100%;border-collapse:collapse;font-size:11.5px;font-family:'Roboto Mono',monospace">
+              <thead><tr style="background:#e6f0ee">
+                <th style="text-align:left;padding:6px 10px;color:#4a7c6f;font-weight:700">Column</th>
+                <th style="text-align:left;padding:6px 10px;color:#4a7c6f;font-weight:700">Formula</th>
+                <th style="text-align:left;padding:6px 10px;color:#4a7c6f;font-weight:700">What it means</th>
+              </tr></thead>
+              <tbody>
+                <tr><td style="padding:5px 10px;color:#c0603a;font-weight:700">Impressions</td><td style="padding:5px 10px;color:#4a4540">Σ Impressions (across all dates in window)</td><td style="padding:5px 10px;color:#9a9187">Total ad views in the date range</td></tr>
+                <tr style="background:#faf8f5"><td style="padding:5px 10px;color:#c0603a;font-weight:700">ROAS</td><td style="padding:5px 10px;color:#4a4540">Σ Conv. Value ÷ Σ Spend</td><td style="padding:5px 10px;color:#9a9187">Revenue per ₹ of spend</td></tr>
+                <tr><td style="padding:5px 10px;color:#c0603a;font-weight:700">CPC ₹</td><td style="padding:5px 10px;color:#4a4540">Σ Spend ÷ Σ Outbound Clicks</td><td style="padding:5px 10px;color:#9a9187">Cost per outbound click</td></tr>
+                <tr style="background:#faf8f5"><td style="padding:5px 10px;color:#c0603a;font-weight:700">LTV Spend</td><td style="padding:5px 10px;color:#4a4540">Σ Amount Spent (INR)</td><td style="padding:5px 10px;color:#9a9187">Lifetime spend on the ad</td></tr>
+                <tr><td style="padding:5px 10px;color:#c0603a;font-weight:700">Reach Wt.</td><td style="padding:5px 10px;color:#4a4540">Ad Reach ÷ Total Reach × 100</td><td style="padding:5px 10px;color:#9a9187">Share of total account reach (%)</td></tr>
+                <tr style="background:#faf8f5"><td style="padding:5px 10px;color:#c0603a;font-weight:700">Profit Eff. (₹)</td><td style="padding:5px 10px;color:#4a4540">Spend × ROAS − Spend</td><td style="padding:5px 10px;color:#9a9187">Absolute profit generated by the ad</td></tr>
+                <tr><td style="padding:5px 10px;color:#c0603a;font-weight:700">Contrib. %</td><td style="padding:5px 10px;color:#4a4540">(1 − 1 ÷ ROAS) × 100</td><td style="padding:5px 10px;color:#9a9187">Contribution margin — % of spend that becomes profit</td></tr>
+                <tr style="background:#faf8f5"><td style="padding:5px 10px;color:#c0603a;font-weight:700">Delivery</td><td style="padding:5px 10px;color:#4a4540">CPR-Eff + FTV-Contrib-Eff + (Avg Cost/FTEWV ÷ Ad Cost/FTEWV)</td><td style="padding:5px 10px;color:#9a9187">How efficiently the ad delivers reach &amp; first-views</td></tr>
+                <tr><td style="padding:5px 10px;color:#c0603a;font-weight:700">Sales</td><td style="padding:5px 10px;color:#4a4540">NCP-Cost-Eff + ROAS-Eff</td><td style="padding:5px 10px;color:#9a9187">How efficiently the ad converts spend into sales</td></tr>
+                <tr style="background:#faf8f5"><td style="padding:5px 10px;color:#c0603a;font-weight:700;color:#c0603a">Blended ⭐</td><td style="padding:5px 10px;color:#4a4540">0.10·CPR-Eff + 0.25·FTV-Contrib-Eff + 0.15·FTEV-Volume + 0.20·NCP-Cost-Eff + 0.20·ROAS-Eff + 0.10·Profit-Vol-Eff</td><td style="padding:5px 10px;color:#9a9187">Weighted composite of all 6 efficiency scores. Headline ranker.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Sub-efficiencies that feed into Delivery / Sales / Blended -->
+          <div>
+            <div style="font-size:9.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#4a7c6f;margin-bottom:8px">③ The 6 Underlying Efficiency Scores (feed into Blended)</div>
+            <table style="width:100%;border-collapse:collapse;font-size:11.5px;font-family:'Roboto Mono',monospace">
+              <thead><tr style="background:#e6f0ee">
+                <th style="text-align:left;padding:6px 10px;color:#4a7c6f;font-weight:700">Score</th>
+                <th style="text-align:left;padding:6px 10px;color:#4a7c6f;font-weight:700">Formula</th>
+                <th style="text-align:right;padding:6px 10px;color:#4a7c6f;font-weight:700">Weight</th>
+              </tr></thead>
+              <tbody>
+                <tr><td style="padding:5px 10px;color:#c0603a;font-weight:700">CPR Efficiency</td><td style="padding:5px 10px;color:#4a4540">Avg Cost / 1k Reach ÷ Ad's Cost / 1k Reach</td><td style="padding:5px 10px;color:#1c1916;text-align:right;font-weight:700">0.10</td></tr>
+                <tr style="background:#faf8f5"><td style="padding:5px 10px;color:#c0603a;font-weight:700">FTV Contribution Eff.</td><td style="padding:5px 10px;color:#4a4540">Ad's FTEWV-share-of-reach ÷ Global FTEWV / Reach</td><td style="padding:5px 10px;color:#1c1916;text-align:right;font-weight:700">0.25</td></tr>
+                <tr><td style="padding:5px 10px;color:#c0603a;font-weight:700">FTEV Volume</td><td style="padding:5px 10px;color:#4a4540">Ad's FTEWV Count ÷ Median FTEWV</td><td style="padding:5px 10px;color:#1c1916;text-align:right;font-weight:700">0.15</td></tr>
+                <tr style="background:#faf8f5"><td style="padding:5px 10px;color:#c0603a;font-weight:700">NCP Cost Eff.</td><td style="padding:5px 10px;color:#4a4540">Avg Cost / NCP ÷ Ad's Cost / NCP</td><td style="padding:5px 10px;color:#1c1916;text-align:right;font-weight:700">0.20</td></tr>
+                <tr><td style="padding:5px 10px;color:#c0603a;font-weight:700">ROAS Efficiency</td><td style="padding:5px 10px;color:#4a4540">Ad's ROAS ÷ Avg ROAS</td><td style="padding:5px 10px;color:#1c1916;text-align:right;font-weight:700">0.20</td></tr>
+                <tr style="background:#faf8f5"><td style="padding:5px 10px;color:#c0603a;font-weight:700">Profit Volume Eff.</td><td style="padding:5px 10px;color:#4a4540">Ad's Profit Eff. ÷ Median Profit Eff.</td><td style="padding:5px 10px;color:#1c1916;text-align:right;font-weight:700">0.10</td></tr>
+                <tr style="background:#e6f0ee;border-top:2px solid #4a7c6f"><td style="padding:6px 10px;color:#4a7c6f;font-weight:800">SUM</td><td style="padding:6px 10px;color:#9a9187;font-style:italic">all 6 weights must sum to 1.00</td><td style="padding:6px 10px;color:#4a7c6f;text-align:right;font-weight:800">1.00</td></tr>
+              </tbody>
+            </table>
+            <div style="font-size:10.5px;color:#9a9187;margin-top:10px;font-style:italic">Each efficiency score is a <b>ratio against the account average / median</b>: <b>&gt; 1.00</b> means the ad is above the account baseline; <b>&lt; 1.00</b> means below. Blended is the headline rank — sort the table by it to see your strongest performers.</div>
+          </div>
+        </div>
+      </details>
+
       <!-- logic reminder badge in engine -->
       <div style="background:#fff;border:1px solid #e0dbd0;border-radius:10px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span style="font-size:10px;font-weight:700;color:#9a9187;text-transform:uppercase;letter-spacing:.8px">Winner Logic</span>
@@ -2157,9 +2654,16 @@ function ctExportCSV(){
           <button onclick="aePage(1)" style="padding:5px 12px;border-radius:7px;border:1px solid var(--ae-border);background:var(--ae-surface);color:var(--ae-ink2);font-size:12px;cursor:pointer;font-family:inherit">&#8250;</button>
         </div>
       </div>
+      <!-- Column-level range filter controls — sit in their own row above the table -->
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#faf8f5;border:1px solid #e0dbd0;border-bottom:none;border-radius:14px 14px 0 0;flex-wrap:wrap;font-family:'Roboto',sans-serif">
+        <span style="font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#9a9187">Column range filter</span>
+        <span id="ae-rangefilter-count" style="font-size:10px;color:#9a9187;font-weight:600"></span>
+        <button onclick="aeClearRangeFilters()" style="margin-left:auto;background:transparent;border:1px solid #cdc8bc;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;color:#9a9187;cursor:pointer;font-family:inherit">Clear ranges</button>
+      </div>
       <div class="ae-glass" style="overflow-x:auto;border-radius:0 0 14px 14px;padding:0">
         <table class="ae-tbl">
-          <thead><tr>
+          <thead>
+          <tr>
             <th onclick="aeSort('campName')" style="text-align:left;min-width:160px">Campaign &#8597;</th>
             <th onclick="aeSort('adId')" style="text-align:left;min-width:120px">Ad ID &#8597;</th>
             <th onclick="aeSort('adName')" style="text-align:left;min-width:220px">Name &#8597;</th>
@@ -2188,7 +2692,102 @@ function ctExportCSV(){
             <th style="text-align:left;min-width:110px">Ad Status</th>
             <th style="text-align:center;min-width:80px">Preview</th>
             <th style="text-align:center;min-width:80px">Ad Link</th>
-          </tr></thead>
+          </tr>
+          <!-- ROW 2: min/max range inputs for every numeric column ──────────────
+               Each <input> uses class="ae-rangefilter" + data-key (the row property)
+               + data-bound (min|max). aeApplyFilters() reads all of them and filters
+               aeResults accordingly. Inputs without a value are ignored.            -->
+          <tr style="background:#fbf9f5">
+            <th></th><!-- Campaign -->
+            <th></th><!-- Ad ID -->
+            <th></th><!-- Name -->
+            <th></th><!-- Ad Created -->
+            <th></th><!-- First Seen -->
+            <th></th><!-- Status -->
+            <th style="padding:4px 6px">
+              <div style="display:flex;gap:3px;justify-content:flex-end">
+                <input class="ae-rangefilter" data-key="imp" data-bound="min" type="number" placeholder="min" oninput="aeApplyFilters()" style="width:46px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+                <input class="ae-rangefilter" data-key="imp" data-bound="max" type="number" placeholder="max" oninput="aeApplyFilters()" style="width:46px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+              </div>
+            </th>
+            <th style="padding:4px 6px">
+              <div style="display:flex;gap:3px;justify-content:flex-end">
+                <input class="ae-rangefilter" data-key="rawRoas" data-bound="min" type="number" step="0.1" placeholder="min" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+                <input class="ae-rangefilter" data-key="rawRoas" data-bound="max" type="number" step="0.1" placeholder="max" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+              </div>
+            </th>
+            <th style="padding:4px 6px">
+              <div style="display:flex;gap:3px;justify-content:flex-end">
+                <input class="ae-rangefilter" data-key="rawCpc" data-bound="min" type="number" step="0.1" placeholder="min" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+                <input class="ae-rangefilter" data-key="rawCpc" data-bound="max" type="number" step="0.1" placeholder="max" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+              </div>
+            </th>
+            <th style="padding:4px 6px">
+              <div style="display:flex;gap:3px;justify-content:flex-end">
+                <input class="ae-rangefilter" data-key="rawSpend" data-bound="min" type="number" placeholder="min" oninput="aeApplyFilters()" style="width:60px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+                <input class="ae-rangefilter" data-key="rawSpend" data-bound="max" type="number" placeholder="max" oninput="aeApplyFilters()" style="width:60px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+              </div>
+            </th>
+            <th></th><!-- F1 -->
+            <th></th><!-- F2 / F3 -->
+            <th></th><!-- Days to Target -->
+            <th style="padding:4px 6px">
+              <div style="display:flex;gap:3px;justify-content:flex-end">
+                <input class="ae-rangefilter" data-key="rf2" data-bound="min" type="number" placeholder="min" oninput="aeApplyFilters()" style="width:55px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+                <input class="ae-rangefilter" data-key="rf2" data-bound="max" type="number" placeholder="max" oninput="aeApplyFilters()" style="width:55px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+              </div>
+            </th>
+            <th style="padding:4px 6px">
+              <div style="display:flex;gap:3px;justify-content:flex-end">
+                <input class="ae-rangefilter" data-key="lRFN" data-bound="min" type="number" step="0.1" placeholder="min" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+                <input class="ae-rangefilter" data-key="lRFN" data-bound="max" type="number" step="0.1" placeholder="max" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+              </div>
+            </th>
+            <th style="padding:4px 6px">
+              <div style="display:flex;gap:3px;justify-content:flex-end">
+                <input class="ae-rangefilter" data-key="rw" data-bound="min" type="number" step="0.01" placeholder="min %" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+                <input class="ae-rangefilter" data-key="rw" data-bound="max" type="number" step="0.01" placeholder="max %" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+              </div>
+            </th>
+            <th style="padding:4px 6px">
+              <div style="display:flex;gap:3px;justify-content:flex-end">
+                <input class="ae-rangefilter" data-key="rawProfit" data-bound="min" type="number" placeholder="min" oninput="aeApplyFilters()" style="width:60px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+                <input class="ae-rangefilter" data-key="rawProfit" data-bound="max" type="number" placeholder="max" oninput="aeApplyFilters()" style="width:60px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+              </div>
+            </th>
+            <th style="padding:4px 6px">
+              <div style="display:flex;gap:3px;justify-content:flex-end">
+                <input class="ae-rangefilter" data-key="cm" data-bound="min" type="number" step="0.1" placeholder="min %" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+                <input class="ae-rangefilter" data-key="cm" data-bound="max" type="number" step="0.1" placeholder="max %" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+              </div>
+            </th>
+            <th style="padding:4px 6px">
+              <div style="display:flex;gap:3px;justify-content:flex-end">
+                <input class="ae-rangefilter" data-key="dE" data-bound="min" type="number" step="0.1" placeholder="min" oninput="aeApplyFilters()" style="width:46px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+                <input class="ae-rangefilter" data-key="dE" data-bound="max" type="number" step="0.1" placeholder="max" oninput="aeApplyFilters()" style="width:46px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+              </div>
+            </th>
+            <th style="padding:4px 6px">
+              <div style="display:flex;gap:3px;justify-content:flex-end">
+                <input class="ae-rangefilter" data-key="sE" data-bound="min" type="number" step="0.1" placeholder="min" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+                <input class="ae-rangefilter" data-key="sE" data-bound="max" type="number" step="0.1" placeholder="max" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+              </div>
+            </th>
+            <th style="padding:4px 6px">
+              <div style="display:flex;gap:3px;justify-content:flex-end">
+                <input class="ae-rangefilter" data-key="rawBlended" data-bound="min" type="number" step="0.1" placeholder="min" oninput="aeApplyFilters()" style="width:50px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+                <input class="ae-rangefilter" data-key="rawBlended" data-bound="max" type="number" step="0.1" placeholder="max" oninput="aeApplyFilters()" style="width:50px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
+              </div>
+            </th>
+            <th></th><!-- System Type -->
+            <th></th><!-- Action Protocol -->
+            <th></th><!-- Performance Move -->
+            <th></th><!-- Creative Move -->
+            <th></th><!-- Ad Status -->
+            <th></th><!-- Preview -->
+            <th></th><!-- Ad Link -->
+          </tr>
+          </thead>
           <tbody id="aeTableBody"></tbody>
         </table>
       </div>
@@ -2340,8 +2939,10 @@ function selectFatigue(el){
   var lp=document.getElementById('lifecyclePanel');if(lp)lp.style.display='none';
   var p=document.getElementById('fatiguePanel');p.style.display='block';p.scrollTop=0;
   _lockBodyScroll();
-  // Frequency buckets (own state) — the only content of this panel now
+  // Two-part Lifecycle view: (1) frequency buckets + drill table, and
+  // (2) the 14-day buffer verdict table sourced from ad_results.
   ftFetchAndRender(false);
+  if(typeof lcReload === 'function') lcReload();
 }
 
 function ftGoBack(){
@@ -2381,20 +2982,24 @@ const aeDrpState={open:false,viewYear:new Date().getFullYear(),viewMonth:new Dat
 function aeFmtLocal(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return`${y}-${m}-${day}`;}
 function aeParseLocal(s){const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d,0,0,0,0);}
 
-function aeDrpToggle(){
+function aeDrpToggle(e){
+  if(e&&e.stopPropagation)e.stopPropagation();
   const panel=document.getElementById('ae-drp-panel');
   aeDrpState.open=!aeDrpState.open;window.aeDrpOpen=aeDrpState.open;
   panel.style.display=aeDrpState.open?'block':'none';
   const btn=document.getElementById('ae-drp-btn');
   btn.style.borderColor=aeDrpState.open?'#c0603a':'#e0dbd0';
   if(aeDrpState.open){
-    // Always start with a clean "selecting" state so the first click is treated as the range start
+    // Fully reset interaction state — and clear any stale from/to that wasn't Applied.
+    // The source of truth is the hidden inputs; only restore from those.
     aeDrpState.selecting=false;aeDrpState.hov=null;
-    // Restore from/to from hidden inputs (in case picker was closed without Apply)
+    aeDrpState.from=null;aeDrpState.to=null;
     const fIn=document.getElementById('ae-date-from').value;
     const tIn=document.getElementById('ae-date-to').value;
     if(fIn){aeDrpState.from=aeParseLocal(fIn);if(aeDrpState.preset==='lifetime')aeDrpState.preset='custom';}
     if(tIn){aeDrpState.to=aeParseLocal(tIn);}
+    if(!fIn&&!tIn&&aeDrpState.preset!=='lifetime')aeDrpState.preset='lifetime';
+    aeDrpSetPresetActive(aeDrpState.preset);
     // Anchor the view on the currently-selected `from` if present, else current month on the right
     const anchor=aeDrpState.from?aeDrpState.from:new Date();
     aeDrpState.viewYear=anchor.getFullYear();aeDrpState.viewMonth=anchor.getMonth()-1;
@@ -2461,7 +3066,18 @@ function aeDrpDayClick(el){
   else{aeDrpState.to=dt;aeDrpState.hov=null;aeDrpState.selecting=false;if(aeDrpState.from>aeDrpState.to){const t=aeDrpState.from;aeDrpState.from=aeDrpState.to;aeDrpState.to=t;}}
   aeDrpRender();
 }
-function aeDrpDayHover(el){if(!aeDrpState.selecting)return;if(el.classList.contains('other-month')||el.classList.contains('disabled'))return;aeDrpState.hov=aeParseLocal(el.dataset.date);aeDrpRender();}
+function aeDrpDayHover(el){
+  if(!aeDrpState.selecting)return;
+  if(el.classList.contains('other-month')||el.classList.contains('disabled'))return;
+  const newHov=aeParseLocal(el.dataset.date);
+  // CRITICAL: only re-render if the hovered date is genuinely new. Every render
+  // replaces the cell DOM, the new cell under the cursor immediately fires
+  // mouseenter again, which would call us right back — an infinite loop that
+  // kept day-2 clicks from ever landing (cell kept detaching mid-click).
+  if(aeDrpState.hov&&aeDrpState.hov.getTime()===newHov.getTime())return;
+  aeDrpState.hov=newHov;
+  aeDrpRender();
+}
 function aeDrpPreset(key){
   const now=new Date();now.setHours(0,0,0,0);let from,to;
   if(key==='today'){from=new Date(now);to=new Date(now);}
@@ -2472,7 +3088,14 @@ function aeDrpPreset(key){
   else if(key==='thisMonth'){from=new Date(now.getFullYear(),now.getMonth(),1);to=new Date(now);}
   else if(key==='lastMonth'){from=new Date(now.getFullYear(),now.getMonth()-1,1);to=new Date(now.getFullYear(),now.getMonth(),0);}
   else if(key==='lifetime'){from=null;to=null;}
-  else if(key==='custom'){aeDrpState.preset='custom';aeDrpSetPresetActive('custom');aeDrpRender();return;}
+  else if(key==='custom'){
+    // Enter fresh-selection mode — clear any preset's from/to so the next two day
+    // clicks become a new range. Without this, an existing preset's range
+    // (e.g. Last 7 Days) blocks the user from seeing their own selection.
+    aeDrpState.from=null;aeDrpState.to=null;aeDrpState.hov=null;aeDrpState.selecting=false;
+    aeDrpState.preset='custom';aeDrpSetPresetActive('custom');
+    aeDrpRender();return;
+  }
   aeDrpState.from=from;aeDrpState.to=to;aeDrpState.hov=null;aeDrpState.selecting=false;aeDrpState.preset=key;aeDrpSetPresetActive(key);
   if(from){aeDrpState.viewYear=from.getFullYear();aeDrpState.viewMonth=from.getMonth();}
   else{const n=new Date();aeDrpState.viewYear=n.getFullYear();aeDrpState.viewMonth=n.getMonth()-1;if(aeDrpState.viewMonth<0){aeDrpState.viewMonth=11;aeDrpState.viewYear--;}}
@@ -2743,6 +3366,37 @@ function aeClearFilters(){
   aeApplyFilters();
 }
 
+// Parse "1,234", "15.5%", "₹6,102", "3.190" → number. Used by aeApplyFilters
+// when checking range filters against string-formatted columns (cm, rw, dE, sE, etc.).
+function aeNum(v){
+  if(v==null||v==='') return NaN;
+  if(typeof v==='number') return v;
+  const cleaned = String(v).replace(/[,₹%\s]/g,'').trim();
+  const n = parseFloat(cleaned);
+  return isFinite(n) ? n : NaN;
+}
+
+// Collect active min/max range filters from the inline inputs into a flat map
+// keyed by row-property name (imp, rawRoas, rawCpc, ...). Empty inputs are skipped.
+function aeReadRangeFilters(){
+  const out = {};
+  document.querySelectorAll('.ae-rangefilter').forEach(inp=>{
+    const v = inp.value.trim();
+    if(v==='') return;
+    const k = inp.dataset.key, b = inp.dataset.bound;
+    const n = parseFloat(v);
+    if(!isFinite(n)) return;
+    if(!out[k]) out[k] = {min:null,max:null};
+    out[k][b] = n;
+  });
+  return out;
+}
+
+function aeClearRangeFilters(){
+  document.querySelectorAll('.ae-rangefilter').forEach(inp=>{ inp.value=''; });
+  aeApplyFilters();
+}
+
 function aeApplyFilters(){
   // Map AE chip macro-categories to the new 6-bucket categories
   const chipMatchers = {
@@ -2751,12 +3405,22 @@ function aeApplyFilters(){
     'Analyse':   c => c==='Analyse',
     'Discarded': c => c==='Discarded',
   };
+  const ranges = aeReadRangeFilters();
   aeFiltered=aeResults.filter(r=>{
     if(aeActiveAcct&&r.acct!==aeActiveAcct) return false;
     if(aeChipActive){
       const matcher = chipMatchers[aeChipActive];
       if(matcher ? !matcher(r.category) : r.category!==aeChipActive) return false;
     }
+    // ── Column-level numeric range filters (min/max per column) ────────
+    for(const key in ranges){
+      const {min, max} = ranges[key];
+      const val = aeNum(r[key]);
+      if(!isFinite(val)) return false;
+      if(min!==null && val < min) return false;
+      if(max!==null && val > max) return false;
+    }
+    // ── Existing text multi-filter rows (contains/excludes) ────────────
     for(const row of document.querySelectorAll('#ae-filter-rows .ae-filter-row')){
       const col=row.querySelector('.ae-fcol').value;
       const cond=row.querySelector('.ae-fcond').value;
@@ -2770,6 +3434,10 @@ function aeApplyFilters(){
     }
     return true;
   });
+  // Update the range-filter count badge
+  const activeRanges = Object.keys(ranges).length;
+  const cBadge = document.getElementById('ae-rangefilter-count');
+  if(cBadge) cBadge.textContent = activeRanges ? `· ${activeRanges} range${activeRanges>1?'s':''} active` : '';
   aeCurPage=0;aeRender();
 }
 
@@ -3049,30 +3717,31 @@ function aeRender(){
     #fatiguePanel .lc-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
 
     /* ════════════════════════════════════════════════════════════════════════
-       SOFT-PASTEL-MINIMAL TREATMENT — Fatigue/Lifecycle panel only.
-       Editorial typography (Fraunces display), generous whitespace,
-       hairline rules, restrained pastel washes from existing palette.
+       MINIMAL TREATMENT — Fatigue/Lifecycle panel only.
+       Generous whitespace, hairline rules, restrained pastel washes.
+       Typography stays on the project's Roboto family — no extra fonts.
        ════════════════════════════════════════════════════════════════════════ */
     #fatiguePanel .sp-shell{max-width:1280px;margin:0 auto;padding:48px 56px 96px}
     @media (max-width:840px){#fatiguePanel .sp-shell{padding:32px 24px 64px}}
 
-    /* Editorial section header */
+    /* Section header */
     #fatiguePanel .sp-section-label{
-      font-family:'Fraunces',serif; font-style:italic; font-weight:300;
-      font-size:.78rem; color:var(--ft-muted); letter-spacing:.02em;
-      display:flex; align-items:baseline; gap:14px; margin-bottom:6px;
+      font-family:'Roboto',sans-serif; font-weight:600;
+      font-size:.62rem; color:var(--ft-muted); letter-spacing:.16em;
+      text-transform:uppercase;
+      display:flex; align-items:baseline; gap:14px; margin-bottom:8px;
     }
     #fatiguePanel .sp-section-label::before{
       content:''; display:inline-block; width:38px; height:1px;
       background:var(--ft-border2); transform:translateY(-4px);
     }
     #fatiguePanel .sp-section-title{
-      font-family:'Fraunces',serif; font-weight:300; font-style:normal;
-      font-size:clamp(1.9rem,3.4vw,2.6rem); color:var(--ft-ink);
-      letter-spacing:-.02em; line-height:1.05; margin:0 0 12px;
+      font-family:'Roboto',sans-serif; font-weight:500;
+      font-size:clamp(1.4rem,2.6vw,1.8rem); color:var(--ft-ink);
+      letter-spacing:-.01em; line-height:1.2; margin:0 0 10px;
     }
     #fatiguePanel .sp-section-title em{
-      font-style:italic; font-weight:300; color:var(--ft-terra);
+      font-style:normal; font-weight:700; color:var(--ft-terra);
     }
     #fatiguePanel .sp-section-meta{
       font-family:'Roboto',sans-serif; font-weight:400;
@@ -3091,21 +3760,28 @@ function aeRender(){
       background:var(--ft-ink); height:2px; width:60px; margin:0 0 28px;
     }
 
-    /* Bucket grid — column-based with hairline separators instead of card borders */
+    /* Bucket grid — framed cards with subtle borders */
     #fatiguePanel .sp-buckets{
-      display:grid; grid-template-columns:repeat(3,1fr); gap:0;
+      display:grid; grid-template-columns:repeat(3,1fr); gap:16px;
       position:relative;
     }
     #fatiguePanel .sp-bucket{
       position:relative; padding:28px 26px 32px; cursor:pointer;
-      transition:background .35s cubic-bezier(.2,.6,.2,1);
+      background:var(--ft-surface, #fff);
+      border:1px solid var(--ft-border, #e0dbd0);
+      border-radius:14px;
+      transition:background .35s cubic-bezier(.2,.6,.2,1), border-color .25s, box-shadow .25s;
     }
-    #fatiguePanel .sp-bucket:not(:last-child)::after{
-      content:''; position:absolute; right:0; top:18%; bottom:18%; width:1px;
-      background:var(--ft-border2); opacity:.55;
+    #fatiguePanel .sp-bucket:hover{
+      background:rgba(192,96,58,.025);
+      border-color:var(--ft-border2, #cdc8bc);
+      box-shadow:0 4px 14px rgba(28,25,22,.045);
     }
-    #fatiguePanel .sp-bucket:hover{background:rgba(192,96,58,.025)}
-    #fatiguePanel .sp-bucket.active{background:rgba(192,96,58,.045)}
+    #fatiguePanel .sp-bucket.active{
+      background:rgba(192,96,58,.045);
+      border-color:rgba(192,96,58,.4);
+      box-shadow:0 4px 16px rgba(192,96,58,.08);
+    }
     #fatiguePanel .sp-bucket-tag{
       font-family:'Roboto',sans-serif; font-weight:600; font-size:.6rem;
       letter-spacing:.16em; text-transform:uppercase;
@@ -3115,19 +3791,19 @@ function aeRender(){
       width:6px; height:6px; border-radius:50%; display:inline-block;
     }
     #fatiguePanel .sp-bucket-range{
-      font-family:'Fraunces',serif; font-style:italic; font-weight:300;
-      font-size:.78rem; color:var(--ft-muted); margin-bottom:30px;
+      font-family:'Roboto',sans-serif; font-weight:400;
+      font-size:.7rem; color:var(--ft-muted); margin-bottom:24px;
     }
     #fatiguePanel .sp-bigcount{
-      font-family:'Fraunces',serif; font-weight:200; font-style:normal;
-      font-size:clamp(3.4rem,6.8vw,5.4rem); line-height:.95;
-      letter-spacing:-.04em; font-variant-numeric:tabular-nums;
-      margin-bottom:24px;
+      font-family:'Roboto',sans-serif; font-weight:700;
+      font-size:clamp(2.4rem,4.4vw,3.4rem); line-height:1;
+      letter-spacing:-.03em; font-variant-numeric:tabular-nums;
+      margin-bottom:22px;
     }
     #fatiguePanel .sp-bigcount sup{
-      font-family:'Fraunces',serif; font-style:italic; font-weight:300;
-      font-size:.22em; letter-spacing:0; vertical-align:super; color:var(--ft-muted);
-      margin-left:6px;
+      font-family:'Roboto',sans-serif; font-weight:500;
+      font-size:.32em; letter-spacing:.04em; vertical-align:super; color:var(--ft-muted);
+      margin-left:6px; text-transform:uppercase;
     }
     #fatiguePanel .sp-metric{
       display:flex; align-items:baseline; justify-content:space-between;
@@ -3139,12 +3815,13 @@ function aeRender(){
       color:var(--ft-muted); text-transform:uppercase; letter-spacing:.14em;
     }
     #fatiguePanel .sp-metric-value{
-      font-family:'Fraunces',serif; font-weight:400; font-size:1.05rem;
-      color:var(--ft-ink); font-variant-numeric:tabular-nums; letter-spacing:-.01em;
+      font-family:'Roboto',sans-serif; font-weight:600; font-size:.92rem;
+      color:var(--ft-ink); font-variant-numeric:tabular-nums; letter-spacing:-.005em;
     }
     #fatiguePanel .sp-bucket-hint{
-      font-family:'Fraunces',serif; font-style:italic; font-weight:300;
-      font-size:.7rem; color:var(--ft-muted); margin-top:22px;
+      font-family:'Roboto',sans-serif; font-weight:500;
+      font-size:.6rem; color:var(--ft-muted); margin-top:22px;
+      letter-spacing:.12em; text-transform:uppercase;
       opacity:0; transform:translateY(4px); transition:all .3s;
     }
     #fatiguePanel .sp-bucket:hover .sp-bucket-hint,
@@ -3159,23 +3836,24 @@ function aeRender(){
       margin-bottom:0; flex-wrap:wrap; gap:14px;
     }
     #fatiguePanel .sp-drill-title{
-      font-family:'Fraunces',serif; font-weight:300; font-style:italic;
-      font-size:1.5rem; letter-spacing:-.01em; line-height:1; color:var(--ft-ink);
+      font-family:'Roboto',sans-serif; font-weight:500;
+      font-size:1.25rem; letter-spacing:-.01em; line-height:1.15; color:var(--ft-ink);
     }
-    #fatiguePanel .sp-drill-title strong{font-style:normal; font-weight:500; color:var(--ft-terra)}
+    #fatiguePanel .sp-drill-title strong{font-weight:700; color:var(--ft-terra)}
     #fatiguePanel .sp-drill-totals{
-      font-family:'Roboto',sans-serif; font-weight:400; font-size:.7rem;
+      font-family:'Roboto',sans-serif; font-weight:500; font-size:.6rem;
       color:var(--ft-muted); display:flex; gap:18px; align-items:baseline;
-      font-variant-numeric:tabular-nums;
+      font-variant-numeric:tabular-nums; text-transform:uppercase; letter-spacing:.12em;
     }
     #fatiguePanel .sp-drill-totals b{
-      font-family:'Fraunces',serif; font-weight:400; font-size:1rem; color:var(--ft-ink);
-      margin-left:6px;
+      font-family:'Roboto',sans-serif; font-weight:700; font-size:.95rem; color:var(--ft-ink);
+      margin-left:6px; text-transform:none; letter-spacing:-.01em;
     }
     #fatiguePanel .sp-drill-close{
       background:transparent; border:none; color:var(--ft-muted); cursor:pointer;
-      font-family:'Fraunces',serif; font-style:italic; font-weight:300; font-size:.85rem;
-      padding:4px 8px; transition:color .2s;
+      font-family:'Roboto',sans-serif; font-weight:500; font-size:.65rem;
+      letter-spacing:.14em; text-transform:uppercase;
+      padding:6px 10px; transition:color .2s;
     }
     #fatiguePanel .sp-drill-close:hover{color:var(--ft-terra)}
 
@@ -3194,7 +3872,7 @@ function aeRender(){
       vertical-align:middle;
     }
     #fatiguePanel .sp-table tbody td.num{
-      text-align:right; font-variant-numeric:tabular-nums; font-family:'Fraunces',serif;
+      text-align:right; font-variant-numeric:tabular-nums; font-family:'Roboto',sans-serif;
       font-weight:400; font-size:.92rem; color:var(--ft-ink); letter-spacing:-.01em;
     }
     #fatiguePanel .sp-table tbody td.ad-name{color:var(--ft-ink); font-weight:500;
@@ -3205,7 +3883,7 @@ function aeRender(){
     #fatiguePanel .sp-table tbody tr:last-child td{border-bottom:none}
     #fatiguePanel .sp-table .freq-pill{
       display:inline-block; padding:3px 9px; border-radius:99px;
-      font-family:'Fraunces',serif; font-weight:500; font-variant-numeric:tabular-nums;
+      font-family:'Roboto',sans-serif; font-weight:500; font-variant-numeric:tabular-nums;
       font-size:.78rem; letter-spacing:0;
     }
 
@@ -3216,7 +3894,177 @@ function aeRender(){
     #fatiguePanel .sp-anim.d2{animation-delay:.10s}
     #fatiguePanel .sp-anim.d3{animation-delay:.16s}
     #fatiguePanel .sp-anim.d4{animation-delay:.22s}
+
+    /* ═══════════════════════════════════════════════════════════════════
+       LIFECYCLE INTERNAL SIDEBAR — collapsed 60px / hover-expanded 240px.
+       Replaces the horizontal #ft-acct-rail.
+       ═══════════════════════════════════════════════════════════════════ */
+    #ftSidebar{
+      position:fixed; top:0; left:0; bottom:0; width:60px; z-index:200;
+      background:var(--ft-surface); border-right:1px solid var(--ft-border);
+      display:flex; flex-direction:column; padding:18px 0;
+      transition:width .25s cubic-bezier(.2,.6,.2,1);
+      overflow:hidden;
+    }
+    #ftSidebar:hover{ width:240px; box-shadow:6px 0 22px rgba(28,25,22,.06); }
+    #ftSidebar .fts-logo{display:flex;align-items:center;gap:10px;padding:0 18px;margin-bottom:18px;height:32px;flex-shrink:0}
+    #ftSidebar .fts-logo-dot{
+      width:24px;height:24px;border-radius:50%;flex-shrink:0;
+      background:linear-gradient(135deg,var(--ft-terra),var(--ft-gold));
+      box-shadow:0 2px 8px rgba(192,96,58,.22);
+    }
+    #ftSidebar .fts-logo-text{
+      font-family:'Roboto',sans-serif;font-weight:700;font-size:.92rem;letter-spacing:-.01em;color:var(--ft-ink);
+      white-space:nowrap;opacity:0;transition:opacity .2s .1s;
+    }
+    #ftSidebar:hover .fts-logo-text{ opacity:1; }
+    #ftSidebar .fts-section{
+      font-size:.52rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--ft-muted);
+      padding:0 18px;margin:14px 0 6px;white-space:nowrap;opacity:0;transition:opacity .2s .05s;
+    }
+    #ftSidebar:hover .fts-section{ opacity:1; }
+    #ftSidebar .fts-rule{height:1px;background:var(--ft-border);margin:8px 12px;opacity:.7}
+    #ftSidebar .fts-item{
+      display:flex;align-items:center;gap:14px;padding:9px 18px;
+      cursor:pointer;user-select:none;color:var(--ft-ink2);
+      transition:background .15s,color .15s;position:relative;
+    }
+    #ftSidebar .fts-item:hover{ background:rgba(192,96,58,.06); color:var(--ft-ink); }
+    #ftSidebar .fts-item .fts-icon{
+      width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;border-radius:7px;transition:background .15s,color .15s;color:var(--ft-ink2);
+    }
+    #ftSidebar .fts-item .fts-label{
+      display:flex;flex-direction:column;line-height:1.15;white-space:nowrap;
+      opacity:0;transition:opacity .2s .08s;
+    }
+    #ftSidebar:hover .fts-item .fts-label{ opacity:1; }
+    #ftSidebar .fts-item .fts-label-eyebrow{
+      font-size:.52rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ft-muted);
+    }
+    #ftSidebar .fts-item .fts-label-name{font-size:.78rem;font-weight:600;color:var(--ft-ink)}
+    #ftSidebar .fts-item.active{ background:var(--ft-terra-lt); color:var(--ft-terra); }
+    #ftSidebar .fts-item.active::before{
+      content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;
+      background:var(--ft-terra);border-radius:0 3px 3px 0;
+    }
+    #ftSidebar .fts-item.active .fts-icon{ color:var(--ft-terra); }
+    #ftSidebar .fts-item.active .fts-label-name{ color:var(--ft-terra); }
+    /* Per-account icon-color accents */
+    #ftSidebar .fts-item[data-key="all"]   .fts-icon{ background:var(--ft-terra-lt); color:var(--ft-terra); }
+    #ftSidebar .fts-item[data-key="acct1"] .fts-icon{ background:var(--ft-slate-lt); color:var(--ft-slate); }
+    #ftSidebar .fts-item[data-key="acct2"] .fts-icon{ background:var(--ft-gold-lt); color:var(--ft-gold); }
+    #ftSidebar .fts-item[data-key="acct3"] .fts-icon{ background:var(--ft-sage-lt); color:var(--ft-sage); }
+    /* Back-to-dashboard item */
+    #ftSidebar .fts-item[data-key="back"] .fts-icon{ background:var(--ft-surface2); color:var(--ft-ink2); }
+    #ftSidebar .fts-item[data-key="back"]:hover .fts-icon{ background:var(--ft-bg); color:var(--ft-ink); }
+    #ftSidebar .fts-footer{
+      margin-top:auto;padding:14px 18px;border-top:1px solid var(--ft-border);
+      display:flex;align-items:center;gap:10px;
+    }
+    #ftSidebar .fts-footer .fts-pulse{
+      width:8px;height:8px;border-radius:50%;background:var(--ft-terra);flex-shrink:0;
+      box-shadow:0 0 0 0 var(--ft-terra);animation:ftsPulse 2s ease infinite;
+    }
+    @keyframes ftsPulse{
+      0%,100%{box-shadow:0 0 0 0 rgba(192,96,58,.4)}
+      50%{box-shadow:0 0 0 6px rgba(192,96,58,0)}
+    }
+    #ftSidebar .fts-footer-text{
+      font-size:.7rem;font-weight:600;color:var(--ft-ink2);white-space:nowrap;
+      opacity:0;transition:opacity .2s .1s;
+    }
+    #ftSidebar:hover .fts-footer-text{ opacity:1; }
+    /* Shift fatiguePanel content right by 84px (60 sidebar + 24 gap) */
+    #fatiguePanel > div:not(#ftSidebar){ padding-left:84px !important; }
+    @media (max-width:840px){
+      #ftSidebar{ width:0; border:none; }
+      #ftSidebar:hover{ width:0; }
+      #fatiguePanel > div:not(#ftSidebar){ padding-left:24px !important; }
+    }
   </style>
+
+  <!-- LIFECYCLE INTERNAL SIDEBAR — replaces #ft-acct-rail -->
+  <aside id="ftSidebar">
+    <div class="fts-logo" title="Lifecycle">
+      <div class="fts-logo-dot"></div>
+      <div class="fts-logo-text">Lifecycle <em style="color:var(--ft-terra);font-style:normal;font-weight:800">·</em></div>
+    </div>
+
+    <div class="fts-item" data-key="back" onclick="ftGoBack()" title="Back to Creative Testing">
+      <div class="fts-icon">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      </div>
+      <div class="fts-label">
+        <span class="fts-label-eyebrow">Exit</span>
+        <span class="fts-label-name">Back to Dashboard</span>
+      </div>
+    </div>
+
+    <div class="fts-rule"></div>
+    <div class="fts-section">Accounts</div>
+
+    <div class="fts-item active" data-key="all" onclick="ftSidebarPick('',this)" title="All Accounts — Combined">
+      <div class="fts-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      </div>
+      <div class="fts-label">
+        <span class="fts-label-eyebrow">All Accounts</span>
+        <span class="fts-label-name">Combined</span>
+      </div>
+    </div>
+
+    <div class="fts-item" data-key="acct1" onclick="ftSidebarPick('Raho Saadaa',this)" title="Account 1 — Raho Saadaa">
+      <div class="fts-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+      </div>
+      <div class="fts-label">
+        <span class="fts-label-eyebrow">Account 1</span>
+        <span class="fts-label-name">Raho Saadaa</span>
+      </div>
+    </div>
+
+    <div class="fts-item" data-key="acct2" onclick="ftSidebarPick('Fourth Ad Account - SD',this)" title="Account 2 — Fourth Ad Account - SD">
+      <div class="fts-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+      </div>
+      <div class="fts-label">
+        <span class="fts-label-eyebrow">Account 2</span>
+        <span class="fts-label-name">Fourth Ad Account - SD</span>
+      </div>
+    </div>
+
+    <div class="fts-item" data-key="acct3" onclick="ftSidebarPick('Third Ad Account - SD',this)" title="Account 3 — Third Ad Account - SD">
+      <div class="fts-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+      </div>
+      <div class="fts-label">
+        <span class="fts-label-eyebrow">Account 3</span>
+        <span class="fts-label-name">Third Ad Account - SD</span>
+      </div>
+    </div>
+
+    <div class="fts-footer">
+      <div class="fts-pulse"></div>
+      <span class="fts-footer-text">Live · Supabase</span>
+    </div>
+  </aside>
+
+  <script>
+    // Routes a Lifecycle-sidebar click into the existing ftSetAcct() handler,
+    // syncs the 14-day buffer table's account filter, and keeps the sidebar
+    // active state in sync.
+    function ftSidebarPick(acctName, el){
+      document.querySelectorAll('#ftSidebar .fts-item[data-key^="acct"], #ftSidebar .fts-item[data-key="all"]').forEach(i => i.classList.remove('active'));
+      if(el) el.classList.add('active');
+      // Map name → the legacy rail card so ftSetAcct can re-style it (buckets/drill)
+      const legacyEl = document.querySelector('#ft-acct-rail .ft-acct-card[data-acct="'+acctName.replace(/"/g,'')+'"]');
+      if(typeof ftSetAcct === 'function') ftSetAcct(legacyEl, acctName);
+      // Sync the 14-day buffer table's account filter too
+      const lcAcct = document.getElementById('lc-acct');
+      if(lcAcct){ lcAcct.value = acctName; if(typeof lcApplyFilters === 'function') lcApplyFilters(); }
+    }
+  </script>
 
   <!-- Sticky top nav -->
   <div style="position:sticky;top:0;z-index:10;background:rgba(244,241,235,0.96);border-bottom:1px solid #e0dbd0;backdrop-filter:blur(20px)">
@@ -3240,8 +4088,9 @@ function aeRender(){
         <button onclick="ftFetchAndRender(true)" class="ft-btn">↻ Refresh</button>
       </div>
     </div>
-    <!-- Account rail -->
-    <div style="padding:0 24px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <!-- Account rail — superseded by #ftSidebar. Kept in DOM (display:none)
+         because ftSetAcct() still styles the .ft-acct-card elements directly. -->
+    <div style="display:none;padding:0 24px 12px;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:#9a9187;flex-shrink:0">Account</span>
       <div id="ft-acct-rail" style="display:flex;gap:6px;flex-wrap:wrap">
         <div class="ft-acct-card active" data-acct="" onclick="ftSetAcct(this,'')" style="background:#f5ebe6;border:2px solid rgba(192,96,58,.25);border-radius:9px;padding:7px 13px;cursor:pointer;transition:all .15s">
@@ -3301,6 +4150,91 @@ function aeRender(){
             </tr></thead>
             <tbody id="ft-drill-body"></tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════════════
+           14-DAY BUFFER TABLE — Winner / Result Pending / Failed verdicts
+           Sourced from `ad_results`. Filters by status chips + account +
+           ad-name search + created-date range. Sortable, paginated.
+           ════════════════════════════════════════════════════════════ -->
+      <div style="max-width:1600px;margin:48px auto 0;padding:0 24px">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:18px">
+          <div>
+            <div style="font-size:.62rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--ft-muted)">N°&nbsp;02 — Lifecycle</div>
+            <h2 style="font-family:'Roboto',sans-serif;font-weight:500;font-size:clamp(1.4rem,2.6vw,1.8rem);color:var(--ft-ink);letter-spacing:-.01em;line-height:1.2;margin:6px 0 4px">14-day buffer <em style="font-style:normal;font-weight:700;color:var(--ft-terra)">resolver</em>.</h2>
+            <div style="font-size:.7rem;color:var(--ft-muted)">From ad_created_date · 50,000-impression threshold · re-classified after every primary_sync.</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="lc-row-info" style="font-size:.7rem;color:var(--ft-muted);font-weight:600">0 ads</span>
+            <button onclick="lcReload()" class="ft-btn" title="Refresh">↻ Refresh</button>
+            <button onclick="lcExport()" class="ft-btn" style="background:var(--ft-sage-lt);color:var(--ft-sage);border-color:rgba(74,124,111,.3)">↓ Export CSV</button>
+          </div>
+        </div>
+
+        <!-- Status chips -->
+        <div id="lcChips" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px"></div>
+
+        <!-- Filter bar -->
+        <div class="ft-card" style="padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:.55rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ft-muted);min-width:60px">Account</span>
+            <select id="lc-acct" onchange="lcApplyFilters()">
+              <option value="">All accounts</option>
+              <option>Raho Saadaa</option>
+              <option>Fourth Ad Account - SD</option>
+              <option>Third Ad Account - SD</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:220px">
+            <span style="font-size:.55rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ft-muted);min-width:60px">Ad name</span>
+            <input id="lc-name" type="text" placeholder="contains…" oninput="lcApplyFilters()" style="flex:1"/>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:.55rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ft-muted);min-width:70px">Created</span>
+            <input id="lc-created-from" type="date" onchange="lcApplyFilters()"/>
+            <span style="color:var(--ft-muted);font-size:.8rem">→</span>
+            <input id="lc-created-to" type="date" onchange="lcApplyFilters()"/>
+          </div>
+          <button onclick="lcClearFilters()" class="ft-btn" style="font-size:.62rem">Clear</button>
+        </div>
+
+        <!-- Loading state -->
+        <div id="lc-loading" style="display:none;text-align:center;padding:60px 24px;background:var(--ft-surface);border:1px solid var(--ft-border);border-radius:14px">
+          <div class="ft-spinner" style="margin-bottom:12px"></div>
+          <div style="font-size:13px;font-weight:700;color:var(--ft-terra)">Loading 14-day verdicts…</div>
+        </div>
+
+        <!-- Table -->
+        <div id="lc-content" style="display:none">
+          <div class="ft-card" style="overflow-x:auto;padding:0">
+            <table class="lc-tbl">
+              <thead><tr>
+                <th onclick="lcSort('account_name')">Account &#8597;</th>
+                <th onclick="lcSort('ad_name')">Ad Name &#8597;</th>
+                <th onclick="lcSort('campaign_name')">Campaign &#8597;</th>
+                <th onclick="lcSort('result_status')" style="text-align:center">Status &#8597;</th>
+                <th onclick="lcSort('ad_created_date')">Ad Created &#8597;</th>
+                <th onclick="lcSort('evaluation_end_date')">Eval Ends &#8597;</th>
+                <th onclick="lcSort('impressions_14d')" style="text-align:right">Impressions (14d) &#8597;</th>
+                <th onclick="lcSort('crossed_threshold_at')">Crossed 50K &#8597;</th>
+                <th>Ad Status</th>
+              </tr></thead>
+              <tbody id="lcTableBody"></tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          <div style="display:flex;align-items:center;gap:14px;margin-top:14px;flex-wrap:wrap">
+            <span style="font-size:.62rem;color:var(--ft-muted);font-weight:600">Show</span>
+            <select id="lc-page-size" onchange="lcSetPageSize()">
+              <option>25</option><option selected>50</option><option>100</option><option>200</option>
+            </select>
+            <span style="font-size:.62rem;color:var(--ft-muted);font-weight:600">per page</span>
+            <span id="lc-pager-info" style="font-size:.62rem;color:var(--ft-muted);font-weight:600;margin-left:auto"></span>
+            <button onclick="lcPage(-1)" class="ft-btn" style="font-size:.62rem">‹ Prev</button>
+            <button onclick="lcPage(1)" class="ft-btn" style="font-size:.62rem">Next ›</button>
+          </div>
         </div>
       </div>
     </div>
@@ -3690,8 +4624,8 @@ function ftRender(){
     </div>
   `).join('');
 
-  let msg='Created window <b>'+fromVal+'</b> → <b>'+toVal+'</b><span class="dot"></span>'+fmtN(inScope)+' ads bucketed <em style="font-family:Fraunces,serif;font-style:italic;font-weight:300">(freq ≤ 3)</em>';
-  if(over3>0) msg+='<span class="dot"></span>'+fmtN(over3)+' excluded <em style="font-family:Fraunces,serif;font-style:italic;font-weight:300">(freq > 3)</em>';
+  let msg='Created window <b>'+fromVal+'</b> → <b>'+toVal+'</b><span class="dot"></span>'+fmtN(inScope)+' ads bucketed <span style="color:var(--ft-muted);font-weight:500">(freq ≤ 3)</span>';
+  if(over3>0) msg+='<span class="dot"></span>'+fmtN(over3)+' excluded <span style="color:var(--ft-muted);font-weight:500">(freq &gt; 3)</span>';
   if(ftAcct) msg+='<span class="dot"></span>account: <b>'+ftAcct+'</b>';
   document.getElementById('ft-summary').innerHTML=msg;
 
@@ -3733,8 +4667,8 @@ function ftOpenDrill(idx, label, color){
       <td class="num">${fmtN(a.reach)}</td>
       <td class="num" style="color:${color}">${fmtINR(a.spend)}</td>
     </tr>
-  `).join('') || `<tr><td colspan="7" style="text-align:center;padding:60px 14px;color:var(--ft-muted);font-family:'Fraunces',serif;font-style:italic;font-weight:300;font-size:.95rem">No ads in this bucket for the current filter.</td></tr>`;
-  title.innerHTML = '<em>' + label.toLowerCase() + '</em> — <strong>' + ads.length + '</strong> ad' + (ads.length===1?'':'s');
+  `).join('') || `<tr><td colspan="7" style="text-align:center;padding:60px 14px;color:var(--ft-muted);font-family:'Roboto',sans-serif;font-weight:500;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase">No ads in this bucket for the current filter.</td></tr>`;
+  title.innerHTML = label + ' — <strong>' + ads.length + '</strong> ad' + (ads.length===1?'':'s');
   title.style.setProperty('--accent', color);
   const totSpend = ads.reduce((s,a)=>s+a.spend,0);
   const totImpr  = ads.reduce((s,a)=>s+a.impr,0);

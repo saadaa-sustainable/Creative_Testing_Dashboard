@@ -267,21 +267,57 @@ def fetch_all_ads(account_id: str) -> list:
 
 def _extract_ad_link(creative: dict) -> str:
     """
-    Extracts the destination URL from a Meta creative object. Tries the most-likely
-    fields in order — link_url (link ads), object_story_spec.link_data.link (page-post
-    link ads), object_url (catalog / dynamic ads).
+    Mirrors the "Link (ad settings)" column in Meta Ads Manager. Walks every place
+    Meta stores the destination URL so we catch all ad formats:
+      1. creative.link_url                                          (legacy link ads)
+      2. creative.object_story_spec.link_data.link                  (single image/video link ad)
+      3. creative.object_story_spec.video_data.call_to_action.value.link  (video ad CTA)
+      4. creative.object_story_spec.template_data.link              (carousel/template)
+      5. creative.asset_feed_spec.link_urls[0].website_url          (Advantage+/dynamic)
+      6. creative.object_url                                        (catalog/DPA fallback)
     """
     if not isinstance(creative, dict):
         return ""
+
+    # 1) direct top-level
     direct = creative.get("link_url")
     if direct:
         return direct
+
+    # object_story_spec — covers the bulk of organic-style ads
     spec = creative.get("object_story_spec") or {}
+
+    # 2) single-image / single-video link ad
     link_data = spec.get("link_data") or {}
     if link_data.get("link"):
         return link_data["link"]
+
+    # 3) video ad with website CTA — this was the big gap
+    video_data = spec.get("video_data") or {}
+    cta = (video_data.get("call_to_action") or {}).get("value") or {}
+    if cta.get("link"):
+        return cta["link"]
+
+    # 4) carousel / template
+    template_data = spec.get("template_data") or {}
+    if template_data.get("link"):
+        return template_data["link"]
+
+    # 5) Advantage+ dynamic creative
+    afs = creative.get("asset_feed_spec") or {}
+    link_urls = afs.get("link_urls") or []
+    if link_urls and isinstance(link_urls, list):
+        first = link_urls[0] or {}
+        if isinstance(first, dict):
+            if first.get("website_url"):
+                return first["website_url"]
+            if first.get("deeplink_url"):
+                return first["deeplink_url"]
+
+    # 6) catalog / DPA fallback
     if creative.get("object_url"):
         return creative["object_url"]
+
     return ""
 
 
@@ -295,7 +331,9 @@ def get_ad_metadata(ad_ids: list) -> dict:
     unique_ids = list(set(ad_ids))
     fields = (
         "effective_status,created_time,preview_shareable_link,"
-        "creative{link_url,object_url,object_story_spec{link_data{link}}}"
+        "creative{link_url,object_url,asset_feed_spec,"
+        "object_story_spec{link_data{link},"
+        "video_data{call_to_action},template_data{link}}}"
     )
     for i in range(0, len(unique_ids), 25):
         chunk = unique_ids[i : i + 25]

@@ -291,6 +291,32 @@ def is_copy(name):
     return bool(re.search(r"copy", name or "", re.IGNORECASE))
 
 
+def categorise(spend, impr, conv_v, ftewv, ncp,
+               t_imp=50000, t_roas=3.2, t_cpn=525, t_cpft=12):
+    """Mirror getAdCategory() / aeCompute() in index.html — used to populate
+    count_winner / count_ite / count_analyse / count_discarded on hourly rows."""
+    if spend <= 0 and impr <= 0:
+        return "Discarded"
+    ct_roas       = (conv_v / spend) if spend > 0 else 0
+    cost_per_ncp  = (spend / ncp) if ncp > 0 else 0
+    cost_per_fte  = (spend / ftewv) if ftewv > 0 else 0
+    f1 = impr >= t_imp
+    f2 = ct_roas >= t_roas
+    f3 = cost_per_ncp > 0 and cost_per_ncp <= t_cpn
+    f4 = cost_per_fte > 0 and cost_per_fte <= t_cpft
+    has_conv = conv_v > 0
+    # Incremental Winner = F1 AND (F2 OR F3) AND F4
+    # Winner             = F1 AND (F2 OR F3)
+    # Priority           = F1 AND NOT F2 AND NOT F3
+    # Analyse            = NOT F1 AND (conv OR F3)
+    # Discarded          = NOT F1 AND no conv AND NOT F3
+    if f1 and (f2 or f3) and f4: return "Incremental Winner"
+    if f1 and (f2 or f3):        return "Winner"
+    if f1:                       return "Priority"
+    if has_conv or f3:           return "Analyse"
+    return "Discarded"
+
+
 def write_results_row(conn, account_name, ads, since_date, today):
     """Insert a fresh results_table row for the account."""
     total_spend = sum(a["spend"] for a in ads)
@@ -308,6 +334,18 @@ def write_results_row(conn, account_name, ads, since_date, today):
     thru_rate  = sdv(total_thru, total_impr) * 100
     ob_ctr     = sdv(total_clicks, total_impr) * 100
     eng_rate   = sdv(total_eng,   total_impr) * 100
+
+    # Category counts — without these, the Result Summary tile shows 0/0/0/0
+    cat_counts = {"Incremental Winner":0, "Winner":0, "Priority":0, "Analyse":0, "Discarded":0}
+    for a in ads:
+        # Copies are excluded from the dashboard's primary categorisation
+        if is_copy(a["ad_name"]): continue
+        cat = categorise(a["spend"], a["impr"], a["conv_v"], a["ftewv"], a["ncp"])
+        cat_counts[cat] += 1
+    count_winner    = cat_counts["Winner"] + cat_counts["Incremental Winner"]
+    count_ite       = cat_counts["Priority"]
+    count_analyse   = cat_counts["Analyse"]
+    count_discarded = cat_counts["Discarded"]
 
     ads_json = [{
         "adId": a["ad_id"],
@@ -343,9 +381,9 @@ def write_results_row(conn, account_name, ads, since_date, today):
         "ads_json, total_spend, total_impr, total_reach, total_conv_value, "
         "total_thru_plays, total_video_plays, total_out_clicks, total_post_eng, "
         "ct_roas, hook_rate, hold_rate, thruplay_rate, outbound_ctr, engagement_rate, "
-        "count_total_ads"
+        "count_total_ads, count_winner, count_ite, count_analyse, count_discarded"
     )
-    placeholders = ", ".join(["%s"] * 21)
+    placeholders = ", ".join(["%s"] * 25)
     sql = f"INSERT INTO results_table ({cols}) VALUES ({placeholders})"
     with conn.cursor() as cur:
         cur.execute(sql, (
@@ -370,6 +408,10 @@ def write_results_row(conn, account_name, ads, since_date, today):
             round(ob_ctr, 4),
             round(eng_rate, 4),
             len(ads),
+            count_winner,
+            count_ite,
+            count_analyse,
+            count_discarded,
         ))
     conn.commit()
 
