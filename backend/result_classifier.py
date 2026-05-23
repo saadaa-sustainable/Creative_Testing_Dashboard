@@ -70,13 +70,13 @@ UPSERT_SQL = """
 INSERT INTO ad_results (
     account_name, ad_id, ad_name, campaign_name, ad_status,
     ad_created_date, evaluation_end_date,
-    impressions_14d, impressions, impressions_last_seen,
+    impressions_14d, impressions, impressions_last_seen, total_spend,
     crossed_threshold_at, result_status,
     last_computed_at
 ) VALUES (
     %(account_name)s, %(ad_id)s, %(ad_name)s, %(campaign_name)s, %(ad_status)s,
     %(ad_created_date)s, %(evaluation_end_date)s,
-    %(impressions_14d)s, %(impressions)s, %(impressions_last_seen)s,
+    %(impressions_14d)s, %(impressions)s, %(impressions_last_seen)s, %(total_spend)s,
     %(crossed_threshold_at)s, %(result_status)s,
     NOW()
 )
@@ -89,6 +89,7 @@ ON CONFLICT (account_name, ad_id) DO UPDATE SET
     impressions_14d       = EXCLUDED.impressions_14d,
     impressions           = EXCLUDED.impressions,
     impressions_last_seen = EXCLUDED.impressions_last_seen,
+    total_spend           = EXCLUDED.total_spend,
     crossed_threshold_at  = EXCLUDED.crossed_threshold_at,
     result_status         = EXCLUDED.result_status,
     last_computed_at      = NOW()
@@ -112,7 +113,7 @@ def compute_all() -> dict:
             cur.execute(
                 """
                 SELECT account_name, ad_id, ad_name, campaign_name, ad_status,
-                       ad_created_date, date, impressions
+                       ad_created_date, date, impressions, amount_spent_inr
                   FROM primary_table
                  WHERE ad_created_date IS NOT NULL
                 """
@@ -145,7 +146,7 @@ def compute_all() -> dict:
                 rs = (r["ad_status"] or "").upper()
                 if rs == "ACTIVE":
                     ads[key]["ad_status"] = r["ad_status"]
-            ads[key]["days"].append((r["date"], int(r["impressions"] or 0)))
+            ads[key]["days"].append((r["date"], int(r["impressions"] or 0), float(r["amount_spent_inr"] or 0)))
 
         log.info(f"  {len(ads):,} unique ads to classify")
 
@@ -158,20 +159,21 @@ def compute_all() -> dict:
 
             # Filter to rows inside the 14-day window, sorted by date ascending
             window_rows = sorted(
-                [(d, imp) for d, imp in ad["days"] if created <= d <= eval_end],
+                [(d, imp, sp) for d, imp, sp in ad["days"] if created <= d <= eval_end],
                 key=lambda x: x[0],
             )
-            impr_14d = sum(imp for _, imp in window_rows)
+            impr_14d = sum(imp for _, imp, _ in window_rows)
 
             # Lifetime totals from primary_table (sum across ALL dates we have for this ad)
             all_days_sorted = sorted(ad["days"], key=lambda x: x[0])
-            impressions_total    = sum(imp for _, imp in all_days_sorted)
+            impressions_total    = sum(imp for _, imp, _ in all_days_sorted)
             impressions_last_day = all_days_sorted[-1][1] if all_days_sorted else 0
+            spend_total          = sum(sp for _, _, sp in all_days_sorted)
 
             # First date the cumulative total crossed the threshold (if any)
             crossed = None
             cum = 0
-            for d, imp in window_rows:
+            for d, imp, _ in window_rows:
                 cum += imp
                 if cum >= IMPRESSION_THRESHOLD:
                     crossed = d
@@ -198,6 +200,7 @@ def compute_all() -> dict:
                     "impressions_14d": impr_14d,
                     "impressions": impressions_total,
                     "impressions_last_seen": impressions_last_day,
+                    "total_spend": round(spend_total, 2),
                     "crossed_threshold_at": crossed,
                     "result_status": status,
                 }

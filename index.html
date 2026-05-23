@@ -2235,6 +2235,69 @@ function ctExportCSV(){
     @keyframes ae-pulse{0%,100%{opacity:1}50%{opacity:.3}}
     #analysisEnginePanel .ae-spinner{width:40px;height:40px;border-radius:50%;border:3px solid rgba(192,96,58,.15);border-top-color:var(--ae-terra);animation:ae-spin .8s linear infinite;margin:0 auto 14px}
 
+    /* ─── Range-filter cards (one per numeric column) ─────────────── */
+    #analysisEnginePanel .ae-rcard{
+      background:var(--ae-surface2); border:1px solid var(--ae-border);
+      border-radius:10px; padding:12px 12px 14px; transition:border-color .15s, box-shadow .15s;
+    }
+    #analysisEnginePanel .ae-rcard:hover{ border-color:var(--ae-border2); }
+    #analysisEnginePanel .ae-rcard.active{ border-color:var(--ae-terra); box-shadow:0 0 0 3px rgba(192,96,58,.08); }
+    #analysisEnginePanel .ae-rcard-label{
+      font-size:.6rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase;
+      color:var(--ae-muted); margin-bottom:8px;
+    }
+    #analysisEnginePanel .ae-rcard-inputs{
+      display:flex; align-items:center; gap:6px; margin-bottom:10px;
+    }
+    #analysisEnginePanel .ae-rcard-inputs input{
+      flex:1; min-width:0; padding:6px 8px; border:1px solid var(--ae-border);
+      border-radius:6px; background:var(--ae-surface); color:var(--ae-ink);
+      font-family:'Roboto Mono',monospace; font-size:11px; outline:none;
+      text-align:center; transition:border-color .15s;
+    }
+    #analysisEnginePanel .ae-rcard-inputs input:focus{ border-color:var(--ae-terra); }
+    #analysisEnginePanel .ae-rcard-inputs .ae-rcard-sep{
+      color:var(--ae-muted); font-size:.8rem; font-weight:500;
+    }
+    /* Dual-handle slider: two range inputs overlaid on the same track */
+    #analysisEnginePanel .ae-rcard-slider{
+      position:relative; height:22px; margin:4px 4px 0;
+    }
+    #analysisEnginePanel .ae-rcard-slider .ae-track{
+      position:absolute; left:0; right:0; top:50%; transform:translateY(-50%);
+      height:4px; background:var(--ae-border); border-radius:99px;
+    }
+    #analysisEnginePanel .ae-rcard-slider .ae-fill{
+      position:absolute; top:50%; transform:translateY(-50%);
+      height:4px; background:var(--ae-terra); border-radius:99px;
+      transition:left .05s, width .05s;
+    }
+    /* Two stacked range inputs — they share the same track. JS prevents crossover. */
+    #analysisEnginePanel .ae-rcard-slider input[type="range"]{
+      position:absolute; left:0; right:0; top:0; width:100%; height:22px;
+      background:transparent; -webkit-appearance:none; appearance:none;
+      pointer-events:none; margin:0; padding:0;
+    }
+    #analysisEnginePanel .ae-rcard-slider input[type="range"]::-webkit-slider-thumb{
+      -webkit-appearance:none; appearance:none;
+      width:16px; height:16px; border-radius:50%;
+      background:var(--ae-ink); border:2px solid #fff;
+      box-shadow:0 1px 4px rgba(28,25,22,.2); cursor:pointer;
+      pointer-events:auto; transition:transform .1s;
+    }
+    #analysisEnginePanel .ae-rcard-slider input[type="range"]::-webkit-slider-thumb:hover{ transform:scale(1.15); }
+    #analysisEnginePanel .ae-rcard-slider input[type="range"]::-moz-range-thumb{
+      width:16px; height:16px; border-radius:50%;
+      background:var(--ae-ink); border:2px solid #fff;
+      box-shadow:0 1px 4px rgba(28,25,22,.2); cursor:pointer;
+      pointer-events:auto;
+    }
+    #analysisEnginePanel .ae-rcard-bounds{
+      display:flex; justify-content:space-between;
+      font-size:.55rem; color:var(--ae-muted);
+      font-family:'Roboto Mono',monospace; margin-top:6px; padding:0 2px;
+    }
+
     /* ═══════════════════════════════════════════════════════════════════
        AE INTERNAL SIDEBAR — collapsed 60px, hover-expanded 240px.
        Replaces the horizontal #aeAcctRail account selector that used to
@@ -2654,12 +2717,23 @@ function ctExportCSV(){
           <button onclick="aePage(1)" style="padding:5px 12px;border-radius:7px;border:1px solid var(--ae-border);background:var(--ae-surface);color:var(--ae-ink2);font-size:12px;cursor:pointer;font-family:inherit">&#8250;</button>
         </div>
       </div>
-      <!-- Column-level range filter controls — sit in their own row above the table -->
-      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#faf8f5;border:1px solid #e0dbd0;border-bottom:none;border-radius:14px 14px 0 0;flex-wrap:wrap;font-family:'Roboto',sans-serif">
-        <span style="font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#9a9187">Column range filter</span>
-        <span id="ae-rangefilter-count" style="font-size:10px;color:#9a9187;font-weight:600"></span>
-        <button onclick="aeClearRangeFilters()" style="margin-left:auto;background:transparent;border:1px solid #cdc8bc;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;color:#9a9187;cursor:pointer;font-family:inherit">Clear ranges</button>
-      </div>
+      <!-- ════════════════════════════════════════════════════════════════
+           COLUMN RANGE FILTERS — one slider-card per numeric column.
+           Cards live in a grid above the table. Each card has typeable
+           min/max inputs PLUS a dual-handle slider. Sliders write to the
+           hidden .ae-rangefilter inputs that aeApplyFilters() already reads.
+           ════════════════════════════════════════════════════════════════ -->
+      <details id="ae-rangefilter-panel" style="background:var(--ae-surface);border:1px solid var(--ae-border);border-radius:14px;margin-bottom:14px;overflow:hidden" open>
+        <summary style="list-style:none;cursor:pointer;padding:12px 18px;display:flex;align-items:center;gap:10px;background:linear-gradient(90deg,var(--ae-terra-lt) 0%,var(--ae-surface) 60%);user-select:none">
+          <span style="font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ae-terra)">Column Range Filters</span>
+          <span id="ae-rangefilter-count" style="font-size:11px;color:var(--ae-muted);font-weight:600"></span>
+          <button onclick="event.stopPropagation();aeClearRangeFilters()" style="margin-left:auto;background:transparent;border:1px solid var(--ae-border2);border-radius:6px;padding:4px 12px;font-size:10px;font-weight:700;color:var(--ae-ink2);cursor:pointer;font-family:inherit">Clear ranges</button>
+          <span style="font-size:11px;color:var(--ae-muted)">▾</span>
+        </summary>
+        <div id="ae-rangefilter-grid" style="padding:16px 18px 18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;border-top:1px solid var(--ae-border)">
+          <!-- Cards injected by aeBuildRangeCards() -->
+        </div>
+      </details>
       <div class="ae-glass" style="overflow-x:auto;border-radius:0 0 14px 14px;padding:0">
         <table class="ae-tbl">
           <thead>
@@ -2692,100 +2766,6 @@ function ctExportCSV(){
             <th style="text-align:left;min-width:110px">Ad Status</th>
             <th style="text-align:center;min-width:80px">Preview</th>
             <th style="text-align:center;min-width:80px">Ad Link</th>
-          </tr>
-          <!-- ROW 2: min/max range inputs for every numeric column ──────────────
-               Each <input> uses class="ae-rangefilter" + data-key (the row property)
-               + data-bound (min|max). aeApplyFilters() reads all of them and filters
-               aeResults accordingly. Inputs without a value are ignored.            -->
-          <tr style="background:#fbf9f5">
-            <th></th><!-- Campaign -->
-            <th></th><!-- Ad ID -->
-            <th></th><!-- Name -->
-            <th></th><!-- Ad Created -->
-            <th></th><!-- First Seen -->
-            <th></th><!-- Status -->
-            <th style="padding:4px 6px">
-              <div style="display:flex;gap:3px;justify-content:flex-end">
-                <input class="ae-rangefilter" data-key="imp" data-bound="min" type="number" placeholder="min" oninput="aeApplyFilters()" style="width:46px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-                <input class="ae-rangefilter" data-key="imp" data-bound="max" type="number" placeholder="max" oninput="aeApplyFilters()" style="width:46px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-              </div>
-            </th>
-            <th style="padding:4px 6px">
-              <div style="display:flex;gap:3px;justify-content:flex-end">
-                <input class="ae-rangefilter" data-key="rawRoas" data-bound="min" type="number" step="0.1" placeholder="min" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-                <input class="ae-rangefilter" data-key="rawRoas" data-bound="max" type="number" step="0.1" placeholder="max" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-              </div>
-            </th>
-            <th style="padding:4px 6px">
-              <div style="display:flex;gap:3px;justify-content:flex-end">
-                <input class="ae-rangefilter" data-key="rawCpc" data-bound="min" type="number" step="0.1" placeholder="min" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-                <input class="ae-rangefilter" data-key="rawCpc" data-bound="max" type="number" step="0.1" placeholder="max" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-              </div>
-            </th>
-            <th style="padding:4px 6px">
-              <div style="display:flex;gap:3px;justify-content:flex-end">
-                <input class="ae-rangefilter" data-key="rawSpend" data-bound="min" type="number" placeholder="min" oninput="aeApplyFilters()" style="width:60px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-                <input class="ae-rangefilter" data-key="rawSpend" data-bound="max" type="number" placeholder="max" oninput="aeApplyFilters()" style="width:60px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-              </div>
-            </th>
-            <th></th><!-- F1 -->
-            <th></th><!-- F2 / F3 -->
-            <th></th><!-- Days to Target -->
-            <th style="padding:4px 6px">
-              <div style="display:flex;gap:3px;justify-content:flex-end">
-                <input class="ae-rangefilter" data-key="rf2" data-bound="min" type="number" placeholder="min" oninput="aeApplyFilters()" style="width:55px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-                <input class="ae-rangefilter" data-key="rf2" data-bound="max" type="number" placeholder="max" oninput="aeApplyFilters()" style="width:55px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-              </div>
-            </th>
-            <th style="padding:4px 6px">
-              <div style="display:flex;gap:3px;justify-content:flex-end">
-                <input class="ae-rangefilter" data-key="lRFN" data-bound="min" type="number" step="0.1" placeholder="min" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-                <input class="ae-rangefilter" data-key="lRFN" data-bound="max" type="number" step="0.1" placeholder="max" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-              </div>
-            </th>
-            <th style="padding:4px 6px">
-              <div style="display:flex;gap:3px;justify-content:flex-end">
-                <input class="ae-rangefilter" data-key="rw" data-bound="min" type="number" step="0.01" placeholder="min %" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-                <input class="ae-rangefilter" data-key="rw" data-bound="max" type="number" step="0.01" placeholder="max %" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-              </div>
-            </th>
-            <th style="padding:4px 6px">
-              <div style="display:flex;gap:3px;justify-content:flex-end">
-                <input class="ae-rangefilter" data-key="rawProfit" data-bound="min" type="number" placeholder="min" oninput="aeApplyFilters()" style="width:60px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-                <input class="ae-rangefilter" data-key="rawProfit" data-bound="max" type="number" placeholder="max" oninput="aeApplyFilters()" style="width:60px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-              </div>
-            </th>
-            <th style="padding:4px 6px">
-              <div style="display:flex;gap:3px;justify-content:flex-end">
-                <input class="ae-rangefilter" data-key="cm" data-bound="min" type="number" step="0.1" placeholder="min %" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-                <input class="ae-rangefilter" data-key="cm" data-bound="max" type="number" step="0.1" placeholder="max %" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-              </div>
-            </th>
-            <th style="padding:4px 6px">
-              <div style="display:flex;gap:3px;justify-content:flex-end">
-                <input class="ae-rangefilter" data-key="dE" data-bound="min" type="number" step="0.1" placeholder="min" oninput="aeApplyFilters()" style="width:46px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-                <input class="ae-rangefilter" data-key="dE" data-bound="max" type="number" step="0.1" placeholder="max" oninput="aeApplyFilters()" style="width:46px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-              </div>
-            </th>
-            <th style="padding:4px 6px">
-              <div style="display:flex;gap:3px;justify-content:flex-end">
-                <input class="ae-rangefilter" data-key="sE" data-bound="min" type="number" step="0.1" placeholder="min" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-                <input class="ae-rangefilter" data-key="sE" data-bound="max" type="number" step="0.1" placeholder="max" oninput="aeApplyFilters()" style="width:40px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-              </div>
-            </th>
-            <th style="padding:4px 6px">
-              <div style="display:flex;gap:3px;justify-content:flex-end">
-                <input class="ae-rangefilter" data-key="rawBlended" data-bound="min" type="number" step="0.1" placeholder="min" oninput="aeApplyFilters()" style="width:50px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-                <input class="ae-rangefilter" data-key="rawBlended" data-bound="max" type="number" step="0.1" placeholder="max" oninput="aeApplyFilters()" style="width:50px;padding:3px 5px;border:1px solid #e0dbd0;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;background:#fff;text-align:right;outline:none">
-              </div>
-            </th>
-            <th></th><!-- System Type -->
-            <th></th><!-- Action Protocol -->
-            <th></th><!-- Performance Move -->
-            <th></th><!-- Creative Move -->
-            <th></th><!-- Ad Status -->
-            <th></th><!-- Preview -->
-            <th></th><!-- Ad Link -->
           </tr>
           </thead>
           <tbody id="aeTableBody"></tbody>
@@ -3348,6 +3328,9 @@ function aeCompute(){
   aeResults=res;aeFiltered=res;aeChipActive='';aeCurPage=0;
   document.getElementById('ae-loading').style.display='none';
   document.getElementById('ae-content').style.display='block';
+  // Build / refresh slider-style range filter cards (one per numeric column).
+  // Bounds are auto-computed from aeResults so each card's slider span fits the data.
+  if(typeof aeBuildRangeCards === 'function') aeBuildRangeCards();
   aeRender();
 }
 
@@ -3394,7 +3377,167 @@ function aeReadRangeFilters(){
 
 function aeClearRangeFilters(){
   document.querySelectorAll('.ae-rangefilter').forEach(inp=>{ inp.value=''; });
+  // Reset slider handles + visible inputs in every card to the data bounds
+  document.querySelectorAll('#ae-rangefilter-grid .ae-rcard').forEach(card=>{
+    const min=+card.dataset.dataMin||0, max=+card.dataset.dataMax||0;
+    card.querySelector('.ae-rcard-slider-min').value = min;
+    card.querySelector('.ae-rcard-slider-max').value = max;
+    card.querySelector('.ae-rcard-min-input').value = '';
+    card.querySelector('.ae-rcard-max-input').value = '';
+    aeUpdateSliderFill(card);
+    card.classList.remove('active');
+  });
   aeApplyFilters();
+}
+
+// ── Range-filter card definitions ──────────────────────────────────
+// Each entry: row-property key, display label, value formatter for the
+// bounds labels, and a step size for the slider/input.
+const AE_RANGE_COLS = [
+  { key:'imp',        label:'Impressions',      step:100,   fmt:v=>Math.round(v).toLocaleString('en-IN') },
+  { key:'rawRoas',    label:'ROAS',             step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'rawCpc',     label:'CPC ₹',            step:0.1,   fmt:v=>'₹'+v.toFixed(1) },
+  { key:'rawSpend',   label:'LTV Spend',        step:50,    fmt:v=>'₹'+Math.round(v).toLocaleString('en-IN') },
+  { key:'rf2',        label:'Reach @ Freq 2',   step:100,   fmt:v=>Math.round(v).toLocaleString('en-IN') },
+  { key:'lRFN',       label:'LTV R/F',          step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'rw',         label:'Reach Wt. (%)',    step:0.01,  fmt:v=>v.toFixed(2)+'%' },
+  { key:'rawProfit',  label:'Profit Eff. (₹)',  step:100,   fmt:v=>'₹'+Math.round(v).toLocaleString('en-IN') },
+  { key:'cm',         label:'Contrib. %',       step:1,     fmt:v=>v.toFixed(1)+'%' },
+  { key:'dE',         label:'Delivery',         step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'sE',         label:'Sales',            step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'rawBlended', label:'Blended',          step:0.05,  fmt:v=>v.toFixed(2) },
+];
+
+// Compute [min, max] from aeResults for a given key, parsing string-formatted
+// columns (e.g. "15.5%") via aeNum().
+function aeColRange(key){
+  if(!aeResults || !aeResults.length) return [0, 100];
+  let lo = Infinity, hi = -Infinity;
+  for(const r of aeResults){
+    const v = aeNum(r[key]);
+    if(!isFinite(v)) continue;
+    if(v < lo) lo = v;
+    if(v > hi) hi = v;
+  }
+  if(!isFinite(lo)) lo = 0;
+  if(!isFinite(hi)) hi = lo + 1;
+  if(lo === hi) hi = lo + 1;  // avoid zero-width slider
+  return [lo, hi];
+}
+
+// Update the fill div between the two slider handles to reflect current values
+function aeUpdateSliderFill(card){
+  const sMin = card.querySelector('.ae-rcard-slider-min');
+  const sMax = card.querySelector('.ae-rcard-slider-max');
+  const fill = card.querySelector('.ae-fill');
+  const lo = +sMin.min, hi = +sMin.max, span = hi - lo;
+  if(span <= 0){ fill.style.left='0%'; fill.style.width='0%'; return; }
+  const a = +sMin.value, b = +sMax.value;
+  const left  = Math.max(0, Math.min(100, ((Math.min(a,b) - lo) / span) * 100));
+  const right = Math.max(0, Math.min(100, ((Math.max(a,b) - lo) / span) * 100));
+  fill.style.left  = left + '%';
+  fill.style.width = (right - left) + '%';
+}
+
+// Build all range-filter cards from AE_RANGE_COLS. Called after aeCompute()
+// finishes (so aeResults is populated and we can compute data bounds).
+function aeBuildRangeCards(){
+  const grid = document.getElementById('ae-rangefilter-grid');
+  if(!grid) return;
+  // If grid already has cards, just update bounds without rebuilding (preserves user input).
+  const existing = grid.children.length === AE_RANGE_COLS.length;
+  if(existing){
+    AE_RANGE_COLS.forEach(col=>{
+      const card = grid.querySelector('.ae-rcard[data-key="'+col.key+'"]');
+      if(!card) return;
+      const [lo, hi] = aeColRange(col.key);
+      card.dataset.dataMin = lo;
+      card.dataset.dataMax = hi;
+      const sMin = card.querySelector('.ae-rcard-slider-min');
+      const sMax = card.querySelector('.ae-rcard-slider-max');
+      sMin.min = lo; sMin.max = hi; sMin.step = col.step;
+      sMax.min = lo; sMax.max = hi; sMax.step = col.step;
+      // If user hadn't set anything, snap handles to bounds
+      const userMin = card.querySelector('.ae-rcard-min-input').value;
+      const userMax = card.querySelector('.ae-rcard-max-input').value;
+      if(!userMin) sMin.value = lo;
+      if(!userMax) sMax.value = hi;
+      card.querySelector('.ae-rcard-bmin').textContent = col.fmt(lo);
+      card.querySelector('.ae-rcard-bmax').textContent = col.fmt(hi);
+      aeUpdateSliderFill(card);
+    });
+    return;
+  }
+
+  // Initial build
+  grid.innerHTML = AE_RANGE_COLS.map(col=>{
+    const [lo, hi] = aeColRange(col.key);
+    return `
+      <div class="ae-rcard" data-key="${col.key}" data-data-min="${lo}" data-data-max="${hi}">
+        <div class="ae-rcard-label">${col.label}</div>
+        <div class="ae-rcard-inputs">
+          <input class="ae-rcard-min-input" type="number" step="${col.step}" placeholder="min" data-key="${col.key}">
+          <span class="ae-rcard-sep">—</span>
+          <input class="ae-rcard-max-input" type="number" step="${col.step}" placeholder="max" data-key="${col.key}">
+        </div>
+        <div class="ae-rcard-slider">
+          <div class="ae-track"></div>
+          <div class="ae-fill"></div>
+          <input class="ae-rcard-slider-min" type="range" min="${lo}" max="${hi}" step="${col.step}" value="${lo}">
+          <input class="ae-rcard-slider-max" type="range" min="${lo}" max="${hi}" step="${col.step}" value="${hi}">
+        </div>
+        <div class="ae-rcard-bounds">
+          <span class="ae-rcard-bmin">${col.fmt(lo)}</span>
+          <span class="ae-rcard-bmax">${col.fmt(hi)}</span>
+        </div>
+        <!-- Hidden inputs that aeApplyFilters() actually reads -->
+        <input class="ae-rangefilter" data-key="${col.key}" data-bound="min" type="hidden">
+        <input class="ae-rangefilter" data-key="${col.key}" data-bound="max" type="hidden">
+      </div>
+    `;
+  }).join('');
+
+  // Wire up event handlers
+  grid.querySelectorAll('.ae-rcard').forEach(card=>{
+    const key = card.dataset.key;
+    const sMin = card.querySelector('.ae-rcard-slider-min');
+    const sMax = card.querySelector('.ae-rcard-slider-max');
+    const iMin = card.querySelector('.ae-rcard-min-input');
+    const iMax = card.querySelector('.ae-rcard-max-input');
+    const hMin = card.querySelector('.ae-rangefilter[data-bound="min"]');
+    const hMax = card.querySelector('.ae-rangefilter[data-bound="max"]');
+    const lo  = +card.dataset.dataMin, hi = +card.dataset.dataMax;
+
+    function syncFromSlider(){
+      let a = +sMin.value, b = +sMax.value;
+      if(a > b){ if(this===sMin) a = b; else b = a; sMin.value=a; sMax.value=b; }
+      // Push to typed inputs ONLY if user is moving the handle off bounds
+      iMin.value = (a === lo) ? '' : a;
+      iMax.value = (b === hi) ? '' : b;
+      hMin.value = iMin.value;
+      hMax.value = iMax.value;
+      card.classList.toggle('active', iMin.value !== '' || iMax.value !== '');
+      aeUpdateSliderFill(card);
+      aeApplyFilters();
+    }
+    function syncFromInput(){
+      const a = iMin.value !== '' ? +iMin.value : lo;
+      const b = iMax.value !== '' ? +iMax.value : hi;
+      sMin.value = Math.max(lo, Math.min(hi, a));
+      sMax.value = Math.max(lo, Math.min(hi, b));
+      hMin.value = iMin.value;
+      hMax.value = iMax.value;
+      card.classList.toggle('active', iMin.value !== '' || iMax.value !== '');
+      aeUpdateSliderFill(card);
+      aeApplyFilters();
+    }
+    sMin.addEventListener('input', syncFromSlider);
+    sMax.addEventListener('input', syncFromSlider);
+    iMin.addEventListener('input', syncFromInput);
+    iMax.addEventListener('input', syncFromInput);
+
+    aeUpdateSliderFill(card);
+  });
 }
 
 function aeApplyFilters(){
@@ -4217,6 +4360,8 @@ function aeRender(){
                 <th onclick="lcSort('ad_created_date')">Ad Created &#8597;</th>
                 <th onclick="lcSort('evaluation_end_date')">Eval Ends &#8597;</th>
                 <th onclick="lcSort('impressions_14d')" style="text-align:right">Impressions (14d) &#8597;</th>
+                <th onclick="lcSort('impressions')" style="text-align:right">Impressions (LT) &#8597;</th>
+                <th onclick="lcSort('total_spend')" style="text-align:right">Spend (₹) &#8597;</th>
                 <th onclick="lcSort('crossed_threshold_at')">Crossed 50K &#8597;</th>
                 <th>Ad Status</th>
               </tr></thead>
@@ -4376,6 +4521,7 @@ function lcRender(){
     const safeName = String(r.ad_name||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
     const safeCamp = String(r.campaign_name||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     const adStatus = r.ad_status||'—';
+    const fmtINR = n => '₹'+Math.round(+n||0).toLocaleString('en-IN');
     return `<tr>
 <td style="color:#4a4540">${r.account_name||''}</td>
 <td style="color:#1c1916;font-weight:600;max-width:300px;overflow:hidden;text-overflow:ellipsis" title="${safeName}">${safeName}</td>
@@ -4384,11 +4530,13 @@ function lcRender(){
 <td style="color:#4a4540;font-family:'Roboto Mono',monospace;font-size:11px">${r.ad_created_date||'—'}</td>
 <td style="color:#9a9187;font-family:'Roboto Mono',monospace;font-size:11px">${r.evaluation_end_date||'—'}</td>
 <td style="text-align:right;font-family:'Roboto Mono',monospace;font-weight:700;color:${(r.impressions_14d||0)>=50000?'#2d6a4f':'#4a4540'}">${fmtN(r.impressions_14d)}</td>
+<td style="text-align:right;font-family:'Roboto Mono',monospace;font-weight:600;color:#4a4540">${fmtN(r.impressions||0)}</td>
+<td style="text-align:right;font-family:'Roboto Mono',monospace;font-weight:600;color:#c0603a">${fmtINR(r.total_spend||0)}</td>
 <td style="color:${r.crossed_threshold_at?'#2d6a4f':'#cdc8bc'};font-family:'Roboto Mono',monospace;font-size:11px;font-weight:${r.crossed_threshold_at?'700':'400'}">${r.crossed_threshold_at||'—'}</td>
 <td style="color:#9a9187;font-size:11px">${adStatus}</td>
 </tr>`;
   }).join('');
-  document.getElementById('lcTableBody').innerHTML = rows || '<tr><td colspan="9" style="padding:40px;text-align:center;color:#9a9187">No ads match current filters</td></tr>';
+  document.getElementById('lcTableBody').innerHTML = rows || '<tr><td colspan="11" style="padding:40px;text-align:center;color:#9a9187">No ads match current filters</td></tr>';
 }
 
 function lcPage(d){
@@ -4402,11 +4550,12 @@ function lcSetPageSize(){
 }
 
 function lcExport(){
-  const headers = ['Account','Ad Name','Campaign','Status','Ad Created','Eval Ends','Impressions (14d)','Crossed 50K','Ad Status','Ad ID'];
+  const headers = ['Account','Ad Name','Campaign','Status','Ad Created','Eval Ends','Impressions (14d)','Impressions (LT)','Spend (INR)','Crossed 50K','Ad Status','Ad ID'];
   const esc = v => '"'+String(v==null?'':v).replace(/"/g,'""')+'"';
   const rows = lcFiltered.map(r=>[
     r.account_name, r.ad_name, r.campaign_name, r.result_status,
     r.ad_created_date, r.evaluation_end_date, r.impressions_14d,
+    r.impressions||0, r.total_spend||0,
     r.crossed_threshold_at||'', r.ad_status||'', r.ad_id
   ]);
   const meta = [
