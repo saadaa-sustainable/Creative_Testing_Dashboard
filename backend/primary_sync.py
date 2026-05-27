@@ -81,6 +81,8 @@ META_FIELDS = ",".join(
         "date_stop",
         "ad_name",
         "ad_id",
+        "adset_id",
+        "adset_name",
         "campaign_name",
         "campaign_id",
         "impressions",
@@ -108,6 +110,8 @@ COLUMNS = [
     "ad_created_date",
     "ad_name",
     "ad_id",
+    "adset_id",
+    "adset_name",
     "campaign_name",
     "campaign_id",
     "ad_status",
@@ -234,7 +238,7 @@ def fetch_all_ads(account_id: str) -> list:
     ads = []
     url = f"{BASE_URL}/act_{account_id}/ads"
     params = {
-        "fields": "id,name,effective_status,created_time,campaign{id,name}",
+        "fields": "id,name,effective_status,created_time,adset{id,name},campaign{id,name}",
         "limit": 500,
         "access_token": ACCESS_TOKEN,
     }
@@ -245,6 +249,7 @@ def fetch_all_ads(account_id: str) -> list:
         batch = data.get("data", [])
         for a in batch:
             camp = a.get("campaign") or {}
+            adset = a.get("adset") or {}
             ct = a.get("created_time", "")
             ads.append(
                 {
@@ -252,6 +257,8 @@ def fetch_all_ads(account_id: str) -> list:
                     "name": a.get("name", ""),
                     "effective_status": a.get("effective_status", ""),
                     "created_date": ct[:10] if ct else None,
+                    "adset_id": adset.get("id", ""),
+                    "adset_name": adset.get("name", ""),
                     "campaign_id": camp.get("id", ""),
                     "campaign_name": camp.get("name", ""),
                 }
@@ -491,6 +498,8 @@ def parse_row(
         "ad_created_date": ad_meta.get("created_date"),
         "ad_name": row.get("ad_name"),
         "ad_id": ad_id,
+        "adset_id": row.get("adset_id"),
+        "adset_name": row.get("adset_name"),
         "campaign_name": row.get("campaign_name"),
         "campaign_id": row.get("campaign_id"),
         "ad_status": ad_meta.get("status"),
@@ -719,25 +728,14 @@ def upsert_placeholders(
         log.info("  No placeholder rows needed (all active ads delivered)")
         return 0
 
-    # Only fill placeholders for ads that have ever delivered impressions —
-    # matches Meta Ads Manager's CSV behavior, which excludes never-delivered
-    # ads from filtered exports even when their status is active.
-    candidate_ids = [a["id"] for a in candidates]
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT DISTINCT ad_id
-                  FROM primary_table
-                 WHERE account_name = %s
-                   AND ad_id = ANY(%s)
-                   AND impressions > 0
-                """,
-                (account_name, candidate_ids),
-            )
-            ever_delivered = {r[0] for r in cur.fetchall()}
-
-    needs_placeholder = [a for a in candidates if a["id"] in ever_delivered]
+    # Write placeholder rows for EVERY active ad that didn't appear in /insights,
+    # including ones that have never delivered impressions. This matches Meta Ads
+    # Manager's CSV behavior, which lists every active ad in the account during
+    # the reporting window (with 0 impressions / 0 spend if it never ran).
+    # Previously this was gated on "ever delivered" — that gate dropped 100-200
+    # ads per account from the dashboard view, causing them to be reported as
+    # "missing" when comparing against Meta exports.
+    needs_placeholder = candidates
     skipped = len(candidates) - len(needs_placeholder)
     if skipped:
         log.info(
@@ -767,6 +765,8 @@ def upsert_placeholders(
                     "ad_created_date": ad.get("created_date"),
                     "ad_name": ad.get("name", ""),
                     "ad_id": ad["id"],
+                    "adset_id": ad.get("adset_id", ""),
+                    "adset_name": ad.get("adset_name", ""),
                     "campaign_name": ad.get("campaign_name", ""),
                     "campaign_id": ad.get("campaign_id", ""),
                     "ad_status": ad.get("effective_status", ""),

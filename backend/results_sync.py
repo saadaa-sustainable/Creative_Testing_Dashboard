@@ -99,16 +99,19 @@ def detect_product(name: str) -> str:
 
 
 def detect_ctype(name: str) -> str:
+    """Mirror the JS detectCtype() in index.html. IFAD and GAD are independent
+    buckets; NO-ID names are an explicit VID marker (Saadaa convention).
+    Ads without any of these markers default to VID."""
     n = name.upper()
     if "IFAD" in n:
         return "IFAD"
     if "GAD" in n:
         return "Graphic AD"
-    if any(k in n for k in ("VRP", "NNC", "VIDEO", "IGP")):
+    if any(k in n for k in ("VRP", "NNC", "VIDEO", "IGP", "NO-ID")):
         return "VID"
     if any(k in n for k in ("STATIC", "_ST_", "+ST+")):
         return "STATIC"
-    return "VID"  # default
+    return "VID"  # default when no marker present
 
 
 def is_copy(name: str) -> bool:
@@ -169,12 +172,21 @@ def fetch_primary(conn, account_name: str | None = None, since_date: date | None
         params.append(since_date)
     where_sql = (" WHERE " + " AND ".join(where)) if where else ""
 
-    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+    # Use a server-side (named) cursor with bounded itersize so the Supabase
+    # pooler doesn't drop the connection mid-stream on large SELECTs.
+    # fetchall() on an unnamed cursor causes "lost synchronization with server /
+    # insufficient data in D message" once the row count crosses ~10K.
+    rows = []
+    with conn.cursor(name="results_primary_stream",
+                     cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.itersize = 2000
         cur.execute(
             f"SELECT {col_str} FROM primary_table{where_sql} ORDER BY date DESC",
             params,
         )
-        return cur.fetchall()
+        for row in cur:
+            rows.append(row)
+    return rows
 
 
 # ── Core computation ──────────────────────────────────────────────────

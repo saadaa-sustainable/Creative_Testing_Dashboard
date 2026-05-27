@@ -778,13 +778,14 @@ function detectProduct(name){
 
 function detectCtype(name){
   const n = name.toUpperCase();
+  // Naming-driven creative type — IFAD and GAD are independent buckets.
   if(n.includes('IFAD')) return 'IFAD';
   if(n.includes('GAD'))  return 'Graphic AD';
-  if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || /^VID-AD/.test(n)) return 'VID';
+  // VID markers — VRP / NNC / VIDEO / IGP / VID-AD prefix / NO-ID (Saadaa convention)
+  if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || n.includes('NO-ID') || /^VID-AD/.test(n)) return 'VID';
   if(n.includes('STATIC') || n.includes('_ST_') || n.includes('+ST+')) return 'STATIC';
-  // Default: assume Graphic AD when no marker is present. Render-time metric
-  // override in renderResults() will upgrade to VID if video plays > 0.
-  return 'Graphic AD';
+  // Default when no marker is present: VID (matches Python detect_ctype).
+  return 'VID';
 }
 
 function isCopyAd(name){ return /copy/i.test(name); }
@@ -897,6 +898,11 @@ function parseRows(rows){
 // ════════════════════════════════════════
 // ACCOUNT SELECTOR
 // ════════════════════════════════════════
+// Flag flipped to true after the initial fetchSheet() in DOMContentLoaded.
+// Guards selectAccount() so the init pass doesn't double-fetch; thereafter
+// every account click auto-triggers fetchSheet() without needing the refresh button.
+let _acctAutoFetch = false;
+
 function selectAccount(num,el){
   var aep=document.getElementById('analysisEnginePanel');if(aep)aep.style.display='none';
   var lcp=document.getElementById('lifecyclePanel');if(lcp)lcp.style.display='none';
@@ -904,6 +910,7 @@ function selectAccount(num,el){
   var ctw=document.getElementById('ctDashboardWrap');if(ctw)ctw.style.display='';
   // Closing the overlay panels — restore the outer scrollbar.
   if(typeof _unlockBodyScroll==='function') _unlockBodyScroll();
+  const prevAcct = ACTIVE_ACCT;
   ACTIVE_ACCT=num;
   const C=[
     {bg:'var(--surface2)',bd:'rgba(28,25,22,.25)',   lc:'var(--ink)'},
@@ -919,6 +926,11 @@ function selectAccount(num,el){
     t.style.boxShadow=on?'0 4px 12px rgba(28,25,22,.08)':'none';
     t.querySelector('div').style.color=on?C[i].lc:'var(--muted)';
   });
+  // Auto-fetch on account switch — only after init completes (DOMContentLoaded
+  // does its own explicit fetchSheet) and only when the account actually changed.
+  if(_acctAutoFetch && num !== prevAcct && typeof fetchSheet === 'function'){
+    fetchSheet();
+  }
 }
 
 function toggleCredOverride(){
@@ -949,7 +961,11 @@ function toggleExcludeCopy(){
 // Meta CSV export had implicitly applied, and what causes the dashboard's
 // totals to diverge when this filter is off.
 // ════════════════════════════════════════
-const ACTIVE_STATUS_WHITELIST = new Set(['ACTIVE','ADSET_PAUSED']);
+// Matches Meta Ads Manager's default "Active ads" filter — includes ads whose
+// own status is ACTIVE/ADSET_PAUSED/CAMPAIGN_PAUSED (the ad itself is still
+// "active in the account" even when its enclosing campaign is paused). Excludes
+// PAUSED / ARCHIVED / DELETED / DISAPPROVED / WITH_ISSUES.
+const ACTIVE_STATUS_WHITELIST = new Set(['ACTIVE','ADSET_PAUSED','CAMPAIGN_PAUSED']);
 let ACTIVE_ONLY_TOGGLE = true;
 function toggleActiveOnly(){
   ACTIVE_ONLY_TOGGLE=!ACTIVE_ONLY_TOGGLE;
@@ -1308,7 +1324,7 @@ function renderCreatives(ads){
     adAgg[key].videoPlays += a.videoPlays || 0;
   });
 
-  const ACTIVE_STATUSES = ['ACTIVE','WITH_ISSUES','PENDING_REVIEW','PREAPPROVED','IN_PROCESS','PENDING_BILLING_INFO'];
+  const ACTIVE_STATUSES = ['ACTIVE','WITH_ISSUES','PENDING_REVIEW','PREAPPROVED','IN_PROCESS','PENDING_BILLING_INFO','CAMPAIGN_PAUSED','ADSET_PAUSED'];
 
   // Keep ads with impressions OR with active-like status (so non-delivering active ads show)
   const aggs = Object.values(adAgg).filter(m => {
@@ -1319,6 +1335,7 @@ function renderCreatives(ads){
     const nameUpper = (m.name||'').toUpperCase();
     const explicitVid = nameUpper.includes('VRP') || nameUpper.includes('NNC') ||
                         nameUpper.includes('VIDEO') || nameUpper.includes('IGP') ||
+                        nameUpper.includes('NO-ID') ||
                         /^VID-AD/.test(nameUpper);
     if(m.ctype === 'VID' && !hasVideoSignal && !explicitVid){
       m.ctype = 'Graphic AD';
@@ -1462,6 +1479,7 @@ function renderResults(ads){
     const nameUpper = (m.adName||'').toUpperCase();
     const explicitVid = nameUpper.includes('VRP') || nameUpper.includes('NNC') ||
                         nameUpper.includes('VIDEO') || nameUpper.includes('IGP') ||
+                        nameUpper.includes('NO-ID') ||
                         /^VID-AD/.test(nameUpper);
     if(m.ctype === 'VID' && !hasVideoSignal && !explicitVid){
       m.ctype = 'Graphic AD';
@@ -1480,7 +1498,7 @@ function renderResults(ads){
 
   // Statuses that indicate an ad is still "alive" — zero-delivery ads with these
   // statuses are kept (matches Meta Ads Manager which shows non-delivering active ads).
-  const ACTIVE_STATUSES = ['ACTIVE','WITH_ISSUES','PENDING_REVIEW','PREAPPROVED','IN_PROCESS','PENDING_BILLING_INFO'];
+  const ACTIVE_STATUSES = ['ACTIVE','WITH_ISSUES','PENDING_REVIEW','PREAPPROVED','IN_PROCESS','PENDING_BILLING_INFO','CAMPAIGN_PAUSED','ADSET_PAUSED'];
 
   Object.values(adMap).forEach(m => {
     // ── Drop ads with 0 impressions AND non-active status (e.g., paused / deleted) ──
@@ -1666,6 +1684,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   else { selectAccount(1,document.getElementById('aSelTab1')); }
   EXCLUDE_COPY_TOGGLE=true;
   if((SUPABASE_URL&&SUPABASE_ANON)||(HARDCODED_SHEET_ID&&HARDCODED_API_KEY)){ fetchSheet(); }
+  // Enable auto-fetch on subsequent account switches.
+  _acctAutoFetch = true;
 });
 
 // ════════════════════════════════════════
@@ -1871,7 +1891,7 @@ function ctExportCSV(){
   });
 
   // ── Drop paused/disabled ads with 0 impressions; KEEP active-zero-delivery ads ──
-  const ACTIVE_STATUSES = ['ACTIVE','WITH_ISSUES','PENDING_REVIEW','PREAPPROVED','IN_PROCESS','PENDING_BILLING_INFO'];
+  const ACTIVE_STATUSES = ['ACTIVE','WITH_ISSUES','PENDING_REVIEW','PREAPPROVED','IN_PROCESS','PENDING_BILLING_INFO','CAMPAIGN_PAUSED','ADSET_PAUSED'];
   Object.keys(adMap).forEach(k => {
     const m = adMap[k];
     if((m.impr||0) <= 0){
@@ -1886,6 +1906,7 @@ function ctExportCSV(){
     const nameUpper = (m.name||'').toUpperCase();
     const explicitVid = nameUpper.includes('VRP') || nameUpper.includes('NNC') ||
                         nameUpper.includes('VIDEO') || nameUpper.includes('IGP') ||
+                        nameUpper.includes('NO-ID') ||
                         /^VID-AD/.test(nameUpper);
     if(m.ctype === 'VID' && !hasVideoSignal && !explicitVid){
       m.ctype = 'Graphic AD';
@@ -2739,6 +2760,7 @@ function ctExportCSV(){
           <thead>
           <tr>
             <th onclick="aeSort('campName')" style="text-align:left;min-width:160px">Campaign &#8597;</th>
+            <th onclick="aeSort('adsetId')" style="text-align:left;min-width:120px">Ad Set ID &#8597;</th>
             <th onclick="aeSort('adId')" style="text-align:left;min-width:120px">Ad ID &#8597;</th>
             <th onclick="aeSort('adName')" style="text-align:left;min-width:220px">Name &#8597;</th>
             <th style="text-align:left;min-width:120px">Ad Created</th>
@@ -3108,7 +3130,7 @@ async function aeFetchPrimaryForRange(fromVal,toVal){
   document.getElementById('ae-loading').style.display='block';
   document.getElementById('ae-content').style.display='none';
   document.getElementById('ae-load-sub').textContent='Fetching primary_table: '+fromVal+' to '+toVal+'...';
-  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','ad_created_date','impressions','reach','amount_spent_inr','purchase_roas','outbound_clicks','ftewv_count','ncp_count','cost_per_ncp','ltv_reach','ltv_frequency','preview_link','ad_link'].join(',');
+  const cols=['account_name','date','ad_name','ad_id','adset_id','adset_name','campaign_name','ad_status','ad_created_date','impressions','reach','amount_spent_inr','purchase_roas','outbound_clicks','ftewv_count','ncp_count','cost_per_ncp','ltv_reach','ltv_frequency','preview_link','ad_link'].join(',');
   const BATCH=1000;let all=[],more=true,offset=0,pg=0;
   try{
     while(more){pg++;document.getElementById('ae-load-sub').textContent='Page '+pg+' — '+all.length.toLocaleString()+' rows...';
@@ -3162,7 +3184,7 @@ async function aeReload(){
     }
   }catch(e){console.warn('AE results_table check:',e.message);}
   document.getElementById('ae-load-sub').textContent='Loading primary_table...';
-  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','ad_created_date','impressions','reach','amount_spent_inr','purchase_roas','outbound_clicks','ftewv_count','ncp_count','cost_per_ncp','ltv_reach','ltv_frequency','preview_link','ad_link'].join(',');
+  const cols=['account_name','date','ad_name','ad_id','adset_id','adset_name','campaign_name','ad_status','ad_created_date','impressions','reach','amount_spent_inr','purchase_roas','outbound_clicks','ftewv_count','ncp_count','cost_per_ncp','ltv_reach','ltv_frequency','preview_link','ad_link'].join(',');
   const BATCH=1000;let all=[],offset=0,more=true,pg=0;
   try{
     while(more){pg++;document.getElementById('ae-load-sub').textContent='Page '+pg+' — '+all.length.toLocaleString()+' rows loaded...';
@@ -3212,9 +3234,11 @@ function aeCompute(){
     const ncpC=Number(r.cost_per_ncp)||0,ncp=ncpC>0?spend/ncpC:0;
     const purV=roas*spend,ltvR=Number(r.ltv_reach)||0,ltvF=Number(r.ltv_frequency)||0;
     const dMs=r.date?new Date(r.date+'T00:00:00').getTime():0;
-    if(!adMap[key]){adMap[key]={name:grp==='campaign'?camp:String(r.ad_name||'?'),campName:camp,adId,acct:String(r.account_name||''),status:String(r.ad_status||''),created:String(r.ad_created_date||''),previewLink:'',adLink:'',ltvR:0,ltvF:0,firstD:dMs,days:[],imp:0,reach:0,spend:0,outClicks:0,cpcSheetSum:0,cpcSheetCount:0,ftewv:0,ncp:0,purV:0,ltvI:0,ltvS:0,ltvRS:0};}
+    if(!adMap[key]){adMap[key]={name:grp==='campaign'?camp:String(r.ad_name||'?'),campName:camp,adId,adsetId:String(r.adset_id||''),adsetName:String(r.adset_name||''),acct:String(r.account_name||''),status:String(r.ad_status||''),created:String(r.ad_created_date||''),previewLink:'',adLink:'',ltvR:0,ltvF:0,firstD:dMs,days:[],imp:0,reach:0,spend:0,outClicks:0,cpcSheetSum:0,cpcSheetCount:0,ftewv:0,ncp:0,purV:0,ltvI:0,ltvS:0,ltvRS:0};}
     const ad=adMap[key];
-    // Capture first non-empty links seen for this ad
+    // Capture first non-empty adset_id / link seen for this ad
+    if(!ad.adsetId    && (r.adset_id||''))     ad.adsetId    = String(r.adset_id);
+    if(!ad.adsetName  && (r.adset_name||''))   ad.adsetName  = String(r.adset_name);
     if(!ad.previewLink && (r.preview_link||'')) ad.previewLink = String(r.preview_link);
     if(!ad.adLink     && (r.ad_link||''))      ad.adLink     = String(r.ad_link);
     if(ltvR>ad.ltvR)ad.ltvR=ltvR;if(ltvF>ad.ltvF)ad.ltvF=ltvF;
@@ -3287,7 +3311,7 @@ function aeCompute(){
     if(cat==='Winner')wP+=S;if(cat==='Discarded'){dS+=G;dC++;}
 
     res.push({
-      campName:ad.campName,adId:grp==='campaign'?'[Grp]':String(k),
+      campName:ad.campName,adId:grp==='campaign'?'[Grp]':String(k),adsetId:ad.adsetId||'',adsetName:ad.adsetName||'',
       adName:ad.name,acct:ad.acct,created:ad.created||'—',firstDate:fmt(ad.firstD),
       adStatus:ad.status,category:cat,
       previewLink:ad.previewLink||'',adLink:ad.adLink||'',
@@ -3659,7 +3683,7 @@ function aeExportCSV(){
 
   // ── Column headers ──
   const headers=[
-    'Campaign','Ad ID','Ad Name','Account','Ad Created','First Seen',
+    'Campaign','Ad Set ID','Ad Set Name','Ad ID','Ad Name','Account','Ad Created','First Seen',
     'Status (Category)','Impressions','ROAS','CPC (₹)','LTV Spend (₹)',
     'F1 Pass','F2/F3 Pass (ROAS or Cost/NCP)',
     'Days to Target (vec)','Reach @ Freq2','LTV R/F','Reach Weight%',
@@ -3669,7 +3693,7 @@ function aeExportCSV(){
 
   // ── Data rows ──
   const dataRows=aeFiltered.map(r=>[
-    r.campName,r.adId,r.adName,r.acct,r.created,r.firstDate,
+    r.campName,r.adsetId||'',r.adsetName||'',r.adId,r.adName,r.acct,r.created,r.firstDate,
     r.category,r.imp,r.rawRoas.toFixed(2),
     r.rawCpc>0?r.rawCpc.toFixed(2):'',
     r.rawSpend.toFixed(0),
@@ -3741,8 +3765,11 @@ function aeRender(){
     const sn=String(r.adName).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
     const sc=String(r.campName).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     const cpcDisplay = r.rawCpc > 0 ? '₹'+r.rawCpc.toFixed(2) : '—';
+    const sas=String(r.adsetId||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;');
+    const sasn=String(r.adsetName||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     return `<tr data-hover-tip="1" data-tip-ad="${sn}" data-tip-camp="${sc}" onmouseenter="aeShowTip(event,this)" onmousemove="aeMoveTip(event)" onmouseleave="aeHideTip()">
 <td style="padding:11px 14px;color:#9a9187;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${sc}">${sc}</td>
+<td style="padding:11px 14px;font-family:'Roboto Mono',monospace;font-size:10px;color:#9a9187;cursor:pointer" title="${sasn}" onclick="copyText('${sas}',this)">${sas||'—'}</td>
 <td style="padding:11px 14px;font-family:'Roboto Mono',monospace;font-size:10px;color:#9a9187;cursor:pointer" onclick="copyText('${sid}',this)">${sid}</td>
 <td style="padding:11px 14px;color:#1c1916;font-weight:600;max-width:210px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="copyText('${sn}',this)" title="${sn}">${sn}</td>
 <td style="padding:11px 14px;color:#9a9187">${r.created}</td>
