@@ -818,16 +818,26 @@ function parseSheetDate(raw){
 }
 function parseInputDate(s){ if(!s) return null; const [y,mo,d]=s.split('-').map(Number); return new Date(y,mo-1,d); }
 function setDefaultDates(){
-  // Default view = rolling last 30 days ending YESTERDAY (excludes today's partial day
-  // so the dashboard's totals line up with Meta's typical CSV exports, which also
-  // omit today's partial delivery). Window: today-30 → today-1, inclusive = 30 days.
+  // Default view = rolling last 30 days INCLUDING today — matches the window
+  // results_sync.py and hourly_impressions.py use to build the cached ads_json
+  // (since_date = today - 29). So when the dashboard reads from the cache,
+  // the date inputs reflect the exact window the data covers.
   // Uses local-date components to avoid the toISOString UTC shift bug.
   const today=new Date();
-  const from=new Date(today); from.setDate(today.getDate()-30);
-  const to  =new Date(today); to.setDate(today.getDate()-1);
+  const from=new Date(today); from.setDate(today.getDate()-29);
+  const to  =new Date(today);
   const fmt=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return`${y}-${m}-${dd}`;};
   document.getElementById('dateFrom').value=fmt(from);
   document.getElementById('dateTo').value  =fmt(to);
+}
+
+// Restore the 30-day default only when at least one date input is empty.
+// Called inside fetchSheet() so an accidental clear of the date inputs
+// (or a navigation that wiped them) gets restored on the next data refresh.
+function ensureDefaultDates(){
+  const f=document.getElementById('dateFrom'), t=document.getElementById('dateTo');
+  if(!f || !t) return;
+  if(!f.value || !t.value) setDefaultDates();
 }
 function fmtDate(d){ return d?d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'?'; }
 
@@ -1000,6 +1010,9 @@ async function fetchSheet(){
   const btn=document.getElementById('fetchBtn');
   btn.disabled=true; btn.classList.add('loading');
   document.getElementById('initEmpty').style.display='none';
+  // Guarantee the date range is always populated when data is fetched —
+  // restores the last-30-days default if the inputs were cleared.
+  ensureDefaultDates();
   const useSupabase=SUPABASE_URL&&SUPABASE_ANON;
   if(ACTIVE_ACCT===0){ useSupabase?await fetchAllAccountsSupabase(btn):await fetchAllAccountsSheets(btn); }
   else { const acct=SHEET_ACCOUNTS[ACTIVE_ACCT-1]; useSupabase?await fetchFromSupabase(acct,btn):await fetchFromSheets(acct,btn); }
@@ -1218,12 +1231,14 @@ function applyFilters(){
       label = 'All dates';
     }
   } else {
-    // The new default is today-30 → today-1 (excludes today's partial day).
+    // Default = today-29 → today (matches the cache window used by
+    // results_sync.py and hourly_impressions.py). Equality test uses a
+    // 1-day tolerance on `to` so daylight rollover doesn't false-negative.
     const today=new Date(); today.setHours(0,0,0,0);
-    const defaultFrom=new Date(today); defaultFrom.setDate(today.getDate()-30);
-    const defaultTo  =new Date(today); defaultTo.setDate(today.getDate()-1);
+    const defaultFrom=new Date(today); defaultFrom.setDate(today.getDate()-29);
+    const defaultTo  =new Date(today);
     const isDefault30 = from && to &&
-                        from.getTime()===defaultFrom.getTime() &&
+                        Math.abs(from.getTime()-defaultFrom.getTime()) < 86400000 &&
                         Math.abs(to.getTime()-defaultTo.getTime()) < 86400000;
     label = isDefault30
       ? 'Last 30 days · '+fmtDate(from)+' → '+fmtDate(to)

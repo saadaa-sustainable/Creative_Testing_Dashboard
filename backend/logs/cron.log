@@ -942,3 +942,35 @@
 2026-05-26 19:30:16 [INFO] ------------------------------------------------------------
 2026-05-26 19:30:59 [INFO]    Hourly impressions ✓ done — exit code 0
 2026-05-26 19:30:59 [INFO]   Next hourly refresh: 2026-05-26 20:30:00 IST
+2026-05-27 11:30:25 [INFO] 
+⏱  Hourly impressions refresh triggered at 2026-05-27 11:30:25 IST
+2026-05-27 11:30:25 [INFO] ------------------------------------------------------------
+2026-05-27 11:30:25 [INFO] ▶  HOURLY IMPRESSIONS — results_table refresh from Meta API
+2026-05-27 11:30:25 [INFO]    Started: 2026-05-27 11:30:25 IST
+2026-05-27 11:30:25 [INFO] ------------------------------------------------------------
+2026-05-27 11:32:14 [INFO]    Hourly impressions ✓ done — exit code 0
+2026-05-27 11:32:14 [INFO]   Next hourly refresh: 2026-05-27 12:30:00 IST
+2026-05-27 12:30:14 [INFO] 
+⏱  Hourly impressions refresh triggered at 2026-05-27 12:30:14 IST
+2026-05-27 12:30:14 [INFO] ------------------------------------------------------------
+2026-05-27 12:30:14 [INFO] ▶  HOURLY IMPRESSIONS — results_table refresh from Meta API
+2026-05-27 12:30:14 [INFO]    Started: 2026-05-27 12:30:14 IST
+2026-05-27 12:30:14 [INFO] ------------------------------------------------------------
+2026-05-27 12:31:40 [INFO]    Hourly impressions ❌ FAILED — exit code 1
+2026-05-27 12:31:40 [INFO]   Next hourly refresh: 2026-05-27 13:30:00 IST
+2026-05-27 13:30:10 [INFO] 
+⏱  Hourly impressions refresh triggered at 2026-05-27 13:30:10 IST
+2026-05-27 13:30:10 [INFO] ------------------------------------------------------------
+2026-05-27 13:30:10 [INFO] ▶  HOURLY IMPRESSIONS — results_table refresh from Meta API
+2026-05-27 13:30:10 [INFO]    Started: 2026-05-27 13:30:10 IST
+2026-05-27 13:30:10 [INFO] ------------------------------------------------------------
+2026-05-27 13:31:46 [INFO]    Hourly impressions ✓ done — exit code 0
+2026-05-27 13:31:46 [INFO]   Next hourly refresh: 2026-05-27 14:30:00 IST
+2026-05-27 14:30:24 [INFO] 
+⏱  Hourly impressions refresh triggered at 2026-05-27 14:30:24 IST
+2026-05-27 14:30:24 [INFO] ------------------------------------------------------------
+2026-05-27 14:30:24 [INFO] ▶  HOURLY IMPRESSIONS — results_table refresh from Meta API
+2026-05-27 14:30:24 [INFO]    Started: 2026-05-27 14:30:24 IST
+2026-05-27 14:30:24 [INFO] ------------------------------------------------------------
+2026-05-27 14:31:45 [INFO]    Hourly impressions ❌ FAILED — exit code 1
+2026-05-27 14:31:45 [INFO]   Next hourly refresh: 2026-05-27 15:30:00 IST
