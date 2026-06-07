@@ -543,11 +543,9 @@ document.addEventListener('DOMContentLoaded', () => {
     <!-- ROW 1: Date Range -->
     <div style="display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap">
       <span style="font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);min-width:80px">Date Range</span>
-      <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px 8px">
-        <input type="date" id="dateFrom" onchange="applyFilters()" style="background:transparent;border:none;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;padding:4px 6px"/>
-        <span style="color:var(--muted);font-size:.8rem;font-weight:500">→</span>
-        <input type="date" id="dateTo" onchange="applyFilters()" style="background:transparent;border:none;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;padding:4px 6px"/>
-      </div>
+      <input type="hidden" id="dateFrom"/>
+      <input type="hidden" id="dateTo"/>
+      <span id="ct-drp-mount" data-drp-mount='{"prefix":"ct","fromInputId":"dateFrom","toInputId":"dateTo","onApply":"applyFilters","onClear":"applyFilters","minBtnWidth":200}'></span>
       <button onclick="clearFilters()" title="Reset filters to default (last 30 days)" style="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:5px 13px;font-size:.65rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .15s" onmouseover="this.style.color='var(--ink)';this.style.borderColor='var(--border2)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Reset to 30d</button>
       <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
         <span id="dateRangeLabel" style="font-size:.62rem;color:var(--terra);font-weight:600;background:var(--terra-lt);border:1px solid rgba(192,96,58,.2);padding:3px 11px;border-radius:100px">Last 30 days</span>
@@ -592,11 +590,9 @@ document.addEventListener('DOMContentLoaded', () => {
     <!-- ROW 3: Created Date filter -->
     <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;background:var(--surface2);border-top:1px solid var(--border);flex-wrap:wrap">
       <span style="font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);min-width:80px">Created Date</span>
-      <div style="display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:3px 8px">
-        <input type="date" id="createdFrom" onchange="applyFilters()" style="background:transparent;border:none;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;padding:4px 6px"/>
-        <span style="color:var(--muted);font-size:.8rem;font-weight:500">→</span>
-        <input type="date" id="createdTo" onchange="applyFilters()" style="background:transparent;border:none;font-family:'Roboto',sans-serif;font-size:.74rem;color:var(--ink);outline:none;padding:4px 6px"/>
-      </div>
+      <input type="hidden" id="createdFrom"/>
+      <input type="hidden" id="createdTo"/>
+      <span id="created-drp-mount" data-drp-mount='{"prefix":"created","fromInputId":"createdFrom","toInputId":"createdTo","onApply":"applyFilters","onClear":"applyFilters","minBtnWidth":200}'></span>
       <button onclick="clearCreatedFilter()" style="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:5px 13px;font-size:.65rem;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .15s" onmouseover="this.style.color='var(--ink)';this.style.borderColor='var(--border2)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Clear</button>
       <div id="createdChip" style="display:none;align-items:center;gap:5px;background:var(--slate-lt);border:1px solid rgba(74,111,165,.25);border-radius:100px;padding:3px 10px;font-size:.62rem;font-weight:600;color:var(--slate)">
         <span id="createdChipText"></span>
@@ -641,7 +637,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <span style="font-size:.6rem;color:var(--ink2)">Cost/FTEWV ≤ ₹<span id="legendFtewv" style="font-weight:700;color:var(--slate)">12</span></span>
     </div>
     <span style="font-size:.7rem;color:var(--muted);font-weight:700">]</span>
-    <span style="font-size:.55rem;color:var(--muted);margin-left:auto">F1 + F2/F3 = Winner · + F4 = Incremental Winner</span>
+    <span style="font-size:.55rem;color:var(--muted);margin-left:auto">F1 + F2/F3 = Winner · F4 = parallel quality check (shown per card)</span>
   </div>
 
   <!-- Category chips row -->
@@ -683,7 +679,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="ov-card k-gold">
       <div class="ov-label">Avg. Engagement Rate</div>
       <div class="ov-val" id="ov_eng">—</div>
-      <div class="ov-sub">Sum(Post Engagements) ÷ Sum(Impressions)</div>
+      <div class="ov-sub">(ThruPlays + Reactions + Comments + Saves + Shares + Likes + Link Clicks) ÷ Impressions</div>
     </div>
     <div class="ov-card k-terra">
       <div class="ov-label">Avg. ThruPlay Rate</div>
@@ -767,7 +763,8 @@ function detectProduct(name){
     'BST','BCO','COO','SDAFD','CL','TTB','TW','GE','SDCPT','SDELKB','SDELPT',
     'SDFLK','SDFSK','SDCSS','SDLS','SDRPT','SDRST','SDVPL','SMCP','SMELMS',
     'SMFLK','SMFSK','SMLS','BR','SDASP','SDCP','SDWLP','GP','SUZNS','WW',
-    'STL','LE','WLP','SDLWC','SDTTB','SDECT','SDALS','WBS','SD5','SUPFH','SDAWP','SDCSP'
+    'STL','LE','WLP','SDLWC','SDTTB','SDECT','SDALS','WBS','SD5','SUPFH','SDAWP','SDCSP','SMCSS','SDFLAS','SDVPK',
+    'SDVSK','SMFLS','SMCFS','SMPPT','SMDPT','SMFRT','MSA'
   ];
   const tokens = name.toUpperCase().split(/[\+\-\_\s\.]+/);
   for(const t of tokens){ if(PRODUCTS.includes(t)) return t; }
@@ -829,6 +826,12 @@ function setDefaultDates(){
   const fmt=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return`${y}-${m}-${dd}`;};
   document.getElementById('dateFrom').value=fmt(from);
   document.getElementById('dateTo').value  =fmt(to);
+  // Reflect the auto-set range in the CT DRP button label
+  if(__drpInstances && __drpInstances['ct']){
+    const s = __drpInstances['ct'].state;
+    s.from = from; s.to = to; s.preset = 'last30';
+    try { drpUpdateBtn('ct'); } catch(e){}
+  }
 }
 
 // Restore the 30-day default only when at least one date input is empty.
@@ -1022,7 +1025,7 @@ async function fetchSheet(){
 async function fetchAllAccountsSupabase(btn){
   try{ const row=await fetchFromResultsTable('All Accounts'); if(row&&row.ads_json){ populateDashboardFromResult(row,'All Accounts (Combined)'); return; } }catch(e){ console.warn('[CT] results_table fast path failed:',e.message); }
   setStatus('results_table empty — fetching primary_table…','info');
-  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','conversion_value','video_play_time','ad_created_date','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp','preview_link','ad_link'].join(',');
+  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','engagement_count','conversion_value','video_play_time','ad_created_date','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp','preview_link','ad_link'].join(',');
   const BATCH=1000; let combined=[];
   for(const acct of SHEET_ACCOUNTS){
     let offset=0,hasMore=true;
@@ -1079,7 +1082,7 @@ function mapSupabaseRows(rows){
       impr:Number(r.impressions)||0, spend:Number(r.amount_spent_inr||r.amount_spent)||0,
       reach:Number(r.reach)||0, outClicks:Number(r.outbound_clicks)||0,
       thruPlays:Number(r.thruplays||r.thru_plays)||0, videoPlays:Number(r.three_sec_video_plays||r.three_sec_plays)||0,
-      postEng:Number(r.post_engagements)||0, convValue:Number(r.conversion_value||r.conv_value)||0,
+      postEng:Number(r.post_engagements)||0, engCount:Number(r.engagement_count)||0, convValue:Number(r.conversion_value||r.conv_value)||0,
       vpt:Number(r.video_play_time)||0,
       cpcSheet:Number(r.cpc||r.cost_per_click||r.cost_per_link_click)||0,
       ftewvCount:Number(r.ftewv_count)||0,
@@ -1108,7 +1111,7 @@ function finaliseLoad(label,totalRows){
 async function fetchFromSupabase(acct,btn){
   try{ const row=await fetchFromResultsTable(acct.name); if(row&&row.ads_json){ populateDashboardFromResult(row,acct.name); return; } }catch(e){ console.warn('[CT] results_table single acct failed:',e.message); }
   setStatus(acct.name+' — fetching from primary_table…','info');
-  const cols=['date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','conversion_value','video_play_time','ad_created_date','account_name'].join(',');
+  const cols=['date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','engagement_count','conversion_value','video_play_time','ad_created_date','account_name'].join(',');
   const BATCH=1000; let allRows=[],offset=0,hasMore=true;
   try{
     while(hasMore){
@@ -1297,11 +1300,15 @@ function renderOverviewPerf(ads){
     const totalOutClicks=sumF(withImpr,a=>a.outClicks);
     const totalThruPlays=sumF(withImpr,a=>a.thruPlays);
     const totalPostEng=sumF(withImpr,a=>a.postEng);
+    const totalEngCount=sumF(withImpr,a=>a.engCount);
     const totalVideoPlays=sumF(withImpr,a=>a.videoPlays);
     const imprForRates=sumF(withImpr,a=>a.impr);
     setEl('ov_ctr',fP(imprForRates>0?totalOutClicks/imprForRates*100:0));
     setEl('ov_thru',fP(imprForRates>0?totalThruPlays/imprForRates*100:0));
-    setEl('ov_eng',fP(imprForRates>0?totalPostEng/imprForRates*100:0));
+    // Engagement Rate — Meta custom metric (ThruPlays + reactions + comments + saves + shares + likes + link_clicks) / Impressions.
+    // Falls back to post_engagements / impressions until backend backfills engagement_count.
+    const engNumerator = totalEngCount>0 ? totalEngCount : totalPostEng;
+    setEl('ov_eng',fP(imprForRates>0?engNumerator/imprForRates*100:0));
     setEl('ov_hold',fP(totalVideoPlays>0?totalThruPlays/totalVideoPlays*100:0));
     setEl('ov_hook2',fP(imprForRates>0?totalVideoPlays/imprForRates*100:0));
   } else {
@@ -1329,11 +1336,17 @@ function renderCreatives(ads){
     if(!adAgg[key]) adAgg[key] = {
       name:a.name||'', product:a.product||'Other',
       ctype:a.ctype||'Graphic AD', status:a.status||'',
+      adLink:'', previewLink:'',                                          // carry-over fields from primary_table
+      acct:a.acct||'',
       impr:0, thruPlays:0, videoPlays:0
     };
     if(a.status && (!adAgg[key].status || a.status.toUpperCase() === 'ACTIVE')){
       adAgg[key].status = a.status;
     }
+    // Capture first non-empty ad_link / preview_link (1:1 with ad_name)
+    if(!adAgg[key].adLink     && (a.adLink     || a.ad_link))     adAgg[key].adLink     = String(a.adLink || a.ad_link);
+    if(!adAgg[key].previewLink && (a.previewLink || a.preview_link)) adAgg[key].previewLink = String(a.previewLink || a.preview_link);
+    if(!adAgg[key].acct && a.acct) adAgg[key].acct = a.acct;
     adAgg[key].impr       += a.impr       || 0;
     adAgg[key].thruPlays  += a.thruPlays  || 0;
     adAgg[key].videoPlays += a.videoPlays || 0;
@@ -1361,10 +1374,42 @@ function renderCreatives(ads){
   });
 
   const pMap={};
-  aggs.forEach(m=>{ const prod=m.product||'Other'; pMap[prod]=(pMap[prod]||0)+1; });
+  const pLinkInfo={};                                                     // tag → { url, adName } from first ad with a link
+  const otherAds=[];                                                      // collect ad names that resolve to 'Other'
+  aggs.forEach(m=>{
+    const prod = m.product || 'Other';
+    pMap[prod] = (pMap[prod]||0) + 1;
+    // Capture the first non-empty ad_link + its actual ad_name for this product (1:1)
+    const link = m.adLink || m.ad_link || '';
+    if(link && !pLinkInfo[prod]){
+      pLinkInfo[prod] = { url: String(link), adName: String(m.name || m.adName || '') };
+    }
+    if(prod === 'Other'){
+      otherAds.push({ name: m.adName || m.name || '', ctype: m.ctype || '', acct: m.acct || m.account_name || '' });
+    }
+  });
+  window._otherAds = otherAds;                                            // expose for drilldown modal
   const prods=Object.entries(pMap).sort((a,b)=>{ if(a[0]==='Other')return 1; if(b[0]==='Other')return -1; return b[1]-a[1]; });
   const pTotal=prods.reduce((s,[,c])=>s+c,0);
-  document.querySelector('#productTable tbody').innerHTML=prods.map(([p,c])=>`<tr><td>${p}</td><td class="num">${c}</td></tr>`).join('')+`<tr class="grand"><td>Grand Total</td><td class="num">${pTotal}</td></tr>`;
+  document.querySelector('#productTable tbody').innerHTML=prods.map(([p,c])=>{
+    const isOther = p==='Other';
+    const info = pLinkInfo[p];
+    // Format: TAG_NAME (Actual Ad Name) — clickable, opens the ad
+    let td0;
+    if(isOther){
+      td0 = `<td style="cursor:pointer;color:#c0603a;font-weight:700;text-decoration:underline dotted;text-underline-offset:3px" onclick="showOtherAdsDrill()" title="Click to view all ads classified as Other">${p} <span style="font-size:9px;opacity:.7">↗</span></td>`;
+    } else if(info){
+      const urlSafe = info.url.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+      // Format: TAG (full saadaa.in URL) — entire URL is the visible link text
+      td0 = `<td>${p} <span style="font-size:11px;color:#9a9187">(<a href="${urlSafe}" target="_blank" rel="noopener" style="color:#4a6fa5;font-weight:600;text-decoration:underline;word-break:break-all" title="${urlSafe}">${urlSafe}</a>)</span></td>`;
+    } else {
+      td0 = `<td>${p} <span style="font-size:10px;color:#cdc8bc">(no ad_link)</span></td>`;
+    }
+    const td1 = isOther
+      ? `<td class="num" style="cursor:pointer;color:#c0603a;font-weight:700" onclick="showOtherAdsDrill()">${c}</td>`
+      : `<td class="num">${c}</td>`;
+    return `<tr>${td0}${td1}</tr>`;
+  }).join('')+`<tr class="grand"><td>Grand Total</td><td class="num">${pTotal}</td></tr>`;
 
   const cMap={};
   aggs.forEach(m=>{ const ct=m.ctype||'Graphic AD'; cMap[ct]=(cMap[ct]||0)+1; });
@@ -1374,12 +1419,101 @@ function renderCreatives(ads){
 }
 
 // ════════════════════════════════════════
+// "Other" drilldown — modal listing every ad name classified as Other by detectProduct()
+// ════════════════════════════════════════
+function showOtherAdsDrill(){
+  const ads = (window._otherAds || []).slice();
+  // Existing overlay? Just toggle visibility.
+  let overlay = document.getElementById('otherDrillOverlay');
+  if(overlay){ overlay.style.display = 'flex'; return; }
+
+  overlay = document.createElement('div');
+  overlay.id = 'otherDrillOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(28,25,22,.55);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);font-family:\'Roboto\',sans-serif';
+  overlay.addEventListener('click', e => { if(e.target === overlay) hideOtherAdsDrill(); });
+
+  // Group by detected ctype for easier scanning
+  const grouped = {};
+  ads.forEach(a => {
+    const k = a.ctype || '—';
+    (grouped[k] = grouped[k] || []).push(a);
+  });
+  const groupKeys = Object.keys(grouped).sort((a,b) => grouped[b].length - grouped[a].length);
+
+  // Build the modal HTML
+  const groupsHtml = groupKeys.map(g => {
+    const list = grouped[g];
+    const rows = list.map((a, i) => {
+      const safeName = String(a.name).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+      const safeAcct = String(a.acct).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+      return `<tr style="border-bottom:1px solid #f0ece4">
+        <td style="padding:8px 10px;color:#4a4540;font-family:'Roboto Mono',monospace;font-size:10.5px;font-weight:600;width:32px;text-align:right;color:#9a9187">${i+1}</td>
+        <td style="padding:8px 10px;color:#1c1916;font-size:11.5px;word-break:break-all">${safeName}</td>
+        <td style="padding:8px 10px;color:#9a9187;font-size:10.5px;white-space:nowrap">${safeAcct}</td>
+      </tr>`;
+    }).join('');
+    return `<details open style="margin-bottom:14px;border:1px solid #e0dbd0;border-radius:10px;overflow:hidden;background:#fff">
+      <summary style="cursor:pointer;padding:10px 14px;background:linear-gradient(90deg,#f5ebe6 0%,#fff 70%);font-size:12px;font-weight:800;color:#c0603a;letter-spacing:.05em;display:flex;align-items:center;gap:8px">
+        <span>${g}</span><span style="font-size:10px;font-weight:600;color:#9a9187">(${list.length})</span>
+      </summary>
+      <table style="width:100%;border-collapse:collapse">${rows}</table>
+    </details>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div style="background:#faf8f5;border-radius:16px;width:min(900px,92vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(28,25,22,.4);overflow:hidden">
+      <div style="padding:18px 22px;border-bottom:1px solid #e0dbd0;display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#fff 0%,#fdf5e6 100%)">
+        <div>
+          <div style="font-size:9px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#c0603a">Drilldown</div>
+          <div style="font-size:17px;font-weight:900;color:#1c1916;margin-top:2px">Ads classified as <span style="color:#c0603a">Other</span></div>
+          <div style="font-size:10.5px;color:#9a9187;margin-top:3px">${ads.length.toLocaleString()} ads · no product tag matched in <code style="font-size:10px;background:#f4ede0;padding:1px 5px;border-radius:4px">detectProduct()</code></div>
+        </div>
+        <button onclick="hideOtherAdsDrill()" style="margin-left:auto;background:transparent;border:1px solid #cdc8bc;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:700;color:#4a4540;cursor:pointer;font-family:inherit">Close ✕</button>
+      </div>
+      <div style="padding:14px 22px;border-bottom:1px solid #e0dbd0;background:#fff;display:flex;gap:10px;align-items:center">
+        <input id="otherDrillSearch" type="text" placeholder="Filter by ad name or account…" style="flex:1;padding:9px 12px;border:1px solid #cdc8bc;border-radius:8px;font-size:12px;font-family:inherit;outline:none">
+        <button onclick="copyOtherDrillNames()" style="background:#4a7c6f;border:none;border-radius:8px;padding:9px 14px;font-size:11px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit" title="Copy all ad names to clipboard">Copy all</button>
+      </div>
+      <div id="otherDrillList" style="overflow-y:auto;padding:16px 22px 20px;flex:1">${groupsHtml}</div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Live filter
+  const input = document.getElementById('otherDrillSearch');
+  input.addEventListener('input', () => {
+    const q = input.value.toLowerCase();
+    overlay.querySelectorAll('tbody tr, table tr').forEach(tr => {
+      const txt = tr.textContent.toLowerCase();
+      tr.style.display = (q === '' || txt.includes(q)) ? '' : 'none';
+    });
+  });
+  input.focus();
+}
+
+function hideOtherAdsDrill(){
+  const el = document.getElementById('otherDrillOverlay');
+  if(el) el.remove();
+}
+
+function copyOtherDrillNames(){
+  const ads = window._otherAds || [];
+  const text = ads.map(a => a.name).join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied';
+    btn.style.background = '#1f5d4d';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = '#4a7c6f'; }, 1800);
+  });
+}
+
+// ════════════════════════════════════════
 // ★ 4-FILTER WINNER LOGIC (updated) ★
 //
 // INCREMENTAL WINNER: F1 ✓ AND (F2 ✓ OR F3 ✓) AND F4 ✓
 // WINNER:             F1 ✓ AND (F2 ✓ OR F3 ✓)            ← F4 not mandatory
-// ITE PRIORITY 1:     (deprecated — F1 ✓ AND F3 ✓ alone now qualifies as Winner)
-// ITE PRIORITY 2:     F1 ✓ AND F2 ✗ AND F3 ✗
+// ITE Priority Analysis 1:     (deprecated — F1 ✓ AND F3 ✓ alone now qualifies as Winner)
+// ITE Priority Analysis 2:     F1 ✓ AND F2 ✗ AND F3 ✗
 // ANALYSE:            NOT F1 AND (has conversions OR F3 ✓)
 // DISCARDED:          NOT F1 AND no conversions AND NOT F3
 //
@@ -1393,31 +1527,37 @@ const CATEGORY_CONFIG = {
     label:'Incremental Winner',
     bg:'#dff0e8', color:'#1f5d4d', border:'rgba(31,93,77,.35)',
     action:'Top performer — scale aggressively',
-    desc:'F1 ✓ AND (F2 ✓ OR F3 ✓) AND F4 ✓ — F1 mandatory, F4 mandatory, plus ROAS or Cost/NCP'
+    desc:'F1 ✓ AND F2 ✓ AND F3 ✓ AND F4 ✓ — all four filters pass'
   },
   'Winner':    {
     label:'Winner',
     bg:'#e6f0ee', color:'#4a7c6f', border:'rgba(74,124,111,.3)',
     action:'Scale budget · maintain creative format',
-    desc:'F1 ✓ AND (F2 ✓ OR F3 ✓) — F1 mandatory plus either ROAS or Cost/NCP (F4 not required)'
+    desc:'F1 ✓ AND F2 ✓ AND F3 ✓ — strong conversion signal, F4 not met'
   },
   'Priority': {
     label:'Priority',
     bg:'#fbeed6', color:'#92620a', border:'rgba(146,98,10,.3)',
-    action:'Iterate harder — Cost/NCP AND ROAS failing',
-    desc:'F1 ✓ AND F2 ✗ AND F3 ✗ — impressions met but neither ROAS nor Cost/NCP signal'
+    action:'Iterate — high impressions AND good Cost/FTEWV but conversion failing',
+    desc:'F1 ✓ AND F4 ✓ — impressions and Cost/FTEWV met (P0 ITE iteration target)'
   },
-  'Analyse':   {
-    label:'Analyse',
+  'Analyze 1':   {
+    label:'Analyze 1',
     bg:'#eaf0f8', color:'#4a6fa5', border:'rgba(74,111,165,.3)',
-    action:'Study signal · find pattern · create learnings',
-    desc:'Low impressions with signal, OR strong ROAS without efficiency signal'
+    action:'F1 hit — study what worked at scale',
+    desc:'F1 ✓ only — impressions hit but neither ROAS nor Cost/NCP nor Cost/FTEWV pass'
+  },
+  'Analyze 2':   {
+    label:'Analyze 2',
+    bg:'#e8e4f5', color:'#5a4d8c', border:'rgba(90,77,140,.3)',
+    action:'F2 hit — strong ROAS, study what limits scale',
+    desc:'F2 ✓ only — ROAS strong but impressions below threshold'
   },
   'Discarded': {
     label:'Discarded',
     bg:'#f5ebe6', color:'#c0603a', border:'rgba(192,96,58,.3)',
     action:'Do not replicate · review creative & targeting',
-    desc:'F1 ✗ AND no conversions AND F3 ✗ — no signal at all'
+    desc:'No filter combination matched — no usable signal'
   },
 };
 
@@ -1432,7 +1572,7 @@ const CATEGORY_CONFIG = {
  * @param {number} targetCpn       - F3 cost-per-NCP ceiling (lower is better)
  * @param {number} targetFtewv     - F4 cost-per-FTEWV ceiling
  * @param {boolean} hasConversions - true if convValue > 0
- * @returns {'Incremental Winner'|'Winner'|'Priority'|'Analyse'|'Discarded'}
+ * @returns {'Incremental Winner'|'Winner'|'Priority Analysis'|'Analyse'|'Discarded'}
  */
 function getAdCategory(impr, ctRoas, costPerNcp, costPerFtewv, targetImp, targetRoas, targetCpn, targetFtewv, hasConversions){
   const f1 = impr >= targetImp;
@@ -1440,20 +1580,25 @@ function getAdCategory(impr, ctRoas, costPerNcp, costPerFtewv, targetImp, target
   const f3 = costPerNcp > 0 && costPerNcp <= targetCpn;
   const f4 = costPerFtewv > 0 && costPerFtewv <= targetFtewv;
 
-  // Updated definitions:
-  //   Incremental Winner = F1 AND (F2 OR F3) AND F4
-  //   Winner             = F1 AND (F2 OR F3)            ← F4 not mandatory
-  if(f1 && (f2 || f3) && f4)          return 'Incremental Winner';
-  if(f1 && (f2 || f3))                return 'Winner';
-  if(f1 && !f2 && !f3)                return 'Priority';   // F1 only, no ROAS / Cost/NCP signal
-  if(!f1 && (hasConversions || f3))   return 'Analyse';
+  // Definitions (priority order — first match wins):
+  //   Incremental Winner = F1 AND F2 AND F3 AND F4
+  //   Winner             = F1 AND F2 AND F3
+  //   Priority (P0 ITE)  = F1 AND F4
+  //   Analyze 1          = F1 only
+  //   Analyze 2          = F2 only
+  //   Discarded          = everything else
+  if(f1 && f2 && f3 && f4)            return 'Incremental Winner';
+  if(f1 && f2 && f3)                  return 'Winner';
+  if(f1 && f4)                        return 'Priority';
+  if(f1)                              return 'Analyze 1';
+  if(f2)                              return 'Analyze 2';
   return 'Discarded';
 }
 
 // ════════════════════════════════════════
 // RENDER — Results Summary
 // ════════════════════════════════════════
-const CAT_KEYS = ['Incremental Winner','Winner','Priority','Analyse','Discarded'];
+const CAT_KEYS = ['Incremental Winner','Winner','Priority','Analyze 1','Analyze 2','Discarded'];
 
 function renderResults(ads){
   const targetImp   = parseFloat(document.getElementById('targetImp')?.value)   || 50000;
@@ -1504,6 +1649,10 @@ function renderResults(ads){
   });
 
   const counts = {}; CAT_KEYS.forEach(k => counts[k] = 0);
+  // Parallel F4-quality count — F4 doesn't drive category, but we display
+  // "X / Y pass F4" on each card per user request.
+  const f4Counts = {}; CAT_KEYS.forEach(k => f4Counts[k] = 0);
+  let f4TotalPass = 0, f4TotalAds = 0;
   const ctypeOrder  = ['IFAD','Graphic AD','VID','STATIC'];
   const ctypeCounts = {};
   ctypeOrder.forEach(ct => {
@@ -1528,8 +1677,18 @@ function renderResults(ads){
     const hasConv        = m.convValue > 0;
     const cat            = getAdCategory(m.impr, ctRoas, costPerNcp, costPerFtewv, targetImp, targetRoas, targetCpn, targetFtewv, hasConv);
     counts[cat]++;
+    // F4 parallel check — passed if Cost/FTEWV is within target
+    const f4Pass = costPerFtewv > 0 && costPerFtewv <= targetFtewv;
+    if(f4Pass) f4Counts[cat]++;
+    f4TotalAds++;
+    if(f4Pass) f4TotalPass++;
     const ct = ctypeOrder.includes(m.ctype) ? m.ctype : 'VID';
-    if(ctypeCounts[ct]){ ctypeCounts[ct][cat]++; ctypeCounts[ct].total++; }
+    if(ctypeCounts[ct]){
+      ctypeCounts[ct][cat]++;
+      ctypeCounts[ct].total++;
+      if(!ctypeCounts[ct]._f4Pass) ctypeCounts[ct]._f4Pass = 0;
+      if(f4Pass) ctypeCounts[ct]._f4Pass++;
+    }
   });
 
   // ── Render summary chips ──
@@ -1538,18 +1697,25 @@ function renderResults(ads){
   const totalAds = Object.values(counts).reduce((s,c)=>s+c,0);
 
   const filterBadges = {
-    'Incremental Winner': '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-pass">F2/F3 ✓</span><span class="logic-pill lp-pass">F4 ✓</span>',
-    'Winner':             '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-pass">F2/F3 ✓</span>',
-    'Priority':           '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-fail">F2/F3 ✗</span>',
-    'Analyse':            '<span class="logic-pill lp-warn">signal ✓</span>',
-    'Discarded':          '<span class="logic-pill lp-fail">F1 ✗</span><span class="logic-pill lp-fail">no signal</span>',
+    'Incremental Winner': '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-pass">F2 ✓</span><span class="logic-pill lp-pass">F3 ✓</span><span class="logic-pill lp-pass">F4 ✓</span>',
+    'Winner':             '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-pass">F2 ✓</span><span class="logic-pill lp-pass">F3 ✓</span>',
+    'Priority':           '<span class="logic-pill lp-pass">F1 ✓</span><span class="logic-pill lp-pass">F4 ✓</span>',
+    'Analyze 1':          '<span class="logic-pill lp-pass">F1 ✓</span>',
+    'Analyze 2':          '<span class="logic-pill lp-pass">F2 ✓</span>',
+    'Discarded':          '<span class="logic-pill lp-fail">no filter pass</span>',
   };
 
   summary.innerHTML = CAT_KEYS.map(key => {
     const cfg = CATEGORY_CONFIG[key];
     const n   = counts[key];
+    const f4n = f4Counts[key];
     const pct = totalAds > 0 ? (n/totalAds*100) : 0;
     const pctStr = pct===0?'0%':pct<1?'<1%':Math.round(pct)+'%';
+    // F4 quality box — parallel check (does NOT affect category)
+    const f4Box = `<div style="margin-top:8px;padding:6px 8px;border:1px dashed ${cfg.border};border-radius:8px;background:rgba(255,255,255,.4);display:flex;align-items:center;gap:6px" title="Ads passing Cost/FTEWV ≤ ${targetFtewv}">
+        <span style="font-size:.5rem;font-weight:700;color:${cfg.color};opacity:.7;letter-spacing:.4px;text-transform:uppercase">F4 Quality</span>
+        <span style="font-size:.62rem;font-weight:800;color:${cfg.color};margin-left:auto;font-family:'Roboto Mono',monospace">${f4n} / ${n} ✓</span>
+      </div>`;
     return `<div style="display:flex;flex-direction:column;gap:4px;background:${cfg.bg};border:1px solid ${cfg.border};border-radius:14px;padding:14px 18px;min-width:155px">
       <div style="display:flex;align-items:baseline;gap:6px">
         <span style="font-family:'Roboto',sans-serif;font-size:1.85rem;font-weight:900;color:${cfg.color};line-height:1">${pctStr}</span>
@@ -1557,6 +1723,7 @@ function renderResults(ads){
       <div style="font-size:.62rem;font-weight:700;color:${cfg.color};margin-top:2px">${cfg.label}</div>
       <div style="font-size:.55rem;color:${cfg.color};opacity:.65;margin-top:1px">${n} ads · ${cfg.action}</div>
       <div class="logic-pills">${filterBadges[key]}</div>
+      ${f4Box}
     </div>`;
   }).join('');
 
@@ -1571,18 +1738,20 @@ function renderCtypeFunnel(ctypeCounts, ctypeOrder, totalAds, globalCounts){
   const table = document.getElementById('ctypeFunnelTable');
   if(!wrap||!table) return;
 
-  const SUB_CATS = ['Incremental Winner','Winner','Priority','Discarded','Analyse'];
+  const SUB_CATS = ['Incremental Winner','Winner','Priority','Analyze 1','Analyze 2','Discarded'];
   const GROUPS = [
     { label:'🟢 Winner',     master:'#2d6a4f', cats:['Incremental Winner','Winner'] },
     { label:'🟡 Priority',   master:'#b8883a', cats:['Priority'] },
-    { label:'🔴 Failed Ad',  master:'#9b2335', cats:['Discarded','Analyse'] },
+    { label:'🔵 Analyze',    master:'#4a6fa5', cats:['Analyze 1','Analyze 2'] },
+    { label:'🔴 Discarded',  master:'#9b2335', cats:['Discarded'] },
   ];
   const SUB_CFG = {
     'Incremental Winner': { color:'#1f5d4d', bg:'rgba(31,93,77,.10)',   pill:'rgba(31,93,77,.15)',   short:'Inc. Winner' },
     'Winner':             { color:'#2d6a4f', bg:'rgba(45,106,79,.07)',  pill:'rgba(45,106,79,.12)',  short:'Winner' },
     'Priority':           { color:'#b8883a', bg:'rgba(184,136,58,.07)', pill:'rgba(184,136,58,.13)', short:'Priority' },
+    'Analyze 1':          { color:'#4a6fa5', bg:'rgba(74,111,165,.07)', pill:'rgba(74,111,165,.13)', short:'Analyze 1' },
+    'Analyze 2':          { color:'#5a4d8c', bg:'rgba(90,77,140,.07)',  pill:'rgba(90,77,140,.13)',  short:'Analyze 2' },
     'Discarded':          { color:'#9b2335', bg:'rgba(155,35,53,.06)',  pill:'rgba(155,35,53,.12)',  short:'Discarded' },
-    'Analyse':            { color:'#2c5282', bg:'rgba(44,82,130,.06)',  pill:'rgba(44,82,130,.12)',  short:'Analyse' },
   };
   const CTYPE_ICONS = { 'IFAD':'🎬', 'Graphic AD':'🖼️', 'VID':'📹', 'STATIC':'📷' };
   const activeCTypes = ctypeOrder.filter(ct=>ctypeCounts[ct]?.total>0);
@@ -1591,16 +1760,22 @@ function renderCtypeFunnel(ctypeCounts, ctypeOrder, totalAds, globalCounts){
   const maxPerCat = {};
   SUB_CATS.forEach(cat=>{ maxPerCat[cat]=Math.max(...activeCTypes.map(ct=>ctypeCounts[ct][cat]||0),1); });
 
-  // Grid: [Creative Type label] [Total] [one column per SUB_CAT] — size adapts
-  // to however many sub-categories exist.
-  const gridCols = '180px 70px repeat(' + SUB_CATS.length + ',1fr)';
+  // Grid: [Creative Type label] [Total] [one column per SUB_CAT] [F4 Pass] — adapts
+  // to however many sub-categories exist. Last column is the parallel F4-quality check.
+  const F4_MASTER = '#7c4dbd';
+  const F4_BG     = 'rgba(124,77,189,.07)';
+  const F4_PILL   = 'rgba(124,77,189,.13)';
+  const gridCols = '180px 70px repeat(' + SUB_CATS.length + ',1fr) 130px';
 
-  // Master header — each group spans as many sub-columns as it has cats (Priority spans 1).
+  // Master header — sub-cat groups + a new "F4 Quality" master at the end.
   const masterHeader = `
     <div style="grid-column:span 2;background:var(--surface2);border-bottom:1px solid var(--border)"></div>
     ${GROUPS.map(g=>`<div style="grid-column:span ${g.cats.length};padding:10px 14px;text-align:center;background:${g.master}1A;border-left:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div style="font-size:.7rem;font-weight:900;letter-spacing:.06em;color:${g.master}">${g.label}</div>
     </div>`).join('')}
+    <div style="padding:10px 14px;text-align:center;background:${F4_MASTER}1A;border-left:2px solid var(--border);border-bottom:1px solid var(--border)">
+      <div style="font-size:.7rem;font-weight:900;letter-spacing:.06em;color:${F4_MASTER}">⚡ F4 Quality</div>
+    </div>
   `;
 
   const subHeader = `
@@ -1609,6 +1784,9 @@ function renderCtypeFunnel(ctypeCounts, ctypeOrder, totalAds, globalCounts){
     ${SUB_CATS.map(cat=>{const c=SUB_CFG[cat];return`<div style="padding:10px 12px;text-align:center;background:${c.bg};border-left:1px solid var(--border)">
       <div style="font-size:.58rem;font-weight:800;letter-spacing:.05em;color:${c.color}">${c.short}</div>
     </div>`;}).join('')}
+    <div style="padding:10px 12px;text-align:center;background:${F4_BG};border-left:2px solid var(--border)">
+      <div style="font-size:.58rem;font-weight:800;letter-spacing:.05em;color:${F4_MASTER}" title="Ads passing Cost/FTEWV ≤ target — independent of category">F4 ✓</div>
+    </div>
   `;
 
   table.innerHTML = `
@@ -1638,6 +1816,19 @@ function renderCtypeFunnel(ctypeCounts, ctypeOrder, totalAds, globalCounts){
             </div>
           </div>`;
         }).join('')}
+        ${(() => {
+          const f4n  = row._f4Pass || 0;
+          const f4pc = row.total > 0 ? Math.round(f4n / row.total * 100) : 0;
+          return `<div style="padding:12px 12px;background:${F4_BG};border-left:2px solid var(--border);display:flex;flex-direction:column;gap:5px;justify-content:center">
+            <div style="display:flex;align-items:baseline;gap:5px">
+              <span style="font-family:'Roboto',sans-serif;font-size:1.2rem;font-weight:900;color:${F4_MASTER};line-height:1">${f4n}</span>
+              <span style="font-size:.55rem;font-weight:700;color:${F4_MASTER};opacity:.7">${f4pc}%</span>
+            </div>
+            <div style="height:4px;background:rgba(0,0,0,.06);border-radius:99px;overflow:hidden">
+              <div style="height:100%;width:${f4pc.toFixed(1)}%;background:${F4_MASTER};border-radius:99px;opacity:.75;transition:width .5s cubic-bezier(.4,0,.2,1)"></div>
+            </div>
+          </div>`;
+        })()}
       </div>`;
     }).join('')}
     <div style="display:grid;grid-template-columns:${gridCols};border-top:2px solid var(--border);background:var(--surface2)">
@@ -1653,6 +1844,14 @@ function renderCtypeFunnel(ctypeCounts, ctypeOrder, totalAds, globalCounts){
           <span style="font-size:.58rem;font-weight:700;color:${c.color};opacity:.75;background:${c.pill};padding:2px 6px;border-radius:99px">${pct}%</span>
         </div>`;
       }).join('')}
+      ${(() => {
+        const f4n  = activeCTypes.reduce((s,ct)=>s+(ctypeCounts[ct]._f4Pass||0),0);
+        const f4pc = totalAds > 0 ? Math.round(f4n / totalAds * 100) : 0;
+        return `<div style="padding:13px 12px;background:${F4_BG};border-left:2px solid var(--border);display:flex;align-items:center;gap:6px">
+          <span style="font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:900;color:${F4_MASTER}">${f4n}</span>
+          <span style="font-size:.58rem;font-weight:700;color:${F4_MASTER};opacity:.75;background:${F4_PILL};padding:2px 6px;border-radius:99px">${f4pc}%</span>
+        </div>`;
+      })()}
     </div>
   </div>`;
 }
@@ -1734,7 +1933,7 @@ function populateDashboardFromResult(row,label){
     campName:a.campName||'',status:a.adStatus||'',
     impr:Number(a.impr)||0,spend:Number(a.spend)||0,reach:Number(a.reach)||0,
     outClicks:Number(a.clicks)||0,thruPlays:Number(a.thru)||0,
-    videoPlays:Number(a.vid3)||0,postEng:Number(a.eng)||0,
+    videoPlays:Number(a.vid3)||0,postEng:Number(a.eng)||0,engCount:Number(a.engCount||a.engagementCount||a.engagement_count)||0,
     convValue:Number(a.convV)||0,vpt:Number(a.vpt)||0,
     cpcSheet:Number(a.cpc)||0,
     ftewvCount:Number(a.ftewv)||0,
@@ -1789,7 +1988,7 @@ async function fetchFromPrimaryForDateRange(fromVal,toVal){
   setFetchSt('Fetching range…','as-loading'); setStatus('Fetching '+fromVal+' → '+toVal+' from primary_table…','info');
   const dfNote=document.getElementById('dateFilterNote');
   if(dfNote){dfNote.textContent='⏳ Fetching from primary_table for this date range…';dfNote.style.display='inline';}
-  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','conversion_value','video_play_time','ad_created_date','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp','preview_link','ad_link'].join(',');
+  const cols=['account_name','date','ad_name','ad_id','campaign_name','ad_status','impressions','amount_spent_inr','reach','outbound_clicks','thruplays','three_sec_video_plays','post_engagements','engagement_count','conversion_value','video_play_time','ad_created_date','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp','preview_link','ad_link'].join(',');
   const accountNames=ACTIVE_ACCT===0?SHEET_ACCOUNTS.map(a=>a.name):[SHEET_ACCOUNTS[ACTIVE_ACCT-1].name];
   const BATCH=1000; let combined=[];
   try{
@@ -1954,7 +2153,7 @@ function ctExportCSV(){
     ['# Cost/FTEWV = Σ(spend) ÷ Σ(ftewv_count) over the selected date range'],
     ['# Incremental Winner = F1 AND (F2 OR F3) AND F4'],
     ['# Winner             = F1 AND (F2 OR F3)   — F4 not mandatory'],
-    ['# Priority           = F1 AND NOT F2 AND NOT F3'],
+    ['# Priority Analysis           = F1 AND NOT F2 AND NOT F3'],
     ['# Analyse            = NOT F1 AND (conv OR F3)'],
     ['# Discarded          = NOT F1 AND no conv AND NOT F3'],
     ['# ─── EXPORT SUMMARY ───'],
@@ -1973,7 +2172,7 @@ function ctExportCSV(){
     'FTEWV Count','Cost per FTEWV (₹)',
     'ThruPlays','3-Sec Video Plays','Post Engagements','Reach',
     'F1 Pass','F2/F3 Pass (ROAS or Cost/NCP)','F4 Pass',
-    'Category (Inc.Winner/Winner/Priority/Analyse/Discarded)',
+    'Category (Inc.Winner/Winner/Priority Analysis/Analyse/Discarded)',
     'Ad Status'
   ];
 
@@ -2108,7 +2307,7 @@ function ctExportCSV(){
           <span style="flex:1;height:1px;background:var(--terra-lt)"></span>Categorisation Algorithm<span style="flex:1;height:1px;background:var(--terra-lt)"></span>
         </div>
         <div style="font-size:.68rem;color:var(--ink2);margin-bottom:10px;line-height:1.7">
-          Each unique ad is evaluated against a <strong>4-filter matrix</strong>. <strong>F1 is mandatory</strong> for Winner. <strong>Incremental Winners</strong> pass F1 + at least one of F2/F3 + F4. <strong>Winners</strong> pass F1 + at least one of F2/F3 (F4 not required). Ads that pass only F1 are sent to <strong>Priority</strong>. Failed ads land in Analyse (with signal) or Discarded (no signal).
+          Each unique ad is evaluated against a <strong>4-filter matrix</strong>. <strong>F1 is mandatory</strong> for Winner. <strong>Incremental Winners</strong> pass F1 + at least one of F2/F3 + F4. <strong>Winners</strong> pass F1 + at least one of F2/F3 (F4 not required). Ads that pass only F1 are sent to <strong>Priority Analysis</strong>. Failed ads land in Analyse (with signal) or Discarded (no signal).
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           <!-- Header row — F2 and F3 share one combined gate (passes if either is ✓) -->
@@ -2135,9 +2334,9 @@ function ctExportCSV(){
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(74,124,111,.2);color:var(--muted);font-size:.58rem">—</div>
             <div style="padding:9px 12px;color:#4a7c6f">F1 + F2/F3 — F4 not required</div>
           </div>
-          <!-- Priority -->
+          <!-- Priority Analysis -->
           <div style="display:grid;grid-template-columns:120px 70px 110px 70px 1fr;border:1px solid rgba(184,136,58,.3);border-radius:10px;overflow:hidden;font-size:.62rem;background:#fbeed6">
-            <div style="padding:9px 12px;font-weight:800;color:#b8883a;border-right:1px solid rgba(184,136,58,.2)">🟡 Priority</div>
+            <div style="padding:9px 12px;font-weight:800;color:#b8883a;border-right:1px solid rgba(184,136,58,.2)">🟡 Priority Analysis</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:#b8883a;font-weight:700">✓</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:#c0603a">✗</div>
             <div style="padding:9px 8px;text-align:center;border-right:1px solid rgba(184,136,58,.2);color:var(--muted);font-size:.58rem">—</div>
@@ -2521,8 +2720,9 @@ function ctExportCSV(){
         <span id="ae-row-badge" style="display:none;font-size:10px;font-weight:700;color:#c0603a;background:#f5ebe6;border:1px solid rgba(192,96,58,.25);border-radius:20px;padding:2px 10px"></span>
       </div>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
-        <select id="ae-group-by" onchange="aeRecompute()" class="ae-filter-input" style="min-width:130px">
-          <option value="ad">Ad Level</option>
+        <select id="ae-group-by" onchange="aeRecompute()" class="ae-filter-input" style="min-width:150px">
+          <option value="ad">Ad Level (unique ad_id)</option>
+          <option value="ad_name">Ad Name (collapse duplicates)</option>
           <option value="campaign">Campaign Level</option>
         </select>
         <div style="position:relative;flex-shrink:0" id="ae-drp-wrap">
@@ -2717,11 +2917,11 @@ function ctExportCSV(){
         </div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
-        <div class="ae-metric-card active" id="ae-card-all" onclick="aeChipFilter('')" style="--card-accent:var(--ae-slate);--card-border:rgba(74,111,165,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Total Analysed</div><div id="ae-c-total" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-slate)">—</div></div>
-        <div class="ae-metric-card" id="ae-card-Winner" onclick="aeChipFilter('Winner')" style="--card-accent:var(--ae-sage);--card-border:rgba(74,124,111,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Winners</div><div id="ae-c-winner" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-sage)">—</div><div style="font-size:9px;color:var(--ae-muted);margin-top:4px">F1 + (F2 or F3) ✓</div></div>
-        <div class="ae-metric-card" id="ae-card-ITE" onclick="aeChipFilter('ITE')" style="--card-accent:var(--ae-gold);--card-border:rgba(184,136,58,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">ITE</div><div id="ae-c-ite" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-gold)">—</div><div style="font-size:9px;color:var(--ae-muted);margin-top:4px">F1 ✓, F2/F3 ✗</div></div>
-        <div class="ae-metric-card" id="ae-card-Analyse" onclick="aeChipFilter('Analyse')" style="--card-accent:var(--ae-slate);--card-border:rgba(74,111,165,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Analyse</div><div id="ae-c-analyse" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-slate)">—</div><div style="font-size:9px;color:var(--ae-muted);margin-top:4px">F1 ✗ + signal</div></div>
-        <div class="ae-metric-card" id="ae-card-Discarded" onclick="aeChipFilter('Discarded')" style="--card-accent:var(--ae-terra);--card-border:rgba(192,96,58,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Discarded</div><div id="ae-c-discarded" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-terra)">—</div><div style="font-size:9px;color:var(--ae-muted);margin-top:4px">F1 ✗, no signal</div></div>
+        <div class="ae-metric-card active" id="ae-card-all" onclick="aeChipFilter('')" style="--card-accent:var(--ae-slate);--card-border:rgba(74,111,165,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Total Analysed</div><div id="ae-c-total" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-slate)">—</div><div id="ae-c-total-f4" style="font-size:9px;font-weight:700;color:var(--ae-sage);margin-top:6px;padding:3px 8px;border:1px solid rgba(74,124,111,.3);border-radius:100px;display:inline-block;background:rgba(74,124,111,.08)" title="Ads passing Cost/FTEWV ≤ target">— / — pass F4</div></div>
+        <div class="ae-metric-card" id="ae-card-Winner" onclick="aeChipFilter('Winner')" style="--card-accent:var(--ae-sage);--card-border:rgba(74,124,111,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Winners</div><div id="ae-c-winner" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-sage)">—</div><div style="font-size:9px;color:var(--ae-muted);margin-top:4px">F1 + (F2 or F3) ✓</div><div id="ae-c-winner-f4" style="font-size:9px;font-weight:700;color:var(--ae-sage);margin-top:6px;padding:3px 8px;border:1px solid rgba(74,124,111,.3);border-radius:100px;display:inline-block;background:rgba(74,124,111,.08)" title="Winners also passing Cost/FTEWV ≤ target">— / — pass F4</div></div>
+        <div class="ae-metric-card" id="ae-card-ITE" onclick="aeChipFilter('ITE')" style="--card-accent:var(--ae-gold);--card-border:rgba(184,136,58,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">ITE</div><div id="ae-c-ite" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-gold)">—</div><div style="font-size:9px;color:var(--ae-muted);margin-top:4px">F1 ✓, F2/F3 ✗</div><div id="ae-c-ite-f4" style="font-size:9px;font-weight:700;color:var(--ae-gold);margin-top:6px;padding:3px 8px;border:1px solid rgba(184,136,58,.3);border-radius:100px;display:inline-block;background:rgba(184,136,58,.08)" title="Iteration ads also passing Cost/FTEWV ≤ target">— / — pass F4</div></div>
+        <div class="ae-metric-card" id="ae-card-Analyse" onclick="aeChipFilter('Analyse')" style="--card-accent:var(--ae-slate);--card-border:rgba(74,111,165,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Analyse</div><div id="ae-c-analyse" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-slate)">—</div><div style="font-size:9px;color:var(--ae-muted);margin-top:4px">F1 ✗ + signal</div><div id="ae-c-analyse-f4" style="font-size:9px;font-weight:700;color:var(--ae-slate);margin-top:6px;padding:3px 8px;border:1px solid rgba(74,111,165,.3);border-radius:100px;display:inline-block;background:rgba(74,111,165,.08)" title="Analyse ads also passing Cost/FTEWV ≤ target">— / — pass F4</div></div>
+        <div class="ae-metric-card" id="ae-card-Discarded" onclick="aeChipFilter('Discarded')" style="--card-accent:var(--ae-terra);--card-border:rgba(192,96,58,.3)"><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ae-muted);margin-bottom:8px">Discarded</div><div id="ae-c-discarded" style="font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--ae-terra)">—</div><div style="font-size:9px;color:var(--ae-muted);margin-top:4px">F1 ✗, no signal</div><div id="ae-c-discarded-f4" style="font-size:9px;font-weight:700;color:var(--ae-terra);margin-top:6px;padding:3px 8px;border:1px solid rgba(192,96,58,.3);border-radius:100px;display:inline-block;background:rgba(192,96,58,.08)" title="Discarded ads also passing Cost/FTEWV ≤ target">— / — pass F4</div></div>
       </div>
       <div class="ae-glass" style="padding:14px;margin-bottom:16px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -2774,33 +2974,66 @@ function ctExportCSV(){
         <table class="ae-tbl">
           <thead>
           <tr>
+            <!-- Identifiers -->
             <th onclick="aeSort('campName')" style="text-align:left;min-width:160px">Campaign &#8597;</th>
             <th onclick="aeSort('adsetId')" style="text-align:left;min-width:120px">Ad Set ID &#8597;</th>
             <th onclick="aeSort('adId')" style="text-align:left;min-width:120px">Ad ID &#8597;</th>
-            <th onclick="aeSort('adName')" style="text-align:left;min-width:220px">Name &#8597;</th>
-            <th style="text-align:left;min-width:120px">Ad Created</th>
-            <th onclick="aeSort('firstDate')" style="text-align:left;min-width:110px">First Seen &#8597;</th>
+            <th onclick="aeSort('adName')" style="text-align:left;min-width:220px">Ad Name &#8597;</th>
+            <th style="text-align:left;min-width:130px" title="Actual Ad created date (Meta Ad object created_time)">Ad Created Date</th>
+            <th onclick="aeSort('firstDate')" style="text-align:left;min-width:160px" title="Date the ad first served an impression">First Impression Served Date &#8597;</th>
+            <th onclick="aeSort('dateTargetF1')" style="text-align:left;min-width:150px" title="Date when F1 filter (impression count) is achieved">Date Target Imp Achieved &#8597;</th>
+            <th onclick="aeSort('dateOfResult')" style="text-align:left;min-width:140px" title="F1-hit date if achieved, else Ad Created (or First Seen) + 14 days">Date of Result &#8597;</th>
+            <th onclick="aeSort('daysToResult')" style="text-align:right;min-width:110px" title="No of days from First Seen to Date of Result">Days to Result &#8597;</th>
+            <th onclick="aeSort('daysToF1')" style="text-align:right;min-width:130px" title="No of days from First Seen to F1 target hit (— if not hit)">Days to Target (F1) &#8597;</th>
             <th onclick="aeSort('category')" style="text-align:left;min-width:110px">Status &#8597;</th>
-            <th onclick="aeSort('imp')" style="text-align:right;min-width:100px">Impressions &#8597;</th>
-            <th onclick="aeSort('rawRoas')" style="text-align:right;min-width:80px">ROAS &#8597;</th>
-            <th onclick="aeSort('rawCpc')" style="text-align:right;min-width:80px;color:#b8883a">CPC ₹ &#8597;</th>
-            <th onclick="aeSort('rawSpend')" style="text-align:right;min-width:130px">LTV Spend &#8597;</th>
             <th style="text-align:center;min-width:70px">F1</th>
             <th style="text-align:center;min-width:90px">F2 / F3</th>
+            <th style="text-align:left;min-width:110px">Ad Status</th>
+            <!-- Book1 metrics B–R -->
+            <th onclick="aeSort('imp')" style="text-align:right;min-width:110px">Impressions &#8597;</th>
+            <th onclick="aeSort('rawReach')" style="text-align:right;min-width:110px">Reach &#8597;</th>
+            <th style="text-align:right;min-width:90px">Reach Weight</th>
+            <th onclick="aeSort('rawCpr1000')" style="text-align:right;min-width:110px">Cost per 1,000 &#8597;</th>
+            <th onclick="aeSort('rawFreq')" style="text-align:right;min-width:90px">Frequency &#8597;</th>
+            <th onclick="aeSort('rawSpend')" style="text-align:right;min-width:130px">Amount Spent (INR) &#8597;</th>
+            <th onclick="aeSort('rawCpcLink')" style="text-align:right;min-width:90px;color:#b8883a">CPC (Link) ₹ &#8597;</th>
+            <th onclick="aeSort('rawCtrLink')" style="text-align:right;min-width:90px">CTR % &#8597;</th>
+            <th onclick="aeSort('rawLinkClicks')" style="text-align:right;min-width:100px">Link Clicks &#8597;</th>
+            <th onclick="aeSort('rawChkComp')" style="text-align:right;min-width:120px">Checkout Compl. % &#8597;</th>
+            <th onclick="aeSort('rawPurchases')" style="text-align:right;min-width:100px">Purchases &#8597;</th>
+            <th onclick="aeSort('rawCrLC')" style="text-align:right;min-width:90px">CR% LC &#8597;</th>
+            <th onclick="aeSort('rawAtcLC')" style="text-align:right;min-width:90px">ATC/LC % &#8597;</th>
+            <th onclick="aeSort('rawAtcCount')" style="text-align:right;min-width:90px">ATC &#8597;</th>
+            <th onclick="aeSort('rawCiAtc')" style="text-align:right;min-width:90px">CI/ATC % &#8597;</th>
+            <th onclick="aeSort('rawCiCount')" style="text-align:right;min-width:90px">CI &#8597;</th>
+            <th onclick="aeSort('rawConvValue')" style="text-align:right;min-width:120px">Conv Value ₹ &#8597;</th>
+            <th onclick="aeSort('rawRoas')" style="text-align:right;min-width:80px">ROAS MA &#8597;</th>
+            <th onclick="aeSort('shopifyOrders')" style="text-align:right;min-width:120px;background:#fdf5e6;color:#b8883a" title="Last-click attributed orders from Shopify (via utm_term=adset_id and utm_content=ad_name)">Shopify Orders &#8597;</th>
+            <th onclick="aeSort('shopifySales')"  style="text-align:right;min-width:140px;background:#fdf5e6;color:#b8883a" title="Last-click attributed revenue from Shopify (INR)">Shopify Sales ₹ &#8597;</th>
+            <th onclick="aeSort('rawCpFtewv')" style="text-align:right;min-width:110px">Cost / FTEWV &#8597;</th>
+            <th onclick="aeSort('rawFtewvCount')" style="text-align:right;min-width:110px">FTEWV Count &#8597;</th>
+            <th onclick="aeSort('rawCostPerNcp')" style="text-align:right;min-width:110px">Cost / NCP &#8597;</th>
+            <th style="text-align:right;min-width:110px">% Reach FTEWV</th>
+            <!-- Book1 efficiency S–AC -->
+            <th onclick="aeSort('rawProfit')" style="text-align:right;min-width:130px">Profit Efficiency &#8597;</th>
+            <th style="text-align:right;min-width:110px">Contribution Margin %</th>
+            <th style="text-align:right;min-width:100px">Delivery Eff</th>
+            <th style="text-align:right;min-width:120px">Sales &amp; Spend Eff</th>
+            <th onclick="aeSort('rawBlended')" style="text-align:right;min-width:110px">Blended Eff &#8597;</th>
+            <th style="text-align:right;min-width:100px">CPR Eff</th>
+            <th style="text-align:right;min-width:110px">FTV Contrib Eff</th>
+            <th style="text-align:right;min-width:110px">FTEV - Volume</th>
+            <th style="text-align:right;min-width:110px">NCP Cost Eff</th>
+            <th style="text-align:right;min-width:100px">ROAS Eff</th>
+            <th style="text-align:right;min-width:130px">Profit Volume Eff</th>
+            <!-- AE-specific extras -->
             <th style="text-align:center;min-width:120px">Days to Target</th>
             <th style="text-align:right;min-width:120px">Reach @ Freq 2</th>
             <th style="text-align:right;min-width:90px">LTV R/F</th>
-            <th style="text-align:right;min-width:90px">Reach Wt.</th>
-            <th onclick="aeSort('rawProfit')" style="text-align:right;min-width:130px">Profit Eff. &#8597;</th>
-            <th style="text-align:right;min-width:90px">Contrib.%</th>
-            <th style="text-align:right;min-width:100px">Delivery</th>
-            <th style="text-align:right;min-width:90px">Sales</th>
-            <th onclick="aeSort('rawBlended')" style="text-align:right;min-width:110px">Blended &#8597;</th>
             <th style="text-align:left;min-width:200px">System Type</th>
             <th style="text-align:left;min-width:150px">Action Protocol</th>
             <th style="text-align:left;min-width:200px">Performance Move</th>
             <th style="text-align:left;min-width:200px">Creative Move</th>
-            <th style="text-align:left;min-width:110px">Ad Status</th>
             <th style="text-align:center;min-width:80px">Preview</th>
             <th style="text-align:center;min-width:80px">Ad Link</th>
           </tr>
@@ -2828,43 +3061,88 @@ function ctExportCSV(){
 // ══════════════════════════════════════════════════
 const AEW={X:.10,Y:.25,Z:.15,AA:.20,AB:.20,AC:.10};
 
-// AEA descriptions — updated definitions:
-//   Incremental Winner = F1 AND (F2 OR F3) AND F4
-//   Winner             = F1 AND (F2 OR F3)            ← F4 not mandatory
+// AEA descriptions — new 6-category logic (priority order):
+//   Incremental Winner = F1 AND F2 AND F3 AND F4
+//   Winner             = F1 AND F2 AND F3
+//   Priority           = F1 AND F4 (P0 ITE iteration target)
+//   Analyze 1          = F1 only
+//   Analyze 2          = F2 only
+//   Discarded          = nothing matched
 const AEA={
   'Incremental Winner':{
-    type:"Top Performer — F1 ✓ + (F2 ROAS ✓ OR F3 CPC ✓) + F4 FTEWV ✓",
+    type:"All four filters pass — F1 ✓ F2 ✓ F3 ✓ F4 ✓",
     action:"Scale aggressively · top performer with efficiency confirmed",
-    perf:"F1 + at least one of ROAS/Cost-NCP + cost-per-FTEWV all firing",
+    perf:"Impressions, ROAS, Cost/NCP, and Cost/FTEWV all met",
     creative:"Replicate format · launch many variations"
   },
   'Winner':{
-    type:"Proven — F1 ✓ + (F2 ROAS ✓ OR F3 CPC ✓), F4 not required",
+    type:"F1 ✓ AND F2 ✓ AND F3 ✓ — F4 below target",
     action:"Scale budget · maintain creative format",
-    perf:"F1 met plus either strong ROAS or efficient Cost/NCP",
+    perf:"All conversion signals firing, only Cost/FTEWV under threshold",
     creative:"Replicate format & messaging · launch new variations"
   },
   'Priority':{
-    type:"F1 ✓ + F2 ROAS ✗ + F3 CPC ✗ — both ROAS and CPC failing",
-    action:"Iterate harder — both delivery efficiency and conv weak",
-    perf:"Good impressions but expensive clicks AND poor ROAS",
-    creative:"Rework hook, message, audience, CTA — full overhaul"
+    type:"F1 ✓ AND F4 ✓ — P0 ITE iteration target",
+    action:"Iterate — strong impressions + good Cost/FTEWV but conv weak",
+    perf:"Top-of-funnel efficiency met but ROAS/Cost-NCP not converting",
+    creative:"Rework CTA, offer clarity · keep visual hook"
+  },
+  'Analyze 1':{
+    type:"F1 ✓ only — impressions hit, no other filter passes",
+    action:"Study what drove scale without conversion",
+    perf:"Delivery target met but full funnel weak",
+    creative:"Identify viral hook · pair with stronger offer"
+  },
+  'Analyze 2':{
+    type:"F2 ✓ only — ROAS strong, impressions under target",
+    action:"Study what limits scale despite good ROAS",
+    perf:"Niche performer — quality conversions but limited reach",
+    creative:"Broaden audience · larger budget at same creative"
   },
   'Discarded':{
-    type:"F1 ✗ — low delivery, no conv signal, CPC too high",
+    type:"No filter combination matched — no usable signal",
     action:"Do not scale · review creative, audience & bid",
     perf:"Negative signal — useful as a learning data point",
     creative:"—"
-  },
-  'Analyse':{
-    type:"Low delivery with signal, OR strong ROAS without efficiency",
-    action:"Analyse for learnings · identify niche potential",
-    perf:"Promising signal but data sparse — more budget needed",
-    creative:"Find pattern · create learning data point"
   }
 };
 
 let aeRaw=[],aeResults=[],aeFiltered=[],aeLoaded=false;
+// Shopify-direct attribution map: ad_id -> {orders, sales}
+// Populated by aeFetchShopifyAttribution() from the shopify_ad_attribution table.
+// Used by aeCompute() / aeRender() to surface Shopify Orders + Sales per ad row.
+let aeShopifyMap = Object.create(null);
+
+async function aeFetchShopifyAttribution(){
+  const su=SUPABASE_URL, sa=SUPABASE_ANON;
+  if(!su||!sa) return;
+  try{
+    const BATCH=1000; let off=0, all=[];
+    while(true){
+      const url=su+'/rest/v1/shopify_ad_attribution?select=ad_id,orders,sales&limit='+BATCH+'&offset='+off;
+      const r=await fetch(url,{headers:{'apikey':sa,'Authorization':'Bearer '+sa,'Prefer':'count=none'}});
+      if(!r.ok) throw new Error('shopify_ad_attribution HTTP '+r.status);
+      const b=await r.json();
+      if(!Array.isArray(b)||b.length===0) break;
+      all=all.concat(b); off+=b.length;
+      if(b.length<BATCH) break;
+    }
+    const m=Object.create(null);
+    for(const x of all){
+      if(x.ad_id){
+        m[x.ad_id] = {
+          orders: Number(x.orders)||0,
+          sales:  Number(x.sales)||0,
+        };
+      }
+    }
+    aeShopifyMap = m;
+    console.log('[ae] shopify_ad_attribution loaded:', all.length, 'rows');
+  } catch(e){
+    console.warn('shopify_ad_attribution fetch failed; Orders/Sales columns will show 0:', e.message);
+    aeShopifyMap = Object.create(null);
+  }
+}
 let aeFromResultsTable=false,aeActiveAcct='';
 let aeSortKey='imp',aeSortDir=-1,aeChipActive='',aeCurPage=0,aePerPage=25;
 let aeHeat={roas:0,profit:0,blended:0};
@@ -2992,153 +3270,339 @@ function aeClearDateRange(){
 // ══════════════════════════════════════════
 const AE_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const AE_DAYS=['Su','Mo','Tu','We','Th','Fr','Sa'];
-const aeDrpState={open:false,viewYear:new Date().getFullYear(),viewMonth:new Date().getMonth()-1,from:null,to:null,hov:null,preset:'lifetime',selecting:false};
 
-// Local YYYY-MM-DD formatter — avoids the toISOString() UTC shift bug
-// that made clicks register on the previous day in IST/UTC+ zones.
-function aeFmtLocal(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return`${y}-${m}-${day}`;}
-function aeParseLocal(s){const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d,0,0,0,0);}
+// ══════════════════════════════════════════════════════════════════════════════
+// GENERIC DATE RANGE PICKER FACTORY — DRP
+// One factory powers every range-picker instance (AE, CT-main, CT-created, FT)
+// Each instance is identified by a `prefix`; its DOM IDs and state are namespaced.
+// Hidden <input> elements named `${fromInputId}` / `${toInputId}` are the truth.
+// Calling `mountDrp(opts)` returns an HTML string ready to drop into the page.
+// ══════════════════════════════════════════════════════════════════════════════
+const __drpInstances = {};   // prefix → { state, config }
 
-function aeDrpToggle(e){
-  if(e&&e.stopPropagation)e.stopPropagation();
-  const panel=document.getElementById('ae-drp-panel');
-  aeDrpState.open=!aeDrpState.open;window.aeDrpOpen=aeDrpState.open;
-  panel.style.display=aeDrpState.open?'block':'none';
-  const btn=document.getElementById('ae-drp-btn');
-  btn.style.borderColor=aeDrpState.open?'#c0603a':'#e0dbd0';
-  if(aeDrpState.open){
-    // Fully reset interaction state — and clear any stale from/to that wasn't Applied.
-    // The source of truth is the hidden inputs; only restore from those.
-    aeDrpState.selecting=false;aeDrpState.hov=null;
-    aeDrpState.from=null;aeDrpState.to=null;
-    const fIn=document.getElementById('ae-date-from').value;
-    const tIn=document.getElementById('ae-date-to').value;
-    if(fIn){aeDrpState.from=aeParseLocal(fIn);if(aeDrpState.preset==='lifetime')aeDrpState.preset='custom';}
-    if(tIn){aeDrpState.to=aeParseLocal(tIn);}
-    if(!fIn&&!tIn&&aeDrpState.preset!=='lifetime')aeDrpState.preset='lifetime';
-    aeDrpSetPresetActive(aeDrpState.preset);
-    // Anchor the view on the currently-selected `from` if present, else current month on the right
-    const anchor=aeDrpState.from?aeDrpState.from:new Date();
-    aeDrpState.viewYear=anchor.getFullYear();aeDrpState.viewMonth=anchor.getMonth()-1;
-    if(aeDrpState.viewMonth<0){aeDrpState.viewMonth=11;aeDrpState.viewYear--;}
-    aeDrpRender();
-    setTimeout(()=>{document.addEventListener('click',aeDrpOutside,{once:true});},0);
+function mountDrp(opts){
+  const prefix = opts.prefix;
+  const cfg = {
+    prefix,
+    fromInputId: opts.fromInputId,
+    toInputId:   opts.toInputId,
+    onApply: opts.onApply || function(){},
+    onClear: opts.onClear || opts.onApply || function(){},
+    minBtnWidth: opts.minBtnWidth || 180,
+    btnStyle:    opts.btnStyle    || ''
+  };
+  __drpInstances[prefix] = {
+    config: cfg,
+    state: { open:false, viewYear:new Date().getFullYear(), viewMonth:new Date().getMonth()-1,
+             from:null, to:null, hov:null, preset:'lifetime', selecting:false }
+  };
+  return `
+  <div id="${prefix}-drp-wrap" style="position:relative;display:inline-block">
+    <button id="${prefix}-drp-btn" onclick="drpToggle('${prefix}',event)" style="display:flex;align-items:center;gap:7px;padding:6px 12px;background:#faf8f5;border:1px solid #e0dbd0;border-radius:8px;font-family:inherit;font-size:11px;color:#1c1916;cursor:pointer;transition:all .15s;min-width:${cfg.minBtnWidth}px;justify-content:space-between;${cfg.btnStyle}">
+      <span id="${prefix}-drp-label" style="font-weight:600;color:#9a9187">📅 All time</span>
+      <span style="font-size:9px;color:#9a9187">▾</span>
+    </button>
+    <div id="${prefix}-drp-panel" style="display:none;position:fixed;top:0;left:0;z-index:99999;background:#fff;border:1px solid #e0dbd0;border-radius:14px;box-shadow:0 12px 40px rgba(28,25,22,.15);overflow:hidden;width:680px;font-family:'Roboto',sans-serif">
+      <div style="display:flex">
+        <div id="${prefix}-drp-presets" style="width:140px;flex-shrink:0;border-right:1px solid #f0ece4;padding:8px 0;background:#faf8f5">
+          <div class="ae-drp-preset" onclick="event.stopPropagation();drpPreset('${prefix}','today')"      data-key="today">Today</div>
+          <div class="ae-drp-preset" onclick="event.stopPropagation();drpPreset('${prefix}','yesterday')"  data-key="yesterday">Yesterday</div>
+          <div class="ae-drp-preset" onclick="event.stopPropagation();drpPreset('${prefix}','last7')"      data-key="last7">Last 7 Days</div>
+          <div class="ae-drp-preset" onclick="event.stopPropagation();drpPreset('${prefix}','last30')"     data-key="last30">Last 30 Days</div>
+          <div class="ae-drp-preset" onclick="event.stopPropagation();drpPreset('${prefix}','thisMonth')"  data-key="thisMonth">This Month</div>
+          <div class="ae-drp-preset" onclick="event.stopPropagation();drpPreset('${prefix}','lastMonth')"  data-key="lastMonth">Last Month</div>
+          <div class="ae-drp-preset" onclick="event.stopPropagation();drpPreset('${prefix}','last90')"     data-key="last90">Last 90 Days</div>
+          <div class="ae-drp-preset active" onclick="event.stopPropagation();drpPreset('${prefix}','lifetime')" data-key="lifetime">Lifetime</div>
+          <div class="ae-drp-preset" onclick="event.stopPropagation();drpPreset('${prefix}','custom')"     data-key="custom">Custom Range</div>
+        </div>
+        <div style="flex:1;padding:14px 18px 12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <button onclick="event.stopPropagation();drpNavMonth('${prefix}',-1)" style="background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px;font-size:14px;color:#4a4540;font-weight:700">&#8249;</button>
+            <div id="${prefix}-drp-month-l" style="font-size:13px;font-weight:700;color:#1c1916;min-width:90px;text-align:center"></div>
+            <div id="${prefix}-drp-month-r" style="font-size:13px;font-weight:700;color:#1c1916;min-width:90px;text-align:center"></div>
+            <button onclick="event.stopPropagation();drpNavMonth('${prefix}',1)" style="background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px;font-size:14px;color:#4a4540;font-weight:700">&#8250;</button>
+          </div>
+          <div style="display:flex;gap:14px">
+            <div id="${prefix}-drp-cal-l" style="flex:1"></div>
+            <div id="${prefix}-drp-cal-r" style="flex:1"></div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid #f0ece4">
+            <div id="${prefix}-drp-footer-range" style="font-size:11px;font-weight:600;color:#9a9187;font-family:'Roboto Mono',monospace"></div>
+            <div style="display:flex;gap:6px">
+              <button onclick="event.stopPropagation();drpCancel('${prefix}')" style="padding:6px 14px;background:#faf8f5;border:1px solid #e0dbd0;border-radius:7px;font-size:11px;font-weight:600;color:#9a9187;cursor:pointer;font-family:inherit">Cancel</button>
+              <button onclick="event.stopPropagation();drpApply('${prefix}')" style="padding:6px 14px;background:#c0603a;border:none;border-radius:7px;font-size:11px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit">Apply</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function drpFmtLocal(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return`${y}-${m}-${day}`;}
+function drpParseLocal(s){const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d,0,0,0,0);}
+
+function drpPositionPanel(prefix){
+  const btn   = document.getElementById(prefix+'-drp-btn');
+  const panel = document.getElementById(prefix+'-drp-panel');
+  if(!btn || !panel) return;
+  const r = btn.getBoundingClientRect();
+  const panelW = panel.offsetWidth  || 680;
+  const panelH = panel.offsetHeight || 380;
+  const margin = 6;
+  // Prefer placing below the button, aligned to its right edge.
+  let top = r.bottom + margin;
+  let left = r.right - panelW;
+  // Flip above if there isn't room below.
+  if(top + panelH > window.innerHeight - 8) top = Math.max(8, r.top - margin - panelH);
+  // Clamp horizontally so it never escapes the viewport.
+  if(left < 8) left = 8;
+  if(left + panelW > window.innerWidth - 8) left = window.innerWidth - panelW - 8;
+  panel.style.top  = top  + 'px';
+  panel.style.left = left + 'px';
+}
+
+function drpToggle(prefix, e){
+  if(e&&e.stopPropagation) e.stopPropagation();
+  const inst = __drpInstances[prefix]; if(!inst) return;
+  const {state, config} = inst;
+  state.open = !state.open;
+  document.getElementById(prefix+'-drp-panel').style.display = state.open ? 'block' : 'none';
+  document.getElementById(prefix+'-drp-btn').style.borderColor = state.open ? '#c0603a' : '#e0dbd0';
+  if(state.open){
+    // Place the fixed panel relative to the button on every open
+    drpPositionPanel(prefix);
+    state.selecting=false; state.hov=null; state.from=null; state.to=null;
+    const fIn = document.getElementById(config.fromInputId)?.value || '';
+    const tIn = document.getElementById(config.toInputId)?.value   || '';
+    if(fIn){ state.from = drpParseLocal(fIn); if(state.preset==='lifetime') state.preset='custom'; }
+    if(tIn){ state.to   = drpParseLocal(tIn); }
+    if(!fIn && !tIn && state.preset!=='lifetime') state.preset='lifetime';
+    drpSetPresetActive(prefix, state.preset);
+    const anchor = state.from ? state.from : new Date();
+    state.viewYear = anchor.getFullYear(); state.viewMonth = anchor.getMonth() - 1;
+    if(state.viewMonth < 0){ state.viewMonth=11; state.viewYear--; }
+    drpRender(prefix);
+    // Re-position once after the panel becomes visible (so offsetHeight is accurate)
+    setTimeout(()=>drpPositionPanel(prefix), 0);
+    setTimeout(()=>{ document.addEventListener('click', drpOutsideHandlerFor(prefix), {once:true}); }, 0);
   }
 }
-function aeDrpOutside(e){
-  const wrap=document.getElementById('ae-drp-wrap');
-  if(wrap&&!wrap.contains(e.target)){aeDrpState.open=false;window.aeDrpOpen=false;document.getElementById('ae-drp-panel').style.display='none';document.getElementById('ae-drp-btn').style.borderColor='#e0dbd0';}
-  else if(aeDrpState.open){document.addEventListener('click',aeDrpOutside,{once:true});}
+function drpOutsideHandlerFor(prefix){
+  return function(e){
+    const wrap = document.getElementById(prefix+'-drp-wrap');
+    const inst = __drpInstances[prefix];
+    if(!inst) return;
+    if(wrap && !wrap.contains(e.target)){
+      inst.state.open = false;
+      document.getElementById(prefix+'-drp-panel').style.display = 'none';
+      document.getElementById(prefix+'-drp-btn').style.borderColor = '#e0dbd0';
+    } else if(inst.state.open){
+      document.addEventListener('click', drpOutsideHandlerFor(prefix), {once:true});
+    }
+  };
 }
-function aeDrpNavMonth(dir){
-  aeDrpState.viewMonth+=dir;
-  if(aeDrpState.viewMonth>11){aeDrpState.viewMonth=0;aeDrpState.viewYear++;}
-  if(aeDrpState.viewMonth<0){aeDrpState.viewMonth=11;aeDrpState.viewYear--;}
-  aeDrpRender();
+function drpNavMonth(prefix, dir){
+  const s = __drpInstances[prefix].state;
+  s.viewMonth += dir;
+  if(s.viewMonth > 11){ s.viewMonth=0; s.viewYear++; }
+  if(s.viewMonth < 0){  s.viewMonth=11; s.viewYear--; }
+  drpRender(prefix);
 }
-function aeDrpRender(){
-  const {viewYear,viewMonth,from,to,hov,selecting}=aeDrpState;
-  const lY=viewYear,lM=viewMonth;let rM=viewMonth+1,rY=viewYear;
-  if(rM>11){rM=0;rY++;}
-  document.getElementById('ae-drp-month-l').textContent=AE_MONTHS[lM]+' '+lY;
-  document.getElementById('ae-drp-month-r').textContent=AE_MONTHS[rM]+' '+rY;
-  document.getElementById('ae-drp-cal-l').innerHTML=aeDrpCalHTML(lY,lM,from,to,hov,selecting);
-  document.getElementById('ae-drp-cal-r').innerHTML=aeDrpCalHTML(rY,rM,from,to,hov,selecting);
-  const fmt=d=>d?d.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'/'):'--/--/----';
-  const dispTo=selecting&&hov?hov:to;const a=from,b=dispTo;
-  document.getElementById('ae-drp-footer-range').textContent=(a&&b&&a>b)?fmt(b)+' - '+fmt(a):fmt(a)+' - '+fmt(b);
+function drpRender(prefix){
+  const s = __drpInstances[prefix].state;
+  const {viewYear,viewMonth,from,to,hov,selecting} = s;
+  const lY=viewYear, lM=viewMonth; let rM=viewMonth+1, rY=viewYear;
+  if(rM>11){ rM=0; rY++; }
+  document.getElementById(prefix+'-drp-month-l').textContent = AE_MONTHS[lM]+' '+lY;
+  document.getElementById(prefix+'-drp-month-r').textContent = AE_MONTHS[rM]+' '+rY;
+  document.getElementById(prefix+'-drp-cal-l').innerHTML = drpCalHTML(prefix, lY, lM, from, to, hov, selecting);
+  document.getElementById(prefix+'-drp-cal-r').innerHTML = drpCalHTML(prefix, rY, rM, from, to, hov, selecting);
+  const fmt = d => d ? d.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'/') : '--/--/----';
+  const dispTo = selecting && hov ? hov : to;
+  const a = from, b = dispTo;
+  document.getElementById(prefix+'-drp-footer-range').textContent = (a&&b&&a>b) ? fmt(b)+' - '+fmt(a) : fmt(a)+' - '+fmt(b);
 }
-function aeDrpCalHTML(year,month,from,to,hov,selecting){
-  const today=new Date();today.setHours(0,0,0,0);
-  const firstDay=new Date(year,month,1).getDay();const daysInMonth=new Date(year,month+1,0).getDate();const daysInPrevMonth=new Date(year,month,0).getDate();
-  let rFrom=from,rTo=selecting&&hov?hov:to;
-  if(rFrom&&rTo&&rFrom>rTo){const t=rFrom;rFrom=rTo;rTo=t;}
-  let html='<div class="ae-drp-grid">';
-  AE_DAYS.forEach(d=>{html+=`<div class="ae-drp-dow">${d}</div>`;});
-  // Prev-month leading days: shown but NOT clickable (use nav arrows to change month)
-  for(let i=0;i<firstDay;i++){const d=daysInPrevMonth-firstDay+1+i;html+=`<div class="ae-drp-day other-month">${d}</div>`;}
-  // Current-month days
-  for(let d=1;d<=daysInMonth;d++){
-    const dt=new Date(year,month,d);dt.setHours(0,0,0,0);
-    const iso=aeFmtLocal(dt);
-    const isFuture=dt.getTime()>today.getTime();
-    let cls='ae-drp-day';
-    if(dt.getTime()===today.getTime())cls+=' today';
-    if(rFrom&&dt.getTime()===rFrom.getTime())cls+=' range-start';
-    if(rTo&&dt.getTime()===rTo.getTime())cls+=' range-end';
-    if(rFrom&&rTo&&dt>rFrom&&dt<rTo)cls+=' in-range';
-    if(isFuture)cls+=' disabled';
-    const handlers=isFuture?'':`onclick="event.stopPropagation();aeDrpDayClick(this)" onmouseenter="aeDrpDayHover(this)"`;
-    html+=`<div class="${cls}" data-date="${iso}" ${handlers}>${d}</div>`;
+function drpCalHTML(prefix, year, month, from, to, hov, selecting){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const firstDay=new Date(year,month,1).getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const daysInPrevMonth=new Date(year,month,0).getDate();
+  let rFrom=from, rTo=selecting&&hov?hov:to;
+  if(rFrom && rTo && rFrom>rTo){ const t=rFrom; rFrom=rTo; rTo=t; }
+  let html = '<div class="ae-drp-grid">';
+  AE_DAYS.forEach(d => { html += `<div class="ae-drp-dow">${d}</div>`; });
+  for(let i=0;i<firstDay;i++){ const d=daysInPrevMonth-firstDay+1+i; html += `<div class="ae-drp-day other-month">${d}</div>`; }
+  for(let d=1; d<=daysInMonth; d++){
+    const dt = new Date(year,month,d); dt.setHours(0,0,0,0);
+    const iso = drpFmtLocal(dt);
+    const isFuture = dt.getTime() > today.getTime();
+    let cls = 'ae-drp-day';
+    if(dt.getTime() === today.getTime())             cls += ' today';
+    if(rFrom && dt.getTime() === rFrom.getTime())    cls += ' range-start';
+    if(rTo   && dt.getTime() === rTo.getTime())      cls += ' range-end';
+    if(rFrom && rTo && dt > rFrom && dt < rTo)       cls += ' in-range';
+    if(isFuture)                                      cls += ' disabled';
+    const handlers = isFuture ? '' : `onclick="event.stopPropagation();drpDayClick('${prefix}', this)" onmouseenter="drpDayHover('${prefix}', this)"`;
+    html += `<div class="${cls}" data-date="${iso}" ${handlers}>${d}</div>`;
   }
-  // Next-month trailing days: shown but NOT clickable
-  const total=firstDay+daysInMonth;const remainder=total%7===0?0:7-(total%7);
-  for(let d=1;d<=remainder;d++){html+=`<div class="ae-drp-day other-month">${d}</div>`;}
-  html+='</div>';return html;
+  const total = firstDay + daysInMonth; const remainder = total%7===0 ? 0 : 7-(total%7);
+  for(let d=1; d<=remainder; d++){ html += `<div class="ae-drp-day other-month">${d}</div>`; }
+  html += '</div>';
+  return html;
 }
-function aeDrpDayClick(el){
-  if(el.classList.contains('other-month')||el.classList.contains('disabled'))return;
-  const dt=aeParseLocal(el.dataset.date);
-  if(!aeDrpState.selecting){aeDrpState.from=dt;aeDrpState.to=null;aeDrpState.hov=null;aeDrpState.selecting=true;aeDrpState.preset='custom';aeDrpSetPresetActive('custom');}
-  else{aeDrpState.to=dt;aeDrpState.hov=null;aeDrpState.selecting=false;if(aeDrpState.from>aeDrpState.to){const t=aeDrpState.from;aeDrpState.from=aeDrpState.to;aeDrpState.to=t;}}
-  aeDrpRender();
+function drpDayClick(prefix, el){
+  if(el.classList.contains('other-month') || el.classList.contains('disabled')) return;
+  const s = __drpInstances[prefix].state;
+  const dt = drpParseLocal(el.dataset.date);
+  if(!s.selecting){ s.from=dt; s.to=null; s.hov=null; s.selecting=true; s.preset='custom'; drpSetPresetActive(prefix,'custom'); }
+  else{ s.to=dt; s.hov=null; s.selecting=false; if(s.from>s.to){ const t=s.from; s.from=s.to; s.to=t; } }
+  drpRender(prefix);
 }
-function aeDrpDayHover(el){
-  if(!aeDrpState.selecting)return;
-  if(el.classList.contains('other-month')||el.classList.contains('disabled'))return;
-  const newHov=aeParseLocal(el.dataset.date);
-  // CRITICAL: only re-render if the hovered date is genuinely new. Every render
-  // replaces the cell DOM, the new cell under the cursor immediately fires
-  // mouseenter again, which would call us right back — an infinite loop that
-  // kept day-2 clicks from ever landing (cell kept detaching mid-click).
-  if(aeDrpState.hov&&aeDrpState.hov.getTime()===newHov.getTime())return;
-  aeDrpState.hov=newHov;
-  aeDrpRender();
+function drpDayHover(prefix, el){
+  const s = __drpInstances[prefix].state;
+  if(!s.selecting) return;
+  if(el.classList.contains('other-month') || el.classList.contains('disabled')) return;
+  const newHov = drpParseLocal(el.dataset.date);
+  if(s.hov && s.hov.getTime() === newHov.getTime()) return;
+  s.hov = newHov;
+  drpRender(prefix);
 }
-function aeDrpPreset(key){
-  const now=new Date();now.setHours(0,0,0,0);let from,to;
-  if(key==='today'){from=new Date(now);to=new Date(now);}
-  else if(key==='yesterday'){from=new Date(now);from.setDate(now.getDate()-1);to=new Date(from);}
-  else if(key==='last7'){from=new Date(now);from.setDate(now.getDate()-6);to=new Date(now);}
-  else if(key==='last30'){from=new Date(now);from.setDate(now.getDate()-29);to=new Date(now);}
-  else if(key==='last90'){from=new Date(now);from.setDate(now.getDate()-89);to=new Date(now);}
-  else if(key==='thisMonth'){from=new Date(now.getFullYear(),now.getMonth(),1);to=new Date(now);}
-  else if(key==='lastMonth'){from=new Date(now.getFullYear(),now.getMonth()-1,1);to=new Date(now.getFullYear(),now.getMonth(),0);}
-  else if(key==='lifetime'){from=null;to=null;}
-  else if(key==='custom'){
-    // Enter fresh-selection mode — clear any preset's from/to so the next two day
-    // clicks become a new range. Without this, an existing preset's range
-    // (e.g. Last 7 Days) blocks the user from seeing their own selection.
-    aeDrpState.from=null;aeDrpState.to=null;aeDrpState.hov=null;aeDrpState.selecting=false;
-    aeDrpState.preset='custom';aeDrpSetPresetActive('custom');
-    aeDrpRender();return;
+function drpPreset(prefix, key){
+  const s = __drpInstances[prefix].state;
+  const now=new Date(); now.setHours(0,0,0,0);
+  let from, to;
+  if     (key==='today')      { from=new Date(now); to=new Date(now); }
+  else if(key==='yesterday')  { from=new Date(now); from.setDate(now.getDate()-1); to=new Date(from); }
+  else if(key==='last7')      { from=new Date(now); from.setDate(now.getDate()-6);  to=new Date(now); }
+  else if(key==='last30')     { from=new Date(now); from.setDate(now.getDate()-29); to=new Date(now); }
+  else if(key==='last90')     { from=new Date(now); from.setDate(now.getDate()-89); to=new Date(now); }
+  else if(key==='thisMonth')  { from=new Date(now.getFullYear(), now.getMonth(), 1); to=new Date(now); }
+  else if(key==='lastMonth')  { from=new Date(now.getFullYear(), now.getMonth()-1, 1); to=new Date(now.getFullYear(), now.getMonth(), 0); }
+  else if(key==='lifetime')   { from=null; to=null; }
+  else if(key==='custom')     {
+    s.from=null; s.to=null; s.hov=null; s.selecting=false;
+    s.preset='custom'; drpSetPresetActive(prefix,'custom'); drpRender(prefix); return;
   }
-  aeDrpState.from=from;aeDrpState.to=to;aeDrpState.hov=null;aeDrpState.selecting=false;aeDrpState.preset=key;aeDrpSetPresetActive(key);
-  if(from){aeDrpState.viewYear=from.getFullYear();aeDrpState.viewMonth=from.getMonth();}
-  else{const n=new Date();aeDrpState.viewYear=n.getFullYear();aeDrpState.viewMonth=n.getMonth()-1;if(aeDrpState.viewMonth<0){aeDrpState.viewMonth=11;aeDrpState.viewYear--;}}
-  aeDrpRender();
+  s.from=from; s.to=to; s.hov=null; s.selecting=false; s.preset=key; drpSetPresetActive(prefix,key);
+  if(from){ s.viewYear=from.getFullYear(); s.viewMonth=from.getMonth(); }
+  else    { const n=new Date(); s.viewYear=n.getFullYear(); s.viewMonth=n.getMonth()-1; if(s.viewMonth<0){ s.viewMonth=11; s.viewYear--; } }
+  drpRender(prefix);
 }
-function aeDrpSetPresetActive(key){document.querySelectorAll('.ae-drp-preset').forEach(el=>{el.classList.toggle('active',el.dataset.key===key);});}
-function aeDrpApply(){
-  const {from,to,preset}=aeDrpState;
-  if(preset==='lifetime'||(!from&&!to)){aeClearDateRange();return;}
-  let f=from,t=to||from;if(f>t){const tmp=f;f=t;t=tmp;}
-  document.getElementById('ae-date-from').value=aeFmtLocal(f);
-  document.getElementById('ae-date-to').value=aeFmtLocal(t);
-  aeDrpState.open=false;window.aeDrpOpen=false;
-  document.getElementById('ae-drp-panel').style.display='none';
-  document.getElementById('ae-drp-btn').style.borderColor='#e0dbd0';
-  aeDrpUpdateBtn();aeHandleDateChange();
+function drpSetPresetActive(prefix, key){
+  document.querySelectorAll('#'+prefix+'-drp-presets .ae-drp-preset').forEach(el => {
+    el.classList.toggle('active', el.dataset.key===key);
+  });
 }
-function aeDrpCancel(){aeDrpState.open=false;window.aeDrpOpen=false;document.getElementById('ae-drp-panel').style.display='none';document.getElementById('ae-drp-btn').style.borderColor='#e0dbd0';}
-function aeDrpUpdateBtn(){
-  const {from,to,preset}=aeDrpState;
-  const lbl=document.getElementById('ae-drp-label');
-  const presetLabels={today:'Today',yesterday:'Yesterday',last7:'Last 7 Days',last30:'Last 30 Days',last90:'Last 90 Days',thisMonth:'This Month',lastMonth:'Last Month',lifetime:'All time',custom:'Custom'};
-  if(preset==='lifetime'||(!from&&!to)){lbl.textContent='📅 All time';lbl.style.color='#9a9187';}
-  else if(preset!=='custom'){lbl.textContent='📅 '+(presetLabels[preset]||preset);lbl.style.color='#c0603a';}
-  else if(from){const fmt=d=>d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});const t=to||from;const a=from<t?from:t,b=from<t?t:from;lbl.textContent=fmt(a)+(a.getTime()!==b.getTime()?' → '+fmt(b):'');lbl.style.color='#c0603a';}
+function drpApply(prefix){
+  const inst = __drpInstances[prefix]; if(!inst) return;
+  const {state, config} = inst;
+  const {from, to, preset} = state;
+  // Lifetime / cleared → null both inputs, call onClear
+  if(preset==='lifetime' || (!from && !to)){
+    document.getElementById(config.fromInputId).value = '';
+    document.getElementById(config.toInputId).value   = '';
+    state.open = false;
+    document.getElementById(prefix+'-drp-panel').style.display = 'none';
+    document.getElementById(prefix+'-drp-btn').style.borderColor = '#e0dbd0';
+    drpUpdateBtn(prefix);
+    try { config.onClear(); } catch(e) { console.error('drp onClear', e); }
+    return;
+  }
+  let f=from, t=to||from;
+  if(f>t){ const tmp=f; f=t; t=tmp; }
+  document.getElementById(config.fromInputId).value = drpFmtLocal(f);
+  document.getElementById(config.toInputId).value   = drpFmtLocal(t);
+  state.open = false;
+  document.getElementById(prefix+'-drp-panel').style.display = 'none';
+  document.getElementById(prefix+'-drp-btn').style.borderColor = '#e0dbd0';
+  drpUpdateBtn(prefix);
+  try { config.onApply(); } catch(e) { console.error('drp onApply', e); }
 }
+function drpCancel(prefix){
+  const s = __drpInstances[prefix].state;
+  s.open = false;
+  document.getElementById(prefix+'-drp-panel').style.display = 'none';
+  document.getElementById(prefix+'-drp-btn').style.borderColor = '#e0dbd0';
+}
+function drpUpdateBtn(prefix){
+  const s = __drpInstances[prefix].state;
+  const lbl = document.getElementById(prefix+'-drp-label');
+  if(!lbl) return;
+  const {from, to, preset} = s;
+  const presetLabels = {today:'Today', yesterday:'Yesterday', last7:'Last 7 Days', last30:'Last 30 Days', last90:'Last 90 Days', thisMonth:'This Month', lastMonth:'Last Month', lifetime:'All time', custom:'Custom'};
+  if(preset==='lifetime' || (!from && !to)){
+    lbl.textContent = '📅 All time'; lbl.style.color = '#9a9187';
+  } else if(preset !== 'custom'){
+    lbl.textContent = '📅 ' + (presetLabels[preset] || preset);
+    lbl.style.color = '#c0603a';
+  } else if(from){
+    const fmt = d => d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+    const t = to || from; const a = from<t?from:t, b = from<t?t:from;
+    lbl.textContent = fmt(a) + (a.getTime() !== b.getTime() ? ' → ' + fmt(b) : '');
+    lbl.style.color = '#c0603a';
+  }
+}
+
+// Legacy AE shims — original handlers delegate to the generic drp* functions
+const aeDrpState = (function(){
+  // Register the AE instance up front so legacy code that touches aeDrpState still works.
+  // The AE button HTML is already in the page; we just attach the state object here.
+  if(!__drpInstances['ae']){
+    __drpInstances['ae'] = {
+      config: {
+        prefix:'ae', fromInputId:'ae-date-from', toInputId:'ae-date-to',
+        onApply: function(){ if(typeof aeHandleDateChange==='function') aeHandleDateChange(); },
+        onClear: function(){ if(typeof aeClearDateRange==='function') aeClearDateRange(); }
+      },
+      state: { open:false, viewYear:new Date().getFullYear(), viewMonth:new Date().getMonth()-1,
+               from:null, to:null, hov:null, preset:'lifetime', selecting:false }
+    };
+  }
+  return __drpInstances['ae'].state;
+})();
+
+// Scan the DOM once for any <span data-drp-mount='{...}'> placeholders and
+// replace them with the picker HTML. Resolves function references by name so
+// the JSON config is safely declarative.
+function initDrpMounts(){
+  document.querySelectorAll('[data-drp-mount]').forEach(el => {
+    if(el.getAttribute('data-drp-mounted') === 'true') return;
+    let cfg;
+    try { cfg = JSON.parse(el.getAttribute('data-drp-mount')); }
+    catch(e){ console.error('initDrpMounts: bad config on', el, e); return; }
+    const resolveFn = (name, args) => {
+      const fn = (typeof window[name] === 'function') ? window[name] : null;
+      if(!fn){ console.warn('initDrpMounts: function not found:', name); return function(){}; }
+      return function(){ try { return fn.apply(null, args || []); } catch(e){ console.error(name, e); } };
+    };
+    const opts = {
+      prefix: cfg.prefix,
+      fromInputId: cfg.fromInputId,
+      toInputId: cfg.toInputId,
+      minBtnWidth: cfg.minBtnWidth,
+      onApply: typeof cfg.onApply === 'string' ? resolveFn(cfg.onApply, cfg.applyArgs) : (cfg.onApply || function(){}),
+      onClear: typeof cfg.onClear === 'string' ? resolveFn(cfg.onClear, cfg.clearArgs) : (cfg.onClear || function(){})
+    };
+    el.outerHTML = mountDrp(opts);
+  });
+}
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initDrpMounts);
+else initDrpMounts();
+
+// Legacy formatters / shims — every aeDrp* function delegates to its generic drp* equivalent.
+function aeFmtLocal(d){ return drpFmtLocal(d); }
+function aeParseLocal(s){ return drpParseLocal(s); }
+function aeDrpToggle(e){ drpToggle('ae', e); window.aeDrpOpen = __drpInstances['ae'].state.open; }
+function aeDrpNavMonth(dir){ drpNavMonth('ae', dir); }
+function aeDrpRender(){ drpRender('ae'); }
+function aeDrpDayClick(el){ drpDayClick('ae', el); }
+function aeDrpDayHover(el){ drpDayHover('ae', el); }
+function aeDrpPreset(key){ drpPreset('ae', key); }
+function aeDrpSetPresetActive(key){ drpSetPresetActive('ae', key); }
+function aeDrpApply(){ drpApply('ae'); window.aeDrpOpen = false; }
+function aeDrpCancel(){ drpCancel('ae'); window.aeDrpOpen = false; }
+function aeDrpUpdateBtn(){ drpUpdateBtn('ae'); }
 
 async function aeFetchPrimaryForRange(fromVal,toVal){
   const su=SUPABASE_URL,sa=SUPABASE_ANON;if(!su||!sa)return;
@@ -3180,6 +3644,81 @@ async function aeReload(){
   document.getElementById('ae-loading').style.display='block';
   document.getElementById('ae-content').style.display='none';
   aeLoaded=false;aeFromResultsTable=false;
+
+  // Pull Shopify attribution (small table, ~6K rows) in parallel — used to
+  // populate the Orders / Sales columns. If the request fails, those cells
+  // just show 0; the rest of AE still works.
+  document.getElementById('ae-load-sub').textContent='Loading shopify_ad_attribution...';
+  const shopifyPromise = aeFetchShopifyAttribution();
+
+  // ── Try ae_table_view first (pre-aggregated per ad_id, lifetime, all 11K+ ads) ──
+  document.getElementById('ae-load-sub').textContent='Loading ae_table_view (lifetime)...';
+  try{
+    const aevCols = [
+      'account_name','campaign_name','adset_id','adset_name','ad_id','ad_name',
+      'ad_created','reporting_starts','reporting_ends',
+      'date_target_imp_achieved','date_of_result','days_to_result','days_to_target_f1',
+      'ad_status','f1_pass','f2_pass','f3_pass','f4_pass','category',
+      'impressions','reach','amount_spent','roas_ma',
+      'cost_per_ftewv','ftewv_count','cost_per_ncp','ncp_count',
+      'ltv_reach','ltv_frequency','engagement_count',
+      'preview_link','ad_link','conv_value','purchases','link_clicks_raw',
+      'ci_count','atc_count'
+    ].join(',');
+    const BATCH=1000; let all=[], offset=0, more=true, pg=0;
+    while(more){
+      pg++; document.getElementById('ae-load-sub').textContent='ae_table_view page '+pg+' — '+all.length.toLocaleString()+' ads loaded...';
+      const url=su+'/rest/v1/ae_table_view?select='+aevCols+'&order=impressions.desc.nullslast&limit='+BATCH+'&offset='+offset;
+      const res=await fetch(url,{headers:{'apikey':sa,'Authorization':'Bearer '+sa,'Prefer':'count=none'}});
+      if(!res.ok) throw new Error('ae_table_view HTTP '+res.status);
+      const b=await res.json();
+      if(!Array.isArray(b)||b.length===0){more=false;break;}
+      all=all.concat(b); offset+=b.length; if(b.length<BATCH) more=false;
+    }
+    if(all.length){
+      // Map ae_table_view rows → primary_table-shaped rows so aeCompute can reuse its math
+      aeRaw = all.map(v=>({
+        account_name: v.account_name||'', ad_name: v.ad_name||'', ad_id: v.ad_id||'',
+        adset_id: v.adset_id||'', adset_name: v.adset_name||'',
+        campaign_name: v.campaign_name||'', ad_status: v.ad_status||'',
+        ad_created_date: v.ad_created||'',
+        date: v.reporting_ends || v.reporting_starts || '',         // synthetic single-day = last delivery
+        impressions: Number(v.impressions)||0,
+        reach: Number(v.reach)||0,
+        amount_spent_inr: Number(v.amount_spent)||0,
+        purchase_roas: Number(v.roas_ma)||0,
+        outbound_clicks: 0,                                          // not stored in view
+        inline_link_clicks: Number(v.link_clicks_raw)||0,
+        purchases: Number(v.purchases)||0,
+        initiate_checkout: Number(v.ci_count)||0,
+        add_to_cart: Number(v.atc_count)||0,
+        conversion_value: Number(v.conv_value)||0,
+        ftewv_count: Number(v.ftewv_count)||0,
+        cost_per_ftewv: Number(v.cost_per_ftewv)||0,
+        ncp_count: Number(v.ncp_count)||0,
+        cost_per_ncp: Number(v.cost_per_ncp)||0,
+        ltv_reach: Number(v.ltv_reach)||0,
+        ltv_frequency: Number(v.ltv_frequency)||0,
+        engagement_count: Number(v.engagement_count)||0,
+        preview_link: v.preview_link||'',
+        ad_link: v.ad_link||'',
+      }));
+      aeLoaded=true; aeFromResultsTable=false;
+      const badge=document.getElementById('ae-row-badge');
+      badge.textContent = 'ae_table_view (lifetime) · '+all.length.toLocaleString()+' ads';
+      badge.style.display='inline';
+      // Ensure Shopify map is loaded before aeCompute reads it for per-ad lookups
+      try { await shopifyPromise; } catch(_){}
+      document.getElementById('ae-loading').style.display='none';
+      document.getElementById('ae-content').style.display='block';
+      setTimeout(aeCompute,20);
+      return;
+    }
+  }catch(e){
+    console.warn('ae_table_view load failed; falling back:', e.message);
+  }
+
+  // ── Fallback 1: results_table snapshot ──
   document.getElementById('ae-load-sub').textContent='Checking results_table...';
   try{
     const rtUrl=su+'/rest/v1/results_table?account_name=eq.All%20Accounts&order=computed_at.desc&limit=1&select=*';
@@ -3241,16 +3780,27 @@ function aeCompute(){
   const adMap={};let gR=0,gS=0,gF=0,gN=0,gP=0;
   for(const r of rows){
     const adId=String(r.ad_id||'').trim(),camp=String(r.campaign_name||'Unknown');
-    const key=grp==='campaign'?camp:adId;if(!key) continue;
+    const adNm=String(r.ad_name||'').trim();
+    // Grouping key:
+    //   ad         → ad_id (each Meta ad object is its own row)
+    //   ad_name    → ad_name (collapse duplicate-name variants into one row)
+    //   campaign   → campaign_name
+    const key = grp==='campaign' ? camp
+              : grp==='ad_name'  ? (adNm || adId)
+              : adId;
+    if(!key) continue;
     const imp=Number(r.impressions)||0,reach=Number(r.reach)||0,spend=Number(r.amount_spent_inr)||0;
     const roas=Number(r.purchase_roas)||0,ftewv=Number(r.ftewv_count)||0;
     const outClicks=Number(r.outbound_clicks)||0;
+    const linkClicks=Number(r.inline_link_clicks)||0;
+    const purchases=Number(r.purchases)||0,ci=Number(r.initiate_checkout)||0,atc=Number(r.add_to_cart)||0;
     const cpcSheet=Number(r.cpc||r.cost_per_click||r.cost_per_link_click)||0;
     const ncpC=Number(r.cost_per_ncp)||0,ncp=ncpC>0?spend/ncpC:0;
     const purV=roas*spend,ltvR=Number(r.ltv_reach)||0,ltvF=Number(r.ltv_frequency)||0;
     const dMs=r.date?new Date(r.date+'T00:00:00').getTime():0;
-    if(!adMap[key]){adMap[key]={name:grp==='campaign'?camp:String(r.ad_name||'?'),campName:camp,adId,adsetId:String(r.adset_id||''),adsetName:String(r.adset_name||''),acct:String(r.account_name||''),status:String(r.ad_status||''),created:String(r.ad_created_date||''),previewLink:'',adLink:'',ltvR:0,ltvF:0,firstD:dMs,days:[],imp:0,reach:0,spend:0,outClicks:0,cpcSheetSum:0,cpcSheetCount:0,ftewv:0,ncp:0,purV:0,ltvI:0,ltvS:0,ltvRS:0};}
+    if(!adMap[key]){adMap[key]={name:grp==='campaign'?camp:(adNm||'?'),campName:camp,adId,adsetId:String(r.adset_id||''),adsetName:String(r.adset_name||''),acct:String(r.account_name||''),status:String(r.ad_status||''),created:String(r.ad_created_date||''),previewLink:'',adLink:'',ltvR:0,ltvF:0,firstD:dMs,lastD:0,days:[],imp:0,reach:0,spend:0,outClicks:0,linkClicks:0,purchases:0,ci:0,atc:0,cpcSheetSum:0,cpcSheetCount:0,ftewv:0,ncp:0,purV:0,ltvI:0,ltvS:0,ltvRS:0,adIdSet:new Set([adId])};}
     const ad=adMap[key];
+    if(adId) ad.adIdSet.add(adId);                  // track all ad_ids collapsed into this row
     // Capture first non-empty adset_id / link seen for this ad
     if(!ad.adsetId    && (r.adset_id||''))     ad.adsetId    = String(r.adset_id);
     if(!ad.adsetName  && (r.adset_name||''))   ad.adsetName  = String(r.adset_name);
@@ -3258,7 +3808,9 @@ function aeCompute(){
     if(!ad.adLink     && (r.ad_link||''))      ad.adLink     = String(r.ad_link);
     if(ltvR>ad.ltvR)ad.ltvR=ltvR;if(ltvF>ad.ltvF)ad.ltvF=ltvF;
     if(dMs&&dMs<ad.firstD)ad.firstD=dMs;
+    if(dMs&&dMs>ad.lastD)ad.lastD=dMs;
     ad.imp+=imp;ad.reach+=reach;ad.spend+=spend;ad.outClicks+=outClicks;
+    ad.linkClicks+=linkClicks;ad.purchases+=purchases;ad.ci+=ci;ad.atc+=atc;
     if(cpcSheet>0){ad.cpcSheetSum+=cpcSheet;ad.cpcSheetCount++;}
     ad.ftewv+=ftewv;ad.ncp+=ncp;ad.purV+=purV;
     ad.ltvI+=imp;ad.ltvS+=spend;ad.ltvRS+=reach;ad.days.push({d:dMs,i:imp,r:reach});
@@ -3313,11 +3865,42 @@ function aeCompute(){
     let vec='—';
     if(hitT)vec='Eval: '+fmt(hitT);
     else if(!isNaN(cD.getTime())){const p=new Date(cD);p.setDate(p.getDate()+15);vec='~'+fmt(p.getTime());}
+
+    // ── Result-timing fields (new) ──
+    // Date Target Imp Achieved (F1) = day cumulative imp first crossed target
+    const dateTargetF1 = hitT ? fmt(hitT) : '—';
+    // Date of Result = F1-hit date if hit; else ad_created (or first_seen) + 14 days
+    let resultMs = null;
+    if(hitT){
+      resultMs = hitT;
+    } else if(!isNaN(cD.getTime())){
+      const p = new Date(cD); p.setDate(p.getDate() + 14);
+      resultMs = p.getTime();
+    }
+    const dateOfResult = resultMs ? fmt(resultMs) : '—';
+    // Days from First Seen → Result (or → F1 target hit)
+    const daysToResult = (resultMs && ad.firstD)
+      ? Math.max(0, Math.round((resultMs - ad.firstD) / 86400000))
+      : null;
+    const daysToF1 = (hitT && ad.firstD)
+      ? Math.max(0, Math.round((hitT - ad.firstD) / 86400000))
+      : null;
     const lRFN=fF>0?fR/fF:0;
     const N=ad.avgR,G=ad.spend,P=ad.ftewv,B=ad.reach,R=sdv(P,B),S=ad.profit;
     const cm=N>0?(1-(1/N))*100:-100;
+    // Per-row Book1 base metrics
+    const freq=sdv(ad.imp,B);                           // F  Frequency
+    const cpr1000=sdv(G,B)*1000;                        // E  Cost per 1,000 reached
+    const cpcLink=sdv(G,ad.linkClicks);                 // H  CPC (link click)
+    const ctrLink=sdv(ad.linkClicks,ad.imp)*100;        // I  CTR (link click-through)
+    const chkComp=sdv(ad.purchases,ad.ci)*100;          // J  Checkout Completion (PUR/CI)
+    const crLC=sdv(ad.purchases,ad.linkClicks)*100;     // K  CR% Link clicks
+    const atcLC=sdv(ad.atc,ad.linkClicks)*100;          // L  ATC/LC %
+    const ciAtc=sdv(ad.ci,ad.atc)*100;                  // M  CI / ATC %
+    const cpFtewv=sdv(G,P);                             // O  Cost per FTEWV
     const X=sdv(E1,(sdv(G,B)*1000)),Y=sdv(R,R1),Z=sdv(P,P2);
-    const AA=sdv(Q1,sdv(G,ad.ncp)),AB=sdv(N,N1),AC=sdv(S,S2);
+    // AA = 525 / Cost per NCP (user override; spec uses Q1/Q)
+    const AA=costPerNcp>0?525/costPerNcp:0,AB=sdv(N,N1),AC=sdv(S,S2);
     const dE=X+Y+sdv(O3,sdv(G,P)),sE=AA+AB;
     const bl=(X*AEW.X)+(Y*AEW.Y)+(Z*AEW.Z)+(AA*AEW.AA)+(AB*AEW.AB)+(AC*AEW.AC);
     const rw=gR>0?((ad.reach/gR)*100).toFixed(2)+'%':'0%';
@@ -3326,35 +3909,85 @@ function aeCompute(){
     if(cat==='Winner')wP+=S;if(cat==='Discarded'){dS+=G;dC++;}
 
     res.push({
-      campName:ad.campName,adId:grp==='campaign'?'[Grp]':String(k),adsetId:ad.adsetId||'',adsetName:ad.adsetName||'',
-      adName:ad.name,acct:ad.acct,created:ad.created||'—',firstDate:fmt(ad.firstD),
+      campName:ad.campName,
+      // adId display: ad_id (Ad Level), "N ad_ids" badge (Ad Name collapse), "[Grp]" (Campaign Level)
+      adId: grp==='campaign' ? '[Grp]'
+          : grp==='ad_name'  ? (ad.adIdSet && ad.adIdSet.size > 1 ? `${ad.adIdSet.size} ad_ids` : String([...(ad.adIdSet||[])][0] || ad.adId))
+          : String(k),
+      adIdCount: (ad.adIdSet ? ad.adIdSet.size : 1),
+      adIds: ad.adIdSet ? Array.from(ad.adIdSet) : [ad.adId],
+      adsetId:ad.adsetId||'',adsetName:ad.adsetName||'',
+      adName:ad.name,acct:ad.acct,created:ad.created||'—',firstDate:fmt(ad.firstD),lastDate:fmt(ad.lastD),
       adStatus:ad.status,category:cat,
       previewLink:ad.previewLink||'',adLink:ad.adLink||'',
       imp:ad.imp,rawRoas:N,rawCpc:cpc,rawSpend:ad.ltvS,rawProfit:S,rawBlended:bl,
       // Filter flag display
-      f1Pass:f1,f2Pass:f2,f3Pass:f3,
-      vec,rf2,lRFN:lRFN.toFixed(2),rw,pFTEWV:(R*100).toFixed(3)+'%',
+      f1Pass:f1,f2Pass:f2,f3Pass:f3,f4Pass:f4,
+      vec,dateTargetF1,dateOfResult,
+      daysToResult:(daysToResult===null?'—':String(daysToResult)),
+      daysToF1:(daysToF1===null?'—':String(daysToF1)),
+      rf2,lRFN:lRFN.toFixed(2),rw,pFTEWV:(R*100).toFixed(3)+'%',
       cm:cm.toFixed(2)+'%',dE:dE.toFixed(3),sE:sE.toFixed(3),bl:bl.toFixed(3),
       X:X.toFixed(3),Y:Y.toFixed(3),Z:Z.toFixed(3),AA:AA.toFixed(3),AB:AB.toFixed(3),AC:AC.toFixed(3),
+      // Book1 raw metrics (B–R)
+      rawReach:ad.reach,
+      rawFreq:freq,
+      rawCpr1000:cpr1000,
+      rawCpcLink:cpcLink,
+      rawCtrLink:ctrLink,
+      rawChkComp:chkComp,
+      rawCrLC:crLC,
+      rawAtcLC:atcLC,
+      rawCiAtc:ciAtc,
+      rawCpFtewv:cpFtewv,
+      rawFtewvCount:P,
+      rawCostPerNcp:costPerNcp,
+      // Raw counts (newly added to ae_table_view schema)
+      rawConvValue:ad.purV,
+      rawLinkClicks:ad.linkClicks,
+      rawPurchases:ad.purchases,
+      rawAtcCount:ad.atc,
+      rawCiCount:ad.ci,
+      // Shopify-direct attribution (utm_term/utm_content match, full pipeline
+      // in backend/sync_shopify_ad_attribution.py). Sums across all ad_ids
+      // collapsed into this row when grouped by ad_name. 0 if no orders found.
+      shopifyOrders: (()=>{const ids = ad.adIdSet ? Array.from(ad.adIdSet) : [ad.adId];
+        return ids.reduce((s,id)=>s+((aeShopifyMap[id]&&aeShopifyMap[id].orders)||0), 0);})(),
+      shopifySales : (()=>{const ids = ad.adIdSet ? Array.from(ad.adIdSet) : [ad.adId];
+        return ids.reduce((s,id)=>s+((aeShopifyMap[id]&&aeShopifyMap[id].sales) ||0), 0);})(),
       type:mp.type,action:mp.action,perf:mp.perf,creative:mp.creative
     });
   }
 
-  // Roll up new 6 categories into AE's 4-card display
-  // Winner card = Incremental Winner + Winner; ITE card = Priority
+  // 6-category roll-up into AE's 4 visual buckets (Winner / ITE / Analyse / Discarded)
+  // Winner card    = Incremental Winner + Winner
+  // ITE card       = Priority
+  // Analyse card   = Analyze 1 + Analyze 2
+  // Discarded card = Discarded
   const cnts={Winner:0,ITE:0,Analyse:0,Discarded:0};
+  const f4cnts={Winner:0,ITE:0,Analyse:0,Discarded:0};
+  let f4Total=0;
   res.forEach(r=>{
     const c=r.category;
-    if(c==='Incremental Winner'||c==='Winner') cnts.Winner++;
-    else if(c==='Priority') cnts.ITE++;
-    else if(c==='Analyse') cnts.Analyse++;
-    else if(c==='Discarded') cnts.Discarded++;
+    let bucket=null;
+    if(c==='Incremental Winner' || c==='Winner') bucket='Winner';
+    else if(c==='Priority') bucket='ITE';
+    else if(c==='Analyze 1' || c==='Analyze 2') bucket='Analyse';
+    else if(c==='Discarded') bucket='Discarded';
+    if(bucket){ cnts[bucket]++; if(r.f4Pass){ f4cnts[bucket]++; f4Total++; } }
   });
   document.getElementById('ae-c-total').textContent=res.length.toLocaleString();
   document.getElementById('ae-c-winner').textContent=cnts.Winner.toLocaleString();
   document.getElementById('ae-c-ite').textContent=cnts.ITE.toLocaleString();
   document.getElementById('ae-c-analyse').textContent=cnts.Analyse.toLocaleString();
   document.getElementById('ae-c-discarded').textContent=cnts.Discarded.toLocaleString();
+  // F4 quality badges — "X / Y pass F4"
+  const setF4=(id,pass,total)=>{const el=document.getElementById(id);if(el) el.textContent=pass.toLocaleString()+' / '+total.toLocaleString()+' pass F4';};
+  setF4('ae-c-total-f4',  f4Total,        res.length);
+  setF4('ae-c-winner-f4', f4cnts.Winner,  cnts.Winner);
+  setF4('ae-c-ite-f4',    f4cnts.ITE,     cnts.ITE);
+  setF4('ae-c-analyse-f4',f4cnts.Analyse, cnts.Analyse);
+  setF4('ae-c-discarded-f4',f4cnts.Discarded, cnts.Discarded);
 
   // Executive summary
   let ins='Analysing <b>'+res.length.toLocaleString()+' Ads</b> — 3-Filter Logic (F1 Imp / F2 ROAS / F3 CPC). ';
@@ -3433,18 +4066,40 @@ function aeClearRangeFilters(){
 // Each entry: row-property key, display label, value formatter for the
 // bounds labels, and a step size for the slider/input.
 const AE_RANGE_COLS = [
-  { key:'imp',        label:'Impressions',      step:100,   fmt:v=>Math.round(v).toLocaleString('en-IN') },
-  { key:'rawRoas',    label:'ROAS',             step:0.05,  fmt:v=>v.toFixed(2) },
-  { key:'rawCpc',     label:'CPC ₹',            step:0.1,   fmt:v=>'₹'+v.toFixed(1) },
-  { key:'rawSpend',   label:'LTV Spend',        step:50,    fmt:v=>'₹'+Math.round(v).toLocaleString('en-IN') },
-  { key:'rf2',        label:'Reach @ Freq 2',   step:100,   fmt:v=>Math.round(v).toLocaleString('en-IN') },
-  { key:'lRFN',       label:'LTV R/F',          step:0.05,  fmt:v=>v.toFixed(2) },
-  { key:'rw',         label:'Reach Wt. (%)',    step:0.01,  fmt:v=>v.toFixed(2)+'%' },
-  { key:'rawProfit',  label:'Profit Eff. (₹)',  step:100,   fmt:v=>'₹'+Math.round(v).toLocaleString('en-IN') },
-  { key:'cm',         label:'Contrib. %',       step:1,     fmt:v=>v.toFixed(1)+'%' },
-  { key:'dE',         label:'Delivery',         step:0.05,  fmt:v=>v.toFixed(2) },
-  { key:'sE',         label:'Sales',            step:0.05,  fmt:v=>v.toFixed(2) },
-  { key:'rawBlended', label:'Blended',          step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'imp',           label:'Impressions',          step:100,   fmt:v=>Math.round(v).toLocaleString('en-IN') },
+  { key:'rawReach',      label:'Reach',                step:100,   fmt:v=>Math.round(v).toLocaleString('en-IN') },
+  { key:'rawFreq',       label:'Frequency',            step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'rawCpr1000',    label:'Cost per 1,000',       step:1,     fmt:v=>'₹'+v.toFixed(1) },
+  { key:'rawSpend',      label:'Amount Spent',         step:50,    fmt:v=>'₹'+Math.round(v).toLocaleString('en-IN') },
+  { key:'rawCpcLink',    label:'CPC Link ₹',           step:0.1,   fmt:v=>'₹'+v.toFixed(1) },
+  { key:'rawCtrLink',    label:'CTR %',                step:0.05,  fmt:v=>v.toFixed(2)+'%' },
+  { key:'rawChkComp',    label:'Checkout Compl. %',    step:0.5,   fmt:v=>v.toFixed(2)+'%' },
+  { key:'rawCrLC',       label:'CR% Link Clicks',      step:0.05,  fmt:v=>v.toFixed(2)+'%' },
+  { key:'rawAtcLC',      label:'ATC/LC %',             step:0.05,  fmt:v=>v.toFixed(2)+'%' },
+  { key:'rawCiAtc',      label:'CI/ATC %',             step:0.05,  fmt:v=>v.toFixed(2)+'%' },
+  { key:'rawLinkClicks', label:'Link Clicks',          step:10,    fmt:v=>Math.round(v).toLocaleString('en-IN') },
+  { key:'rawPurchases',  label:'Purchases',            step:1,     fmt:v=>Math.round(v).toLocaleString('en-IN') },
+  { key:'rawAtcCount',   label:'ATC',                  step:1,     fmt:v=>Math.round(v).toLocaleString('en-IN') },
+  { key:'rawCiCount',    label:'CI',                   step:1,     fmt:v=>Math.round(v).toLocaleString('en-IN') },
+  { key:'rawConvValue',  label:'Conv Value ₹',         step:100,   fmt:v=>'₹'+Math.round(v).toLocaleString('en-IN') },
+  { key:'rawRoas',       label:'ROAS MA',              step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'rawCpFtewv',    label:'Cost / FTEWV',         step:0.1,   fmt:v=>'₹'+v.toFixed(1) },
+  { key:'rawFtewvCount', label:'FTEWV Count',          step:10,    fmt:v=>Math.round(v).toLocaleString('en-IN') },
+  { key:'rawCostPerNcp', label:'Cost / NCP',           step:1,     fmt:v=>'₹'+v.toFixed(1) },
+  { key:'rawProfit',     label:'Profit Efficiency ₹',  step:100,   fmt:v=>'₹'+Math.round(v).toLocaleString('en-IN') },
+  { key:'cm',            label:'Contribution Margin %',step:1,     fmt:v=>v.toFixed(1)+'%' },
+  { key:'dE',            label:'Delivery Eff',         step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'sE',            label:'Sales & Spend Eff',    step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'rawBlended',    label:'Blended Eff',          step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'X',             label:'CPR Eff',              step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'Y',             label:'FTV Contrib Eff',      step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'Z',             label:'FTEV - Volume',        step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'AA',            label:'NCP Cost Eff',         step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'AB',            label:'ROAS Eff',             step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'AC',            label:'Profit Volume Eff',    step:0.05,  fmt:v=>v.toFixed(2) },
+  { key:'rw',            label:'Reach Weight %',       step:0.01,  fmt:v=>v.toFixed(2)+'%' },
+  { key:'rf2',           label:'Reach @ Freq 2',       step:100,   fmt:v=>Math.round(v).toLocaleString('en-IN') },
+  { key:'lRFN',          label:'LTV R/F',              step:0.05,  fmt:v=>v.toFixed(2) },
 ];
 
 // Compute [min, max] from aeResults for a given key, parsing string-formatted
@@ -3584,7 +4239,7 @@ function aeApplyFilters(){
   const chipMatchers = {
     'Winner':    c => c==='Incremental Winner' || c==='Winner',
     'ITE':       c => c==='Priority',
-    'Analyse':   c => c==='Analyse',
+    'Analyse':   c => c==='Analyze 1' || c==='Analyze 2',
     'Discarded': c => c==='Discarded',
   };
   const ranges = aeReadRangeFilters();
@@ -3650,7 +4305,12 @@ function aeExportCSV(){
   const dateFrom  = document.getElementById('ae-date-from')?.value||'';
   const dateTo    = document.getElementById('ae-date-to')?.value||'';
   const drpLabel  = document.getElementById('ae-drp-label')?.textContent?.replace('📅 ','').trim()||'All time';
-  const groupBy   = document.getElementById('ae-group-by')?.value==='campaign'?'Campaign Level':'Ad Level';
+  const groupBy   = (function(){
+    const v = document.getElementById('ae-group-by')?.value;
+    return v==='campaign' ? 'Campaign Level'
+         : v==='ad_name'  ? 'Ad Name (unique by name)'
+         : 'Ad Level (unique by ad_id)';
+  })();
   const tImp      = document.getElementById('ae-target-imp')?.value||'50000';
   const tRoas     = document.getElementById('ae-target-roas')?.value||'3.2';
   const tCpn      = document.getElementById('ae-target-cpn')?.value||'525';
@@ -3686,7 +4346,7 @@ function aeExportCSV(){
     ['# F4 — Max Cost per FTEWV (₹)',tFtewv],
     ['# Incremental Winner = F1 AND (F2 OR F3) AND F4'],
     ['# Winner             = F1 AND (F2 OR F3)   — F4 not mandatory'],
-    ['# Priority           = F1 AND NOT F2 AND NOT F3'],
+    ['# Priority Analysis           = F1 AND NOT F2 AND NOT F3'],
     ['# Analyse            = NOT F1 AND (conv OR F3)'],
     ['# Discarded          = NOT F1 AND no conv AND NOT F3'],
     ['# ─── ACTIVE FILTERS ───'],
@@ -3696,26 +4356,58 @@ function aeExportCSV(){
     ['#'],
   ];
 
-  // ── Column headers ──
+  // ── Column headers (mirrors the in-table Book1 ordering) ──
   const headers=[
-    'Campaign','Ad Set ID','Ad Set Name','Ad ID','Ad Name','Account','Ad Created','First Seen',
-    'Status (Category)','Impressions','ROAS','CPC (₹)','LTV Spend (₹)',
-    'F1 Pass','F2/F3 Pass (ROAS or Cost/NCP)',
-    'Days to Target (vec)','Reach @ Freq2','LTV R/F','Reach Weight%',
-    'Profit Eff (₹)','Contrib %','Delivery Score','Sales Score','Blended Score',
-    'System Type','Action Protocol','Performance Move','Creative Move','Ad Status'
+    'Campaign','Ad Set ID','Ad Set Name','Ad ID','Ad Name','Account','Ad Created Date',
+    'First Impression Served Date','Date Target Imp Achieved','Date of Result','Days to Result','Days to Target (F1)',
+    'Status (Category)',
+    'F1 Pass','F2/F3 Pass (ROAS or Cost/NCP)','Ad Status',
+    // Book1 B–R
+    'Reach','Reach Weight %','Cost per 1,000 (₹)','Frequency','Amount Spent (INR)',
+    'CPC Link (₹)','CTR %','Link Clicks','Checkout Completion %','Purchases',
+    'CR% Link Clicks','ATC/LC %','ATC','CI/ATC %','CI','Conv Value (₹)',
+    'ROAS MA','Cost per FTEWV (₹)','FTEWV Count','Cost per NCP (₹)','% Reach FTEWV',
+    // Book1 S–AC
+    'Profit Efficiency (₹)','Contribution Margin %','Delivery Eff','Sales & Spend Eff','Blended Eff',
+    'CPR Eff (X)','FTV Contrib Eff (Y)','FTEV Volume (Z)','NCP Cost Eff (AA)','ROAS Eff (AB)','Profit Volume Eff (AC)',
+    // AE extras
+    'Impressions','Days to Target','Reach @ Freq 2','LTV R/F',
+    'System Type','Action Protocol','Performance Move','Creative Move'
   ];
 
   // ── Data rows ──
   const dataRows=aeFiltered.map(r=>[
-    r.campName,r.adsetId||'',r.adsetName||'',r.adId,r.adName,r.acct,r.created,r.firstDate,
-    r.category,r.imp,r.rawRoas.toFixed(2),
-    r.rawCpc>0?r.rawCpc.toFixed(2):'',
+    r.campName,r.adsetId||'',r.adsetName||'',r.adId,r.adName,r.acct,r.created,
+    r.firstDate,r.dateTargetF1,r.dateOfResult,r.daysToResult,r.daysToF1,
+    r.category,
+    r.f1Pass?'TRUE':'FALSE', (r.f2Pass||r.f3Pass)?'TRUE':'FALSE', r.adStatus||'',
+    // B–R
+    r.rawReach,r.rw,
+    r.rawCpr1000>0?r.rawCpr1000.toFixed(2):'',
+    r.rawFreq>0?r.rawFreq.toFixed(2):'',
     r.rawSpend.toFixed(0),
-    r.f1Pass?'TRUE':'FALSE', (r.f2Pass||r.f3Pass)?'TRUE':'FALSE',
-    r.vec,r.rf2,r.lRFN,r.rw,
+    r.rawCpcLink>0?r.rawCpcLink.toFixed(2):'',
+    r.rawCtrLink>0?r.rawCtrLink.toFixed(2):'',
+    r.rawLinkClicks>0?Math.round(r.rawLinkClicks):'',
+    r.rawChkComp>0?r.rawChkComp.toFixed(2):'',
+    r.rawPurchases>0?Math.round(r.rawPurchases):'',
+    r.rawCrLC>0?r.rawCrLC.toFixed(2):'',
+    r.rawAtcLC>0?r.rawAtcLC.toFixed(2):'',
+    r.rawAtcCount>0?Math.round(r.rawAtcCount):'',
+    r.rawCiAtc>0?r.rawCiAtc.toFixed(2):'',
+    r.rawCiCount>0?Math.round(r.rawCiCount):'',
+    r.rawConvValue>0?Math.round(r.rawConvValue):'',
+    r.rawRoas.toFixed(2),
+    r.rawCpFtewv>0?r.rawCpFtewv.toFixed(2):'',
+    r.rawFtewvCount>0?Math.round(r.rawFtewvCount):'',
+    r.rawCostPerNcp>0?r.rawCostPerNcp.toFixed(2):'',
+    r.pFTEWV,
+    // S–AC
     r.rawProfit.toFixed(0),r.cm,r.dE,r.sE,r.bl,
-    r.type,r.action,r.perf,r.creative,r.adStatus||''
+    r.X,r.Y,r.Z,r.AA,r.AB,r.AC,
+    // Extras
+    r.imp,r.vec,r.rf2,r.lRFN,
+    r.type,r.action,r.perf,r.creative
   ]);
 
   // ── Assemble CSV ──
@@ -3782,39 +4474,75 @@ function aeRender(){
     const cpcDisplay = r.rawCpc > 0 ? '₹'+r.rawCpc.toFixed(2) : '—';
     const sas=String(r.adsetId||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;');
     const sasn=String(r.adsetName||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    const cpcLinkDisplay = r.rawCpcLink > 0 ? '₹'+r.rawCpcLink.toFixed(2) : '—';
+    const tdMono='padding:11px 14px;text-align:right;font-family:\'Roboto Mono\',monospace';
+    const tdMonoMute='padding:11px 14px;text-align:right;color:#9a9187;font-family:\'Roboto Mono\',monospace';
     return `<tr data-hover-tip="1" data-tip-ad="${sn}" data-tip-camp="${sc}" onmouseenter="aeShowTip(event,this)" onmousemove="aeMoveTip(event)" onmouseleave="aeHideTip()">
+<!-- Identifiers -->
 <td style="padding:11px 14px;color:#9a9187;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${sc}">${sc}</td>
 <td style="padding:11px 14px;font-family:'Roboto Mono',monospace;font-size:10px;color:#9a9187;cursor:pointer" title="${sasn}" onclick="copyText('${sas}',this)">${sas||'—'}</td>
 <td style="padding:11px 14px;font-family:'Roboto Mono',monospace;font-size:10px;color:#9a9187;cursor:pointer" onclick="copyText('${sid}',this)">${sid}</td>
 <td style="padding:11px 14px;color:#1c1916;font-weight:600;max-width:210px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="copyText('${sn}',this)" title="${sn}">${sn}</td>
 <td style="padding:11px 14px;color:#9a9187">${r.created}</td>
 <td style="padding:11px 14px;color:#4a4540">${r.firstDate}</td>
+<td style="padding:11px 14px;color:#4a4540">${r.dateTargetF1}</td>
+<td style="padding:11px 14px;color:#4a4540">${r.dateOfResult}</td>
+<td style="${tdMono}">${r.daysToResult}</td>
+<td style="${tdMono}">${r.daysToF1}</td>
 <td style="padding:11px 14px"><span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;${bs}">${r.category}</span></td>
-<td style="padding:11px 14px;text-align:right;font-family:'Roboto Mono',monospace">${r.imp.toLocaleString()}</td>
-<td style="padding:11px 14px;position:relative;text-align:right"><div style="position:absolute;top:0;right:0;height:100%;width:${rP}%;background:rgba(192,96,58,.06);border-radius:3px"></div><span style="position:relative;font-weight:700;color:#c0603a;font-family:'Roboto Mono',monospace">${r.rawRoas.toFixed(2)}</span></td>
-<td style="padding:11px 14px;text-align:right;font-family:'Roboto Mono',monospace;font-weight:700;color:${r.f3Pass?'#4a7c6f':'#c0603a'}">${cpcDisplay}</td>
-<td style="padding:11px 14px;text-align:right;color:#c0603a;font-weight:700;font-family:'Roboto Mono',monospace">&#8377;${r.rawSpend.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
 <td style="padding:11px 14px;text-align:center">${fFlag(r.f1Pass)}</td>
 <td style="padding:11px 14px;text-align:center" title="Passes if ROAS ≥ target OR Cost/NCP ≤ target">${fFlag(r.f2Pass || r.f3Pass)}</td>
-<td style="padding:11px 14px;text-align:center;font-size:10px;color:#7c4dbd">${r.vec}</td>
-<td style="padding:11px 14px;text-align:right;color:#b8883a;font-family:'Roboto Mono',monospace">${r.rf2}</td>
-<td style="padding:11px 14px;text-align:right;color:#9a9187;font-size:10px">${r.lRFN}</td>
+<td style="padding:11px 14px"><span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:9.5px;font-weight:700;text-transform:uppercase;${as_s}">${r.adStatus||'—'}</span></td>
+<!-- Book1 metrics B–R -->
+<td style="${tdMono}">${r.imp.toLocaleString()}</td>
+<td style="${tdMono}">${r.rawReach.toLocaleString()}</td>
 <td style="padding:11px 14px;text-align:right;color:#4a6fa5;font-family:'Roboto Mono',monospace">${r.rw}</td>
+<td style="${tdMono}">${r.rawCpr1000>0?'₹'+r.rawCpr1000.toFixed(2):'—'}</td>
+<td style="${tdMono}">${r.rawFreq>0?r.rawFreq.toFixed(2):'—'}</td>
+<td style="padding:11px 14px;text-align:right;color:#c0603a;font-weight:700;font-family:'Roboto Mono',monospace">&#8377;${r.rawSpend.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+<td style="padding:11px 14px;text-align:right;font-family:'Roboto Mono',monospace;font-weight:700;color:${r.f3Pass?'#4a7c6f':'#c0603a'}">${cpcLinkDisplay}</td>
+<td style="${tdMono}">${r.rawCtrLink>0?r.rawCtrLink.toFixed(2)+'%':'—'}</td>
+<td style="${tdMono}">${r.rawLinkClicks>0?Math.round(r.rawLinkClicks).toLocaleString('en-IN'):'—'}</td>
+<td style="${tdMono}">${r.rawChkComp>0?r.rawChkComp.toFixed(2)+'%':'—'}</td>
+<td style="${tdMono}">${r.rawPurchases>0?Math.round(r.rawPurchases).toLocaleString('en-IN'):'—'}</td>
+<td style="${tdMono}">${r.rawCrLC>0?r.rawCrLC.toFixed(2)+'%':'—'}</td>
+<td style="${tdMono}">${r.rawAtcLC>0?r.rawAtcLC.toFixed(2)+'%':'—'}</td>
+<td style="${tdMono}">${r.rawAtcCount>0?Math.round(r.rawAtcCount).toLocaleString('en-IN'):'—'}</td>
+<td style="${tdMono}">${r.rawCiAtc>0?r.rawCiAtc.toFixed(2)+'%':'—'}</td>
+<td style="${tdMono}">${r.rawCiCount>0?Math.round(r.rawCiCount).toLocaleString('en-IN'):'—'}</td>
+<td style="${tdMono}">${r.rawConvValue>0?'₹'+Math.round(r.rawConvValue).toLocaleString('en-IN'):'—'}</td>
+<td style="padding:11px 14px;position:relative;text-align:right"><div style="position:absolute;top:0;right:0;height:100%;width:${rP}%;background:rgba(192,96,58,.06);border-radius:3px"></div><span style="position:relative;font-weight:700;color:#c0603a;font-family:'Roboto Mono',monospace">${r.rawRoas.toFixed(2)}</span></td>
+<td style="padding:11px 14px;text-align:right;font-family:'Roboto Mono',monospace;color:#b8883a;font-weight:700;background:#fdf5e608">${r.shopifyOrders>0?r.shopifyOrders.toLocaleString('en-IN',{maximumFractionDigits:0}):'—'}</td>
+<td style="padding:11px 14px;text-align:right;font-family:'Roboto Mono',monospace;color:#b8883a;font-weight:700;background:#fdf5e608">${r.shopifySales>0?'₹'+Math.round(r.shopifySales).toLocaleString('en-IN'):'—'}</td>
+<td style="${tdMono}">${r.rawCpFtewv>0?'₹'+r.rawCpFtewv.toFixed(2):'—'}</td>
+<td style="${tdMono}">${r.rawFtewvCount>0?Math.round(r.rawFtewvCount).toLocaleString():'—'}</td>
+<td style="${tdMono}">${r.rawCostPerNcp>0?'₹'+r.rawCostPerNcp.toFixed(2):'—'}</td>
+<td style="${tdMonoMute}">${r.pFTEWV}</td>
+<!-- Efficiency S–AC -->
 <td style="padding:11px 14px;position:relative;text-align:right">${r.rawProfit>0?`<div style="position:absolute;top:0;right:0;height:100%;width:${pP}%;background:rgba(74,124,111,.06);border-radius:3px"></div>`:''}<span style="position:relative;font-weight:700;color:#4a7c6f;font-family:'Roboto Mono',monospace">&#8377;${r.rawProfit.toLocaleString('en-IN',{maximumFractionDigits:0})}</span></td>
-<td style="padding:11px 14px;text-align:right;font-family:'Roboto Mono',monospace">${r.cm}</td>
+<td style="${tdMono}">${r.cm}</td>
 <td style="padding:11px 14px;text-align:right;font-family:'Roboto Mono',monospace;color:#b8883a">${r.dE}</td>
 <td style="padding:11px 14px;text-align:right;font-family:'Roboto Mono',monospace;color:#7c4dbd">${r.sE}</td>
 <td style="padding:11px 14px;position:relative;text-align:right"><div style="position:absolute;top:0;right:0;height:100%;width:${bP}%;background:rgba(74,111,165,.06);border-radius:3px"></div><span style="position:relative;font-weight:700;color:#4a6fa5;font-family:'Roboto Mono',monospace">${r.bl}</span></td>
+<td style="${tdMono}">${r.X}</td>
+<td style="${tdMono}">${r.Y}</td>
+<td style="${tdMono}">${r.Z}</td>
+<td style="${tdMono}">${r.AA}</td>
+<td style="${tdMono}">${r.AB}</td>
+<td style="${tdMono}">${r.AC}</td>
+<!-- AE extras -->
+<td style="padding:11px 14px;text-align:center;font-size:10px;color:#7c4dbd">${r.vec}</td>
+<td style="padding:11px 14px;text-align:right;color:#b8883a;font-family:'Roboto Mono',monospace">${r.rf2}</td>
+<td style="padding:11px 14px;text-align:right;color:#9a9187;font-size:10px">${r.lRFN}</td>
 <td style="padding:11px 14px;color:#9a9187;max-width:150px;overflow:hidden;text-overflow:ellipsis;font-size:10px" title="${r.type}">${r.type}</td>
 <td style="padding:11px 14px;color:#4a4540;font-size:10px;font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis" title="${r.action}">${r.action}</td>
 <td style="padding:11px 14px;color:#9a9187;font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${r.perf}">${r.perf}</td>
 <td style="padding:11px 14px;color:#9a9187;font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${r.creative}">${r.creative}</td>
-<td style="padding:11px 14px"><span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:9.5px;font-weight:700;text-transform:uppercase;${as_s}">${r.adStatus||'—'}</span></td>
 <td style="padding:11px 14px;text-align:center">${r.previewLink?`<a href="${r.previewLink.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" style="color:#4a6fa5;text-decoration:none;font-weight:600;font-size:11px">↗ Preview</a>`:'<span style="color:#cdc8bc">—</span>'}</td>
 <td style="padding:11px 14px;text-align:center">${r.adLink?`<a href="${r.adLink.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" style="color:#4a7c6f;text-decoration:none;font-weight:600;font-size:11px">↗ Open</a>`:'<span style="color:#cdc8bc">—</span>'}</td>
 </tr>`;
   }).join('');
-  document.getElementById('aeTableBody').innerHTML=rows||'<tr><td colspan="29" style="padding:40px;text-align:center;color:#9a9187;font-size:13px">No ads match current filters</td></tr>';
+  document.getElementById('aeTableBody').innerHTML=rows||'<tr><td colspan="58" style="padding:40px;text-align:center;color:#9a9187;font-size:13px">No ads match current filters</td></tr>';
 }
 </script>
 
@@ -4266,9 +4994,9 @@ function aeRender(){
       </div>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
         <span style="font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ft-muted)">Window</span>
-        <input id="ft-date-from" type="date" onchange="ftFetchAndRender(true)"/>
-        <span style="color:var(--ft-muted)">→</span>
-        <input id="ft-date-to" type="date" onchange="ftFetchAndRender(true)"/>
+        <input type="hidden" id="ft-date-from"/>
+        <input type="hidden" id="ft-date-to"/>
+        <span id="ft-drp-mount" data-drp-mount='{"prefix":"ft","fromInputId":"ft-date-from","toInputId":"ft-date-to","onApply":"ftFetchAndRender","applyArgs":[true],"onClear":"ftDrpLifetime","minBtnWidth":200}'></span>
         <button onclick="ftReset()" class="ft-btn" title="Reset to last 30 days">Last 30d</button>
         <button onclick="ftFetchAndRender(true)" class="ft-btn">↻ Refresh</button>
       </div>
@@ -4303,10 +5031,19 @@ function aeRender(){
     <div id="ft-loading" style="display:none;text-align:center;padding:80px 24px">
       <div class="ft-spinner"></div>
       <div style="font-size:14px;font-weight:700;color:#c0603a;margin-bottom:4px">Loading Ad Fatigue Data</div>
-      <div id="ft-load-sub" style="font-size:12px;color:#9a9187">Fetching primary_table…</div>
+      <div id="ft-load-sub" style="font-size:12px;color:#9a9187">Fetching backfill_table…</div>
     </div>
 
     <div id="ft-content" style="display:none">
+      <!-- View toggle — Fatigue (buckets) ⇄ Buffer (14-day table) -->
+      <div style="max-width:1600px;margin:0 auto 24px;padding:0 24px">
+        <div id="lc-view-toggle" style="display:inline-flex;background:#f4efe6;border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:4px;gap:2px">
+          <button id="lc-tab-fatigue" onclick="lcSwitchView('fatigue')" class="lc-tab-btn lc-tab-active" style="border:0;background:#1a1916;color:#f6f1e6;font-family:'Roboto',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:9px 18px;border-radius:7px;cursor:pointer;transition:all .15s">Fatigue</button>
+          <button id="lc-tab-buffer" onclick="lcSwitchView('buffer')" class="lc-tab-btn" style="border:0;background:transparent;color:#6f6657;font-family:'Roboto',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:9px 18px;border-radius:7px;cursor:pointer;transition:all .15s">Buffer</button>
+        </div>
+      </div>
+
+      <div id="lc-view-fatigue">
       <div class="sp-shell">
         <div class="sp-section-label sp-anim">N°&nbsp;01 — Creative fatigue</div>
         <h2 class="sp-section-title sp-anim d1">Ads grouped by <em>frequency</em>.</h2>
@@ -4324,26 +5061,21 @@ function aeRender(){
             <button onclick="ftClearDrill()" class="sp-drill-close">— close</button>
           </div>
           <table class="sp-table">
-            <thead><tr>
-              <th onclick="ftDrillSort('name')">Ad name</th>
-              <th onclick="ftDrillSort('account')">Account</th>
-              <th onclick="ftDrillSort('created')">Created</th>
-              <th class="num" onclick="ftDrillSort('freq')">Freq</th>
-              <th class="num" onclick="ftDrillSort('impr')">Impressions</th>
-              <th class="num" onclick="ftDrillSort('reach')">Reach</th>
-              <th class="num" onclick="ftDrillSort('spend')">Spend ₹</th>
-            </tr></thead>
+            <thead id="ft-drill-head"></thead>
             <tbody id="ft-drill-body"></tbody>
           </table>
         </div>
       </div>
+
+      </div><!-- /lc-view-fatigue -->
 
       <!-- ════════════════════════════════════════════════════════════
            14-DAY BUFFER TABLE — Winner / Result Pending / Failed verdicts
            Sourced from `ad_results`. Filters by status chips + account +
            ad-name search + created-date range. Sortable, paginated.
            ════════════════════════════════════════════════════════════ -->
-      <div style="max-width:1600px;margin:48px auto 0;padding:0 24px">
+      <div id="lc-view-buffer" style="display:none">
+      <div style="max-width:1600px;margin:0 auto 0;padding:0 24px">
         <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:18px">
           <div>
             <div style="font-size:.62rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--ft-muted)">N°&nbsp;02 — Lifecycle</div>
@@ -4377,9 +5109,9 @@ function aeRender(){
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:.55rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ft-muted);min-width:70px">Created</span>
-            <input id="lc-created-from" type="date" onchange="lcApplyFilters()"/>
-            <span style="color:var(--ft-muted);font-size:.8rem">→</span>
-            <input id="lc-created-to" type="date" onchange="lcApplyFilters()"/>
+            <input type="hidden" id="lc-created-from"/>
+            <input type="hidden" id="lc-created-to"/>
+            <span id="lc-drp-mount" data-drp-mount='{"prefix":"lc","fromInputId":"lc-created-from","toInputId":"lc-created-to","onApply":"lcApplyFilters","onClear":"lcApplyFilters","minBtnWidth":200}'></span>
           </div>
           <button onclick="lcClearFilters()" class="ft-btn" style="font-size:.62rem">Clear</button>
         </div>
@@ -4424,6 +5156,7 @@ function aeRender(){
           </div>
         </div>
       </div>
+      </div><!-- /lc-view-buffer -->
     </div>
   </div>
 </div>
@@ -4440,6 +5173,32 @@ const LC_STATUS_CFG = {
   'Result Pending': { color:'#92620a', bg:'#fdf5e6', border:'rgba(146,98,10,.3)',  emoji:'🟡', desc:'Inside 14-day buffer' },
   'Failed':         { color:'#9b2335', bg:'#f5ebe6', border:'rgba(155,35,53,.3)',  emoji:'🔴', desc:'Window expired without 50K' },
 };
+
+// View toggle: 'fatigue' (frequency buckets) ⇄ 'buffer' (14-day verdict table)
+let lcCurrentView = 'fatigue';
+function lcSwitchView(view){
+  if(view===lcCurrentView) return;
+  lcCurrentView = view;
+  const fat = document.getElementById('lc-view-fatigue');
+  const buf = document.getElementById('lc-view-buffer');
+  const tabF = document.getElementById('lc-tab-fatigue');
+  const tabB = document.getElementById('lc-tab-buffer');
+  if(fat) fat.style.display = (view==='fatigue') ? '' : 'none';
+  if(buf) buf.style.display = (view==='buffer')  ? '' : 'none';
+  // active styling — dark pill for the active tab, transparent for the other
+  if(tabF){
+    tabF.style.background = (view==='fatigue') ? '#1a1916' : 'transparent';
+    tabF.style.color      = (view==='fatigue') ? '#f6f1e6' : '#6f6657';
+    tabF.classList.toggle('lc-tab-active', view==='fatigue');
+  }
+  if(tabB){
+    tabB.style.background = (view==='buffer')  ? '#1a1916' : 'transparent';
+    tabB.style.color      = (view==='buffer')  ? '#f6f1e6' : '#6f6657';
+    tabB.classList.toggle('lc-tab-active', view==='buffer');
+  }
+  // Lazy-load buffer data the first time the user switches to it
+  if(view==='buffer' && !lcLoaded) lcReload();
+}
 
 async function lcReload(){
   lcLoaded=false;
@@ -4511,6 +5270,12 @@ function lcClearFilters(){
   document.getElementById('lc-name').value='';
   document.getElementById('lc-created-from').value='';
   document.getElementById('lc-created-to').value='';
+  // Reset the LC DRP picker to "All time" so its label matches the cleared state
+  if(__drpInstances && __drpInstances['lc']){
+    const s = __drpInstances['lc'].state;
+    s.from = null; s.to = null; s.preset = 'lifetime';
+    try { drpUpdateBtn('lc'); drpSetPresetActive('lc','lifetime'); } catch(e){}
+  }
   lcChip='';
   lcApplyFilters();
 }
@@ -4630,6 +5395,14 @@ function lcExport(){
 // Buckets: Low 0-2, Medium 2-2.5, High 2.5-3. Ads with freq > 3 are excluded.
 // ════════════════════════════════════════
 let ftAcct='', ftRows=[], ftLastKey='';
+let ftLifetimeMode = false;   // set true when user picks "Lifetime" in the DRP
+
+// Triggered by the FT DRP's onClear hook (lifetime preset). Marks the
+// next fetch as a lifetime query so ftFetchAndRender skips the default-fill.
+function ftDrpLifetime(){
+  ftLifetimeMode = true;
+  ftFetchAndRender(true);
+}
 
 function _ftDefaultRange(){
   const today=new Date();
@@ -4642,6 +5415,12 @@ function ftReset(){
   const d=_ftDefaultRange();
   document.getElementById('ft-date-from').value=d.from;
   document.getElementById('ft-date-to').value=d.to;
+  // Sync FT DRP button label to the new default
+  if(__drpInstances && __drpInstances['ft']){
+    const s = __drpInstances['ft'].state;
+    s.from = drpParseLocal(d.from); s.to = drpParseLocal(d.to); s.preset = 'last30';
+    try { drpUpdateBtn('ft'); } catch(e){}
+  }
   ftFetchAndRender(true);
 }
 
@@ -4668,55 +5447,93 @@ let ftDrillSortKey = 'spend';
 let ftDrillSortDir = -1;
 
 async function _ftFetchPrimary(fromVal, toVal){
-  // Read from results_table (one row per account with ads_json — per-ad aggregates).
-  // Hourly cron refreshes this table so the numbers are at most 1 hour stale.
-  // Then filter the parsed ads by ad_created_date in JS (date inputs).
+  // Pull daily granular rows from backfill_table for [fromVal, toVal].
+  // Supabase REST caps a single response at 1,000 rows, so we fire many
+  // batches in PARALLEL — first request asks Postgres for the exact count,
+  // then we fan out the rest with Promise.all. Drops a 321K-row fetch
+  // from ~60s sequential to ~5–8s on a typical connection.
   if(!SUPABASE_URL || !SUPABASE_ANON) return [];
-  const sub=document.getElementById('ft-load-sub');
-  if(sub) sub.textContent='Fetching results_table (hourly-refreshed aggregates)…';
-  // Decide which row(s) to pull based on the account filter
-  const acctFilter = ftAcct ? '&account_name=eq.'+encodeURIComponent(ftAcct)
-                            : '&account_name=eq.'+encodeURIComponent('All Accounts');
-  const url = SUPABASE_URL + '/rest/v1/results_table?select=account_name,ads_json,data_date_to,computed_at&order=computed_at.desc&limit=1' + acctFilter;
-  const res = await fetch(url,{headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,'Prefer':'count=none'}});
-  if(!res.ok) return [];
-  const rows = await res.json();
-  if(!Array.isArray(rows) || rows.length === 0) return [];
-  const row = rows[0];
-  let ads = row.ads_json;
-  if(typeof ads === 'string') ads = JSON.parse(ads);
-  if(!Array.isArray(ads)) return [];
-  // Tag each ad with the source account_name (combined row uses 'acct' on each entry)
-  const src = row.account_name;
-  // Filter by ad_created_date range on the parsed ads (already aggregated)
-  const filtered = ads.filter(a => {
-    if(fromVal && a.adCreated && a.adCreated < fromVal) return false;
-    if(toVal   && a.adCreated && a.adCreated > toVal)   return false;
-    return true;
-  });
-  // Re-shape to match what ftRender expects (it later iterates these)
-  return filtered.map(a => ({
-    account_name: a.acct || src,
-    ad_id: a.adId,
-    ad_name: a.adName,
-    ad_created_date: a.adCreated,
-    impressions: a.impr,
-    reach: a.reach,
-    amount_spent_inr: a.spend,
-    ltv_reach: a.ltvReach,
-    ltv_frequency: a.ltvFreq,
-  }));
+  const sub = document.getElementById('ft-load-sub');
+  if(sub) sub.textContent = 'Fetching backfill_table for window '+fromVal+' → '+toVal+'…';
+  const cols = ['account_name','date','ad_id','ad_name','ad_created_date',
+                'impressions','reach','frequency','amount_spent_inr',
+                'ltv_reach','ltv_frequency'].join(',');
+  const BATCH = 1000;
+  const PARALLEL = 8;   // concurrent in-flight requests
+
+  function buildUrl(offset){
+    let url = SUPABASE_URL + '/rest/v1/backfill_table?select=' + cols
+            + '&order=date.desc&limit=' + BATCH + '&offset=' + offset;
+    if(fromVal) url += '&date=gte.' + fromVal;
+    if(toVal)   url += '&date=lte.' + toVal;
+    if(ftAcct)  url += '&account_name=eq.' + encodeURIComponent(ftAcct);
+    return url;
+  }
+  function headers(offset, countMode){
+    return {
+      'apikey': SUPABASE_ANON,
+      'Authorization': 'Bearer ' + SUPABASE_ANON,
+      'Prefer': 'count=' + countMode,
+      'Range-Unit': 'items',
+      'Range': offset + '-' + (offset + BATCH - 1)
+    };
+  }
+
+  // First request: ask for exact row count so we know how many batches to fire
+  if(sub) sub.textContent = 'Counting rows…';
+  const firstRes = await fetch(buildUrl(0), { headers: headers(0, 'exact') });
+  if(!firstRes.ok) throw new Error('backfill_table HTTP '+firstRes.status);
+  const firstBatch = await firstRes.json();
+  // Content-Range looks like "0-999/12345" → total is after the slash
+  const cr = firstRes.headers.get('Content-Range') || '';
+  const total = parseInt((cr.split('/')[1]||'0'), 10) || firstBatch.length;
+  const all = new Array(total);
+  for(let i=0; i<firstBatch.length; i++) all[i] = firstBatch[i];
+
+  if(total <= BATCH){
+    return all.slice(0, total);
+  }
+
+  // Build the offsets we still need
+  const offsets = [];
+  for(let off = BATCH; off < total; off += BATCH) offsets.push(off);
+
+  // Worker pool — keep PARALLEL requests in flight at all times
+  let nextIdx = 0, completed = 0;
+  async function worker(){
+    while(true){
+      const myIdx = nextIdx++;
+      if(myIdx >= offsets.length) return;
+      const off = offsets[myIdx];
+      const res = await fetch(buildUrl(off), { headers: headers(off, 'none') });
+      if(!res.ok) throw new Error('backfill_table HTTP '+res.status+' at offset '+off);
+      const batch = await res.json();
+      for(let i=0; i<batch.length; i++) all[off + i] = batch[i];
+      completed++;
+      if(sub) sub.textContent = 'backfill_table — '+(completed*BATCH + BATCH).toLocaleString()+'/'+total.toLocaleString()+' rows…';
+    }
+  }
+  await Promise.all(Array.from({length: PARALLEL}, () => worker()));
+
+  // Trim any undefined slots (last batch usually short of BATCH)
+  return all.filter(r => r);
 }
 
 async function ftFetchAndRender(forceRefetch){
-  // Default the date inputs if blank
+  // Default the date inputs if blank — unless the user explicitly picked Lifetime
+  // in the DRP (ftLifetimeMode), in which case we proceed with empty dates so
+  // _ftFetchPrimary fetches all rows in backfill_table.
   let fromVal=document.getElementById('ft-date-from').value;
   let toVal=document.getElementById('ft-date-to').value;
   if(!fromVal && !toVal){
-    const d=_ftDefaultRange();
-    document.getElementById('ft-date-from').value=d.from;
-    document.getElementById('ft-date-to').value=d.to;
-    fromVal=d.from; toVal=d.to;
+    if(ftLifetimeMode){
+      ftLifetimeMode = false;   // consume the flag for this fetch
+    } else {
+      const d=_ftDefaultRange();
+      document.getElementById('ft-date-from').value=d.from;
+      document.getElementById('ft-date-to').value=d.to;
+      fromVal=d.from; toVal=d.to;
+    }
   }
   // Cache key includes account because we now query a different results_table row per account.
   const cacheKey=(fromVal||'')+'|'+(toVal||'')+'|'+(ftAcct||'_ALL_');
@@ -4741,53 +5558,101 @@ function ftRender(){
   const fromVal=document.getElementById('ft-date-from').value;
   const toVal=document.getElementById('ft-date-to').value;
 
-  // Aggregate per ad — sum impressions/spend across ALL delivery days; pick the
-  // best lifetime-reach signal for the denominator (Meta's ltv_reach if present,
-  // else fall back to max single-day reach as a lower bound).
+  // Milestone thresholds — first date the ad's DAILY frequency value
+  // reached each level (used in the drilldown column headers).
+  const MILESTONES = [1.0, 1.5, 2.0, 2.25, 2.5, 2.75, 3.0];
+
+  // Three buckets keyed by the DAILY-row's frequency. Each daily row
+  // contributes its impressions/reach/spend to whichever bucket its
+  // `frequency` falls into. Distinct ad count = ads with >=1 day in
+  // that range (an ad with days in multiple ranges appears in each).
+  const buckets=[
+    {label:'Low Fatigue', range:'Frequency 0 – 2',   color:'#4a7c6f', bg:'#e6f0ee', n:0, spend:0, reach:0, impr:0, idx:0, adIds:new Set()},
+    {label:'Medium',      range:'Frequency 2 – 2.5', color:'#b8883a', bg:'#fdf5e6', n:0, spend:0, reach:0, impr:0, idx:1, adIds:new Set()},
+    {label:'High',        range:'Frequency 2.5 – 3', color:'#c0603a', bg:'#f5ebe6', n:0, spend:0, reach:0, impr:0, idx:2, adIds:new Set()},
+  ];
+  const over3Ads = new Set();
+
+  // Per-ad aggregates + bucket-membership tracking.
   const ads={};
   for(const r of ftRows){
     if(ftAcct && r.account_name !== ftAcct) continue;
     const id=r.ad_id||''; if(!id) continue;
-    if(!ads[id]) ads[id]={
-      id, name:r.ad_name||'(unnamed)', account:r.account_name||'',
-      created:r.ad_created_date||'',
-      impr:0, spend:0, maxReach:0, ltvReach:0
-    };
+    if(!ads[id]){
+      const ms = {};
+      for(const m of MILESTONES) ms[m] = null;
+      ads[id]={
+        id, name:r.ad_name||'(unnamed)', account:r.account_name||'',
+        created:r.ad_created_date||'',
+        impr:0, spend:0, reachSum:0, maxReach:0, ltvReach:0,
+        maxFreq:0,
+        milestones:ms,
+        bucketSet:new Set(),   // bucket idxs this ad has at least one day in
+        // Per-bucket sums (impr/reach/spend) from days that fell in that bucket.
+        // Drilldown rows show THESE numbers (not ad lifetime) so spend/reach in
+        // the row matches the bucket card's totals.
+        byBucket:[
+          {impr:0,reach:0,spend:0},
+          {impr:0,reach:0,spend:0},
+          {impr:0,reach:0,spend:0}
+        ]
+      };
+    }
     const a=ads[id];
-    a.impr     += Number(r.impressions||0);
-    a.spend    += Number(r.amount_spent_inr||0);
-    const rch=Number(r.reach||0);
-    if(rch>a.maxReach) a.maxReach=rch;
-    const lr=Number(r.ltv_reach||0);
-    if(lr>a.ltvReach) a.ltvReach=lr;
-  }
+    const dImpr  = Number(r.impressions||0);
+    const dReach = Number(r.reach||0);
+    const dSpend = Number(r.amount_spent_inr||0);
+    const dFreq  = Number(r.frequency||0);
+    const dt     = r.date || '';
 
-  // Compute frequency per ad — prefer ltv_reach (true unique reach from Meta),
-  // fall back to maxReach (single-day reach is a lower bound for unique reach).
+    a.impr     += dImpr;
+    a.spend    += dSpend;
+    a.reachSum += dReach;
+    if(dReach > a.maxReach) a.maxReach = dReach;
+    const lr=Number(r.ltv_reach||0);
+    if(lr > a.ltvReach) a.ltvReach = lr;
+    if(dFreq > a.maxFreq) a.maxFreq = dFreq;
+
+    // First-cross date per milestone (daily freq)
+    if(dt && dFreq > 0){
+      for(const m of MILESTONES){
+        if(dFreq >= m){
+          if(!a.milestones[m] || dt < a.milestones[m]) a.milestones[m] = dt;
+        }
+      }
+    }
+
+    // Bucket THIS DAILY ROW based on its freq value
+    if(dFreq > 0 && dFreq <= 3){
+      const bIdx = dFreq<=2 ? 0 : (dFreq<=2.5 ? 1 : 2);
+      const b = buckets[bIdx];
+      b.impr  += dImpr;
+      b.reach += dReach;
+      b.spend += dSpend;
+      if(!b.adIds.has(id)){ b.adIds.add(id); b.n++; }
+      a.bucketSet.add(bIdx);
+      // Per-(ad, bucket) accumulators — drilldown table uses these.
+      const ab = a.byBucket[bIdx];
+      ab.impr  += dImpr;
+      ab.reach += dReach;
+      ab.spend += dSpend;
+    } else if(dFreq > 3){
+      over3Ads.add(id);
+    }
+  }
+  const over3 = over3Ads.size;
+
+  // Build the ad list for the drilldowns. a.freq surfaces MAX daily freq
+  // (the value shown in Meta's daily breakdown). a.bucketSet drives the
+  // drill filter (ads with >=1 day in the clicked bucket's range).
   ftAds = Object.values(ads).filter(a => a.impr > 0).map(a => {
-    const denom = a.ltvReach > 0 ? a.ltvReach : a.maxReach;
-    a.freq = denom > 0 ? a.impr / denom : 0;
-    a.reach = denom;  // expose the chosen denominator as "reach" for the table
+    a.freq    = a.maxFreq;
+    a.reach   = a.reachSum > 0 ? a.reachSum : (a.ltvReach > 0 ? a.ltvReach : a.maxReach);
+    a.bucketIdx = a.bucketSet.size > 0 ? Math.max(...a.bucketSet) : -1;
     return a;
   });
 
-  // Three disjoint buckets — freq>3 ads are excluded entirely (saturated audience).
-  const buckets=[
-    {label:'Low Fatigue', range:'Frequency 0 – 2',   color:'#4a7c6f', bg:'#e6f0ee', n:0, spend:0, reach:0, idx:0},
-    {label:'Medium',      range:'Frequency 2 – 2.5', color:'#b8883a', bg:'#fdf5e6', n:0, spend:0, reach:0, idx:1},
-    {label:'High',        range:'Frequency 2.5 – 3', color:'#c0603a', bg:'#f5ebe6', n:0, spend:0, reach:0, idx:2},
-  ];
-  let inScope=0, over3=0;
-  for(const a of ftAds){
-    if(a.freq <= 0){ continue; }
-    if(a.freq > 3){ a.bucketIdx = -1; over3++; continue; }
-    const i = a.freq<=2 ? 0 : (a.freq<=2.5 ? 1 : 2);
-    a.bucketIdx = i;
-    buckets[i].n++;
-    buckets[i].spend += a.spend;
-    buckets[i].reach += a.reach;
-    inScope++;
-  }
+  const inScope = buckets.reduce((s,b)=>s+b.n, 0);
 
   const fmtN=v=>v.toLocaleString('en-IN');
   const fmtINR=v=>'₹'+Math.round(v).toLocaleString('en-IN');
@@ -4815,13 +5680,17 @@ function ftRender(){
     </div>
   `).join('');
 
-  let msg='Created window <b>'+fromVal+'</b> → <b>'+toVal+'</b><span class="dot"></span>'+fmtN(inScope)+' ads bucketed <span style="color:var(--ft-muted);font-weight:500">(freq ≤ 3)</span>';
-  if(over3>0) msg+='<span class="dot"></span>'+fmtN(over3)+' excluded <span style="color:var(--ft-muted);font-weight:500">(freq &gt; 3)</span>';
+  const totalDistinctAds = ftAds.filter(a => a.bucketIdx >= 0 || a.maxFreq > 0).length;
+  const windowLabel = (fromVal && toVal) ? ('<b>'+fromVal+'</b> → <b>'+toVal+'</b>') : '<b>Lifetime</b>';
+  let msg='Window '+windowLabel+'<span class="dot"></span>'+fmtN(totalDistinctAds)+' ads <span style="color:var(--ft-muted);font-weight:500">(daily-freq buckets · ads may appear in &gt;1 range)</span>';
+  if(over3>0) msg+='<span class="dot"></span>'+fmtN(over3)+' with day&nbsp;<span style="color:var(--ft-muted);font-weight:500">freq &gt; 3</span>';
   if(ftAcct) msg+='<span class="dot"></span>account: <b>'+ftAcct+'</b>';
   document.getElementById('ft-summary').innerHTML=msg;
 
   const badge=document.getElementById('ft-row-badge');
-  badge.textContent=fmtN(inScope)+' ads · created '+fromVal+' → '+toVal;
+  badge.textContent = (fromVal && toVal)
+    ? (fmtN(inScope)+' ads · '+fromVal+' → '+toVal)
+    : (fmtN(inScope)+' ads · Lifetime');
   badge.style.display='inline';
 
   document.getElementById('ft-loading').style.display='none';
@@ -4831,43 +5700,104 @@ function ftRender(){
   if(ftDrillBucket) ftOpenDrill(ftDrillBucket.idx, ftDrillBucket.label, ftDrillBucket.color);
 }
 
+// Milestone columns to show per bucket (Low / Medium / High).
+// Each ad's milestones object holds the first date its daily frequency
+// crossed each threshold; columns are rendered in the drilldown below.
+const FT_BUCKET_MILESTONES = [
+  [1.0, 1.5, 2.0],     // Low (0-2)
+  [2.0, 2.25, 2.5],    // Medium (2-2.5)
+  [2.5, 2.75, 3.0],    // High (2.5-3)
+];
+
 // ── Drill-down table for a clicked frequency bucket ───────────────────
 function ftOpenDrill(idx, label, color){
   ftDrillBucket = {idx, label, color};
   const target = document.getElementById('ft-drill');
+  const head   = document.getElementById('ft-drill-head');
   const body   = document.getElementById('ft-drill-body');
   const title  = document.getElementById('ft-drill-title');
   const sub    = document.getElementById('ft-drill-sub');
-  const ads    = ftAds.filter(a => a.bucketIdx === idx);
-  // Sort
+  const ads    = ftAds.filter(a => a.bucketSet && a.bucketSet.has(idx));
+
+  const milestones = FT_BUCKET_MILESTONES[idx] || [];
+  const fmtMs = m => Number.isInteger(m) ? m.toFixed(1) : String(m);
+
+  // Build header dynamically: standard cols + bucket-specific milestone date cols
+  head.innerHTML = `<tr>
+    <th onclick="ftDrillSort('name')">Ad name</th>
+    <th onclick="ftDrillSort('account')">Account</th>
+    <th onclick="ftDrillSort('created')">Created</th>
+    <th class="num" onclick="ftDrillSort('freq')">Max&nbsp;Freq</th>
+    ${milestones.map(m=>`<th class="num" onclick="ftDrillSortMilestone(${m})">Crossed&nbsp;${fmtMs(m)}</th>`).join('')}
+    <th class="num" onclick="ftDrillSort('impr')">Impressions</th>
+    <th class="num" onclick="ftDrillSort('reach')">Reach</th>
+    <th class="num" onclick="ftDrillSort('spend')">Spend ₹</th>
+  </tr>`;
+
+  // Sort — milestone keys sort by date string (lexicographic = chronological for YYYY-MM-DD)
   const cmp = (a,b) => {
-    const av=a[ftDrillSortKey], bv=b[ftDrillSortKey];
+    let av, bv;
+    if(typeof ftDrillSortKey === 'string' && ftDrillSortKey.startsWith('ms:')){
+      const m = parseFloat(ftDrillSortKey.slice(3));
+      av = (a.milestones && a.milestones[m]) || '';
+      bv = (b.milestones && b.milestones[m]) || '';
+      return String(av).localeCompare(String(bv)) * ftDrillSortDir;
+    }
+    // impr/reach/spend now refer to bucket-specific values (matches what we render)
+    if(ftDrillSortKey==='impr' || ftDrillSortKey==='reach' || ftDrillSortKey==='spend'){
+      av = (a.byBucket && a.byBucket[idx] && a.byBucket[idx][ftDrillSortKey]) || 0;
+      bv = (b.byBucket && b.byBucket[idx] && b.byBucket[idx][ftDrillSortKey]) || 0;
+      return (av-bv) * ftDrillSortDir;
+    }
+    av=a[ftDrillSortKey]; bv=b[ftDrillSortKey];
     if(typeof av==='number' && typeof bv==='number') return (av-bv)*ftDrillSortDir;
     return String(av||'').localeCompare(String(bv||''))*ftDrillSortDir;
   };
   ads.sort(cmp);
+
   const fmtN=v=>(+v).toLocaleString('en-IN');
   const fmtINR=v=>'₹'+Math.round(+v).toLocaleString('en-IN');
-  body.innerHTML = ads.map(a=>`
+  const totalCols = 7 + milestones.length;
+
+  // Helper — bucket-specific (impr/reach/spend) for an ad, falling back to 0 if absent.
+  const ab = a => (a.byBucket && a.byBucket[idx]) || {impr:0,reach:0,spend:0};
+
+  body.innerHTML = ads.map(a=>{
+    const msCells = milestones.map(m=>{
+      const d = a.milestones && a.milestones[m];
+      return `<td class="num dim">${d || '—'}</td>`;
+    }).join('');
+    const b = ab(a);
+    return `
     <tr>
       <td class="ad-name" title="${(a.name||'').replace(/"/g,'&quot;')}">${a.name||'—'}</td>
       <td class="dim">${a.account||'—'}</td>
       <td class="dim">${a.created||'—'}</td>
       <td class="num"><span class="freq-pill" style="background:${color}1a;color:${color}">${a.freq.toFixed(2)}</span></td>
-      <td class="num">${fmtN(a.impr)}</td>
-      <td class="num">${fmtN(a.reach)}</td>
-      <td class="num" style="color:${color}">${fmtINR(a.spend)}</td>
-    </tr>
-  `).join('') || `<tr><td colspan="7" style="text-align:center;padding:60px 14px;color:var(--ft-muted);font-family:'Roboto',sans-serif;font-weight:500;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase">No ads in this bucket for the current filter.</td></tr>`;
+      ${msCells}
+      <td class="num">${fmtN(b.impr)}</td>
+      <td class="num">${fmtN(b.reach)}</td>
+      <td class="num" style="color:${color}">${fmtINR(b.spend)}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="${totalCols}" style="text-align:center;padding:60px 14px;color:var(--ft-muted);font-family:'Roboto',sans-serif;font-weight:500;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase">No ads in this bucket for the current filter.</td></tr>`;
+
   title.innerHTML = label + ' — <strong>' + ads.length + '</strong> ad' + (ads.length===1?'':'s');
   title.style.setProperty('--accent', color);
-  const totSpend = ads.reduce((s,a)=>s+a.spend,0);
-  const totImpr  = ads.reduce((s,a)=>s+a.impr,0);
-  const totReach = ads.reduce((s,a)=>s+a.reach,0);
+  // Bucket-specific totals — match the bucket card numbers exactly.
+  const totSpend = ads.reduce((s,a)=>s+ab(a).spend, 0);
+  const totImpr  = ads.reduce((s,a)=>s+ab(a).impr , 0);
+  const totReach = ads.reduce((s,a)=>s+ab(a).reach, 0);
   sub.innerHTML = `Σ impr <b>${fmtN(totImpr)}</b> &nbsp;·&nbsp; Σ reach <b>${fmtN(totReach)}</b> &nbsp;·&nbsp; Σ spend <b style="color:${color}">${fmtINR(totSpend)}</b>`;
   target.style.display='block';
-  // Scroll to drill section gently
   setTimeout(()=>target.scrollIntoView({behavior:'smooth', block:'start'}), 80);
+}
+
+// Sort handler for milestone columns (header click)
+function ftDrillSortMilestone(m){
+  const key = 'ms:' + m;
+  if(ftDrillSortKey === key) ftDrillSortDir *= -1;
+  else { ftDrillSortKey = key; ftDrillSortDir = 1; }   // ascending date by default
+  if(ftDrillBucket) ftOpenDrill(ftDrillBucket.idx, ftDrillBucket.label, ftDrillBucket.color);
 }
 
 function ftClearDrill(){

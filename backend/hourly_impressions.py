@@ -307,16 +307,18 @@ def categorise(spend, impr, conv_v, ftewv, ncp,
     f2 = ct_roas >= t_roas
     f3 = cost_per_ncp > 0 and cost_per_ncp <= t_cpn
     f4 = cost_per_fte > 0 and cost_per_fte <= t_cpft
-    has_conv = conv_v > 0
-    # Incremental Winner = F1 AND (F2 OR F3) AND F4
-    # Winner             = F1 AND (F2 OR F3)
-    # Priority           = F1 AND NOT F2 AND NOT F3
-    # Analyse            = NOT F1 AND (conv OR F3)
-    # Discarded          = NOT F1 AND no conv AND NOT F3
-    if f1 and (f2 or f3) and f4: return "Incremental Winner"
-    if f1 and (f2 or f3):        return "Winner"
-    if f1:                       return "Priority"
-    if has_conv or f3:           return "Analyse"
+    # Definitions (priority order — first match wins):
+    #   Incremental Winner = F1 AND F2 AND F3 AND F4
+    #   Winner             = F1 AND F2 AND F3
+    #   Priority (P0 ITE)  = F1 AND F4
+    #   Analyze 1          = F1 only
+    #   Analyze 2          = F2 only
+    #   Discarded          = everything else
+    if f1 and f2 and f3 and f4:  return "Incremental Winner"
+    if f1 and f2 and f3:         return "Winner"
+    if f1 and f4:                return "Priority"
+    if f1:                       return "Analyze 1"
+    if f2:                       return "Analyze 2"
     return "Discarded"
 
 
@@ -339,7 +341,7 @@ def write_results_row(conn, account_name, ads, since_date, today):
     eng_rate   = sdv(total_eng,   total_impr) * 100
 
     # Category counts — without these, the Result Summary tile shows 0/0/0/0
-    cat_counts = {"Incremental Winner":0, "Winner":0, "Priority":0, "Analyse":0, "Discarded":0}
+    cat_counts = {"Incremental Winner":0, "Winner":0, "Priority":0, "Analyze 1":0, "Analyze 2":0, "Discarded":0}
     for a in ads:
         # Copies are excluded from the dashboard's primary categorisation
         if is_copy(a["ad_name"]): continue
@@ -347,7 +349,7 @@ def write_results_row(conn, account_name, ads, since_date, today):
         cat_counts[cat] += 1
     count_winner    = cat_counts["Winner"] + cat_counts["Incremental Winner"]
     count_ite       = cat_counts["Priority"]
-    count_analyse   = cat_counts["Analyse"]
+    count_analyse   = cat_counts["Analyze 1"] + cat_counts["Analyze 2"]
     count_discarded = cat_counts["Discarded"]
 
     ads_json = [{

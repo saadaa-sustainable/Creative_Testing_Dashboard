@@ -310,15 +310,32 @@ def compute_results(
     # Only non-copy ads for categorisation (mirrors JS EXCLUDE_COPY_TOGGLE=true)
     ads_no_copy = [ad for ad in ad_map.values() if not ad["isCopy"]]
 
+    # Thresholds for 6-category logic (F3=525, F4=12)
+    T_CPN, T_CPFT = 525, 12
+
     for ad in ads_no_copy:
         ct_roas_ad = sdv(ad["convV"], ad["spend"])
-        has_conv = ad["convV"] > 0
+        spend = ad["spend"]
+        ftewv = ad.get("ftewv", 0)
+        ncp = ad.get("ncp", 0)
+        cost_per_ncp   = (spend / ncp)   if ncp   > 0 else 0
+        cost_per_ftewv = (spend / ftewv) if ftewv > 0 else 0
 
-        if ad["impr"] >= target_imp and ct_roas_ad >= target_roas:
+        f1 = ad["impr"] >= target_imp
+        f2 = ct_roas_ad >= target_roas
+        f3 = 0 < cost_per_ncp   <= T_CPN
+        f4 = 0 < cost_per_ftewv <= T_CPFT
+
+        # Roll up to 4 visible buckets (Winner / ITE / Analyse / Discarded):
+        #   Incremental Winner + Winner → Winner bucket
+        #   Priority (P0 ITE)          → ITE bucket
+        #   Analyze 1 + Analyze 2      → Analyse bucket
+        #   Discarded                  → Discarded bucket
+        if (f1 and f2 and f3 and f4) or (f1 and f2 and f3):
             cat = "Winner"
-        elif ad["impr"] >= target_imp and ct_roas_ad < target_roas:
+        elif f1 and f4:
             cat = "ITE"
-        elif ad["impr"] < target_imp and has_conv:
+        elif f1 or f2:
             cat = "Analyse"
         else:
             cat = "Discarded"

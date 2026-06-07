@@ -134,6 +134,7 @@ COLUMNS = [
     "initiate_checkout",
     "add_to_cart",
     "post_engagements",
+    "engagement_count",
     "checkout_completion",
     "atc_rate",
     "ci_atc_rate",
@@ -449,6 +450,13 @@ def parse_row(
     checkout_ini = _action_val(actions, "omni_initiated_checkout", "initiate_checkout")
     add_to_cart = _action_val(actions, "omni_add_to_cart", "add_to_cart")
     three_sec = _action_val(actions, "video_view")
+    # Components of Meta's custom "Engagement Rate" metric
+    # (ThruPlays + comments + reactions + saves + shares + likes + link_clicks) / Impressions
+    post_reactions = _action_val(actions, "post_reaction")
+    post_comments  = _action_val(actions, "comment")
+    post_shares    = _action_val(actions, "post")             # Meta names share action "post"
+    post_saves     = _action_val(actions, "onsite_conversion.post_save")
+    page_likes     = _action_val(actions, "like")
 
     # Custom conversions — matches Apps Script logic exactly
     ftewv_count = 0.0
@@ -482,6 +490,13 @@ def parse_row(
 
     # Post engagements
     post_eng = float(row.get("inline_post_engagement", 0) or 0)
+
+    # Meta custom Engagement Rate numerator (Simran Jadon formula):
+    # ThruPlays + comments + reactions + saves + shares + likes + link_clicks
+    engagement_meta = (
+        thruplays + post_comments + post_reactions + post_saves
+        + post_shares + page_likes + link_clicks
+    )
 
     # Computed rates — identical to Apps Script formulas
     cpm = (spend / impressions * 1000) if impressions > 0 else 0.0
@@ -522,6 +537,7 @@ def parse_row(
         "initiate_checkout": round(checkout_ini, 2),
         "add_to_cart": round(add_to_cart, 2),
         "post_engagements": int(post_eng),
+        "engagement_count": int(engagement_meta),
         "checkout_completion": round(checkout_compl, 4),
         "atc_rate": round(atc_rate, 4),
         "ci_atc_rate": round(ci_atc_rate, 4),
@@ -789,6 +805,7 @@ def upsert_placeholders(
                     "initiate_checkout": 0,
                     "add_to_cart": 0,
                     "post_engagements": 0,
+                    "engagement_count": 0,
                     "checkout_completion": 0,
                     "atc_rate": 0,
                     "ci_atc_rate": 0,
