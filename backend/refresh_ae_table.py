@@ -194,7 +194,12 @@ per_ad AS (
         LEAST(b.reporting_starts, p.reporting_starts_pri) AS reporting_starts,
         GREATEST(b.reporting_ends, p.reporting_ends_pri)  AS reporting_ends,
         COALESCE(b.impressions,    0) AS impressions,
-        COALESCE(b.reach,          0) AS reach,
+        -- Reach: prefer Meta's lifetime-deduplicated reach (`ltv_reach`).
+        -- The bare `SUM(b.reach)` from backfill_table double-counts a person
+        -- who saw the ad on multiple days (Meta dedupes per day, not across
+        -- days). Validated against Meta Admin API: SUM(reach) overstates
+        -- true lifetime reach by 30–75% on average. ltv_reach is correct.
+        COALESCE(NULLIF(b.ltv_reach, 0), b.reach, 0)::bigint AS reach,
         COALESCE(b.amount_spent,   0::numeric) AS amount_spent,
         COALESCE(b.outbound_clicks,0) AS outbound_clicks,
         COALESCE(p.link_clicks,    0) AS link_clicks,
