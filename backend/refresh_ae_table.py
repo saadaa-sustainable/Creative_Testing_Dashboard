@@ -376,15 +376,16 @@ print("\nPer-account breakdown:")
 for acct, n in cur.fetchall():
     print(f"  {acct:30s} {n:>6,}")
 
-# ── ae_view_full = ae_table_view + per-ad shopify aggregates ───────────────
-# Materialized view so Supabase REST queries stay under the 8s statement_timeout
-# (the inline aggregation against 660k shopify_ad_attribution rows was timing out).
-# Cheap to rebuild — 2-3s on the current data volume.
-print("\nRefreshing ae_view_full (materialized) — ae_table_view + shopify aggregates...")
-cur.execute("DROP MATERIALIZED VIEW IF EXISTS ae_view_full CASCADE;")
+# ae_table_view is a REGULAR view that JOINs to shopify_ad_agg (a small
+# pre-aggregated table of per-ad shopify totals). Repopulate that table so
+# the view returns fresh shopify numbers on every dashboard request.
+# (View definition is in _consolidate_ae_views.py; this script only refreshes
+# the underlying aggregate table.)
+print("\nRefreshing shopify_ad_agg (per-ad shopify_ad_attribution aggregates)...")
 cur.execute("""
-CREATE MATERIALIZED VIEW ae_view_full AS
-WITH shopify_agg AS (
+TRUNCATE shopify_ad_agg;
+INSERT INTO shopify_ad_agg
+WITH base AS (
   SELECT ad_id,
          COUNT(*)                          AS shopify_orders,
          ROUND(SUM(total_price), 2)        AS shopify_sales,
@@ -395,7 +396,7 @@ WITH shopify_agg AS (
   WHERE has_match AND ad_id IS NOT NULL AND ad_id <> ''
   GROUP BY ad_id
 ),
-shopify_top_tier AS (
+top_tier AS (
   SELECT DISTINCT ON (ad_id) ad_id, matched_tier AS shopify_top_tier
   FROM (
     SELECT ad_id, matched_tier, SUM(total_price) AS tier_sales
@@ -405,30 +406,15 @@ shopify_top_tier AS (
   ) t
   ORDER BY ad_id, tier_sales DESC
 )
-SELECT v.*,
-       sa.shopify_orders,
-       sa.shopify_sales,
-       sa.shopify_aov,
-       sa.shopify_first_order,
-       sa.shopify_last_order,
-       st.shopify_top_tier,
-       CASE WHEN v.amount_spent > 0 AND sa.shopify_sales IS NOT NULL
-            THEN ROUND((sa.shopify_sales / v.amount_spent)::numeric, 3)
-            ELSE NULL END AS shopify_roas
-FROM ae_table_view v
-LEFT JOIN shopify_agg       sa USING (ad_id)
-LEFT JOIN shopify_top_tier  st USING (ad_id);
+SELECT b.ad_id, b.shopify_orders, b.shopify_sales, b.shopify_aov,
+       b.shopify_first_order, b.shopify_last_order, tt.shopify_top_tier
+FROM base b LEFT JOIN top_tier tt USING (ad_id);
 """)
-cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_aevf_ad_id    ON ae_view_full (ad_id);")
-cur.execute("CREATE INDEX        IF NOT EXISTS idx_aevf_impr     ON ae_view_full (impressions DESC NULLS LAST);")
-cur.execute("CREATE INDEX        IF NOT EXISTS idx_aevf_account  ON ae_view_full (account_name);")
-cur.execute("CREATE INDEX        IF NOT EXISTS idx_aevf_category ON ae_view_full (category);")
-cur.execute("GRANT SELECT ON ae_view_full TO anon, authenticated, service_role;")
 cur.execute("NOTIFY pgrst, 'reload schema';")
 conn.commit()
-cur.execute("SELECT COUNT(*), COUNT(*) FILTER (WHERE shopify_orders > 0) FROM ae_view_full")
+cur.execute("SELECT COUNT(*), COUNT(*) FILTER (WHERE shopify_orders > 0) FROM ae_table_view")
 n_v, n_sh = cur.fetchone()
-print(f"  ae_view_full: {n_v:,} rows  ({n_sh:,} with shopify orders attached)")
+print(f"  ae_table_view: {n_v:,} rows  ({n_sh:,} with shopify orders attached)")
 
 cur.close()
 conn.close()

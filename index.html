@@ -2466,6 +2466,13 @@ function ctExportCSV(){
     .ae-drp-day.today::after{content:'';position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:currentColor}
     .ae-drp-grid{display:grid;grid-template-columns:repeat(7,32px);gap:1px}
     .ae-drp-dow{width:32px;height:24px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#9a9187;text-transform:uppercase;letter-spacing:.05em}
+    /* Date-picker responsive collapse: hide right calendar on narrow viewports */
+    @media (max-width: 720px){
+      #ae-drp-panel { width: calc(100vw - 16px); }
+      #ae-drp-panel #ae-drp-cal-r,
+      #ae-drp-panel #ae-drp-month-r { display:none !important; }
+      #ae-drp-panel #ae-drp-presets { width:120px }
+    }
     @keyframes ae-spin{to{transform:rotate(360deg)}}
     @keyframes ae-pulse{0%,100%{opacity:1}50%{opacity:.3}}
     #analysisEnginePanel .ae-spinner{width:40px;height:40px;border-radius:50%;border:3px solid rgba(192,96,58,.15);border-top-color:var(--ae-terra);animation:ae-spin .8s linear infinite;margin:0 auto 14px}
@@ -2732,7 +2739,7 @@ function ctExportCSV(){
             <span id="ae-drp-label" style="font-weight:600;color:#9a9187">📅 All time</span>
             <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:#9a9187;flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>
           </button>
-          <div id="ae-drp-panel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:999;background:#fff;border:1px solid #e0dbd0;border-radius:14px;box-shadow:0 12px 40px rgba(28,25,22,.15);overflow:hidden;width:680px;font-family:'Roboto',sans-serif">
+          <div id="ae-drp-panel" style="display:none;position:fixed;top:0;left:0;z-index:9999;background:#fff;border:1px solid #e0dbd0;border-radius:14px;box-shadow:0 12px 40px rgba(28,25,22,.15);overflow:hidden;width:680px;max-width:calc(100vw - 16px);font-family:'Roboto',sans-serif">
             <div style="display:flex">
               <div id="ae-drp-presets" style="width:140px;flex-shrink:0;border-right:1px solid #f0ece4;padding:8px 0;background:#faf8f5">
                 <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('today')" data-key="today">Today</div>
@@ -3271,7 +3278,7 @@ function mountDrp(opts){
       <span id="${prefix}-drp-label" style="font-weight:600;color:#9a9187">📅 All time</span>
       <span style="font-size:9px;color:#9a9187">▾</span>
     </button>
-    <div id="${prefix}-drp-panel" style="display:none;position:fixed;top:0;left:0;z-index:99999;background:#fff;border:1px solid #e0dbd0;border-radius:14px;box-shadow:0 12px 40px rgba(28,25,22,.15);overflow:hidden;width:680px;font-family:'Roboto',sans-serif">
+    <div id="${prefix}-drp-panel" style="display:none;position:fixed;top:0;left:0;z-index:99999;background:#fff;border:1px solid #e0dbd0;border-radius:14px;box-shadow:0 12px 40px rgba(28,25,22,.15);overflow:hidden;width:680px;max-width:calc(100vw - 16px);font-family:'Roboto',sans-serif">
       <div style="display:flex">
         <div id="${prefix}-drp-presets" style="width:140px;flex-shrink:0;border-right:1px solid #f0ece4;padding:8px 0;background:#faf8f5">
           <div class="ae-drp-preset" onclick="event.stopPropagation();drpPreset('${prefix}','today')"      data-key="today">Today</div>
@@ -3574,19 +3581,37 @@ function aeDrpCancel(){ drpCancel('ae'); window.aeDrpOpen = false; }
 function aeDrpUpdateBtn(){ drpUpdateBtn('ae'); }
 
 async function aeFetchPrimaryForRange(fromVal,toVal){
-  const su=SUPABASE_URL,sa=SUPABASE_ANON;if(!su||!sa)return;
+  const su=SUPABASE_URL,sa=SUPABASE_ANON;
+  if(!su||!sa){
+    document.getElementById('ae-load-sub').textContent='Error: Supabase credentials not set';
+    return;
+  }
   document.getElementById('ae-loading').style.display='block';
   document.getElementById('ae-content').style.display='none';
   document.getElementById('ae-load-sub').textContent='Fetching primary_table: '+fromVal+' to '+toVal+'...';
   const cols=['account_name','date','ad_name','ad_id','adset_id','adset_name','campaign_name','ad_status','ad_created_date','impressions','reach','amount_spent_inr','purchase_roas','outbound_clicks','ftewv_count','ncp_count','cost_per_ncp','ltv_reach','ltv_frequency','preview_link','ad_link'].join(',');
   const BATCH=1000;let all=[],more=true,offset=0,pg=0;
   try{
-    while(more){pg++;document.getElementById('ae-load-sub').textContent='Page '+pg+' — '+all.length.toLocaleString()+' rows...';
+    while(more){
+      pg++; document.getElementById('ae-load-sub').textContent='Page '+pg+' — '+all.length.toLocaleString()+' rows...';
       let url=su+'/rest/v1/primary_table?select='+cols+'&order=date.desc&limit='+BATCH+'&offset='+offset;
-      if(fromVal)url+='&date=gte.'+fromVal;if(toVal)url+='&date=lte.'+toVal;
-      const res=await fetch(url,{headers:{'apikey':sa,'Authorization':'Bearer '+sa,'Prefer':'count=none'}});
-      if(!res.ok){more=false;break;}const b=await res.json();
-      if(!Array.isArray(b)||b.length===0){more=false;break;}all=all.concat(b);offset+=b.length;if(b.length<BATCH)more=false;
+      if(fromVal) url += '&date=gte.'+fromVal;
+      if(toVal)   url += '&date=lte.'+toVal;
+      const res = await fetch(url,{headers:{'apikey':sa,'Authorization':'Bearer '+sa,'Prefer':'count=none'}});
+      if(!res.ok){
+        // Surface the actual error instead of silently aborting
+        let detail = '';
+        try { detail = (await res.text()).slice(0, 300); } catch {}
+        throw new Error('primary_table HTTP '+res.status+(detail?' — '+detail:''));
+      }
+      const b = await res.json();
+      if(!Array.isArray(b)){
+        throw new Error('primary_table returned non-array: '+JSON.stringify(b).slice(0,200));
+      }
+      if(b.length === 0){ more = false; break; }
+      all = all.concat(b);
+      offset += b.length;
+      if(b.length < BATCH) more = false;
     }
     aeRaw=all;aeLoaded=true;aeFromResultsTable=false;
     const badge=document.getElementById('ae-row-badge');
@@ -3594,16 +3619,26 @@ async function aeFetchPrimaryForRange(fromVal,toVal){
       ? 'Date: '+fromVal+' to '+toVal+' · '+all.length.toLocaleString()+' rows'
       : 'No data for '+fromVal+' to '+toVal;
     badge.style.display='inline';
-    // Always flow through aeCompute — it toggles loading→content even with empty data,
-    // so the user sees the result panel (with zero counts) instead of a stuck spinner.
-    setTimeout(aeCompute,20);
+    // Always flow through aeCompute — wrap so any JS error surfaces in the badge
+    // instead of leaving the spinner stuck forever.
+    setTimeout(()=>{
+      try { aeCompute(); }
+      catch(err){
+        console.error('aeCompute error:', err);
+        const b=document.getElementById('ae-row-badge');
+        b.textContent='Error rendering: '+err.message; b.style.display='inline';
+        document.getElementById('ae-loading').style.display='none';
+        document.getElementById('ae-content').style.display='block';
+      }
+    }, 20);
   }catch(e){
     console.error('aeFetchPrimaryForRange:',e);
     aeRaw=[];aeLoaded=true;aeFromResultsTable=false;
     const badge=document.getElementById('ae-row-badge');
-    badge.textContent='Error: '+e.message;badge.style.display='inline';
+    badge.textContent='Error: '+e.message; badge.style.display='inline';
     document.getElementById('ae-load-sub').textContent='Error: '+e.message;
-    setTimeout(aeCompute,20);
+    document.getElementById('ae-loading').style.display='none';
+    document.getElementById('ae-content').style.display='block';
   }
 }
 
@@ -3614,8 +3649,9 @@ async function aeReload(){
   document.getElementById('ae-content').style.display='none';
   aeLoaded=false;aeFromResultsTable=false;
 
-  // ── Try ae_view_full first (ae_table_view + shopify_ad_attribution aggregates) ──
-  document.getElementById('ae-load-sub').textContent='Loading ae_view_full (lifetime + shopify)...';
+  // ── ae_table_view is now a single materialized view that includes both lifetime
+  //    Meta metrics AND per-ad shopify aggregates. Single source of truth. ──
+  document.getElementById('ae-load-sub').textContent='Loading ae_table_view (lifetime + shopify)...';
   try{
     const aevCols = [
       'account_name','campaign_name','adset_id','adset_name','ad_id','ad_name',
@@ -3627,38 +3663,22 @@ async function aeReload(){
       'ltv_reach','ltv_frequency','engagement_count',
       'preview_link','ad_link','conv_value','purchases','link_clicks_raw',
       'ci_count','atc_count',
-      // Shopify attribution aggregates (from ae_view_full)
+      // Shopify attribution aggregates (per-ad, inlined into ae_table_view)
       'shopify_orders','shopify_sales','shopify_aov','shopify_roas',
       'shopify_first_order','shopify_last_order','shopify_top_tier'
     ].join(',');
     const BATCH=1000; let all=[], offset=0, more=true, pg=0;
     while(more){
-      pg++; document.getElementById('ae-load-sub').textContent='ae_view_full page '+pg+' — '+all.length.toLocaleString()+' ads loaded...';
-      // Fall back to ae_table_view automatically if ae_view_full doesn't exist
-      const view = window._aeViewName || 'ae_view_full';
-      const url=su+'/rest/v1/'+view+'?select='+aevCols+'&order=impressions.desc.nullslast&limit='+BATCH+'&offset='+offset;
+      pg++; document.getElementById('ae-load-sub').textContent='ae_table_view page '+pg+' — '+all.length.toLocaleString()+' ads loaded...';
+      const url=su+'/rest/v1/ae_table_view?select='+aevCols+'&order=impressions.desc.nullslast&limit='+BATCH+'&offset='+offset;
       const res=await fetch(url,{headers:{'apikey':sa,'Authorization':'Bearer '+sa,'Prefer':'count=none'}});
-      if(!res.ok){
-        // ae_view_full not present — fall back to ae_table_view (without shopify cols)
-        if(view==='ae_view_full' && res.status===404){
-          window._aeViewName='ae_table_view';
-          const fallbackCols=aevCols.split(',').filter(c=>!c.startsWith('shopify_')).join(',');
-          const fbUrl=su+'/rest/v1/ae_table_view?select='+fallbackCols+'&order=impressions.desc.nullslast&limit='+BATCH+'&offset='+offset;
-          const fbRes=await fetch(fbUrl,{headers:{'apikey':sa,'Authorization':'Bearer '+sa,'Prefer':'count=none'}});
-          if(!fbRes.ok) throw new Error('ae_table_view HTTP '+fbRes.status);
-          const b=await fbRes.json();
-          if(!Array.isArray(b)||b.length===0){more=false;break;}
-          all=all.concat(b); offset+=b.length; if(b.length<BATCH) more=false;
-          continue;
-        }
-        throw new Error('ae_view_full HTTP '+res.status);
-      }
+      if(!res.ok) throw new Error('ae_table_view HTTP '+res.status);
       const b=await res.json();
       if(!Array.isArray(b)||b.length===0){more=false;break;}
       all=all.concat(b); offset+=b.length; if(b.length<BATCH) more=false;
     }
     if(all.length){
-      // Map ae_view_full rows → primary_table-shaped rows so aeCompute can reuse its math
+      // Map ae_table_view rows → primary_table-shaped rows so aeCompute can reuse its math
       aeRaw = all.map(v=>({
         account_name: v.account_name||'', ad_name: v.ad_name||'', ad_id: v.ad_id||'',
         adset_id: v.adset_id||'', adset_name: v.adset_name||'',
@@ -3701,8 +3721,7 @@ async function aeReload(){
       }));
       aeLoaded=true; aeFromResultsTable=false;
       const badge=document.getElementById('ae-row-badge');
-      const viewLabel = (window._aeViewName==='ae_table_view') ? 'ae_table_view (no shopify)' : 'ae_view_full (lifetime + shopify)';
-      badge.textContent = viewLabel + ' · '+all.length.toLocaleString()+' ads';
+      badge.textContent = 'ae_table_view (lifetime + shopify) · '+all.length.toLocaleString()+' ads';
       badge.style.display='inline';
       document.getElementById('ae-loading').style.display='none';
       document.getElementById('ae-content').style.display='block';
@@ -4576,9 +4595,9 @@ async function aeFetchAdAnalytics(adId, adName){
   const H = {headers:{'apikey':sa,'Authorization':'Bearer '+sa,'Prefer':'count=none'}};
   const qid = encodeURIComponent(adId);
 
-  // Single fetch: ae_view_full row = Meta lifetime + Shopify aggregates already rolled up.
-  const hdrR = await fetch(su+'/rest/v1/ae_view_full?select=*&ad_id=eq.'+qid+'&limit=1', H);
-  if(!hdrR.ok) throw new Error('ae_view_full HTTP '+hdrR.status);
+  // Single fetch: ae_table_view row = Meta lifetime + Shopify aggregates already rolled up.
+  const hdrR = await fetch(su+'/rest/v1/ae_table_view?select=*&ad_id=eq.'+qid+'&limit=1', H);
+  if(!hdrR.ok) throw new Error('ae_table_view HTTP '+hdrR.status);
   const hdr = await hdrR.json();
   const v = (hdr && hdr[0]) || {};
 
