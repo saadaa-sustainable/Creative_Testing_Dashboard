@@ -3589,7 +3589,9 @@ async function aeFetchPrimaryForRange(fromVal,toVal){
   document.getElementById('ae-loading').style.display='block';
   document.getElementById('ae-content').style.display='none';
   document.getElementById('ae-load-sub').textContent='Fetching primary_table: '+fromVal+' to '+toVal+'...';
-  const cols=['account_name','date','ad_name','ad_id','adset_id','adset_name','campaign_name','ad_status','ad_created_date','impressions','reach','amount_spent_inr','purchase_roas','outbound_clicks','ftewv_count','ncp_count','cost_per_ncp','ltv_reach','ltv_frequency','preview_link','ad_link'].join(',');
+  // Funnel columns added so CPC/CTR/Checkout%/ATC%/CR LC% can compute downstream.
+  // Without these the JS had no source data and the CSV came out with blank cells.
+  const cols=['account_name','date','ad_name','ad_id','adset_id','adset_name','campaign_name','ad_status','ad_created_date','impressions','reach','amount_spent_inr','purchase_roas','outbound_clicks','inline_link_clicks','purchases','initiate_checkout','add_to_cart','conversion_value','ftewv_count','ncp_count','cost_per_ncp','cost_per_ftewv','ltv_reach','ltv_frequency','preview_link','ad_link'].join(',');
   const BATCH=1000;let all=[],more=true,offset=0,pg=0;
   try{
     while(more){
@@ -3752,7 +3754,9 @@ async function aeReload(){
     }
   }catch(e){console.warn('AE results_table check:',e.message);}
   document.getElementById('ae-load-sub').textContent='Loading primary_table...';
-  const cols=['account_name','date','ad_name','ad_id','adset_id','adset_name','campaign_name','ad_status','ad_created_date','impressions','reach','amount_spent_inr','purchase_roas','outbound_clicks','ftewv_count','ncp_count','cost_per_ncp','ltv_reach','ltv_frequency','preview_link','ad_link'].join(',');
+  // Funnel columns added so CPC/CTR/Checkout%/ATC%/CR LC% can compute downstream.
+  // Without these the JS had no source data and the CSV came out with blank cells.
+  const cols=['account_name','date','ad_name','ad_id','adset_id','adset_name','campaign_name','ad_status','ad_created_date','impressions','reach','amount_spent_inr','purchase_roas','outbound_clicks','inline_link_clicks','purchases','initiate_checkout','add_to_cart','conversion_value','ftewv_count','ncp_count','cost_per_ncp','cost_per_ftewv','ltv_reach','ltv_frequency','preview_link','ad_link'].join(',');
   const BATCH=1000;let all=[],offset=0,more=true,pg=0;
   try{
     while(more){pg++;document.getElementById('ae-load-sub').textContent='Page '+pg+' — '+all.length.toLocaleString()+' rows loaded...';
