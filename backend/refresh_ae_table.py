@@ -145,7 +145,12 @@ backfill_agg AS (
         COALESCE(SUM(ftewv_count),      0)          AS ftewv_count,
         COALESCE(SUM(ncp_count),        0)          AS ncp_count,
         MAX(ltv_reach)     AS ltv_reach,
-        MAX(ltv_frequency) AS ltv_frequency
+        MAX(ltv_frequency) AS ltv_frequency,
+        -- Backfill_table is the lifetime store; carry ad_link / adset info
+        -- forward so pre-2026 ads (no primary_table row) still surface them.
+        (ARRAY_AGG(ad_link ORDER BY date DESC) FILTER (WHERE ad_link IS NOT NULL AND ad_link <> ''))[1] AS ad_link_bf,
+        (ARRAY_AGG(adset_id   ORDER BY date DESC) FILTER (WHERE adset_id   IS NOT NULL AND adset_id   <> ''))[1] AS adset_id_bf,
+        (ARRAY_AGG(adset_name ORDER BY date DESC) FILTER (WHERE adset_name IS NOT NULL AND adset_name <> ''))[1] AS adset_name_bf
     FROM backfill_table
     WHERE ad_id IS NOT NULL
     GROUP BY ad_id
@@ -185,8 +190,11 @@ per_ad AS (
         a.ad_id,
         COALESCE(b.account_name,  p.account_name_pri)   AS account_name,
         COALESCE(b.campaign_name, p.campaign_name_pri)  AS campaign_name,
-        COALESCE(p.adset_id,   '')                       AS adset_id,
-        COALESCE(p.adset_name, '')                       AS adset_name,
+        -- adset_id/name: primary_table has it for only ~46% of ads (recent
+        -- sync window); backfill_table has 99.6% coverage. Prefer primary
+        -- (freshest source) but fall back to backfill so pre-2026 ads aren't blank.
+        COALESCE(NULLIF(p.adset_id,   ''), b.adset_id_bf,   '') AS adset_id,
+        COALESCE(NULLIF(p.adset_name, ''), b.adset_name_bf, '') AS adset_name,
         COALESCE(b.ad_name, p.ad_name_pri)               AS ad_name,
         COALESCE(p.ad_status_pri, b.ad_status_bf)        AS ad_status,
         COALESCE(b.ad_created, p.ad_created_pri)         AS ad_created,
@@ -213,7 +221,9 @@ per_ad AS (
         b.ltv_reach,
         b.ltv_frequency,
         p.preview_link,
-        p.ad_link
+        -- Prefer the freshest primary_table ad_link; fall back to backfill_table's
+        -- value so older ads (pre-2026, only in backfill) still surface a link.
+        COALESCE(NULLIF(p.ad_link, ''), b.ad_link_bf) AS ad_link
     FROM all_ad_ids a
     LEFT JOIN backfill_agg b ON b.ad_id = a.ad_id
     LEFT JOIN primary_agg  p ON p.ad_id = a.ad_id
@@ -297,7 +307,7 @@ SELECT
     (e.impressions >= 50000),
     (amount_spent > 0 AND conv_value / amount_spent >= 3.2),
     (ncp_count   > 0 AND amount_spent / ncp_count <= 525),
-    (ftewv_count > 0 AND amount_spent / ftewv_count <= 12),
+    (ftewv_count > 0 AND amount_spent / ftewv_count <= 25),
     impressions,
     reach,
     ROUND(cpr_1000::numeric, 2),
@@ -365,6 +375,60 @@ cur.execute("""
 print("\nPer-account breakdown:")
 for acct, n in cur.fetchall():
     print(f"  {acct:30s} {n:>6,}")
+
+# ── ae_view_full = ae_table_view + per-ad shopify aggregates ───────────────
+# Materialized view so Supabase REST queries stay under the 8s statement_timeout
+# (the inline aggregation against 660k shopify_ad_attribution rows was timing out).
+# Cheap to rebuild — 2-3s on the current data volume.
+print("\nRefreshing ae_view_full (materialized) — ae_table_view + shopify aggregates...")
+cur.execute("DROP MATERIALIZED VIEW IF EXISTS ae_view_full CASCADE;")
+cur.execute("""
+CREATE MATERIALIZED VIEW ae_view_full AS
+WITH shopify_agg AS (
+  SELECT ad_id,
+         COUNT(*)                          AS shopify_orders,
+         ROUND(SUM(total_price), 2)        AS shopify_sales,
+         ROUND(AVG(total_price), 2)        AS shopify_aov,
+         MIN(order_created_at)::date       AS shopify_first_order,
+         MAX(order_created_at)::date       AS shopify_last_order
+  FROM shopify_ad_attribution
+  WHERE has_match AND ad_id IS NOT NULL AND ad_id <> ''
+  GROUP BY ad_id
+),
+shopify_top_tier AS (
+  SELECT DISTINCT ON (ad_id) ad_id, matched_tier AS shopify_top_tier
+  FROM (
+    SELECT ad_id, matched_tier, SUM(total_price) AS tier_sales
+    FROM shopify_ad_attribution
+    WHERE has_match AND ad_id IS NOT NULL AND ad_id <> ''
+    GROUP BY ad_id, matched_tier
+  ) t
+  ORDER BY ad_id, tier_sales DESC
+)
+SELECT v.*,
+       sa.shopify_orders,
+       sa.shopify_sales,
+       sa.shopify_aov,
+       sa.shopify_first_order,
+       sa.shopify_last_order,
+       st.shopify_top_tier,
+       CASE WHEN v.amount_spent > 0 AND sa.shopify_sales IS NOT NULL
+            THEN ROUND((sa.shopify_sales / v.amount_spent)::numeric, 3)
+            ELSE NULL END AS shopify_roas
+FROM ae_table_view v
+LEFT JOIN shopify_agg       sa USING (ad_id)
+LEFT JOIN shopify_top_tier  st USING (ad_id);
+""")
+cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_aevf_ad_id    ON ae_view_full (ad_id);")
+cur.execute("CREATE INDEX        IF NOT EXISTS idx_aevf_impr     ON ae_view_full (impressions DESC NULLS LAST);")
+cur.execute("CREATE INDEX        IF NOT EXISTS idx_aevf_account  ON ae_view_full (account_name);")
+cur.execute("CREATE INDEX        IF NOT EXISTS idx_aevf_category ON ae_view_full (category);")
+cur.execute("GRANT SELECT ON ae_view_full TO anon, authenticated, service_role;")
+cur.execute("NOTIFY pgrst, 'reload schema';")
+conn.commit()
+cur.execute("SELECT COUNT(*), COUNT(*) FILTER (WHERE shopify_orders > 0) FROM ae_view_full")
+n_v, n_sh = cur.fetchone()
+print(f"  ae_view_full: {n_v:,} rows  ({n_sh:,} with shopify orders attached)")
 
 cur.close()
 conn.close()

@@ -18,6 +18,7 @@ Usage:
 """
 
 import os
+import re
 import sys
 import time
 import logging
@@ -200,11 +201,16 @@ def _get(url: str, params: dict = None, attempt: int = 1) -> dict:
         return resp.json()
 
     except Exception as e:
+        # Scrub any *_token= param AND raw EAA... tokens from the message
+        # before it ever reaches logs/console.
+        import re as _re
+        _safe = _re.sub(r"(\w*token\w*=)[^&\s]+", r"\1<REDACTED>", str(e), flags=_re.I)
+        _safe = _re.sub(r"EAA[A-Za-z0-9_\-]{20,}", "<REDACTED>", _safe)
         if attempt < MAX_RETRIES:
-            log.warning(f"  Retry {attempt}/{MAX_RETRIES}: {e}")
+            log.warning(f"  Retry {attempt}/{MAX_RETRIES}: {_safe}")
             time.sleep(RETRY_DELAY * attempt)
             return _get(url, params, attempt + 1)
-        raise
+        raise type(e)(_safe) from None
 
 
 def get_custom_conversion_ids(account_id: str) -> dict:
@@ -327,6 +333,35 @@ def _extract_ad_link(creative: dict) -> str:
         return creative["object_url"]
 
     return ""
+
+
+def _extract_link_from_preview(ad_id: str) -> str:
+    """Tier-2 fallback for boosted IG posts where every creative.* field is empty.
+    Calls /<ad_id>/previews, follows the iframe, parses the rendered JSON for the
+    `link_url` field, and unwraps Meta's l.facebook.com/l.php?u=… redirector to
+    return the final destination URL (UTM params intact)."""
+    import json as _json
+    from urllib.parse import urlparse, parse_qs
+    try:
+        d = _get(f"{BASE_URL}/{ad_id}/previews",
+                 {"ad_format": "MOBILE_FEED_STANDARD", "access_token": ACCESS_TOKEN})
+        body = (d.get("data") or [{}])[0].get("body", "")
+        m = re.search(r'src="([^"]+)"', body)
+        if not m:
+            return ""
+        src = m.group(1).replace("&amp;", "&")
+        html = requests.get(src, timeout=30).text
+        m = re.search(r'"link_url":"([^"]+)"', html)
+        if not m:
+            return ""
+        link = _json.loads(f'"{m.group(1)}"')
+        if "l.facebook.com/l.php" in link:
+            qs = parse_qs(urlparse(link).query)
+            if qs.get("u"):
+                return qs["u"][0]
+        return link
+    except Exception:
+        return ""
 
 
 def get_ad_metadata(ad_ids: list) -> dict:
@@ -653,7 +688,7 @@ def fetch_and_upsert(
     and upserts into primary_table.
     Returns (fetched_count, upserted_count).
     """
-    log.info(f"  Fetching {account_name} | {since} → {until}")
+    log.info(f"  Fetching {account_name} | {since} -> {until}")
 
     url = f"{BASE_URL}/act_{account_id}/insights"
     params = {
@@ -829,7 +864,7 @@ def upsert_placeholders(
 
 def sync(since: str, until: str, label: str):
     log.info(f"\n{'='*60}")
-    log.info(f"{label.upper()} | {since} → {until} (GMT)")
+    log.info(f"{label.upper()} | {since} -> {until} (GMT)")
     log.info(f"{'='*60}")
 
     total_f = total_u = 0
@@ -837,7 +872,7 @@ def sync(since: str, until: str, label: str):
     start = datetime.now()
 
     for acct in ACCOUNTS:
-        log.info(f"\n▶  {acct['name']}")
+        log.info(f"\n>>  {acct['name']}")
 
         # Get custom conversion IDs for this account
         conv_ids = get_custom_conversion_ids(acct["id"])

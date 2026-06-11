@@ -1,2 +1,16 @@
 .env
 /docs
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+backend/logs/
+
+# Local data exports (large, regenerable)
+backend/*.csv
+backend/full_backfill.progress.json
+backend/rebuild_attribution.progress.json

@@ -15,9 +15,17 @@ Usage:
     python results_sync.py --days 60    # custom window length (override default)
 """
 
-import os, json, math
+import os, sys, json, math
 from datetime import datetime, timezone, date, timedelta
 from collections import defaultdict
+
+# Force stdout/stderr to UTF-8 so Unicode glyphs (—, ✓, →) don't crash on
+# Windows cp1252 console.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
+except Exception:
+    pass
 
 import psycopg2
 import psycopg2.extras
@@ -457,7 +465,7 @@ def run(account_name: str | None = None, days_window: int = DEFAULT_DAYS_WINDOW)
     today = date.today()
     since_date = today - timedelta(days=days_window - 1)
     print(f"\n[results_sync] Starting — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"  Window: {since_date.isoformat()} → {today.isoformat()} ({days_window} days)")
+    print(f"  Window: {since_date.isoformat()} -> {today.isoformat()} ({days_window} days)")
 
     conn = get_conn()
     try:

@@ -574,8 +574,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <span style="font-size:.68rem;font-weight:600;color:var(--ink2)" id="copyToggleLabel">Excl. copy</span>
       </div>
       <div style="display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;user-select:none;transition:all .15s" onclick="toggleActiveOnly()" onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='var(--border)'" title="Match Meta's default — exclude CAMPAIGN_PAUSED / PAUSED / WITH_ISSUES ads">
-        <div id="activeToggleDot" style="width:28px;height:16px;background:var(--terra);border-radius:99px;position:relative;transition:background .2s;flex-shrink:0">
-          <div id="activeToggleThumb" style="position:absolute;top:2px;right:2px;width:12px;height:12px;background:#fff;border-radius:50%;transition:right .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
+        <div id="activeToggleDot" style="width:28px;height:16px;background:var(--border2);border-radius:99px;position:relative;transition:background .2s;flex-shrink:0">
+          <div id="activeToggleThumb" style="position:absolute;top:2px;right:13px;width:12px;height:12px;background:#fff;border-radius:50%;transition:right .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
         </div>
         <span style="font-size:.68rem;font-weight:600;color:var(--ink2)" id="activeToggleLabel">Active only</span>
       </div>
@@ -613,7 +613,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <input type="number" id="targetImp"   value="50000" onchange="applyFilters()"/>
     <input type="number" id="targetRoas"  value="3.2" step="0.1" onchange="applyFilters()"/>
     <input type="number" id="targetCpn"   value="525" step="1" onchange="applyFilters()"/>
-    <input type="number" id="targetFtewv" value="12"  step="1" onchange="applyFilters()"/>
+    <input type="number" id="targetFtewv" value="25"  step="1" onchange="applyFilters()"/>
   </div>
 
   <!-- ── LOGIC LEGEND ── -->
@@ -979,7 +979,7 @@ function toggleExcludeCopy(){
 // "active in the account" even when its enclosing campaign is paused). Excludes
 // PAUSED / ARCHIVED / DELETED / DISAPPROVED / WITH_ISSUES.
 const ACTIVE_STATUS_WHITELIST = new Set(['ACTIVE','ADSET_PAUSED','CAMPAIGN_PAUSED']);
-let ACTIVE_ONLY_TOGGLE = true;
+let ACTIVE_ONLY_TOGGLE = false;
 function toggleActiveOnly(){
   ACTIVE_ONLY_TOGGLE=!ACTIVE_ONLY_TOGGLE;
   const dot=document.getElementById('activeToggleDot');
@@ -1252,7 +1252,7 @@ function applyFilters(){
   const ti=document.getElementById('targetImp')?.value||'50000';
   const tr=document.getElementById('targetRoas')?.value||'3.2';
   const tc=document.getElementById('targetCpn')?.value||'525';
-  const tf=document.getElementById('targetFtewv')?.value||'12';
+  const tf=document.getElementById('targetFtewv')?.value||'25';
   setEl('legendImp',Number(ti).toLocaleString('en-IN'));
   setEl('legendRoas',tr);
   setEl('legendCpn',tc);
@@ -1604,7 +1604,7 @@ function renderResults(ads){
   const targetImp   = parseFloat(document.getElementById('targetImp')?.value)   || 50000;
   const targetRoas  = parseFloat(document.getElementById('targetRoas')?.value)  || 3.2;
   const targetCpn   = parseFloat(document.getElementById('targetCpn')?.value)   || 525;
-  const targetFtewv = parseFloat(document.getElementById('targetFtewv')?.value) || 12;
+  const targetFtewv = parseFloat(document.getElementById('targetFtewv')?.value) || 25;
 
   // ── Aggregate per unique ad ──
   const adMap = {};
@@ -1868,7 +1868,7 @@ function toggleDefModal(){
     const ti=document.getElementById('targetImp')?.value||'50000';
     const tr=document.getElementById('targetRoas')?.value||'3.2';
     const tc=document.getElementById('targetCpn')?.value||'525';
-    const tf=document.getElementById('targetFtewv')?.value||'12';
+    const tf=document.getElementById('targetFtewv')?.value||'25';
     const di=document.getElementById('def_targetImp');
     const dr=document.getElementById('def_targetRoas');
     const dc=document.getElementById('def_targetCpn');
@@ -2071,7 +2071,7 @@ function ctExportCSV(){
   const tImp       = parseFloat(document.getElementById('targetImp')?.value)||50000;
   const tRoas      = parseFloat(document.getElementById('targetRoas')?.value)||3.2;
   const tCpn       = parseFloat(document.getElementById('targetCpn')?.value)||525;
-  const tFtewv     = parseFloat(document.getElementById('targetFtewv')?.value)||12;
+  const tFtewv     = parseFloat(document.getElementById('targetFtewv')?.value)||25;
   const acctName   = ACTIVE_ACCT===0?'All Accounts':(SHEET_ACCOUNTS[ACTIVE_ACCT-1]?.name||'All Accounts');
   const now        = new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 
@@ -2292,7 +2292,7 @@ function ctExportCSV(){
             <div style="font-size:.58rem;color:var(--slate);opacity:.7;margin-bottom:6px">F3 ✓ AND F4 ✓ = Incremental</div>
             <div style="display:flex;align-items:baseline;gap:8px">
               <span style="font-size:.85rem;color:var(--slate);font-weight:700">₹</span>
-              <input type="number" id="def_targetFtewv" value="12" step="1" onchange="syncThreshold('ftewv',this.value)"
+              <input type="number" id="def_targetFtewv" value="25" step="1" onchange="syncThreshold('ftewv',this.value)"
                 style="font-family:'Roboto',sans-serif;font-size:1.2rem;font-weight:900;color:var(--slate);background:transparent;border:none;outline:none;border-bottom:2px solid var(--slate);width:70px;padding-bottom:2px"/>
               <span style="font-size:.65rem;color:var(--slate);font-weight:600">/ FTEWV</span>
             </div>
@@ -2732,7 +2732,7 @@ function ctExportCSV(){
             <span id="ae-drp-label" style="font-weight:600;color:#9a9187">📅 All time</span>
             <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:#9a9187;flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>
           </button>
-          <div id="ae-drp-panel" style="display:none;position:fixed;top:0;left:0;z-index:99999;background:#fff;border:1px solid #e0dbd0;border-radius:14px;box-shadow:0 12px 40px rgba(28,25,22,.15);overflow:hidden;width:680px;font-family:'Roboto',sans-serif">
+          <div id="ae-drp-panel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:999;background:#fff;border:1px solid #e0dbd0;border-radius:14px;box-shadow:0 12px 40px rgba(28,25,22,.15);overflow:hidden;width:680px;font-family:'Roboto',sans-serif">
             <div style="display:flex">
               <div id="ae-drp-presets" style="width:140px;flex-shrink:0;border-right:1px solid #f0ece4;padding:8px 0;background:#faf8f5">
                 <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('today')" data-key="today">Today</div>
@@ -2777,6 +2777,9 @@ function ctExportCSV(){
         </div>
         <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#9a9187;font-weight:600">
           Cost/NCP≤₹:<input id="ae-target-cpn" type="number" value="525" step="1" oninput="aeRecompute()" style="width:60px;padding:6px 8px;border-radius:7px;border:1px solid #e0dbd0;background:#faf8f5;color:#1c1916;font-family:inherit;font-size:11px;outline:none">
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#9a9187;font-weight:600">
+          Cost/FTEWV≤₹:<input id="ae-target-ftewv" type="number" value="25" step="1" oninput="aeRecompute()" style="width:60px;padding:6px 8px;border-radius:7px;border:1px solid #e0dbd0;background:#faf8f5;color:#1c1916;font-family:inherit;font-size:11px;outline:none">
         </div>
         <button onclick="aeReload()" style="padding:7px 14px;background:#f5ebe6;border:1px solid rgba(192,96,58,.3);color:#c0603a;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">↻ Refresh</button>
       </div>
@@ -2943,7 +2946,7 @@ function ctExportCSV(){
       <div class="ae-glass" style="padding:12px 16px;border-radius:14px 14px 0 0;border-bottom:none;display:flex;align-items:center;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:10px">
           <span style="font-size:12px;color:var(--ae-muted)">Show</span>
-          <select id="ae-page-size" onchange="aePageSize()" style="padding:5px 10px;border-radius:7px;border:1px solid var(--ae-border);background:var(--ae-surface);color:var(--ae-ink);font-size:12px;outline:none;font-family:inherit"><option value="25">25</option><option value="50">50</option><option value="100">100</option></select>
+          <select id="ae-page-size" onchange="aePageSize()" style="padding:5px 10px;border-radius:7px;border:1px solid var(--ae-border);background:var(--ae-surface);color:var(--ae-ink);font-size:12px;outline:none;font-family:inherit"><option value="25">25</option><option value="50">50</option><option value="100" selected>100</option><option value="250">250</option><option value="500">500</option><option value="1000">1000</option></select>
           <span style="font-size:12px;color:var(--ae-muted)">ads</span>
           <span id="ae-row-info" style="font-size:11px;color:var(--ae-muted);margin-left:4px"></span>
         </div>
@@ -2988,6 +2991,7 @@ function ctExportCSV(){
             <th onclick="aeSort('category')" style="text-align:left;min-width:110px">Status &#8597;</th>
             <th style="text-align:center;min-width:70px">F1</th>
             <th style="text-align:center;min-width:90px">F2 / F3</th>
+            <th style="text-align:center;min-width:70px" title="F4 = Cost/FTEWV ≤ target (parallel quality check, doesn't drive category)">F4</th>
             <th style="text-align:left;min-width:110px">Ad Status</th>
             <!-- Book1 metrics B–R -->
             <th onclick="aeSort('imp')" style="text-align:right;min-width:110px">Impressions &#8597;</th>
@@ -3008,8 +3012,8 @@ function ctExportCSV(){
             <th onclick="aeSort('rawCiCount')" style="text-align:right;min-width:90px">CI &#8597;</th>
             <th onclick="aeSort('rawConvValue')" style="text-align:right;min-width:120px">Conv Value ₹ &#8597;</th>
             <th onclick="aeSort('rawRoas')" style="text-align:right;min-width:80px">ROAS MA &#8597;</th>
-            <th onclick="aeSort('shopifyOrders')" style="text-align:right;min-width:120px;background:#fdf5e6;color:#b8883a" title="Last-click attributed orders from Shopify (via utm_term=adset_id and utm_content=ad_name)">Shopify Orders &#8597;</th>
-            <th onclick="aeSort('shopifySales')"  style="text-align:right;min-width:140px;background:#fdf5e6;color:#b8883a" title="Last-click attributed revenue from Shopify (INR)">Shopify Sales ₹ &#8597;</th>
+            <th onclick="aeSort('rawShopOrders')" style="text-align:right;min-width:110px;background:#f5ebe6;color:#c0603a" title="Shopify orders attributed to this ad (lifetime)">Shopify Orders &#8597;</th>
+            <th onclick="aeSort('rawShopSales')" style="text-align:right;min-width:130px;background:#f5ebe6;color:#c0603a" title="Shopify sales attributed to this ad (lifetime, ₹)">Shopify Sales ₹ &#8597;</th>
             <th onclick="aeSort('rawCpFtewv')" style="text-align:right;min-width:110px">Cost / FTEWV &#8597;</th>
             <th onclick="aeSort('rawFtewvCount')" style="text-align:right;min-width:110px">FTEWV Count &#8597;</th>
             <th onclick="aeSort('rawCostPerNcp')" style="text-align:right;min-width:110px">Cost / NCP &#8597;</th>
@@ -3108,43 +3112,8 @@ const AEA={
 };
 
 let aeRaw=[],aeResults=[],aeFiltered=[],aeLoaded=false;
-// Shopify-direct attribution map: ad_id -> {orders, sales}
-// Populated by aeFetchShopifyAttribution() from the shopify_ad_attribution table.
-// Used by aeCompute() / aeRender() to surface Shopify Orders + Sales per ad row.
-let aeShopifyMap = Object.create(null);
-
-async function aeFetchShopifyAttribution(){
-  const su=SUPABASE_URL, sa=SUPABASE_ANON;
-  if(!su||!sa) return;
-  try{
-    const BATCH=1000; let off=0, all=[];
-    while(true){
-      const url=su+'/rest/v1/shopify_ad_attribution?select=ad_id,orders,sales&limit='+BATCH+'&offset='+off;
-      const r=await fetch(url,{headers:{'apikey':sa,'Authorization':'Bearer '+sa,'Prefer':'count=none'}});
-      if(!r.ok) throw new Error('shopify_ad_attribution HTTP '+r.status);
-      const b=await r.json();
-      if(!Array.isArray(b)||b.length===0) break;
-      all=all.concat(b); off+=b.length;
-      if(b.length<BATCH) break;
-    }
-    const m=Object.create(null);
-    for(const x of all){
-      if(x.ad_id){
-        m[x.ad_id] = {
-          orders: Number(x.orders)||0,
-          sales:  Number(x.sales)||0,
-        };
-      }
-    }
-    aeShopifyMap = m;
-    console.log('[ae] shopify_ad_attribution loaded:', all.length, 'rows');
-  } catch(e){
-    console.warn('shopify_ad_attribution fetch failed; Orders/Sales columns will show 0:', e.message);
-    aeShopifyMap = Object.create(null);
-  }
-}
 let aeFromResultsTable=false,aeActiveAcct='';
-let aeSortKey='imp',aeSortDir=-1,aeChipActive='',aeCurPage=0,aePerPage=25;
+let aeSortKey='imp',aeSortDir=-1,aeChipActive='',aeCurPage=0,aePerPage=100;
 let aeHeat={roas:0,profit:0,blended:0};
 const sdv=(n,d)=>(d===0||isNaN(d))?0:n/d;
 function aeMed(a){if(!a.length)return 0;const s=[...a].sort((x,y)=>x-y);const h=Math.floor(s.length/2);return s.length%2?s[h]:(s[h-1]+s[h])/2;}
@@ -3645,43 +3614,62 @@ async function aeReload(){
   document.getElementById('ae-content').style.display='none';
   aeLoaded=false;aeFromResultsTable=false;
 
-  // Pull Shopify attribution (small table, ~6K rows) in parallel — used to
-  // populate the Orders / Sales columns. If the request fails, those cells
-  // just show 0; the rest of AE still works.
-  document.getElementById('ae-load-sub').textContent='Loading shopify_ad_attribution...';
-  const shopifyPromise = aeFetchShopifyAttribution();
-
-  // ── Try ae_table_view first (pre-aggregated per ad_id, lifetime, all 11K+ ads) ──
-  document.getElementById('ae-load-sub').textContent='Loading ae_table_view (lifetime)...';
+  // ── Try ae_view_full first (ae_table_view + shopify_ad_attribution aggregates) ──
+  document.getElementById('ae-load-sub').textContent='Loading ae_view_full (lifetime + shopify)...';
   try{
     const aevCols = [
       'account_name','campaign_name','adset_id','adset_name','ad_id','ad_name',
-      'ad_created','reporting_starts','reporting_ends',
+      'ad_created','first_seen_date','reporting_starts','reporting_ends',
       'date_target_imp_achieved','date_of_result','days_to_result','days_to_target_f1',
       'ad_status','f1_pass','f2_pass','f3_pass','f4_pass','category',
       'impressions','reach','amount_spent','roas_ma',
       'cost_per_ftewv','ftewv_count','cost_per_ncp','ncp_count',
       'ltv_reach','ltv_frequency','engagement_count',
       'preview_link','ad_link','conv_value','purchases','link_clicks_raw',
-      'ci_count','atc_count'
+      'ci_count','atc_count',
+      // Shopify attribution aggregates (from ae_view_full)
+      'shopify_orders','shopify_sales','shopify_aov','shopify_roas',
+      'shopify_first_order','shopify_last_order','shopify_top_tier'
     ].join(',');
     const BATCH=1000; let all=[], offset=0, more=true, pg=0;
     while(more){
-      pg++; document.getElementById('ae-load-sub').textContent='ae_table_view page '+pg+' — '+all.length.toLocaleString()+' ads loaded...';
-      const url=su+'/rest/v1/ae_table_view?select='+aevCols+'&order=impressions.desc.nullslast&limit='+BATCH+'&offset='+offset;
+      pg++; document.getElementById('ae-load-sub').textContent='ae_view_full page '+pg+' — '+all.length.toLocaleString()+' ads loaded...';
+      // Fall back to ae_table_view automatically if ae_view_full doesn't exist
+      const view = window._aeViewName || 'ae_view_full';
+      const url=su+'/rest/v1/'+view+'?select='+aevCols+'&order=impressions.desc.nullslast&limit='+BATCH+'&offset='+offset;
       const res=await fetch(url,{headers:{'apikey':sa,'Authorization':'Bearer '+sa,'Prefer':'count=none'}});
-      if(!res.ok) throw new Error('ae_table_view HTTP '+res.status);
+      if(!res.ok){
+        // ae_view_full not present — fall back to ae_table_view (without shopify cols)
+        if(view==='ae_view_full' && res.status===404){
+          window._aeViewName='ae_table_view';
+          const fallbackCols=aevCols.split(',').filter(c=>!c.startsWith('shopify_')).join(',');
+          const fbUrl=su+'/rest/v1/ae_table_view?select='+fallbackCols+'&order=impressions.desc.nullslast&limit='+BATCH+'&offset='+offset;
+          const fbRes=await fetch(fbUrl,{headers:{'apikey':sa,'Authorization':'Bearer '+sa,'Prefer':'count=none'}});
+          if(!fbRes.ok) throw new Error('ae_table_view HTTP '+fbRes.status);
+          const b=await fbRes.json();
+          if(!Array.isArray(b)||b.length===0){more=false;break;}
+          all=all.concat(b); offset+=b.length; if(b.length<BATCH) more=false;
+          continue;
+        }
+        throw new Error('ae_view_full HTTP '+res.status);
+      }
       const b=await res.json();
       if(!Array.isArray(b)||b.length===0){more=false;break;}
       all=all.concat(b); offset+=b.length; if(b.length<BATCH) more=false;
     }
     if(all.length){
-      // Map ae_table_view rows → primary_table-shaped rows so aeCompute can reuse its math
+      // Map ae_view_full rows → primary_table-shaped rows so aeCompute can reuse its math
       aeRaw = all.map(v=>({
         account_name: v.account_name||'', ad_name: v.ad_name||'', ad_id: v.ad_id||'',
         adset_id: v.adset_id||'', adset_name: v.adset_name||'',
         campaign_name: v.campaign_name||'', ad_status: v.ad_status||'',
         ad_created_date: v.ad_created||'',
+        first_seen_date: v.first_seen_date||'',                     // SQL: MIN(date) WHERE impressions > 0
+        // SQL-computed result-timing (anchored on first_seen_date per spec)
+        date_target_imp_achieved: v.date_target_imp_achieved||'',
+        date_of_result_sql: v.date_of_result||'',
+        days_to_result_sql: v.days_to_result,
+        days_to_target_f1_sql: v.days_to_target_f1,
         date: v.reporting_ends || v.reporting_starts || '',         // synthetic single-day = last delivery
         impressions: Number(v.impressions)||0,
         reach: Number(v.reach)||0,
@@ -3702,13 +3690,20 @@ async function aeReload(){
         engagement_count: Number(v.engagement_count)||0,
         preview_link: v.preview_link||'',
         ad_link: v.ad_link||'',
+        // Shopify attribution (may be null if no matched orders)
+        shopify_orders: v.shopify_orders!=null?Number(v.shopify_orders):null,
+        shopify_sales:  v.shopify_sales!=null?Number(v.shopify_sales):null,
+        shopify_aov:    v.shopify_aov!=null?Number(v.shopify_aov):null,
+        shopify_roas:   v.shopify_roas!=null?Number(v.shopify_roas):null,
+        shopify_first_order: v.shopify_first_order||null,
+        shopify_last_order:  v.shopify_last_order||null,
+        shopify_top_tier:    v.shopify_top_tier||null,
       }));
       aeLoaded=true; aeFromResultsTable=false;
       const badge=document.getElementById('ae-row-badge');
-      badge.textContent = 'ae_table_view (lifetime) · '+all.length.toLocaleString()+' ads';
+      const viewLabel = (window._aeViewName==='ae_table_view') ? 'ae_table_view (no shopify)' : 'ae_view_full (lifetime + shopify)';
+      badge.textContent = viewLabel + ' · '+all.length.toLocaleString()+' ads';
       badge.style.display='inline';
-      // Ensure Shopify map is loaded before aeCompute reads it for per-ad lookups
-      try { await shopifyPromise; } catch(_){}
       document.getElementById('ae-loading').style.display='none';
       document.getElementById('ae-content').style.display='block';
       setTimeout(aeCompute,20);
@@ -3757,7 +3752,7 @@ function aeRecompute(){
   const tI=document.getElementById('ae-target-imp')?.value||'50000';
   const tR=document.getElementById('ae-target-roas')?.value||'3.2';
   const tC=document.getElementById('ae-target-cpn')?.value||'525';
-  const tF=document.getElementById('ae-target-ftewv')?.value||'12';
+  const tF=document.getElementById('ae-target-ftewv')?.value||'25';
   setEl('ae-leg-imp',Number(tI).toLocaleString('en-IN'));
   setEl('ae-leg-roas',tR);
   setEl('ae-leg-cpn',tC);
@@ -3774,7 +3769,7 @@ function aeCompute(){
   const tImp   = parseFloat(document.getElementById('ae-target-imp')?.value)||50000;
   const tRoas  = parseFloat(document.getElementById('ae-target-roas')?.value)||3.2;
   const tCpn   = parseFloat(document.getElementById('ae-target-cpn')?.value)||525;
-  const tFtewv = parseFloat(document.getElementById('ae-target-ftewv')?.value)||12;
+  const tFtewv = parseFloat(document.getElementById('ae-target-ftewv')?.value)||25;
   const grp    = document.getElementById('ae-group-by').value;
 
   const adMap={};let gR=0,gS=0,gF=0,gN=0,gP=0;
@@ -3798,7 +3793,11 @@ function aeCompute(){
     const ncpC=Number(r.cost_per_ncp)||0,ncp=ncpC>0?spend/ncpC:0;
     const purV=roas*spend,ltvR=Number(r.ltv_reach)||0,ltvF=Number(r.ltv_frequency)||0;
     const dMs=r.date?new Date(r.date+'T00:00:00').getTime():0;
-    if(!adMap[key]){adMap[key]={name:grp==='campaign'?camp:(adNm||'?'),campName:camp,adId,adsetId:String(r.adset_id||''),adsetName:String(r.adset_name||''),acct:String(r.account_name||''),status:String(r.ad_status||''),created:String(r.ad_created_date||''),previewLink:'',adLink:'',ltvR:0,ltvF:0,firstD:dMs,lastD:0,days:[],imp:0,reach:0,spend:0,outClicks:0,linkClicks:0,purchases:0,ci:0,atc:0,cpcSheetSum:0,cpcSheetCount:0,ftewv:0,ncp:0,purV:0,ltvI:0,ltvS:0,ltvRS:0,adIdSet:new Set([adId])};}
+    // First-seen-date (the real first-impression date from ae_view_full when available).
+    // For primary_table fallback the loop derives it as min(date) per ad via firstD; this
+    // prefers the SQL-computed value to keep dashboard math aligned with refresh_ae_table.
+    const fsMs = r.first_seen_date ? new Date(r.first_seen_date+'T00:00:00').getTime() : 0;
+    if(!adMap[key]){adMap[key]={name:grp==='campaign'?camp:(adNm||'?'),campName:camp,adId,adsetId:String(r.adset_id||''),adsetName:String(r.adset_name||''),acct:String(r.account_name||''),status:String(r.ad_status||''),created:String(r.ad_created_date||''),firstSeenSql:r.first_seen_date||'',dorSql:r.date_of_result_sql||'',dtrSql:r.days_to_result_sql,dtf1Sql:r.days_to_target_f1_sql,dtiaSql:r.date_target_imp_achieved||'',previewLink:'',adLink:'',ltvR:0,ltvF:0,firstD:fsMs||dMs,lastD:0,days:[],imp:0,reach:0,spend:0,outClicks:0,linkClicks:0,purchases:0,ci:0,atc:0,cpcSheetSum:0,cpcSheetCount:0,ftewv:0,ncp:0,purV:0,ltvI:0,ltvS:0,ltvRS:0,adIdSet:new Set([adId]),shopOrders:0,shopSales:0};}
     const ad=adMap[key];
     if(adId) ad.adIdSet.add(adId);                  // track all ad_ids collapsed into this row
     // Capture first non-empty adset_id / link seen for this ad
@@ -3813,6 +3812,7 @@ function aeCompute(){
     ad.linkClicks+=linkClicks;ad.purchases+=purchases;ad.ci+=ci;ad.atc+=atc;
     if(cpcSheet>0){ad.cpcSheetSum+=cpcSheet;ad.cpcSheetCount++;}
     ad.ftewv+=ftewv;ad.ncp+=ncp;ad.purV+=purV;
+    ad.shopOrders+=Number(r.shopify_orders)||0; ad.shopSales+=Number(r.shopify_sales)||0;
     ad.ltvI+=imp;ad.ltvS+=spend;ad.ltvRS+=reach;ad.days.push({d:dMs,i:imp,r:reach});
     gR+=reach;gS+=spend;gF+=ftewv;gN+=ncp;gP+=purV;
   }
@@ -3866,25 +3866,33 @@ function aeCompute(){
     if(hitT)vec='Eval: '+fmt(hitT);
     else if(!isNaN(cD.getTime())){const p=new Date(cD);p.setDate(p.getDate()+15);vec='~'+fmt(p.getTime());}
 
-    // ── Result-timing fields (new) ──
-    // Date Target Imp Achieved (F1) = day cumulative imp first crossed target
-    const dateTargetF1 = hitT ? fmt(hitT) : '—';
-    // Date of Result = F1-hit date if hit; else ad_created (or first_seen) + 14 days
-    let resultMs = null;
-    if(hitT){
-      resultMs = hitT;
-    } else if(!isNaN(cD.getTime())){
-      const p = new Date(cD); p.setDate(p.getDate() + 14);
-      resultMs = p.getTime();
+    // ── Result-timing fields ──
+    // Prefer the SQL-computed values from ae_view_full (anchored on first_seen_date
+    // per spec). Fall back to JS recompute only when fields aren't on the row
+    // (results_table or primary_table fallback paths).
+    const sqlHasResult = ad.dorSql || ad.dtiaSql;
+    const dateTargetF1 = ad.dtiaSql || (hitT ? fmt(hitT) : '—');
+    let dateOfResult, daysToResult, daysToF1;
+    if(sqlHasResult){
+      dateOfResult = ad.dorSql || '—';
+      daysToResult = (ad.dtrSql==null) ? null : Number(ad.dtrSql);
+      daysToF1     = (ad.dtf1Sql==null) ? null : Number(ad.dtf1Sql);
+    } else {
+      // Legacy fallback path (no SQL-computed values available)
+      let resultMs = null;
+      if(hitT){ resultMs = hitT; }
+      else if(!isNaN(cD.getTime())){
+        const p = new Date(cD); p.setDate(p.getDate() + 14);
+        resultMs = p.getTime();
+      }
+      dateOfResult = resultMs ? fmt(resultMs) : '—';
+      daysToResult = (resultMs && ad.firstD)
+        ? Math.max(0, Math.round((resultMs - ad.firstD) / 86400000))
+        : null;
+      daysToF1 = (hitT && ad.firstD)
+        ? Math.max(0, Math.round((hitT - ad.firstD) / 86400000))
+        : null;
     }
-    const dateOfResult = resultMs ? fmt(resultMs) : '—';
-    // Days from First Seen → Result (or → F1 target hit)
-    const daysToResult = (resultMs && ad.firstD)
-      ? Math.max(0, Math.round((resultMs - ad.firstD) / 86400000))
-      : null;
-    const daysToF1 = (hitT && ad.firstD)
-      ? Math.max(0, Math.round((hitT - ad.firstD) / 86400000))
-      : null;
     const lRFN=fF>0?fR/fF:0;
     const N=ad.avgR,G=ad.spend,P=ad.ftewv,B=ad.reach,R=sdv(P,B),S=ad.profit;
     const cm=N>0?(1-(1/N))*100:-100;
@@ -3921,6 +3929,7 @@ function aeCompute(){
       adStatus:ad.status,category:cat,
       previewLink:ad.previewLink||'',adLink:ad.adLink||'',
       imp:ad.imp,rawRoas:N,rawCpc:cpc,rawSpend:ad.ltvS,rawProfit:S,rawBlended:bl,
+      rawShopOrders:ad.shopOrders||0, rawShopSales:ad.shopSales||0,
       // Filter flag display
       f1Pass:f1,f2Pass:f2,f3Pass:f3,f4Pass:f4,
       vec,dateTargetF1,dateOfResult,
@@ -3948,13 +3957,6 @@ function aeCompute(){
       rawPurchases:ad.purchases,
       rawAtcCount:ad.atc,
       rawCiCount:ad.ci,
-      // Shopify-direct attribution (utm_term/utm_content match, full pipeline
-      // in backend/sync_shopify_ad_attribution.py). Sums across all ad_ids
-      // collapsed into this row when grouped by ad_name. 0 if no orders found.
-      shopifyOrders: (()=>{const ids = ad.adIdSet ? Array.from(ad.adIdSet) : [ad.adId];
-        return ids.reduce((s,id)=>s+((aeShopifyMap[id]&&aeShopifyMap[id].orders)||0), 0);})(),
-      shopifySales : (()=>{const ids = ad.adIdSet ? Array.from(ad.adIdSet) : [ad.adId];
-        return ids.reduce((s,id)=>s+((aeShopifyMap[id]&&aeShopifyMap[id].sales) ||0), 0);})(),
       type:mp.type,action:mp.action,perf:mp.perf,creative:mp.creative
     });
   }
@@ -4314,7 +4316,7 @@ function aeExportCSV(){
   const tImp      = document.getElementById('ae-target-imp')?.value||'50000';
   const tRoas     = document.getElementById('ae-target-roas')?.value||'3.2';
   const tCpn      = document.getElementById('ae-target-cpn')?.value||'525';
-  const tFtewv    = document.getElementById('ae-target-ftewv')?.value||'12';
+  const tFtewv    = document.getElementById('ae-target-ftewv')?.value||'25';
   const acctLabel = aeActiveAcct||'All Accounts';
   const catFilter = aeChipActive||'All Categories';
   const now       = new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -4482,7 +4484,7 @@ function aeRender(){
 <td style="padding:11px 14px;color:#9a9187;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${sc}">${sc}</td>
 <td style="padding:11px 14px;font-family:'Roboto Mono',monospace;font-size:10px;color:#9a9187;cursor:pointer" title="${sasn}" onclick="copyText('${sas}',this)">${sas||'—'}</td>
 <td style="padding:11px 14px;font-family:'Roboto Mono',monospace;font-size:10px;color:#9a9187;cursor:pointer" onclick="copyText('${sid}',this)">${sid}</td>
-<td style="padding:11px 14px;color:#1c1916;font-weight:600;max-width:210px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="copyText('${sn}',this)" title="${sn}">${sn}</td>
+<td style="padding:11px 14px;color:#1c1916;font-weight:600;max-width:210px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="aeOpenAdAnalytics('${sid}','${sn}')" title="Click for analytics — ${sn}">${sn} <span style="font-size:10px;color:#c0603a;opacity:.65">▸</span></td>
 <td style="padding:11px 14px;color:#9a9187">${r.created}</td>
 <td style="padding:11px 14px;color:#4a4540">${r.firstDate}</td>
 <td style="padding:11px 14px;color:#4a4540">${r.dateTargetF1}</td>
@@ -4492,6 +4494,7 @@ function aeRender(){
 <td style="padding:11px 14px"><span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;${bs}">${r.category}</span></td>
 <td style="padding:11px 14px;text-align:center">${fFlag(r.f1Pass)}</td>
 <td style="padding:11px 14px;text-align:center" title="Passes if ROAS ≥ target OR Cost/NCP ≤ target">${fFlag(r.f2Pass || r.f3Pass)}</td>
+<td style="padding:11px 14px;text-align:center" title="Cost/FTEWV ≤ target">${fFlag(r.f4Pass)}</td>
 <td style="padding:11px 14px"><span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:9.5px;font-weight:700;text-transform:uppercase;${as_s}">${r.adStatus||'—'}</span></td>
 <!-- Book1 metrics B–R -->
 <td style="${tdMono}">${r.imp.toLocaleString()}</td>
@@ -4512,8 +4515,8 @@ function aeRender(){
 <td style="${tdMono}">${r.rawCiCount>0?Math.round(r.rawCiCount).toLocaleString('en-IN'):'—'}</td>
 <td style="${tdMono}">${r.rawConvValue>0?'₹'+Math.round(r.rawConvValue).toLocaleString('en-IN'):'—'}</td>
 <td style="padding:11px 14px;position:relative;text-align:right"><div style="position:absolute;top:0;right:0;height:100%;width:${rP}%;background:rgba(192,96,58,.06);border-radius:3px"></div><span style="position:relative;font-weight:700;color:#c0603a;font-family:'Roboto Mono',monospace">${r.rawRoas.toFixed(2)}</span></td>
-<td style="padding:11px 14px;text-align:right;font-family:'Roboto Mono',monospace;color:#b8883a;font-weight:700;background:#fdf5e608">${r.shopifyOrders>0?r.shopifyOrders.toLocaleString('en-IN',{maximumFractionDigits:0}):'—'}</td>
-<td style="padding:11px 14px;text-align:right;font-family:'Roboto Mono',monospace;color:#b8883a;font-weight:700;background:#fdf5e608">${r.shopifySales>0?'₹'+Math.round(r.shopifySales).toLocaleString('en-IN'):'—'}</td>
+<td style="padding:11px 14px;text-align:right;background:rgba(192,96,58,.04);font-family:'Roboto Mono',monospace;font-weight:700;color:#c0603a">${r.rawShopOrders>0?r.rawShopOrders.toLocaleString('en-IN'):'—'}</td>
+<td style="padding:11px 14px;text-align:right;background:rgba(192,96,58,.04);font-family:'Roboto Mono',monospace;font-weight:700;color:#4a7c6f">${r.rawShopSales>0?'₹'+Math.round(r.rawShopSales).toLocaleString('en-IN'):'—'}</td>
 <td style="${tdMono}">${r.rawCpFtewv>0?'₹'+r.rawCpFtewv.toFixed(2):'—'}</td>
 <td style="${tdMono}">${r.rawFtewvCount>0?Math.round(r.rawFtewvCount).toLocaleString():'—'}</td>
 <td style="${tdMono}">${r.rawCostPerNcp>0?'₹'+r.rawCostPerNcp.toFixed(2):'—'}</td>
@@ -4542,9 +4545,138 @@ function aeRender(){
 <td style="padding:11px 14px;text-align:center">${r.adLink?`<a href="${r.adLink.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" style="color:#4a7c6f;text-decoration:none;font-weight:600;font-size:11px">↗ Open</a>`:'<span style="color:#cdc8bc">—</span>'}</td>
 </tr>`;
   }).join('');
-  document.getElementById('aeTableBody').innerHTML=rows||'<tr><td colspan="58" style="padding:40px;text-align:center;color:#9a9187;font-size:13px">No ads match current filters</td></tr>';
+  document.getElementById('aeTableBody').innerHTML=rows||'<tr><td colspan="59" style="padding:40px;text-align:center;color:#9a9187;font-size:13px">No ads match current filters</td></tr>';
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   AD ANALYTICS MODAL — per-ad drill-down popup
+   Click any row's ad_name to open. Pulls live data from:
+     summary_table     — Meta lifetime aggregates + F-flags + shopify_* roll-up
+     ae_view_full      — same view AE table loads from (already has shopify_*)
+     ad_order_detail   — VIEW: one row per matched order for this ad
+     ad_daily_sales    — VIEW: orders/sales aggregated per day for this ad
+     shopify_ad_attribution — raw orders for product/tier breakdowns
+   ═══════════════════════════════════════════════════════════════════════ */
+function aeOpenAdAnalytics(adId, adName){
+  const m = document.getElementById('adAnalyticsModal');
+  m.style.display = 'flex';
+  document.getElementById('adAnaContent').innerHTML =
+    '<div style="padding:60px;text-align:center;color:#9a9187;font-size:14px">Loading analytics for ad_id <code style="background:#faf8f5;padding:3px 8px;border-radius:5px;font-size:12px">'+adId+'</code> ...</div>';
+  aeFetchAdAnalytics(adId, adName).catch(e=>{
+    document.getElementById('adAnaContent').innerHTML =
+      '<div style="padding:40px;color:#c0603a;font-size:13px">Failed to load: '+String(e.message||e).replace(/</g,'&lt;')+'</div>';
+  });
+}
+function aeCloseAdAnalytics(){ document.getElementById('adAnalyticsModal').style.display='none'; }
+
+async function aeFetchAdAnalytics(adId, adName){
+  const su = String(SUPABASE_URL||'');
+  const sa = String(SUPABASE_ANON||'');
+  if(!su || !sa){ throw new Error('Supabase credentials not configured'); }
+  const H = {headers:{'apikey':sa,'Authorization':'Bearer '+sa,'Prefer':'count=none'}};
+  const qid = encodeURIComponent(adId);
+
+  // Single fetch: ae_view_full row = Meta lifetime + Shopify aggregates already rolled up.
+  const hdrR = await fetch(su+'/rest/v1/ae_view_full?select=*&ad_id=eq.'+qid+'&limit=1', H);
+  if(!hdrR.ok) throw new Error('ae_view_full HTTP '+hdrR.status);
+  const hdr = await hdrR.json();
+  const v = (hdr && hdr[0]) || {};
+
+  // ── Header KPIs ──
+  const fmtNum = n => (n==null||n===''||isNaN(Number(n))) ? '—' : Number(n).toLocaleString('en-IN');
+  const fmtRs  = n => (n==null||n===''||isNaN(Number(n))) ? '—' : '₹'+Math.round(Number(n)).toLocaleString('en-IN');
+  const fmtRoas= n => (n==null||n===''||isNaN(Number(n))) ? '—' : Number(n).toFixed(2)+'×';
+  const pill = (label, ok) => `<span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:99px;font-size:10px;font-weight:700;letter-spacing:.3px;${ok?'background:#e6f0ee;color:#4a7c6f':'background:#f5ebe6;color:#c0603a'}">${label} ${ok?'✓':'✗'}</span>`;
+
+  const metaRoas = (v.amount_spent>0 && v.conv_value!=null) ? (Number(v.conv_value)/Number(v.amount_spent)) : null;
+
+  document.getElementById('adAnaContent').innerHTML = `
+    <!-- Header -->
+    <div style="padding:24px 28px;background:linear-gradient(135deg,#f5ebe6,#faf8f5);border-bottom:1px solid #e0dbd0">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;font-weight:700;color:#c0603a;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Ad Analytics · ${v.category||'Unknown'} · ${v.ad_status||'—'}</div>
+          <div style="font-size:18px;font-weight:800;color:#1c1916;word-break:break-word">${(adName||v.ad_name||'').replace(/</g,'&lt;')}</div>
+          <div style="font-family:'Roboto Mono',monospace;font-size:11px;color:#9a9187;margin-top:6px">
+            ad_id <span style="background:#fff;padding:2px 8px;border-radius:5px;color:#4a4540">${adId}</span>
+            ${v.adset_id?`&nbsp;·&nbsp;adset <span style="background:#fff;padding:2px 8px;border-radius:5px;color:#4a4540">${v.adset_id}</span>`:''}
+            ${v.campaign_name?`&nbsp;·&nbsp;<span style="color:#4a4540">${v.campaign_name}</span>`:''}
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+            ${pill('F1', !!v.f1_pass)} ${pill('F2', !!v.f2_pass)} ${pill('F3', !!v.f3_pass)} ${pill('F4', !!v.f4_pass)}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          ${v.preview_link?`<a href="${v.preview_link}" target="_blank" rel="noopener" style="padding:7px 14px;background:#eaf0f8;border:1px solid rgba(74,111,165,.3);color:#4a6fa5;border-radius:8px;text-decoration:none;font-size:11px;font-weight:700">↗ Preview</a>`:''}
+          ${v.ad_link?`<a href="${v.ad_link}" target="_blank" rel="noopener" style="padding:7px 14px;background:#e6f0ee;border:1px solid rgba(74,124,111,.3);color:#4a7c6f;border-radius:8px;text-decoration:none;font-size:11px;font-weight:700">↗ Open Ad</a>`:''}
+          <button onclick="aeCloseAdAnalytics()" style="padding:7px 14px;background:#fff;border:1px solid #cdc8bc;color:#4a4540;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Close ✕</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI grid: Meta vs Shopify side-by-side -->
+    <div style="padding:20px 28px;display:grid;grid-template-columns:1fr 1fr;gap:18px;background:#fff">
+      <div style="background:#faf8f5;border:1px solid #e0dbd0;border-radius:12px;padding:16px">
+        <div style="font-size:10px;font-weight:800;color:#4a6fa5;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">Meta (lifetime)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+          <div><div style="color:#9a9187;font-size:10px">Impressions</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#1c1916">${fmtNum(v.impressions)}</div></div>
+          <div><div style="color:#9a9187;font-size:10px">Reach</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#1c1916">${fmtNum(v.reach)}</div></div>
+          <div><div style="color:#9a9187;font-size:10px">Spend</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#c0603a">${fmtRs(v.amount_spent)}</div></div>
+          <div><div style="color:#9a9187;font-size:10px">Conv. value</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#4a7c6f">${fmtRs(v.conv_value)}</div></div>
+          <div><div style="color:#9a9187;font-size:10px">Meta ROAS</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#c0603a">${fmtRoas(metaRoas)}</div></div>
+          <div><div style="color:#9a9187;font-size:10px">Purchases</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#1c1916">${fmtNum(v.purchases)}</div></div>
+          <div><div style="color:#9a9187;font-size:10px">NCP</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#1c1916">${fmtNum(v.ncp_count)}</div></div>
+          <div><div style="color:#9a9187;font-size:10px">FTEWV</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#1c1916">${fmtNum(v.ftewv_count)}</div></div>
+          <div><div style="color:#9a9187;font-size:10px">Cost / NCP</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:${v.f3_pass?'#4a7c6f':'#c0603a'}">${fmtRs(v.cost_per_ncp)}</div></div>
+          <div><div style="color:#9a9187;font-size:10px">Cost / FTEWV</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:${v.f4_pass?'#4a7c6f':'#c0603a'}">${fmtRs(v.cost_per_ftewv)}</div></div>
+        </div>
+      </div>
+      <div style="background:#f5ebe6;border:1px solid rgba(192,96,58,.25);border-radius:12px;padding:16px">
+        <div style="font-size:10px;font-weight:800;color:#c0603a;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">Shopify (attribution)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+          <div><div style="color:#9a9187;font-size:10px">Orders attributed</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#1c1916">${fmtNum(v.shopify_orders)}</div></div>
+          <div><div style="color:#9a9187;font-size:10px">Sales attributed</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#4a7c6f">${fmtRs(v.shopify_sales)}</div></div>
+          <div><div style="color:#9a9187;font-size:10px">AOV</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#1c1916">${fmtRs(v.shopify_aov)}</div></div>
+          <div><div style="color:#9a9187;font-size:10px">Attrib ROAS</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#7c4dbd">${fmtRoas(v.shopify_roas)}</div></div>
+          <div><div style="color:#9a9187;font-size:10px">First order</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#1c1916">${v.shopify_first_order||'—'}</div></div>
+          <div><div style="color:#9a9187;font-size:10px">Last order</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#1c1916">${v.shopify_last_order||'—'}</div></div>
+          <div style="grid-column:1/-1"><div style="color:#9a9187;font-size:10px">Dominant match tier</div><div style="font-family:'Roboto Mono',monospace;font-weight:800;color:#4a4540;font-size:11px">${v.shopify_top_tier||'—'}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Efficiency / lifecycle stats -->
+    <div style="padding:18px 28px;background:#faf8f5;border-top:1px solid #e0dbd0">
+      <div style="font-size:10px;font-weight:800;color:#4a4540;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">Efficiency &amp; lifecycle</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;font-size:12px">
+        <div><div style="color:#9a9187;font-size:10px">First seen</div><div style="font-family:'Roboto Mono',monospace;font-weight:700;color:#1c1916">${v.first_seen_date||v.reporting_starts||'—'}</div></div>
+        <div><div style="color:#9a9187;font-size:10px">Last seen</div><div style="font-family:'Roboto Mono',monospace;font-weight:700;color:#1c1916">${v.reporting_ends||'—'}</div></div>
+        <div><div style="color:#9a9187;font-size:10px">Date target F1 hit</div><div style="font-family:'Roboto Mono',monospace;font-weight:700;color:#1c1916">${v.date_target_imp_achieved||'—'}</div></div>
+        <div><div style="color:#9a9187;font-size:10px">Days to result</div><div style="font-family:'Roboto Mono',monospace;font-weight:700;color:#1c1916">${v.days_to_result!=null?v.days_to_result:'—'}</div></div>
+        <div><div style="color:#9a9187;font-size:10px">CTR</div><div style="font-family:'Roboto Mono',monospace;font-weight:700;color:#1c1916">${v.ctr_pct!=null?Number(v.ctr_pct).toFixed(2)+'%':'—'}</div></div>
+        <div><div style="color:#9a9187;font-size:10px">CPC (Link)</div><div style="font-family:'Roboto Mono',monospace;font-weight:700;color:#1c1916">${v.cpc_link!=null?'₹'+Number(v.cpc_link).toFixed(2):'—'}</div></div>
+        <div><div style="color:#9a9187;font-size:10px">Frequency</div><div style="font-family:'Roboto Mono',monospace;font-weight:700;color:#1c1916">${v.frequency!=null?Number(v.frequency).toFixed(2):'—'}</div></div>
+        <div><div style="color:#9a9187;font-size:10px">LTV reach</div><div style="font-family:'Roboto Mono',monospace;font-weight:700;color:#1c1916">${fmtNum(v.ltv_reach)}</div></div>
+        <div><div style="color:#9a9187;font-size:10px">Checkout %</div><div style="font-family:'Roboto Mono',monospace;font-weight:700;color:#1c1916">${v.checkout_compl_pct!=null?Number(v.checkout_compl_pct).toFixed(2)+'%':'—'}</div></div>
+        <div><div style="color:#9a9187;font-size:10px">ATC / LC %</div><div style="font-family:'Roboto Mono',monospace;font-weight:700;color:#1c1916">${v.atc_lc_pct!=null?Number(v.atc_lc_pct).toFixed(2)+'%':'—'}</div></div>
+        <div><div style="color:#9a9187;font-size:10px">CI / ATC %</div><div style="font-family:'Roboto Mono',monospace;font-weight:700;color:#1c1916">${v.ci_atc_pct!=null?Number(v.ci_atc_pct).toFixed(2)+'%':'—'}</div></div>
+        <div><div style="color:#9a9187;font-size:10px">Engagement</div><div style="font-family:'Roboto Mono',monospace;font-weight:700;color:#1c1916">${fmtNum(v.engagement_count)}</div></div>
+      </div>
+    </div>
+  `;
 }
 </script>
+
+<!-- Ad Analytics Modal -->
+<div id="adAnalyticsModal" style="display:none;position:fixed;inset:0;background:rgba(28,25,22,.55);z-index:9999;align-items:flex-start;justify-content:center;padding:30px 20px;overflow-y:auto;font-family:'Roboto',sans-serif" onclick="if(event.target===this)aeCloseAdAnalytics()">
+  <div style="background:#fff;border-radius:14px;width:min(1100px,100%);max-height:calc(100vh - 60px);overflow-y:auto;box-shadow:0 18px 60px rgba(0,0,0,.35);border:1px solid #cdc8bc">
+    <div id="adAnaContent"></div>
+  </div>
+</div>
+
+<script>
+// Close on Escape
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.getElementById('adAnalyticsModal'); if(m && m.style.display==='flex') aeCloseAdAnalytics();}});
 
 <!-- ════════════════════════════════════════ -->
 <!-- LIFECYCLE PANEL — 14-Day Buffer View     -->
