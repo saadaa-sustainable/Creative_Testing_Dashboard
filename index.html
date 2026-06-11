@@ -3615,10 +3615,57 @@ async function aeFetchPrimaryForRange(fromVal,toVal){
       offset += b.length;
       if(b.length < BATCH) more = false;
     }
+
+    // ── Shopify orders inside the same date window ────────────────────
+    // Without this, shopify_orders/sales on every row falls back to whatever
+    // the rolling aggregate (= NULL/0) was, so the AE table shows nothing for
+    // attributed sales during a date-range view.
+    const shopAgg = {};
+    try {
+      document.getElementById('ae-load-sub').textContent='Fetching shopify orders for '+fromVal+' to '+toVal+'...';
+      let sOff=0, sPg=0, sMore=true;
+      const SBATCH=1000;
+      while(sMore){
+        sPg++;
+        let surl = su+'/rest/v1/shopify_ad_attribution?select=ad_id,total_price&has_match=eq.true&ad_id=not.is.null';
+        if(fromVal) surl += '&order_created_at=gte.'+fromVal;
+        if(toVal)   surl += '&order_created_at=lte.'+toVal+'T23:59:59';
+        surl += '&limit='+SBATCH+'&offset='+sOff;
+        document.getElementById('ae-load-sub').textContent='shopify page '+sPg+' — '+Object.keys(shopAgg).length.toLocaleString()+' ads aggregated...';
+        const sRes = await fetch(surl,{headers:{'apikey':sa,'Authorization':'Bearer '+sa,'Prefer':'count=none'}});
+        if(!sRes.ok){ console.warn('shopify date-range HTTP '+sRes.status); break; }
+        const sB = await sRes.json();
+        if(!Array.isArray(sB) || sB.length === 0) break;
+        sB.forEach(o=>{
+          if(!o.ad_id) return;
+          const a = shopAgg[o.ad_id] || (shopAgg[o.ad_id] = {orders:0, sales:0});
+          a.orders++;
+          a.sales += Number(o.total_price)||0;
+        });
+        sOff += sB.length;
+        if(sB.length < SBATCH) sMore = false;
+      }
+    } catch(e){ console.warn('shopify date-range fetch:', e); }
+
+    // Merge per-ad shopify totals into aeRaw, setting on FIRST row per ad_id
+    // only (so aeCompute's SUM produces the right total — primary_table has
+    // many rows per ad, one per day).
+    const seenAd = new Set();
+    for(const r of all){
+      if(!r.ad_id) continue;
+      if(seenAd.has(r.ad_id)){ r.shopify_orders=0; r.shopify_sales=0; continue; }
+      seenAd.add(r.ad_id);
+      const a = shopAgg[r.ad_id];
+      r.shopify_orders = a ? a.orders : 0;
+      r.shopify_sales  = a ? a.sales  : 0;
+    }
+    const matchedAds = Object.keys(shopAgg).length;
+    const matchedOrders = Object.values(shopAgg).reduce((s,a)=>s+a.orders,0);
+
     aeRaw=all;aeLoaded=true;aeFromResultsTable=false;
     const badge=document.getElementById('ae-row-badge');
     badge.textContent=all.length
-      ? 'Date: '+fromVal+' to '+toVal+' · '+all.length.toLocaleString()+' rows'
+      ? 'Date: '+fromVal+' to '+toVal+' · '+all.length.toLocaleString()+' rows · '+matchedOrders.toLocaleString()+' shopify orders ('+matchedAds.toLocaleString()+' ads)'
       : 'No data for '+fromVal+' to '+toVal;
     badge.style.display='inline';
     // Always flow through aeCompute — wrap so any JS error surfaces in the badge
