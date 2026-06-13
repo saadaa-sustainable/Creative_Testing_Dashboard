@@ -2745,11 +2745,11 @@ function ctExportCSV(){
                 <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('today')" data-key="today">Today</div>
                 <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('yesterday')" data-key="yesterday">Yesterday</div>
                 <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('last7')" data-key="last7">Last 7 Days</div>
-                <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('last30')" data-key="last30">Last 30 Days</div>
+                <div class="ae-drp-preset active" onclick="event.stopPropagation();aeDrpPreset('last30')" data-key="last30">Last 30 Days</div>
                 <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('thisMonth')" data-key="thisMonth">This Month</div>
                 <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('lastMonth')" data-key="lastMonth">Last Month</div>
                 <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('last90')" data-key="last90">Last 90 Days</div>
-                <div class="ae-drp-preset active" onclick="event.stopPropagation();aeDrpPreset('lifetime')" data-key="lifetime">Lifetime</div>
+                <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('lifetime')" data-key="lifetime">Lifetime</div>
                 <div class="ae-drp-preset" onclick="event.stopPropagation();aeDrpPreset('custom')" data-key="custom">Custom Range</div>
               </div>
               <div style="flex:1;padding:16px 20px">
@@ -2788,7 +2788,7 @@ function ctExportCSV(){
         <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#9a9187;font-weight:600">
           Cost/FTEWV≤₹:<input id="ae-target-ftewv" type="number" value="25" step="1" oninput="aeRecompute()" style="width:60px;padding:6px 8px;border-radius:7px;border:1px solid #e0dbd0;background:#faf8f5;color:#1c1916;font-family:inherit;font-size:11px;outline:none">
         </div>
-        <button onclick="aeReload()" style="padding:7px 14px;background:#f5ebe6;border:1px solid rgba(192,96,58,.3);color:#c0603a;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">↻ Refresh</button>
+        <button onclick="aeSmartReload()" style="padding:7px 14px;background:#f5ebe6;border:1px solid rgba(192,96,58,.3);color:#c0603a;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">↻ Refresh</button>
       </div>
     </div>
     <!-- Account Rail — superseded by #aeSidebar.
@@ -3186,7 +3186,7 @@ function selectAnalysisEngine(el){
   var ftp=document.getElementById('fatiguePanel');if(ftp)ftp.style.display='none';
   var p=document.getElementById('analysisEnginePanel');p.style.display='block';p.scrollTop=0;
   _lockBodyScroll();
-  if(!aeLoaded) aeReload();
+  if(!aeLoaded) aeApplyLast30Default_();   // default = Last 30 Days (was: lifetime via aeReload)
 }
 
 function selectLifecycle(el){
@@ -3232,13 +3232,36 @@ function aeHandleDateChange(){
   aeFetchPrimaryForRange(from,to);
 }
 function aeClearDateRange(){
+  // "Clear" now resets to the new default (Last 30 Days), not full lifetime.
   document.getElementById('ae-date-from').value='';
   document.getElementById('ae-date-to').value='';
   aeFromResultsTable=false;aeLoaded=false;
-  aeDrpState.from=null;aeDrpState.to=null;aeDrpState.hov=null;aeDrpState.preset='lifetime';
+  aeDrpState.from=null;aeDrpState.to=null;aeDrpState.hov=null;aeDrpState.preset='last30';
   aeDrpUpdateBtn();
-  document.querySelectorAll('.ae-drp-preset').forEach(el=>{ el.classList.toggle('active',el.dataset.key==='lifetime'); });
-  aeReload();
+  document.querySelectorAll('.ae-drp-preset').forEach(el=>{ el.classList.toggle('active',el.dataset.key==='last30'); });
+  aeApplyLast30Default_();
+}
+
+// Compute "last 30 days" range, fill the hidden inputs, update the picker
+// button label, and trigger the primary_table date-range fetch.
+function aeApplyLast30Default_(){
+  const today = new Date();
+  const from  = new Date(today); from.setDate(today.getDate()-29);
+  const z = n => n<10?'0'+n:''+n;
+  const fmt = d => d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());
+  const fromStr = fmt(from), toStr = fmt(today);
+  document.getElementById('ae-date-from').value = fromStr;
+  document.getElementById('ae-date-to').value   = toStr;
+  // Sync picker state + button label
+  if (typeof aeDrpState !== 'undefined') {
+    aeDrpState.from = from; aeDrpState.to = today; aeDrpState.preset = 'last30';
+  }
+  if (typeof aeDrpUpdateBtn === 'function') aeDrpUpdateBtn();
+  document.querySelectorAll('#ae-drp-presets .ae-drp-preset').forEach(el => {
+    el.classList.toggle('active', el.dataset.key === 'last30');
+  });
+  // Now fetch primary_table for the 30-day window
+  aeFetchPrimaryForRange(fromStr, toStr);
 }
 
 // ══════════════════════════════════════════
@@ -3270,7 +3293,7 @@ function mountDrp(opts){
   __drpInstances[prefix] = {
     config: cfg,
     state: { open:false, viewYear:new Date().getFullYear(), viewMonth:new Date().getMonth()-1,
-             from:null, to:null, hov:null, preset:'lifetime', selecting:false }
+             from:null, to:null, hov:null, preset:'last30', selecting:false }
   };
   return `
   <div id="${prefix}-drp-wrap" style="position:relative;display:inline-block">
@@ -3351,9 +3374,9 @@ function drpToggle(prefix, e){
     state.selecting=false; state.hov=null; state.from=null; state.to=null;
     const fIn = document.getElementById(config.fromInputId)?.value || '';
     const tIn = document.getElementById(config.toInputId)?.value   || '';
-    if(fIn){ state.from = drpParseLocal(fIn); if(state.preset==='lifetime') state.preset='custom'; }
+    if(fIn){ state.from = drpParseLocal(fIn); if(state.preset==='last30'||state.preset==='lifetime') state.preset='custom'; }
     if(tIn){ state.to   = drpParseLocal(tIn); }
-    if(!fIn && !tIn && state.preset!=='lifetime') state.preset='lifetime';
+    if(!fIn && !tIn && state.preset!=='lifetime' && state.preset!=='last30') state.preset='last30';
     drpSetPresetActive(prefix, state.preset);
     const anchor = state.from ? state.from : new Date();
     state.viewYear = anchor.getFullYear(); state.viewMonth = anchor.getMonth() - 1;
@@ -3532,7 +3555,7 @@ const aeDrpState = (function(){
         onClear: function(){ if(typeof aeClearDateRange==='function') aeClearDateRange(); }
       },
       state: { open:false, viewYear:new Date().getFullYear(), viewMonth:new Date().getMonth()-1,
-               from:null, to:null, hov:null, preset:'lifetime', selecting:false }
+               from:null, to:null, hov:null, preset:'last30', selecting:false }
     };
   }
   return __drpInstances['ae'].state;
@@ -3688,6 +3711,20 @@ async function aeFetchPrimaryForRange(fromVal,toVal){
     document.getElementById('ae-load-sub').textContent='Error: '+e.message;
     document.getElementById('ae-loading').style.display='none';
     document.getElementById('ae-content').style.display='block';
+  }
+}
+
+// Refresh button — respects the active date range (re-fetch the current view).
+// If a date range is set in the picker, re-run the primary_table range fetch;
+// otherwise reload from ae_table_view (lifetime).
+function aeSmartReload(){
+  const f = document.getElementById('ae-date-from')?.value || '';
+  const t = document.getElementById('ae-date-to')?.value   || '';
+  if (f && t) {
+    aeLoaded = false;
+    aeFetchPrimaryForRange(f, t);
+  } else {
+    aeReload();
   }
 }
 
