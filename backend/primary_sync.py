@@ -646,7 +646,7 @@ def upsert_rows(rows: list) -> int:
                             cur, UPSERT_SQL, clean, page_size=100
                         )
                 total += len(batch)
-                log.debug(f"  Batch {batch_no}/{n_batches}: {len(batch)} ✓")
+                log.debug(f"  Batch {batch_no}/{n_batches}: {len(batch)} ok")
                 break
             except Exception as e:
                 if attempt < MAX_RETRIES:
@@ -734,22 +734,27 @@ def fetch_and_upsert(
     # Upsert
     n = upsert_rows(rows)
     log.info(
-        f"  ✅ {len(rows)} fetched, {n} upserted (updated if existed, inserted if new)"
+        f"  [OK] {len(rows)} fetched, {n} upserted (updated if existed, inserted if new)"
     )
     return len(rows), n, set(ad_ids)
 
 
 # ── Sync functions ────────────────────────────────────────────
-# Statuses Meta returns for ads that are "alive" (eligible to deliver, even if not delivering today).
-# We insert placeholder rows for these so the dashboard can display them even when /insights
-# returned no impressions in the date range.
+# Every status Meta Ads Manager shows in its default ad list (active OR paused at any level).
+# Placeholder rows are written for these so the dashboard mirrors Ads Manager 1:1 even when
+# /insights returned no impressions in the date range. ARCHIVED / DELETED stay excluded —
+# Ads Manager hides those by default.
 ACTIVE_LIKE_STATUSES = {
     "ACTIVE",
+    "PAUSED",
+    "ADSET_PAUSED",
+    "CAMPAIGN_PAUSED",
     "WITH_ISSUES",
     "PENDING_REVIEW",
     "PREAPPROVED",
     "IN_PROCESS",
     "PENDING_BILLING_INFO",
+    "DISAPPROVED",
 }
 
 
@@ -961,7 +966,7 @@ def status():
         lag = ""
         if latest and latest != "no data":
             days = (date.fromisoformat(today) - date.fromisoformat(latest)).days
-            lag = f"  ({days}d behind)" if days > 0 else "  ✅ up to date"
+            lag = f"  ({days}d behind)" if days > 0 else "  [OK] up to date"
         log.info(f"  {acct['name']}: {latest}{lag}")
 
 
