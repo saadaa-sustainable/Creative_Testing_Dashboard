@@ -200,7 +200,7 @@ def main():
     conn = psycopg2.connect(DB_URL)
     conn.autocommit = False
     cur = conn.cursor()
-    cur.execute("SET statement_timeout = '180s'")
+    cur.execute("SET statement_timeout = '30min'")
 
     log.info("Ensuring summary_table schema exists…")
     cur.execute(SCHEMA_SQL)

@@ -344,7 +344,7 @@ t0 = time.time()
 conn = psycopg2.connect(os.environ["SUPABASE_DB_URL"])
 conn.autocommit = False
 cur = conn.cursor()
-cur.execute("SET statement_timeout = '180s'")
+cur.execute("SET statement_timeout = '30min'")
 # SETUP_SQL is no longer run — ae_raw_view is the base table now (managed via ALTER),
 # and ae_table_view exists as a VIEW (CREATE OR REPLACE VIEW). Skipping table re-creation
 # so the VIEW dependency isn't broken.

@@ -57,7 +57,7 @@ def fresh_conn():
     """Open a fresh DB connection — used at every flush so we never hit
     a stale pooler socket after long Shopify polling stretches."""
     c = psycopg2.connect(DB_URL, connect_timeout=30); c.autocommit = False
-    with c.cursor() as cur: cur.execute("SET statement_timeout = '300s'")
+    with c.cursor() as cur: cur.execute("SET statement_timeout = '30min'")
     return c
 
 

@@ -2,6 +2,15 @@
   "permissions": {
     "allow": [
       "PowerShell(Get-CimInstance *)"
-    ]
+    ],
+       "read": [                                                                                                                                                                                
+        { "deny": "**/.env" },                                                                                                                                                                 
+        { "deny": "**/.env.*" },
+        { "deny": "**/*.env" },
+        { "deny": "**/secrets/**" },
+        { "deny": "**/*token*" },
+        { "deny": "**/*credential*" }
+      ]
   }
 }
+

@@ -19,6 +19,13 @@ def main():
     conn = psycopg2.connect(DB_URL); conn.autocommit = False
     cur  = conn.cursor()
 
+    # Backfill_table can now have 350K+ rows (paused-ad placeholders included);
+    # the two big DML statements below regularly exceed Supabase's default 60s
+    # statement_timeout. Lift it for this session — they are still bounded by
+    # the WHERE-window so won't run forever.
+    cur.execute("SET statement_timeout = '30min'")
+    cur.execute("SET lock_timeout = '5min'")
+
     # ── 1) UPDATE matching rows
     print(f"[run] UPDATE backfill_table rows from primary_table (last {WINDOW_DAYS} days) ...")
     cur.execute(f"""
