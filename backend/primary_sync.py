@@ -148,6 +148,7 @@ COLUMNS = [
     "ltv_frequency",
     "preview_link",
     "ad_link",
+    "url_tags",
 ]
 UPDATE_COLS = [c for c in COLUMNS if c not in ("account_name", "ad_id", "date")]
 
@@ -245,7 +246,18 @@ def fetch_all_ads(account_id: str) -> list:
     ads = []
     url = f"{BASE_URL}/act_{account_id}/ads"
     params = {
-        "fields": "id,name,effective_status,created_time,adset{id,name},campaign{id,name}",
+        # Request creative + preview + url_tags so placeholder rows for non-delivering
+        # ads land with ad_link/preview_link/url_tags populated (matches what
+        # get_ad_metadata pulls for delivered ads).
+        "fields": (
+            "id,name,effective_status,created_time,preview_shareable_link,"
+            "creative{link_url,object_url,url_tags,"
+                     "asset_feed_spec{link_urls},"
+                     "object_story_spec{link_data{link,call_to_action{value{link}}},"
+                                       "video_data{call_to_action{value{link}}},"
+                                       "template_data{link}}},"
+            "adset{id,name},campaign{id,name}"
+        ),
         "limit": 500,
         "access_token": ACCESS_TOKEN,
     }
@@ -257,6 +269,7 @@ def fetch_all_ads(account_id: str) -> list:
         for a in batch:
             camp = a.get("campaign") or {}
             adset = a.get("adset") or {}
+            cre = a.get("creative") or {}
             ct = a.get("created_time", "")
             ads.append(
                 {
@@ -268,6 +281,9 @@ def fetch_all_ads(account_id: str) -> list:
                     "adset_name": adset.get("name", ""),
                     "campaign_id": camp.get("id", ""),
                     "campaign_name": camp.get("name", ""),
+                    "preview_link": a.get("preview_shareable_link", "") or "",
+                    "ad_link":  _extract_ad_link(cre),
+                    "url_tags": cre.get("url_tags") or "",
                 }
             )
         url = (data.get("paging") or {}).get("next")
@@ -374,9 +390,11 @@ def get_ad_metadata(ad_ids: list) -> dict:
     unique_ids = list(set(ad_ids))
     fields = (
         "effective_status,created_time,preview_shareable_link,"
-        "creative{link_url,object_url,asset_feed_spec,"
-        "object_story_spec{link_data{link},"
-        "video_data{call_to_action},template_data{link}}}"
+        "creative{link_url,object_url,url_tags,"
+                 "asset_feed_spec{link_urls},"
+                 "object_story_spec{link_data{link,call_to_action{value{link}}},"
+                                   "video_data{call_to_action{value{link}}},"
+                                   "template_data{link}}}"
     )
     for i in range(0, len(unique_ids), 25):
         chunk = unique_ids[i : i + 25]
@@ -392,11 +410,13 @@ def get_ad_metadata(ad_ids: list) -> dict:
             for ad_id, info in data.items():
                 if isinstance(info, dict):
                     ct = info.get("created_time", "")
+                    cre = info.get("creative") or {}
                     metadata[ad_id] = {
                         "status": info.get("effective_status", ""),
                         "created_date": ct[:10] if ct else None,
                         "preview_link": info.get("preview_shareable_link", "") or "",
-                        "ad_link": _extract_ad_link(info.get("creative") or {}),
+                        "ad_link":  _extract_ad_link(cre),
+                        "url_tags": cre.get("url_tags") or "",
                     }
         except Exception as e:
             log.error(f"  Ad metadata error (chunk {i}): {e}")
@@ -585,6 +605,7 @@ def parse_row(
         "ltv_frequency": round(ltv_ad["frequency"], 4),
         "preview_link": ad_meta.get("preview_link", ""),
         "ad_link": ad_meta.get("ad_link", ""),
+        "url_tags": ad_meta.get("url_tags", ""),
     }
 
 
@@ -858,6 +879,7 @@ def upsert_placeholders(
                     "ltv_frequency": 0,
                     "preview_link": ad.get("preview_link", "") or "",
                     "ad_link": ad.get("ad_link", "") or "",
+                    "url_tags": ad.get("url_tags", "") or "",
                 }
             )
 

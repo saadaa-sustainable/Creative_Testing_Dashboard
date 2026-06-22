@@ -381,30 +381,160 @@ for acct, n in cur.fetchall():
 # the view returns fresh shopify numbers on every dashboard request.
 # (View definition is in _consolidate_ae_views.py; this script only refreshes
 # the underlying aggregate table.)
-print("\nRefreshing shopify_ad_agg (per-ad shopify_ad_attribution aggregates)...")
-cur.execute("""
+print("\nRefreshing shopify_ad_agg (3-pass: direct + T3 spread + T4 spread, asset-code refined)...")
+cur.execute(r"""
 TRUNCATE shopify_ad_agg;
 INSERT INTO shopify_ad_agg
-WITH base AS (
+WITH
+ad_asset_codes AS (
   SELECT ad_id,
-         COUNT(*)                          AS shopify_orders,
-         ROUND(SUM(total_price), 2)        AS shopify_sales,
-         ROUND(AVG(total_price), 2)        AS shopify_aov,
-         MIN(order_created_at)::date       AS shopify_first_order,
-         MAX(order_created_at)::date       AS shopify_last_order
-  FROM shopify_ad_attribution
-  WHERE has_match AND ad_id IS NOT NULL AND ad_id <> ''
+         BOOL_OR(ad_name ILIKE '%IFAD%')                                  AS has_ifad,
+         BOOL_OR(ad_name ILIKE '%GAD%')                                   AS has_gad,
+         BOOL_OR(ad_name ILIKE '%BST%')                                   AS has_bst,
+         BOOL_OR(ad_name ILIKE '%UGC%')                                   AS has_ugc,
+         BOOL_OR(ad_name ILIKE '%ADB%')                                   AS has_adb,
+         BOOL_OR(ad_name ~ '(^|[^A-Za-z])VID([^A-Za-z]|$)')               AS has_vid,
+         BOOL_OR(ad_name ILIKE '%BR\_%' ESCAPE '\')                       AS has_br,
+         BOOL_OR(ad_name ILIKE '%BI\_%' ESCAPE '\')                       AS has_bi
+  FROM primary_table
+  WHERE ad_id IS NOT NULL AND ad_id <> '' AND ad_name IS NOT NULL
   GROUP BY ad_id
+),
+ads_in_adset AS (
+  SELECT ad_id, adset_id, SUM(amount_spent_inr) AS spend
+  FROM primary_table
+  WHERE adset_id IS NOT NULL AND adset_id <> ''
+    AND ad_id IS NOT NULL AND ad_id <> '' AND amount_spent_inr > 0
+  GROUP BY ad_id, adset_id
+),
+ads_in_campaign AS (
+  SELECT ad_id, campaign_name, SUM(amount_spent_inr) AS spend
+  FROM primary_table
+  WHERE campaign_name IS NOT NULL AND campaign_name <> ''
+    AND ad_id IS NOT NULL AND ad_id <> '' AND amount_spent_inr > 0
+  GROUP BY ad_id, campaign_name
+),
+order_codes AS (
+  SELECT order_id, ad_id, adset_id, campaign_name, total_price, order_created_at,
+         matched_tier,
+         CASE
+           WHEN utm_content ILIKE '%IFAD%'                          THEN 'IFAD'
+           WHEN utm_content ILIKE '%GAD%'                           THEN 'GAD'
+           WHEN utm_content ILIKE '%BST%'                           THEN 'BST'
+           WHEN utm_content ILIKE '%UGC%'                           THEN 'UGC'
+           WHEN utm_content ILIKE '%ADB%'                           THEN 'ADB'
+           WHEN utm_content ~ '(^|[^A-Za-z])VID([^A-Za-z]|$)'       THEN 'VID'
+           WHEN utm_content ILIKE '%BR\_%' ESCAPE '\'               THEN 'BR_'
+           WHEN utm_content ILIKE '%BI\_%' ESCAPE '\'               THEN 'BI_'
+           ELSE NULL
+         END AS order_code
+  FROM shopify_ad_attribution
+  WHERE has_match
+),
+direct AS (
+  SELECT ad_id, 1::numeric AS orders, total_price, order_created_at, matched_tier
+  FROM order_codes
+  WHERE ad_id IS NOT NULL AND ad_id <> ''
+),
+t3_orders AS (
+  SELECT * FROM order_codes WHERE matched_tier = 'T3_adset_id' AND adset_id IS NOT NULL
+),
+t3_candidates AS (
+  SELECT o.order_id, o.total_price, o.order_created_at, o.order_code,
+         a.ad_id, s.spend,
+         CASE
+           WHEN o.order_code IS NULL              THEN TRUE
+           WHEN o.order_code = 'IFAD' AND a.has_ifad THEN TRUE
+           WHEN o.order_code = 'GAD'  AND a.has_gad  THEN TRUE
+           WHEN o.order_code = 'BST'  AND a.has_bst  THEN TRUE
+           WHEN o.order_code = 'UGC'  AND a.has_ugc  THEN TRUE
+           WHEN o.order_code = 'ADB'  AND a.has_adb  THEN TRUE
+           WHEN o.order_code = 'VID'  AND a.has_vid  THEN TRUE
+           WHEN o.order_code = 'BR_'  AND a.has_br   THEN TRUE
+           WHEN o.order_code = 'BI_'  AND a.has_bi   THEN TRUE
+           ELSE FALSE
+         END AS code_match
+  FROM t3_orders o
+  JOIN ads_in_adset  s ON s.adset_id = o.adset_id
+  JOIN ad_asset_codes a ON a.ad_id = s.ad_id
+),
+t3_has_match_per_order AS (
+  SELECT order_id, BOOL_OR(code_match) AS any_code_match
+  FROM t3_candidates GROUP BY order_id
+),
+t3_filtered AS (
+  SELECT c.order_id, c.ad_id, c.spend, c.total_price, c.order_created_at, p.any_code_match
+  FROM t3_candidates c
+  JOIN t3_has_match_per_order p USING (order_id)
+  WHERE (p.any_code_match AND c.code_match) OR (NOT p.any_code_match)
+),
+t3_spread AS (
+  SELECT ad_id,
+         spend / SUM(spend) OVER (PARTITION BY order_id)                AS orders,
+         total_price * (spend / SUM(spend) OVER (PARTITION BY order_id)) AS total_price,
+         order_created_at,
+         'T3_adset_id' AS matched_tier
+  FROM t3_filtered
+),
+t4_orders AS (
+  SELECT * FROM order_codes WHERE matched_tier = 'T4_campaign_name' AND campaign_name IS NOT NULL
+),
+t4_candidates AS (
+  SELECT o.order_id, o.total_price, o.order_created_at, o.order_code,
+         a.ad_id, s.spend,
+         CASE
+           WHEN o.order_code IS NULL              THEN TRUE
+           WHEN o.order_code = 'IFAD' AND a.has_ifad THEN TRUE
+           WHEN o.order_code = 'GAD'  AND a.has_gad  THEN TRUE
+           WHEN o.order_code = 'BST'  AND a.has_bst  THEN TRUE
+           WHEN o.order_code = 'UGC'  AND a.has_ugc  THEN TRUE
+           WHEN o.order_code = 'ADB'  AND a.has_adb  THEN TRUE
+           WHEN o.order_code = 'VID'  AND a.has_vid  THEN TRUE
+           WHEN o.order_code = 'BR_'  AND a.has_br   THEN TRUE
+           WHEN o.order_code = 'BI_'  AND a.has_bi   THEN TRUE
+           ELSE FALSE
+         END AS code_match
+  FROM t4_orders o
+  JOIN ads_in_campaign s ON s.campaign_name = o.campaign_name
+  JOIN ad_asset_codes  a ON a.ad_id = s.ad_id
+),
+t4_has_match_per_order AS (
+  SELECT order_id, BOOL_OR(code_match) AS any_code_match
+  FROM t4_candidates GROUP BY order_id
+),
+t4_filtered AS (
+  SELECT c.order_id, c.ad_id, c.spend, c.total_price, c.order_created_at, p.any_code_match
+  FROM t4_candidates c
+  JOIN t4_has_match_per_order p USING (order_id)
+  WHERE (p.any_code_match AND c.code_match) OR (NOT p.any_code_match)
+),
+t4_spread AS (
+  SELECT ad_id,
+         spend / SUM(spend) OVER (PARTITION BY order_id)                AS orders,
+         total_price * (spend / SUM(spend) OVER (PARTITION BY order_id)) AS total_price,
+         order_created_at,
+         'T4_campaign_name' AS matched_tier
+  FROM t4_filtered
+),
+unified AS (
+  SELECT * FROM direct
+  UNION ALL SELECT * FROM t3_spread
+  UNION ALL SELECT * FROM t4_spread
 ),
 top_tier AS (
   SELECT DISTINCT ON (ad_id) ad_id, matched_tier AS shopify_top_tier
-  FROM (
-    SELECT ad_id, matched_tier, SUM(total_price) AS tier_sales
-    FROM shopify_ad_attribution
-    WHERE has_match AND ad_id IS NOT NULL AND ad_id <> ''
-    GROUP BY ad_id, matched_tier
-  ) t
-  ORDER BY ad_id, tier_sales DESC
+  FROM (SELECT ad_id, matched_tier, SUM(total_price) AS s
+        FROM unified GROUP BY ad_id, matched_tier) t
+  ORDER BY ad_id, s DESC
+),
+base AS (
+  SELECT ad_id,
+         ROUND(SUM(orders)::numeric, 4)                                 AS shopify_orders,
+         ROUND(SUM(total_price)::numeric, 2)                            AS shopify_sales,
+         ROUND((SUM(total_price)/NULLIF(SUM(orders),0))::numeric, 2)    AS shopify_aov,
+         MIN(order_created_at)::date                                     AS shopify_first_order,
+         MAX(order_created_at)::date                                     AS shopify_last_order
+  FROM unified GROUP BY ad_id
 )
 SELECT b.ad_id, b.shopify_orders, b.shopify_sales, b.shopify_aov,
        b.shopify_first_order, b.shopify_last_order, tt.shopify_top_tier
