@@ -1,0 +1,885 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ads Analyse Static - ae_table_view</title>
+  <style>
+    :root{
+      --bg:#f4f1eb;--surface:#fff;--surface2:#faf8f5;--border:#e0dbd0;--border2:#cdc8bc;
+      --ink:#1c1916;--ink2:#4a4540;--muted:#8d857b;--terra:#c0603a;--terra2:#f5ebe6;
+      --sage:#4a7c6f;--sage2:#e6f0ee;--slate:#4a6fa5;--slate2:#eaf0f8;--gold:#b8883a;--gold2:#fdf5e6;
+      --purple:#7c4dbd;--purple2:#f0ebfa;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:Roboto,Segoe UI,Arial,sans-serif}
+    button,input,select{font:inherit}
+    button{cursor:pointer}
+    .page{padding:18px 22px 36px;max-width:1680px;margin:0 auto}
+    .topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}
+    .eyebrow{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--terra)}
+    h1{font-size:20px;line-height:1.2;margin:4px 0 5px;font-weight:900;letter-spacing:0}
+    .sub{font-size:12px;color:var(--muted)}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:8px}
+    .controls{padding:14px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px;margin-bottom:12px}
+    .field{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px}
+    .field label{display:block;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+    .field input,.field select{width:100%;height:34px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--ink);padding:6px 9px;font-size:12px;outline:none}
+    .field input:focus,.field select:focus{border-color:var(--terra);box-shadow:0 0 0 3px rgba(192,96,58,.09)}
+    .span-1{grid-column:span 1}.span-2{grid-column:span 2}.span-3{grid-column:span 3}.span-4{grid-column:span 4}
+    .actions{display:flex;gap:8px;align-items:center;justify-content:flex-end}
+    .btn{height:34px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--ink2);padding:0 13px;font-size:12px;font-weight:800}
+    .btn.primary{background:var(--terra);border-color:var(--terra);color:#fff}
+    .btn.good{background:var(--sage2);border-color:rgba(74,124,111,.25);color:var(--sage)}
+    .btn.ghost{background:transparent}
+    .cards{display:grid;grid-template-columns:repeat(5,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+    .metric{padding:13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);transition:border-color .15s,background .15s}
+    .metric.active{background:var(--surface2);border-color:var(--terra)}
+    .metric .label{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+    .metric .value{font-size:25px;font-weight:900;margin-top:5px;color:var(--ink)}
+    .metric .foot{font-size:11px;color:var(--muted);margin-top:3px}
+    .filters{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:12px;align-items:start}
+    .filter-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border)}
+    .filter-title{font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2)}
+    .filter-body{padding:12px 14px}
+    .rule-row{display:grid;grid-template-columns:180px 160px minmax(220px,1fr) 34px;gap:8px;margin-bottom:8px;align-items:center}
+    .rule-row select,.rule-row input{height:34px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);padding:6px 9px;font-size:12px;color:var(--ink)}
+    .icon-btn{width:34px;height:34px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--muted);font-weight:900}
+    details.panel{overflow:hidden}
+    details summary{list-style:none;display:flex;align-items:center;gap:8px;padding:12px 14px;cursor:pointer;border-bottom:1px solid var(--border);background:linear-gradient(90deg,var(--terra2),var(--surface))}
+    details summary::-webkit-details-marker{display:none}
+    .range-grid{padding:12px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;max-height:360px;overflow:auto}
+    .range-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px}
+    .range-card.active{border-color:var(--terra);box-shadow:0 0 0 3px rgba(192,96,58,.08)}
+    .range-card .name{font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+    .range-inputs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    .range-inputs input{height:31px;width:100%;border:1px solid var(--border);border-radius:6px;background:#fff;padding:5px 7px;font-size:11px;color:var(--ink)}
+    .range-bounds{display:flex;justify-content:space-between;gap:8px;font-size:10px;color:var(--muted);margin-top:6px;font-family:Consolas,monospace}
+    .table-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border)}
+    .pager{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+    .pager select{height:30px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--ink);padding:4px 8px}
+    .table-wrap{overflow:auto;max-height:68vh}
+    table{width:100%;border-collapse:separate;border-spacing:0;min-width:1900px}
+    th{position:sticky;top:0;z-index:2;background:var(--surface2);color:var(--muted);border-bottom:1px solid var(--border);font-size:9px;letter-spacing:.09em;text-transform:uppercase;text-align:left;padding:10px 12px;white-space:nowrap;user-select:none}
+    th.sortable{cursor:pointer}
+    th.sortable:hover{color:var(--terra)}
+    td{border-bottom:1px solid var(--border);padding:10px 12px;font-size:12px;color:var(--ink2);white-space:nowrap;vertical-align:middle}
+    tr:nth-child(even) td{background:var(--surface2)}
+    tr:hover td{background:#fff7f2}
+    .num{text-align:right;font-family:Consolas,Roboto Mono,monospace}
+    .clip{max-width:240px;overflow:hidden;text-overflow:ellipsis}
+    .badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 9px;font-size:10px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;border:1px solid transparent}
+    .b-win{background:var(--sage2);color:var(--sage);border-color:rgba(74,124,111,.25)}
+    .b-inc{background:var(--terra2);color:var(--terra);border-color:rgba(192,96,58,.25)}
+    .b-pri{background:var(--gold2);color:var(--gold);border-color:rgba(184,136,58,.25)}
+    .b-a1{background:var(--purple2);color:var(--purple);border-color:rgba(124,77,189,.2)}
+    .b-a2{background:var(--slate2);color:var(--slate);border-color:rgba(74,111,165,.2)}
+    .b-disc{background:#f1efeb;color:var(--muted);border-color:var(--border)}
+    .flag{display:inline-flex;align-items:center;justify-content:center;min-width:28px;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:900}
+    .flag.y{background:var(--sage2);color:var(--sage)}.flag.n{background:var(--terra2);color:var(--terra)}
+    .status{display:inline-flex;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900;text-transform:uppercase;background:#edeae2;color:var(--muted)}
+    .status.active{background:var(--sage2);color:var(--sage)}
+    .link{color:var(--slate);font-weight:800;text-decoration:none}
+    .empty{padding:36px;text-align:center;color:var(--muted);font-size:13px}
+    #statusLine{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface2);font-size:11px;color:var(--muted)}
+    @media (max-width:1100px){
+      .controls{grid-template-columns:repeat(6,minmax(0,1fr))}
+      .cards{grid-template-columns:repeat(2,minmax(140px,1fr))}
+      .span-1,.span-2,.span-3,.span-4{grid-column:span 3}
+    }
+    @media (max-width:700px){
+      .page{padding:12px}
+      .controls{grid-template-columns:1fr}
+      .span-1,.span-2,.span-3,.span-4{grid-column:span 1}
+      .topbar{flex-direction:column}
+      .cards{grid-template-columns:1fr}
+      .rule-row{grid-template-columns:1fr}
+      .icon-btn{width:100%}
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">Static Analysis Engine</div>
+        <h1>Ads Analyse - ae_table_view</h1>
+        <div class="sub">Standalone Supabase view reader with AE target, category, text, date, status, account, and range filters.</div>
+      </div>
+      <div class="actions">
+        <span id="statusLine">Waiting to load</span>
+        <button class="btn good" id="exportBtn" type="button">Export CSV</button>
+        <button class="btn primary" id="reloadBtn" type="button">Reload</button>
+      </div>
+    </header>
+
+    <section class="panel controls" aria-label="Analysis controls">
+      <div class="field span-2">
+        <label for="ae-account">Account</label>
+        <select id="ae-account"><option value="">All Accounts</option></select>
+      </div>
+      <div class="field span-2">
+        <label for="ae-group-by">Group By</label>
+        <select id="ae-group-by">
+          <option value="ad">Ad Level</option>
+          <option value="ad_name">Ad Name</option>
+          <option value="campaign">Campaign</option>
+        </select>
+      </div>
+      <div class="field span-2">
+        <label for="ae-category">Category</label>
+        <select id="ae-category">
+          <option value="">All Categories</option>
+          <option>Incremental Winner</option>
+          <option>Winner</option>
+          <option>Priority</option>
+          <option>Analyze 1</option>
+          <option>Analyze 2</option>
+          <option>Discarded</option>
+        </select>
+      </div>
+      <div class="field span-2">
+        <label for="ae-status">Ad Status</label>
+        <select id="ae-status"><option value="">All Statuses</option></select>
+      </div>
+      <div class="field span-2">
+        <label for="ae-date-field">Date Field</label>
+        <select id="ae-date-field">
+          <option value="created">Ad Created</option>
+          <option value="firstSeen">First Seen</option>
+          <option value="result">Date of Result</option>
+          <option value="reportingEnd">Reporting End</option>
+        </select>
+      </div>
+      <div class="field span-1">
+        <label for="ae-date-from">From</label>
+        <input id="ae-date-from" type="date">
+      </div>
+      <div class="field span-1">
+        <label for="ae-date-to">To</label>
+        <input id="ae-date-to" type="date">
+      </div>
+      <div class="field span-1">
+        <label for="ae-target-imp">F1 Imp</label>
+        <input id="ae-target-imp" type="number" min="0" step="100" value="50000">
+      </div>
+      <div class="field span-1">
+        <label for="ae-target-roas">F2 ROAS</label>
+        <input id="ae-target-roas" type="number" min="0" step="0.1" value="3.2">
+      </div>
+      <div class="field span-1">
+        <label for="ae-target-cpn">F3 C/NCP</label>
+        <input id="ae-target-cpn" type="number" min="0" step="1" value="525">
+      </div>
+      <div class="field span-1">
+        <label for="ae-target-ftewv">F4 C/FTEWV</label>
+        <input id="ae-target-ftewv" type="number" min="0" step="1" value="25">
+      </div>
+      <div class="field span-3">
+        <label for="ae-search">Quick Search</label>
+        <input id="ae-search" type="text" placeholder="ad, campaign, ad id, adset id">
+      </div>
+      <div class="field span-3">
+        <label>Actions</label>
+        <div class="actions">
+          <button class="btn ghost" id="clearDateBtn" type="button">Clear Dates</button>
+          <button class="btn" id="clearFiltersBtn" type="button">Clear Filters</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="metricCards" class="cards" aria-label="Category cards"></section>
+
+    <section class="filters">
+      <div class="panel">
+        <div class="filter-head">
+          <div class="filter-title">Multi-Filter</div>
+          <div class="actions">
+            <button class="btn" id="addRuleBtn" type="button">Add Rule</button>
+            <button class="btn primary" id="applyRulesBtn" type="button">Apply</button>
+          </div>
+        </div>
+        <div class="filter-body" id="ae-filter-rows"></div>
+      </div>
+
+      <details class="panel" open>
+        <summary>
+          <span class="filter-title">Column Range Filters</span>
+          <span id="rangeCount" class="sub"></span>
+          <button class="btn" id="clearRangesBtn" type="button" style="margin-left:auto">Clear Ranges</button>
+        </summary>
+        <div id="rangeGrid" class="range-grid"></div>
+      </details>
+    </section>
+
+    <section class="panel">
+      <div class="table-tools">
+        <div class="pager">
+          <span id="rowInfo">0 rows</span>
+          <span>|</span>
+          <label for="pageSize">Show</label>
+          <select id="pageSize">
+            <option>25</option>
+            <option>50</option>
+            <option selected>100</option>
+            <option>250</option>
+            <option>500</option>
+            <option>1000</option>
+          </select>
+        </div>
+        <div class="pager">
+          <button class="btn" id="prevPageBtn" type="button">Prev</button>
+          <span id="pageInfo">Page 1 / 1</span>
+          <button class="btn" id="nextPageBtn" type="button">Next</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"><tr><td class="empty">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const SUPABASE_URL = (params.get('supabaseUrl') || '').replace(/\/+$/, '');
+    const SUPABASE_ANON = params.get('supabaseAnon') || '';
+    const VIEW_NAME = params.get('view') || 'ae_table_view';
+    const REQUESTED_LIMIT = params.has('limit') ? Math.max(1, Number(params.get('limit')) || 1) : Number.POSITIVE_INFINITY;
+    const BATCH = 1000;
+
+    const CAT_KEYS = ['Incremental Winner','Winner','Priority','Analyze 1','Analyze 2','Discarded'];
+    const BUCKETS = [
+      {key:'', label:'Total Ads', match:function(){return true;}, color:'terra'},
+      {key:'Winner', label:'Winners', match:function(c){return c === 'Incremental Winner' || c === 'Winner';}, color:'sage'},
+      {key:'Priority', label:'Priority', match:function(c){return c === 'Priority';}, color:'gold'},
+      {key:'Analyse', label:'Analyse', match:function(c){return c === 'Analyze 1' || c === 'Analyze 2';}, color:'slate'},
+      {key:'Discarded', label:'Discarded', match:function(c){return c === 'Discarded';}, color:'terra'}
+    ];
+    const RANGE_COLS = [
+      {key:'imp',label:'Impressions',step:'100',fmt:fmtNum},
+      {key:'rawReach',label:'Reach',step:'100',fmt:fmtNum},
+      {key:'rawFreq',label:'Frequency',step:'0.05',fmt:fmtDec},
+      {key:'rawCpr1000',label:'Cost / 1000',step:'1',fmt:fmtMoney},
+      {key:'rawSpend',label:'Amount Spent',step:'50',fmt:fmtMoney0},
+      {key:'rawCpcLink',label:'CPC Link',step:'0.1',fmt:fmtMoney},
+      {key:'rawCtrLink',label:'CTR %',step:'0.05',fmt:fmtPct},
+      {key:'rawLinkClicks',label:'Link Clicks',step:'1',fmt:fmtNum},
+      {key:'rawPurchases',label:'Purchases',step:'1',fmt:fmtNum},
+      {key:'rawConvValue',label:'Conv Value',step:'100',fmt:fmtMoney0},
+      {key:'rawRoas',label:'ROAS MA',step:'0.05',fmt:fmtDec},
+      {key:'rawShopOrders',label:'Shopify Orders',step:'1',fmt:fmtNum},
+      {key:'rawShopSales',label:'Shopify Sales',step:'100',fmt:fmtMoney0},
+      {key:'rawShopRoas',label:'Shopify ROAS',step:'0.05',fmt:fmtDec},
+      {key:'rawCpFtewv',label:'Cost / FTEWV',step:'0.1',fmt:fmtMoney},
+      {key:'rawFtewvCount',label:'FTEWV Count',step:'1',fmt:fmtNum},
+      {key:'rawCostPerNcp',label:'Cost / NCP',step:'1',fmt:fmtMoney},
+      {key:'rawNcpCount',label:'NCP Count',step:'1',fmt:fmtNum},
+      {key:'rawProfit',label:'Profit Efficiency',step:'100',fmt:fmtMoney0},
+      {key:'rawBlended',label:'Blended Eff',step:'0.05',fmt:fmtDec},
+      {key:'daysToResultNum',label:'Days to Result',step:'1',fmt:fmtNum},
+      {key:'daysToF1Num',label:'Days to F1',step:'1',fmt:fmtNum}
+    ];
+    const TABLE_COLS = [
+      {key:'campName',label:'Campaign',cls:'clip'},
+      {key:'adsetId',label:'Ad Set ID'},
+      {key:'adId',label:'Ad ID'},
+      {key:'adName',label:'Ad Name',cls:'clip'},
+      {key:'acct',label:'Account'},
+      {key:'created',label:'Created'},
+      {key:'firstSeen',label:'First Seen'},
+      {key:'dateTargetF1',label:'F1 Hit Date'},
+      {key:'dateOfResult',label:'Result Date'},
+      {key:'daysToResultNum',label:'Days Result',type:'num'},
+      {key:'daysToF1Num',label:'Days F1',type:'num'},
+      {key:'category',label:'Category',type:'category'},
+      {key:'f1Pass',label:'F1',type:'flag'},
+      {key:'f2Pass',label:'F2',type:'flag'},
+      {key:'f3Pass',label:'F3',type:'flag'},
+      {key:'f4Pass',label:'F4',type:'flag'},
+      {key:'adStatus',label:'Ad Status',type:'status'},
+      {key:'imp',label:'Impressions',type:'int'},
+      {key:'rawReach',label:'Reach',type:'int'},
+      {key:'rawFreq',label:'Freq',type:'dec'},
+      {key:'rawSpend',label:'Spend',type:'money0'},
+      {key:'rawCpcLink',label:'CPC Link',type:'money'},
+      {key:'rawCtrLink',label:'CTR %',type:'pct'},
+      {key:'rawLinkClicks',label:'Link Clicks',type:'int'},
+      {key:'rawPurchases',label:'Purchases',type:'int'},
+      {key:'rawConvValue',label:'Conv Value',type:'money0'},
+      {key:'rawRoas',label:'ROAS',type:'dec'},
+      {key:'rawShopOrders',label:'Shop Orders',type:'dec'},
+      {key:'rawShopSales',label:'Shop Sales',type:'money0'},
+      {key:'rawShopRoas',label:'Shop ROAS',type:'dec'},
+      {key:'rawCpFtewv',label:'Cost/FTEWV',type:'money'},
+      {key:'rawFtewvCount',label:'FTEWV',type:'int'},
+      {key:'rawCostPerNcp',label:'Cost/NCP',type:'money'},
+      {key:'rawNcpCount',label:'NCP',type:'int'},
+      {key:'rawProfit',label:'Profit Eff',type:'money0'},
+      {key:'rawBlended',label:'Blended Eff',type:'dec'},
+      {key:'previewLink',label:'Preview',type:'link'},
+      {key:'adLink',label:'Ad Link',type:'link'}
+    ];
+
+    let aeRaw = [];
+    let aeResults = [];
+    let aeFiltered = [];
+    let aeChipActive = '';
+    let aeSortKey = 'imp';
+    let aeSortDir = -1;
+    let aeCurPage = 0;
+    let aePerPage = 100;
+
+    function el(id){ return document.getElementById(id); }
+    function num(v){
+      if(v === null || v === undefined || v === '') return 0;
+      if(typeof v === 'number') return isFinite(v) ? v : 0;
+      const n = Number(String(v).replace(/[,Rs%\s]/g,''));
+      return isFinite(n) ? n : 0;
+    }
+    function maybeNum(v){
+      if(v === null || v === undefined || v === '') return NaN;
+      const n = num(v);
+      return isFinite(n) ? n : NaN;
+    }
+    function safe(v){
+      return String(v == null ? '' : v)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    function fmtNum(v){ return isFinite(Number(v)) ? Math.round(Number(v)).toLocaleString('en-IN') : '-'; }
+    function fmtDec(v){ return isFinite(Number(v)) ? Number(v).toFixed(2) : '-'; }
+    function fmtMoney(v){ return isFinite(Number(v)) && Number(v) !== 0 ? 'Rs ' + Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}) : '-'; }
+    function fmtMoney0(v){ return isFinite(Number(v)) && Number(v) !== 0 ? 'Rs ' + Math.round(Number(v)).toLocaleString('en-IN') : '-'; }
+    function fmtPct(v){ return isFinite(Number(v)) && Number(v) !== 0 ? Number(v).toFixed(2) + '%' : '-'; }
+    function div(a,b){ return b ? a / b : 0; }
+    function dateKey(v){
+      if(!v) return '';
+      const s = String(v).slice(0,10);
+      if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      const d = new Date(v);
+      if(isNaN(d.getTime())) return '';
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+    function minDate(a,b){ a=dateKey(a); b=dateKey(b); if(!a) return b; if(!b) return a; return a < b ? a : b; }
+    function maxDate(a,b){ a=dateKey(a); b=dateKey(b); if(!a) return b; if(!b) return a; return a > b ? a : b; }
+    function avg(a){ return a.length ? a.reduce(function(s,x){return s+x;},0) / a.length : 0; }
+    function statusMsg(msg){ el('statusLine').textContent = msg; }
+
+    function getAdCategory(impr, roas, costPerNcp, costPerFtewv, targetImp, targetRoas, targetCpn, targetFtewv){
+      const f1 = impr >= targetImp;
+      const f2 = roas >= targetRoas;
+      const f3 = costPerNcp > 0 && costPerNcp <= targetCpn;
+      const f4 = costPerFtewv > 0 && costPerFtewv <= targetFtewv;
+      if(f1 && f2 && f3 && f4) return 'Incremental Winner';
+      if(f1 && f2 && f3) return 'Winner';
+      if(f1 && f4) return 'Priority';
+      if(f1) return 'Analyze 1';
+      if(f2) return 'Analyze 2';
+      return 'Discarded';
+    }
+
+    async function loadData(){
+      if(!SUPABASE_URL || !SUPABASE_ANON){
+        statusMsg('Missing supabaseUrl or supabaseAnon query param');
+        el('tableBody').innerHTML = '<tr><td class="empty" colspan="' + TABLE_COLS.length + '">Open this file with ?supabaseUrl=...&supabaseAnon=...</td></tr>';
+        return;
+      }
+      statusMsg('Loading ' + VIEW_NAME + '...');
+      aeRaw = [];
+      let offset = 0;
+      while(offset < REQUESTED_LIMIT){
+        const limit = Math.min(BATCH, REQUESTED_LIMIT - offset);
+        const url = SUPABASE_URL + '/rest/v1/' + encodeURIComponent(VIEW_NAME) + '?select=*&order=impressions.desc.nullslast&limit=' + limit + '&offset=' + offset;
+        const res = await fetch(url, {
+          headers:{
+            apikey: SUPABASE_ANON,
+            Authorization: 'Bearer ' + SUPABASE_ANON,
+            Prefer: 'count=none'
+          }
+        });
+        if(!res.ok){
+          const text = await res.text().catch(function(){return '';});
+          throw new Error(VIEW_NAME + ' HTTP ' + res.status + (text ? ': ' + text.slice(0,180) : ''));
+        }
+        const chunk = await res.json();
+        if(!Array.isArray(chunk) || !chunk.length) break;
+        aeRaw = aeRaw.concat(chunk);
+        offset += chunk.length;
+        statusMsg('Loaded ' + aeRaw.length.toLocaleString('en-IN') + ' rows...');
+        if(chunk.length < limit) break;
+      }
+      buildFilterOptions();
+      compute();
+      statusMsg('Loaded ' + aeRaw.length.toLocaleString('en-IN') + ' rows from ' + VIEW_NAME + (isFinite(REQUESTED_LIMIT) ? ' (limit ' + REQUESTED_LIMIT.toLocaleString('en-IN') + ')' : ''));
+    }
+
+    function buildFilterOptions(){
+      const accounts = Array.from(new Set(aeRaw.map(function(r){return r.account_name || '';}).filter(Boolean))).sort();
+      const statuses = Array.from(new Set(aeRaw.map(function(r){return r.ad_status || '';}).filter(Boolean))).sort();
+      el('ae-account').innerHTML = '<option value="">All Accounts</option>' + accounts.map(function(a){return '<option>' + safe(a) + '</option>';}).join('');
+      el('ae-status').innerHTML = '<option value="">All Statuses</option>' + statuses.map(function(s){return '<option>' + safe(s) + '</option>';}).join('');
+    }
+
+    function rowDateForFilter(r){
+      const f = el('ae-date-field').value;
+      if(f === 'firstSeen') return r.first_seen_date;
+      if(f === 'result') return r.date_of_result;
+      if(f === 'reportingEnd') return r.reporting_ends;
+      return r.ad_created;
+    }
+
+    function preFilteredRaw(){
+      const account = el('ae-account').value;
+      const status = el('ae-status').value;
+      const from = el('ae-date-from').value;
+      const to = el('ae-date-to').value;
+      return aeRaw.filter(function(r){
+        if(account && String(r.account_name || '') !== account) return false;
+        if(status && String(r.ad_status || '') !== status) return false;
+        const dk = dateKey(rowDateForFilter(r));
+        if(from && (!dk || dk < from)) return false;
+        if(to && (!dk || dk > to)) return false;
+        return true;
+      });
+    }
+
+    function compute(){
+      const rows = preFilteredRaw();
+      const groupBy = el('ae-group-by').value;
+      const tImp = num(el('ae-target-imp').value) || 50000;
+      const tRoas = num(el('ae-target-roas').value) || 3.2;
+      const tCpn = num(el('ae-target-cpn').value) || 525;
+      const tFtewv = num(el('ae-target-ftewv').value) || 25;
+      const map = new Map();
+
+      rows.forEach(function(r){
+        const adId = String(r.ad_id || '').trim();
+        const adName = String(r.ad_name || '').trim();
+        const campName = String(r.campaign_name || 'Unknown').trim();
+        const key = groupBy === 'campaign' ? campName : groupBy === 'ad_name' ? (adName || adId) : adId;
+        if(!key) return;
+        if(!map.has(key)){
+          map.set(key, {
+            rows:0, key:key, adIds:new Set(), accounts:new Set(), statuses:new Set(),
+            adName:groupBy === 'campaign' ? campName : (adName || '-'), campName:campName,
+            adsetId:String(r.adset_id || ''), adsetName:String(r.adset_name || ''),
+            created:'', firstSeen:'', reportingStart:'', reportingEnd:'', dateTargetF1:'', dateOfResult:'',
+            daysToResultVals:[], daysToF1Vals:[], previewLink:'', adLink:'',
+            imp:0, rawReach:0, rawSpend:0, rawConvValue:0, rawPurchases:0, rawLinkClicks:0,
+            rawAtcCount:0, rawCiCount:0, rawFtewvCount:0, rawNcpCount:0, rawShopOrders:0, rawShopSales:0,
+            ltvReach:0, ltvFrequency:0, engagement:0,
+            eff:{deliveryEff:[],salesSpendEff:[],rawBlended:[],cprEff:[],ftvContribEff:[],ftevVolume:[],ncpCostEff:[],roasEff:[],profitVolEff:[]}
+          });
+        }
+        const a = map.get(key);
+        a.rows++;
+        if(adId) a.adIds.add(adId);
+        if(r.account_name) a.accounts.add(String(r.account_name));
+        if(r.ad_status) a.statuses.add(String(r.ad_status));
+        if(!a.adsetId && r.adset_id) a.adsetId = String(r.adset_id);
+        if(!a.adsetName && r.adset_name) a.adsetName = String(r.adset_name);
+        if(!a.previewLink && r.preview_link) a.previewLink = String(r.preview_link);
+        if(!a.adLink && r.ad_link) a.adLink = String(r.ad_link);
+        a.created = minDate(a.created, r.ad_created);
+        a.firstSeen = minDate(a.firstSeen, r.first_seen_date);
+        a.reportingStart = minDate(a.reportingStart, r.reporting_starts);
+        a.reportingEnd = maxDate(a.reportingEnd, r.reporting_ends);
+        a.dateTargetF1 = minDate(a.dateTargetF1, r.date_target_imp_achieved);
+        a.dateOfResult = minDate(a.dateOfResult, r.date_of_result);
+        const dtr = maybeNum(r.days_to_result);
+        const dtf = maybeNum(r.days_to_target_f1);
+        if(isFinite(dtr)) a.daysToResultVals.push(dtr);
+        if(isFinite(dtf)) a.daysToF1Vals.push(dtf);
+        a.imp += num(r.impressions);
+        a.rawReach += num(r.reach);
+        a.rawSpend += num(r.amount_spent);
+        a.rawConvValue += num(r.conv_value);
+        a.rawPurchases += num(r.purchases);
+        a.rawLinkClicks += num(r.link_clicks_raw);
+        a.rawAtcCount += num(r.atc_count);
+        a.rawCiCount += num(r.ci_count);
+        a.rawFtewvCount += num(r.ftewv_count);
+        a.rawNcpCount += num(r.ncp_count);
+        a.rawShopOrders += num(r.shopify_orders);
+        a.rawShopSales += num(r.shopify_sales);
+        a.ltvReach = Math.max(a.ltvReach, num(r.ltv_reach));
+        a.ltvFrequency = Math.max(a.ltvFrequency, num(r.ltv_frequency));
+        a.engagement += num(r.engagement_count);
+        pushMetric(a.eff.deliveryEff, r.delivery_eff);
+        pushMetric(a.eff.salesSpendEff, r.sales_spend_eff);
+        pushMetric(a.eff.rawBlended, r.blended_eff);
+        pushMetric(a.eff.cprEff, r.cpr_eff);
+        pushMetric(a.eff.ftvContribEff, r.ftv_contrib_eff);
+        pushMetric(a.eff.ftevVolume, r.ftev_volume);
+        pushMetric(a.eff.ncpCostEff, r.ncp_cost_eff);
+        pushMetric(a.eff.roasEff, r.roas_eff);
+        pushMetric(a.eff.profitVolEff, r.profit_vol_eff);
+      });
+
+      aeResults = Array.from(map.values()).map(function(a){
+        const rawRoas = div(a.rawConvValue, a.rawSpend);
+        const rawShopRoas = div(a.rawShopSales, a.rawSpend);
+        const rawCostPerNcp = div(a.rawSpend, a.rawNcpCount);
+        const rawCpFtewv = div(a.rawSpend, a.rawFtewvCount);
+        const rawFreq = div(a.imp, a.rawReach);
+        const rawCpr1000 = div(a.rawSpend, a.rawReach) * 1000;
+        const rawCpcLink = div(a.rawSpend, a.rawLinkClicks);
+        const rawCtrLink = div(a.rawLinkClicks, a.imp) * 100;
+        const rawChkComp = div(a.rawPurchases, a.rawCiCount) * 100;
+        const rawCrLC = div(a.rawPurchases, a.rawLinkClicks) * 100;
+        const rawAtcLC = div(a.rawAtcCount, a.rawLinkClicks) * 100;
+        const rawCiAtc = div(a.rawCiCount, a.rawAtcCount) * 100;
+        const rawProfit = a.rawConvValue - a.rawSpend;
+        const cm = rawRoas > 0 ? (1 - (1 / rawRoas)) * 100 : -100;
+        const f1Pass = a.imp >= tImp;
+        const f2Pass = rawRoas >= tRoas;
+        const f3Pass = rawCostPerNcp > 0 && rawCostPerNcp <= tCpn;
+        const f4Pass = rawCpFtewv > 0 && rawCpFtewv <= tFtewv;
+        const category = getAdCategory(a.imp, rawRoas, rawCostPerNcp, rawCpFtewv, tImp, tRoas, tCpn, tFtewv);
+        const adIds = Array.from(a.adIds);
+        return {
+          adName:a.adName,
+          campName:a.campName,
+          adId:groupBy === 'ad' ? (adIds[0] || a.key) : (adIds.length ? adIds.length + ' ad_ids' : a.key),
+          adIds:adIds,
+          adsetId:a.adsetId,
+          adsetName:a.adsetName,
+          acct:Array.from(a.accounts).join(', ') || '-',
+          adStatus:Array.from(a.statuses).join(', ') || '-',
+          created:a.created || '-',
+          firstSeen:a.firstSeen || '-',
+          reportingStart:a.reportingStart || '-',
+          reportingEnd:a.reportingEnd || '-',
+          dateTargetF1:a.dateTargetF1 || '-',
+          dateOfResult:a.dateOfResult || '-',
+          daysToResultNum:avg(a.daysToResultVals),
+          daysToF1Num:avg(a.daysToF1Vals),
+          category:category,
+          f1Pass:f1Pass,f2Pass:f2Pass,f3Pass:f3Pass,f4Pass:f4Pass,
+          imp:a.imp,rawReach:a.rawReach,rawFreq:rawFreq,rawCpr1000:rawCpr1000,rawSpend:a.rawSpend,
+          rawCpcLink:rawCpcLink,rawCtrLink:rawCtrLink,rawLinkClicks:a.rawLinkClicks,
+          rawChkComp:rawChkComp,rawPurchases:a.rawPurchases,rawCrLC:rawCrLC,rawAtcLC:rawAtcLC,
+          rawAtcCount:a.rawAtcCount,rawCiAtc:rawCiAtc,rawCiCount:a.rawCiCount,
+          rawConvValue:a.rawConvValue,rawRoas:rawRoas,rawShopOrders:a.rawShopOrders,
+          rawShopSales:a.rawShopSales,rawShopRoas:rawShopRoas,rawCpFtewv:rawCpFtewv,
+          rawFtewvCount:a.rawFtewvCount,rawCostPerNcp:rawCostPerNcp,rawNcpCount:a.rawNcpCount,
+          rawProfit:rawProfit,cm:cm,deliveryEff:avg(a.eff.deliveryEff),salesSpendEff:avg(a.eff.salesSpendEff),
+          rawBlended:avg(a.eff.rawBlended),cprEff:avg(a.eff.cprEff),ftvContribEff:avg(a.eff.ftvContribEff),
+          ftevVolume:avg(a.eff.ftevVolume),ncpCostEff:avg(a.eff.ncpCostEff),roasEff:avg(a.eff.roasEff),
+          profitVolEff:avg(a.eff.profitVolEff),previewLink:a.previewLink,adLink:a.adLink
+        };
+      });
+      buildRangeCards();
+      renderMetrics();
+      applyFilters();
+    }
+
+    function pushMetric(arr,v){
+      const n = maybeNum(v);
+      if(isFinite(n)) arr.push(n);
+    }
+
+    function renderMetrics(){
+      const html = BUCKETS.map(function(b){
+        const rows = aeResults.filter(function(r){return b.match(r.category);});
+        const spend = rows.reduce(function(s,r){return s + r.rawSpend;},0);
+        const active = aeChipActive === b.key ? ' active' : '';
+        return '<button type="button" class="metric' + active + '" data-chip="' + safe(b.key) + '">' +
+          '<div class="label">' + safe(b.label) + '</div>' +
+          '<div class="value">' + rows.length.toLocaleString('en-IN') + '</div>' +
+          '<div class="foot">' + fmtMoney0(spend) + ' spend</div>' +
+        '</button>';
+      }).join('');
+      el('metricCards').innerHTML = html;
+      el('metricCards').querySelectorAll('.metric').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          aeChipActive = btn.dataset.chip || '';
+          el('ae-category').value = '';
+          renderMetrics();
+          applyFilters();
+        });
+      });
+    }
+
+    function addFilterRow(){
+      const wrap = document.createElement('div');
+      wrap.className = 'rule-row';
+      wrap.innerHTML =
+        '<select class="ae-fcol">' +
+          '<option value="adName">Name (Ad/Camp)</option>' +
+          '<option value="campName">Campaign Name</option>' +
+          '<option value="adId">Ad ID</option>' +
+          '<option value="adsetId">Ad Set ID</option>' +
+          '<option value="acct">Account</option>' +
+          '<option value="category">Status (Category)</option>' +
+          '<option value="adStatus">Ad Status</option>' +
+        '</select>' +
+        '<select class="ae-fcond">' +
+          '<option value="all">contains all of</option>' +
+          '<option value="any">contains any of</option>' +
+          '<option value="none">does not contain</option>' +
+        '</select>' +
+        '<input class="ae-fval" type="text" placeholder="keywords separated by spaces or OR">' +
+        '<button type="button" class="icon-btn" title="Remove rule">x</button>';
+      wrap.querySelector('.icon-btn').addEventListener('click', function(){
+        if(el('ae-filter-rows').children.length > 1) wrap.remove();
+        else wrap.querySelector('.ae-fval').value = '';
+        applyFilters();
+      });
+      wrap.querySelectorAll('select,input').forEach(function(node){ node.addEventListener('input', applyFilters); node.addEventListener('change', applyFilters); });
+      el('ae-filter-rows').appendChild(wrap);
+    }
+
+    function readRangeFilters(){
+      const out = {};
+      document.querySelectorAll('.range-card').forEach(function(card){
+        const key = card.dataset.key;
+        const min = card.querySelector('.range-min').value.trim();
+        const max = card.querySelector('.range-max').value.trim();
+        card.classList.toggle('active', !!min || !!max);
+        if(!min && !max) return;
+        out[key] = {
+          min:min ? Number(min) : null,
+          max:max ? Number(max) : null
+        };
+      });
+      return out;
+    }
+
+    function buildRangeCards(){
+      const grid = el('rangeGrid');
+      grid.innerHTML = RANGE_COLS.map(function(c){
+        const vals = aeResults.map(function(r){return maybeNum(r[c.key]);}).filter(function(v){return isFinite(v);});
+        let lo = vals.length ? Math.min.apply(null, vals) : 0;
+        let hi = vals.length ? Math.max.apply(null, vals) : 0;
+        if(!isFinite(lo)) lo = 0;
+        if(!isFinite(hi)) hi = 0;
+        return '<div class="range-card" data-key="' + safe(c.key) + '">' +
+          '<div class="name">' + safe(c.label) + '</div>' +
+          '<div class="range-inputs">' +
+            '<input class="range-min" type="number" step="' + c.step + '" placeholder="min">' +
+            '<input class="range-max" type="number" step="' + c.step + '" placeholder="max">' +
+          '</div>' +
+          '<div class="range-bounds"><span>' + safe(c.fmt(lo)) + '</span><span>' + safe(c.fmt(hi)) + '</span></div>' +
+        '</div>';
+      }).join('');
+      grid.querySelectorAll('input').forEach(function(inp){ inp.addEventListener('input', applyFilters); });
+    }
+
+    function clearRanges(){
+      document.querySelectorAll('.range-card input').forEach(function(inp){ inp.value = ''; });
+      applyFilters();
+    }
+
+    function clearFilters(){
+      aeChipActive = '';
+      el('ae-category').value = '';
+      el('ae-search').value = '';
+      el('ae-filter-rows').innerHTML = '';
+      addFilterRow();
+      clearRanges();
+      renderMetrics();
+      applyFilters();
+    }
+
+    function applyFilters(){
+      const ranges = readRangeFilters();
+      const rangeCount = Object.keys(ranges).length;
+      const category = el('ae-category').value;
+      const quick = el('ae-search').value.trim().toLowerCase();
+      el('rangeCount').textContent = rangeCount ? '(' + rangeCount + ' active)' : '';
+      aeFiltered = aeResults.filter(function(r){
+        if(category && r.category !== category) return false;
+        if(aeChipActive){
+          const b = BUCKETS.find(function(x){return x.key === aeChipActive;});
+          if(b && !b.match(r.category)) return false;
+        }
+        if(quick){
+          const hay = [r.adName,r.campName,r.adId,r.adsetId,r.acct,r.category,r.adStatus].join(' ').toLowerCase();
+          if(!hay.includes(quick)) return false;
+        }
+        for(const key in ranges){
+          const val = maybeNum(r[key]);
+          if(!isFinite(val)) return false;
+          if(ranges[key].min !== null && val < ranges[key].min) return false;
+          if(ranges[key].max !== null && val > ranges[key].max) return false;
+        }
+        const rules = Array.from(document.querySelectorAll('#ae-filter-rows .rule-row'));
+        for(const row of rules){
+          const col = row.querySelector('.ae-fcol').value;
+          const cond = row.querySelector('.ae-fcond').value;
+          const raw = row.querySelector('.ae-fval').value.trim();
+          if(!raw) continue;
+          const terms = (cond === 'all' ? raw.split(/\s+/) : raw.split(/\s*,\s*|\s+or\s+/i)).map(function(s){return s.trim().toLowerCase();}).filter(Boolean);
+          const text = String(r[col] || '').toLowerCase();
+          if(cond === 'all' && !terms.every(function(t){return text.includes(t);})) return false;
+          if(cond === 'any' && !terms.some(function(t){return text.includes(t);})) return false;
+          if(cond === 'none' && !terms.every(function(t){return !text.includes(t);})) return false;
+        }
+        return true;
+      });
+      sortRows(false);
+      aeCurPage = 0;
+      renderTable();
+    }
+
+    function sortRows(toggle){
+      if(toggle) aeSortDir *= -1;
+      aeFiltered.sort(function(a,b){
+        const av = a[aeSortKey], bv = b[aeSortKey];
+        const an = maybeNum(av), bn = maybeNum(bv);
+        if(isFinite(an) && isFinite(bn)) return (an - bn) * aeSortDir;
+        return String(av || '').localeCompare(String(bv || '')) * aeSortDir;
+      });
+    }
+
+    function renderTableHead(){
+      el('tableHead').innerHTML = '<tr>' + TABLE_COLS.map(function(c){
+        return '<th class="sortable ' + (c.type === 'num' || c.type === 'int' || c.type === 'dec' || c.type === 'money' || c.type === 'money0' || c.type === 'pct' ? 'num' : '') + '" data-key="' + safe(c.key) + '">' + safe(c.label) + (aeSortKey === c.key ? (aeSortDir === 1 ? ' ^' : ' v') : '') + '</th>';
+      }).join('') + '</tr>';
+      el('tableHead').querySelectorAll('th').forEach(function(th){
+        th.addEventListener('click', function(){
+          const key = th.dataset.key;
+          if(aeSortKey === key) aeSortDir *= -1;
+          else { aeSortKey = key; aeSortDir = -1; }
+          sortRows(false);
+          renderTable();
+        });
+      });
+    }
+
+    function renderTable(){
+      renderTableHead();
+      const total = aeFiltered.length;
+      const pages = Math.max(1, Math.ceil(total / aePerPage));
+      aeCurPage = Math.max(0, Math.min(aeCurPage, pages - 1));
+      const start = aeCurPage * aePerPage;
+      const pageRows = aeFiltered.slice(start, start + aePerPage);
+      el('rowInfo').textContent = total ? (start + 1).toLocaleString('en-IN') + '-' + Math.min(total, start + aePerPage).toLocaleString('en-IN') + ' of ' + total.toLocaleString('en-IN') + ' ads' : '0 ads';
+      el('pageInfo').textContent = 'Page ' + (aeCurPage + 1) + ' / ' + pages;
+      if(!pageRows.length){
+        el('tableBody').innerHTML = '<tr><td class="empty" colspan="' + TABLE_COLS.length + '">No ads match current filters.</td></tr>';
+        return;
+      }
+      el('tableBody').innerHTML = pageRows.map(function(r){
+        return '<tr>' + TABLE_COLS.map(function(c){ return '<td class="' + cellClass(c) + '">' + cellValue(c,r) + '</td>'; }).join('') + '</tr>';
+      }).join('');
+    }
+
+    function cellClass(c){
+      const numeric = ['num','int','dec','money','money0','pct'].includes(c.type);
+      return (numeric ? 'num ' : '') + (c.cls || '');
+    }
+    function cellValue(c,r){
+      const v = r[c.key];
+      if(c.type === 'int') return fmtNum(v);
+      if(c.type === 'dec' || c.type === 'num') return fmtDec(v);
+      if(c.type === 'money') return fmtMoney(v);
+      if(c.type === 'money0') return fmtMoney0(v);
+      if(c.type === 'pct') return fmtPct(v);
+      if(c.type === 'flag') return '<span class="flag ' + (v ? 'y">YES' : 'n">NO') + '</span>';
+      if(c.type === 'status') return '<span class="status ' + (String(v).toUpperCase() === 'ACTIVE' ? 'active' : '') + '">' + safe(v || '-') + '</span>';
+      if(c.type === 'category') return categoryBadge(v);
+      if(c.type === 'link') return v ? '<a class="link" href="' + safe(v) + '" target="_blank" rel="noopener">Open</a>' : '-';
+      return safe(v || '-');
+    }
+    function categoryBadge(cat){
+      const cls = cat === 'Incremental Winner' ? 'b-inc' :
+        cat === 'Winner' ? 'b-win' :
+        cat === 'Priority' ? 'b-pri' :
+        cat === 'Analyze 1' ? 'b-a1' :
+        cat === 'Analyze 2' ? 'b-a2' : 'b-disc';
+      return '<span class="badge ' + cls + '">' + safe(cat || '-') + '</span>';
+    }
+
+    function page(delta){
+      const pages = Math.max(1, Math.ceil(aeFiltered.length / aePerPage));
+      aeCurPage = Math.max(0, Math.min(pages - 1, aeCurPage + delta));
+      renderTable();
+    }
+
+    function exportCSV(){
+      if(!aeFiltered.length){ alert('No data to export.'); return; }
+      const esc = function(v){ return '"' + String(v == null ? '' : v).replace(/"/g,'""') + '"'; };
+      const rules = Array.from(document.querySelectorAll('#ae-filter-rows .rule-row')).map(function(row){
+        const val = row.querySelector('.ae-fval').value.trim();
+        return val ? row.querySelector('.ae-fcol').value + ' ' + row.querySelector('.ae-fcond').value + ' "' + val + '"' : '';
+      }).filter(Boolean);
+      const meta = [
+        ['# Ads Analyse Static Export'],
+        ['# View', VIEW_NAME],
+        ['# Exported At', new Date().toLocaleString('en-IN')],
+        ['# Account', el('ae-account').value || 'All Accounts'],
+        ['# Group By', el('ae-group-by').value],
+        ['# Date Field', el('ae-date-field').value],
+        ['# Date From', el('ae-date-from').value || 'All'],
+        ['# Date To', el('ae-date-to').value || 'All'],
+        ['# F1 Min Impressions', el('ae-target-imp').value],
+        ['# F2 Min ROAS', el('ae-target-roas').value],
+        ['# F3 Max Cost/NCP', el('ae-target-cpn').value],
+        ['# F4 Max Cost/FTEWV', el('ae-target-ftewv').value],
+        ['# Category', el('ae-category').value || aeChipActive || 'All'],
+        ['# Quick Search', el('ae-search').value || ''],
+        ['# Multi Rules', rules.join(' | ') || '(none)'],
+        ['# Rows', aeFiltered.length],
+        ['#']
+      ];
+      const headers = TABLE_COLS.map(function(c){return c.label;});
+      const rows = aeFiltered.map(function(r){
+        return TABLE_COLS.map(function(c){
+          const v = r[c.key];
+          if(c.type === 'link') return v || '';
+          if(c.type === 'flag') return v ? 'TRUE' : 'FALSE';
+          return v;
+        });
+      });
+      const lines = meta.map(function(row){return row.map(esc).join(',');});
+      lines.push(headers.map(esc).join(','));
+      rows.forEach(function(row){ lines.push(row.map(esc).join(',')); });
+      const blob = new Blob(['\uFEFF' + lines.join('\r\n')], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ads-analyse-' + VIEW_NAME + '-' + aeFiltered.length + '-ads.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function wireEvents(){
+      addFilterRow();
+      ['ae-account','ae-group-by','ae-status','ae-date-field','ae-date-from','ae-date-to','ae-target-imp','ae-target-roas','ae-target-cpn','ae-target-ftewv'].forEach(function(id){
+        el(id).addEventListener('change', compute);
+        el(id).addEventListener('input', compute);
+      });
+      el('ae-category').addEventListener('change', function(){ aeChipActive = ''; renderMetrics(); applyFilters(); });
+      el('ae-search').addEventListener('input', applyFilters);
+      el('addRuleBtn').addEventListener('click', addFilterRow);
+      el('applyRulesBtn').addEventListener('click', applyFilters);
+      el('clearRangesBtn').addEventListener('click', function(e){ e.preventDefault(); clearRanges(); });
+      el('clearFiltersBtn').addEventListener('click', clearFilters);
+      el('clearDateBtn').addEventListener('click', function(){
+        el('ae-date-from').value = '';
+        el('ae-date-to').value = '';
+        compute();
+      });
+      el('pageSize').addEventListener('change', function(){ aePerPage = Number(el('pageSize').value) || 100; aeCurPage = 0; renderTable(); });
+      el('prevPageBtn').addEventListener('click', function(){ page(-1); });
+      el('nextPageBtn').addEventListener('click', function(){ page(1); });
+      el('reloadBtn').addEventListener('click', function(){ loadData().catch(function(e){ statusMsg('Error: ' + e.message); }); });
+      el('exportBtn').addEventListener('click', exportCSV);
+    }
+
+    wireEvents();
+    loadData().catch(function(e){
+      console.error(e);
+      statusMsg('Error: ' + e.message);
+      el('tableBody').innerHTML = '<tr><td class="empty" colspan="' + TABLE_COLS.length + '">' + safe(e.message) + '</td></tr>';
+    });
+  </script>
+</body>
+</html>
