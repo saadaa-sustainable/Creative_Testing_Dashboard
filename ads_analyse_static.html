@@ -21,9 +21,9 @@
     h1{font-size:20px;line-height:1.2;margin:4px 0 5px;font-weight:900;letter-spacing:0}
     .sub{font-size:12px;color:var(--muted)}
     .panel{background:var(--surface);border:1px solid var(--border);border-radius:8px}
-    .controls{padding:14px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px;margin-bottom:12px}
-    .field{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px}
-    .field label{display:block;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+    .controls{padding:12px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px;margin-bottom:12px;align-items:end}
+    .field{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px}
+    .field label{display:block;font-size:9px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
     .field input,.field select{width:100%;height:34px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--ink);padding:6px 9px;font-size:12px;outline:none}
     .field input:focus,.field select:focus{border-color:var(--terra);box-shadow:0 0 0 3px rgba(192,96,58,.09)}
     .span-1{grid-column:span 1}.span-2{grid-column:span 2}.span-3{grid-column:span 3}.span-4{grid-column:span 4}
@@ -83,6 +83,41 @@
     .link{color:var(--slate);font-weight:800;text-decoration:none}
     .empty{padding:36px;text-align:center;color:var(--muted);font-size:13px}
     #statusLine{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface2);font-size:11px;color:var(--muted)}
+    .drp-wrap{position:relative}
+    .drp-btn{width:100%;height:34px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--ink);padding:6px 10px;font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .drp-btn.open,.drp-btn:focus{border-color:var(--terra);box-shadow:0 0 0 3px rgba(192,96,58,.09);outline:none}
+    .drp-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-weight:700}
+    .drp-label.active{color:var(--terra)}
+    .drp-caret{font-size:10px;color:var(--muted)}
+    .drp-panel{display:none;position:fixed;z-index:9999;width:680px;max-width:calc(100vw - 16px);background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 42px rgba(28,25,22,.16);overflow:hidden}
+    .drp-panel.open{display:block}
+    .drp-shell{display:flex}
+    .drp-presets{width:140px;flex-shrink:0;background:var(--surface2);border-right:1px solid #f0ece4;padding:8px 0}
+    .drp-preset{padding:9px 16px;font-size:12px;font-weight:700;color:var(--ink2);cursor:pointer;user-select:none}
+    .drp-preset:hover{background:#f0ece4}
+    .drp-preset.active{background:var(--terra2);color:var(--terra)}
+    .drp-main{flex:1;padding:14px 18px 12px}
+    .drp-monthbar{display:grid;grid-template-columns:34px 1fr 1fr 34px;align-items:center;gap:8px;margin-bottom:12px}
+    .drp-nav{width:30px;height:30px;border:0;background:transparent;border-radius:6px;color:var(--ink2);font-size:18px;font-weight:900}
+    .drp-nav:hover{background:#f0ece4}
+    .drp-month{text-align:center;font-size:13px;font-weight:900;color:var(--ink)}
+    .drp-cals{display:flex;gap:14px}
+    .drp-cal{flex:1}
+    .drp-grid{display:grid;grid-template-columns:repeat(7,32px);gap:1px;justify-content:center}
+    .drp-dow{width:32px;height:24px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase}
+    .drp-day{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:12px;font-weight:700;color:var(--ink2);cursor:pointer;position:relative;user-select:none}
+    .drp-day:hover:not(.other-month):not(.disabled){background:#f0ece4;color:var(--ink)}
+    .drp-day.other-month{color:#cfc8be;cursor:default}
+    .drp-day.disabled{color:#d8d2c9;cursor:default}
+    .drp-day.in-range{background:var(--terra2);border-radius:0;color:var(--terra)}
+    .drp-day.range-start,.drp-day.range-end{background:var(--terra)!important;color:#fff!important;border-radius:50%!important}
+    .drp-day.range-start{border-radius:50% 0 0 50%!important}
+    .drp-day.range-end{border-radius:0 50% 50% 0!important}
+    .drp-day.range-start.range-end{border-radius:50%!important}
+    .drp-day.today::after{content:'';position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:currentColor}
+    .drp-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding-top:10px;border-top:1px solid #f0ece4}
+    .drp-range-text{font-family:Consolas,Roboto Mono,monospace;font-size:12px;font-weight:800;color:var(--muted)}
+    .drp-footer-actions{display:flex;gap:8px}
     @media (max-width:1100px){
       .controls{grid-template-columns:repeat(6,minmax(0,1fr))}
       .cards{grid-template-columns:repeat(2,minmax(140px,1fr))}
@@ -96,6 +131,12 @@
       .cards{grid-template-columns:1fr}
       .rule-row{grid-template-columns:1fr}
       .icon-btn{width:100%}
+      .drp-panel{width:calc(100vw - 16px)}
+      .drp-shell{display:block}
+      .drp-presets{width:100%;display:grid;grid-template-columns:repeat(3,1fr);border-right:0;border-bottom:1px solid #f0ece4}
+      .drp-cals{display:block}
+      #ae-drp-cal-r,#ae-drp-month-r{display:none}
+      .drp-monthbar{grid-template-columns:34px 1fr 34px}
     }
   </style>
 </head>
@@ -152,13 +193,50 @@
           <option value="reportingEnd">Reporting End</option>
         </select>
       </div>
-      <div class="field span-1">
-        <label for="ae-date-from">From</label>
-        <input id="ae-date-from" type="date">
-      </div>
-      <div class="field span-1">
-        <label for="ae-date-to">To</label>
-        <input id="ae-date-to" type="date">
+      <div class="field span-2">
+        <label>Date Range</label>
+        <input id="ae-date-from" type="hidden">
+        <input id="ae-date-to" type="hidden">
+        <div id="ae-drp-wrap" class="drp-wrap">
+          <button id="ae-drp-btn" class="drp-btn" type="button">
+            <span id="ae-drp-label" class="drp-label">All time</span>
+            <span class="drp-caret">v</span>
+          </button>
+          <div id="ae-drp-panel" class="drp-panel" aria-hidden="true">
+            <div class="drp-shell">
+              <div id="ae-drp-presets" class="drp-presets">
+                <div class="drp-preset" data-key="today">Today</div>
+                <div class="drp-preset" data-key="yesterday">Yesterday</div>
+                <div class="drp-preset" data-key="last7">Last 7 Days</div>
+                <div class="drp-preset" data-key="last30">Last 30 Days</div>
+                <div class="drp-preset" data-key="thisMonth">This Month</div>
+                <div class="drp-preset" data-key="lastMonth">Last Month</div>
+                <div class="drp-preset" data-key="last90">Last 90 Days</div>
+                <div class="drp-preset active" data-key="lifetime">Lifetime</div>
+                <div class="drp-preset" data-key="custom">Custom Range</div>
+              </div>
+              <div class="drp-main">
+                <div class="drp-monthbar">
+                  <button id="ae-drp-prev" class="drp-nav" type="button">&lsaquo;</button>
+                  <div id="ae-drp-month-l" class="drp-month"></div>
+                  <div id="ae-drp-month-r" class="drp-month"></div>
+                  <button id="ae-drp-next" class="drp-nav" type="button">&rsaquo;</button>
+                </div>
+                <div class="drp-cals">
+                  <div id="ae-drp-cal-l" class="drp-cal"></div>
+                  <div id="ae-drp-cal-r" class="drp-cal"></div>
+                </div>
+                <div class="drp-footer">
+                  <div id="ae-drp-footer-range" class="drp-range-text">--/--/---- - --/--/----</div>
+                  <div class="drp-footer-actions">
+                    <button id="ae-drp-cancel" class="btn" type="button">Cancel</button>
+                    <button id="ae-drp-apply" class="btn primary" type="button">Apply</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="field span-1">
         <label for="ae-target-imp">F1 Imp</label>
@@ -176,11 +254,11 @@
         <label for="ae-target-ftewv">F4 C/FTEWV</label>
         <input id="ae-target-ftewv" type="number" min="0" step="1" value="25">
       </div>
-      <div class="field span-3">
+      <div class="field span-4">
         <label for="ae-search">Quick Search</label>
         <input id="ae-search" type="text" placeholder="ad, campaign, ad id, adset id">
       </div>
-      <div class="field span-3">
+      <div class="field span-4">
         <label>Actions</label>
         <div class="actions">
           <button class="btn ghost" id="clearDateBtn" type="button">Clear Dates</button>
@@ -366,6 +444,239 @@
     function maxDate(a,b){ a=dateKey(a); b=dateKey(b); if(!a) return b; if(!b) return a; return a > b ? a : b; }
     function avg(a){ return a.length ? a.reduce(function(s,x){return s+x;},0) / a.length : 0; }
     function statusMsg(msg){ el('statusLine').textContent = msg; }
+
+    const DRP_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const DRP_DAYS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+    const drpState = {
+      open:false,
+      viewYear:new Date().getFullYear(),
+      viewMonth:new Date().getMonth() - 1,
+      from:null,
+      to:null,
+      hov:null,
+      preset:'lifetime',
+      selecting:false
+    };
+    if(drpState.viewMonth < 0){ drpState.viewMonth = 11; drpState.viewYear--; }
+
+    function drpFmtLocal(d){
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+    function drpParseLocal(s){
+      const parts = String(s || '').split('-').map(Number);
+      return new Date(parts[0], parts[1]-1, parts[2], 0, 0, 0, 0);
+    }
+    function drpDisplay(d){
+      if(!d) return '--/--/----';
+      return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+    }
+    function drpSetPresetActive(key){
+      document.querySelectorAll('#ae-drp-presets .drp-preset').forEach(function(node){
+        node.classList.toggle('active', node.dataset.key === key);
+      });
+    }
+    function drpPositionPanel(){
+      const btn = el('ae-drp-btn');
+      const panel = el('ae-drp-panel');
+      if(!btn || !panel) return;
+      const r = btn.getBoundingClientRect();
+      const panelW = panel.offsetWidth || 680;
+      const panelH = panel.offsetHeight || 380;
+      let top = r.bottom + 6;
+      let left = r.right - panelW;
+      if(top + panelH > window.innerHeight - 8) top = Math.max(8, r.top - panelH - 6);
+      if(left < 8) left = 8;
+      if(left + panelW > window.innerWidth - 8) left = window.innerWidth - panelW - 8;
+      panel.style.top = top + 'px';
+      panel.style.left = left + 'px';
+    }
+    function drpOpen(){
+      drpState.open = true;
+      el('ae-drp-panel').classList.add('open');
+      el('ae-drp-panel').setAttribute('aria-hidden','false');
+      el('ae-drp-btn').classList.add('open');
+      drpRender();
+      drpPositionPanel();
+      setTimeout(drpPositionPanel, 0);
+    }
+    function drpClose(){
+      drpState.open = false;
+      el('ae-drp-panel').classList.remove('open');
+      el('ae-drp-panel').setAttribute('aria-hidden','true');
+      el('ae-drp-btn').classList.remove('open');
+    }
+    function drpToggle(){
+      if(drpState.open) drpClose();
+      else drpOpen();
+    }
+    function drpNavMonth(dir){
+      drpState.viewMonth += dir;
+      if(drpState.viewMonth > 11){ drpState.viewMonth = 0; drpState.viewYear++; }
+      if(drpState.viewMonth < 0){ drpState.viewMonth = 11; drpState.viewYear--; }
+      drpRender();
+      drpPositionPanel();
+    }
+    function drpCalHTML(year, month){
+      const today = new Date(); today.setHours(0,0,0,0);
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysInPrevMonth = new Date(year, month, 0).getDate();
+      let rFrom = drpState.from;
+      let rTo = drpState.selecting && drpState.hov ? drpState.hov : drpState.to;
+      if(rFrom && rTo && rFrom > rTo){ const t = rFrom; rFrom = rTo; rTo = t; }
+      let html = '<div class="drp-grid">';
+      DRP_DAYS.forEach(function(day){ html += '<div class="drp-dow">' + day + '</div>'; });
+      for(let i=0;i<firstDay;i++){
+        html += '<div class="drp-day other-month">' + (daysInPrevMonth - firstDay + 1 + i) + '</div>';
+      }
+      for(let d=1; d<=daysInMonth; d++){
+        const dt = new Date(year, month, d); dt.setHours(0,0,0,0);
+        const iso = drpFmtLocal(dt);
+        const isFuture = dt > today;
+        let cls = 'drp-day';
+        if(dt.getTime() === today.getTime()) cls += ' today';
+        if(rFrom && dt.getTime() === rFrom.getTime()) cls += ' range-start';
+        if(rTo && dt.getTime() === rTo.getTime()) cls += ' range-end';
+        if(rFrom && rTo && dt > rFrom && dt < rTo) cls += ' in-range';
+        if(isFuture) cls += ' disabled';
+        html += '<div class="' + cls + '" data-date="' + iso + '">' + d + '</div>';
+      }
+      const total = firstDay + daysInMonth;
+      const remainder = total % 7 === 0 ? 0 : 7 - (total % 7);
+      for(let d=1; d<=remainder; d++) html += '<div class="drp-day other-month">' + d + '</div>';
+      return html + '</div>';
+    }
+    function drpRender(){
+      let rMonth = drpState.viewMonth + 1;
+      let rYear = drpState.viewYear;
+      if(rMonth > 11){ rMonth = 0; rYear++; }
+      el('ae-drp-month-l').textContent = DRP_MONTHS[drpState.viewMonth] + ' ' + drpState.viewYear;
+      el('ae-drp-month-r').textContent = DRP_MONTHS[rMonth] + ' ' + rYear;
+      el('ae-drp-cal-l').innerHTML = drpCalHTML(drpState.viewYear, drpState.viewMonth);
+      el('ae-drp-cal-r').innerHTML = drpCalHTML(rYear, rMonth);
+      const end = drpState.selecting && drpState.hov ? drpState.hov : drpState.to;
+      let a = drpState.from, b = end;
+      if(a && b && a > b){ const t = a; a = b; b = t; }
+      el('ae-drp-footer-range').textContent = drpDisplay(a) + ' - ' + drpDisplay(b);
+      drpSetPresetActive(drpState.preset);
+    }
+    function drpDayClick(node){
+      if(!node || node.classList.contains('other-month') || node.classList.contains('disabled')) return;
+      const dt = drpParseLocal(node.dataset.date);
+      if(!drpState.selecting){
+        drpState.from = dt;
+        drpState.to = null;
+        drpState.hov = null;
+        drpState.selecting = true;
+        drpState.preset = 'custom';
+      }else{
+        drpState.to = dt;
+        drpState.hov = null;
+        drpState.selecting = false;
+        if(drpState.from > drpState.to){ const t = drpState.from; drpState.from = drpState.to; drpState.to = t; }
+      }
+      drpRender();
+    }
+    function drpDayHover(node){
+      if(!drpState.selecting || !node || node.classList.contains('other-month') || node.classList.contains('disabled')) return;
+      drpState.hov = drpParseLocal(node.dataset.date);
+      drpRender();
+    }
+    function drpPreset(key){
+      const now = new Date(); now.setHours(0,0,0,0);
+      let from = null, to = null;
+      if(key === 'today'){ from = new Date(now); to = new Date(now); }
+      else if(key === 'yesterday'){ from = new Date(now); from.setDate(now.getDate()-1); to = new Date(from); }
+      else if(key === 'last7'){ from = new Date(now); from.setDate(now.getDate()-6); to = new Date(now); }
+      else if(key === 'last30'){ from = new Date(now); from.setDate(now.getDate()-29); to = new Date(now); }
+      else if(key === 'last90'){ from = new Date(now); from.setDate(now.getDate()-89); to = new Date(now); }
+      else if(key === 'thisMonth'){ from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now); }
+      else if(key === 'lastMonth'){ from = new Date(now.getFullYear(), now.getMonth()-1, 1); to = new Date(now.getFullYear(), now.getMonth(), 0); }
+      else if(key === 'lifetime'){ from = null; to = null; }
+      else if(key === 'custom'){
+        drpState.from = null; drpState.to = null; drpState.hov = null; drpState.selecting = false; drpState.preset = 'custom';
+        drpRender();
+        return;
+      }
+      drpState.from = from;
+      drpState.to = to;
+      drpState.hov = null;
+      drpState.selecting = false;
+      drpState.preset = key;
+      if(from){ drpState.viewYear = from.getFullYear(); drpState.viewMonth = from.getMonth(); }
+      else{
+        const n = new Date();
+        drpState.viewYear = n.getFullYear();
+        drpState.viewMonth = n.getMonth() - 1;
+        if(drpState.viewMonth < 0){ drpState.viewMonth = 11; drpState.viewYear--; }
+      }
+      drpRender();
+      drpPositionPanel();
+    }
+    function drpUpdateButton(){
+      const lbl = el('ae-drp-label');
+      const presetLabels = {today:'Today',yesterday:'Yesterday',last7:'Last 7 Days',last30:'Last 30 Days',thisMonth:'This Month',lastMonth:'Last Month',last90:'Last 90 Days',lifetime:'All time'};
+      if(drpState.preset === 'lifetime' || (!drpState.from && !drpState.to)){
+        lbl.textContent = 'All time';
+        lbl.classList.remove('active');
+      }else if(drpState.preset !== 'custom'){
+        lbl.textContent = presetLabels[drpState.preset] || drpState.preset;
+        lbl.classList.add('active');
+      }else{
+        const a = drpState.from;
+        const b = drpState.to || drpState.from;
+        lbl.textContent = drpDisplay(a) + (a && b && a.getTime() !== b.getTime() ? ' - ' + drpDisplay(b) : '');
+        lbl.classList.add('active');
+      }
+    }
+    function drpApply(){
+      if(drpState.preset === 'lifetime' || (!drpState.from && !drpState.to)){
+        el('ae-date-from').value = '';
+        el('ae-date-to').value = '';
+      }else{
+        let from = drpState.from;
+        let to = drpState.to || drpState.from;
+        if(from > to){ const t = from; from = to; to = t; }
+        el('ae-date-from').value = drpFmtLocal(from);
+        el('ae-date-to').value = drpFmtLocal(to);
+      }
+      drpUpdateButton();
+      drpClose();
+      compute();
+    }
+    function drpClearDateRange(shouldCompute){
+      el('ae-date-from').value = '';
+      el('ae-date-to').value = '';
+      drpState.from = null;
+      drpState.to = null;
+      drpState.hov = null;
+      drpState.selecting = false;
+      drpState.preset = 'lifetime';
+      drpUpdateButton();
+      drpRender();
+      if(shouldCompute) compute();
+    }
+    function initDateRangePicker(){
+      el('ae-drp-btn').addEventListener('click', function(e){ e.stopPropagation(); drpToggle(); });
+      el('ae-drp-prev').addEventListener('click', function(e){ e.stopPropagation(); drpNavMonth(-1); });
+      el('ae-drp-next').addEventListener('click', function(e){ e.stopPropagation(); drpNavMonth(1); });
+      el('ae-drp-cancel').addEventListener('click', function(e){ e.stopPropagation(); drpClose(); });
+      el('ae-drp-apply').addEventListener('click', function(e){ e.stopPropagation(); drpApply(); });
+      document.querySelectorAll('#ae-drp-presets .drp-preset').forEach(function(node){
+        node.addEventListener('click', function(e){ e.stopPropagation(); drpPreset(node.dataset.key); });
+      });
+      ['ae-drp-cal-l','ae-drp-cal-r'].forEach(function(id){
+        el(id).addEventListener('click', function(e){ e.stopPropagation(); drpDayClick(e.target.closest('.drp-day')); });
+        el(id).addEventListener('mouseover', function(e){ drpDayHover(e.target.closest('.drp-day')); });
+      });
+      document.addEventListener('click', function(e){
+        const wrap = el('ae-drp-wrap');
+        if(drpState.open && wrap && !wrap.contains(e.target)) drpClose();
+      });
+      window.addEventListener('resize', function(){ if(drpState.open) drpPositionPanel(); });
+      drpRender();
+      drpUpdateButton();
+    }
 
     function getAdCategory(impr, roas, costPerNcp, costPerFtewv, targetImp, targetRoas, targetCpn, targetFtewv){
       const f1 = impr >= targetImp;
@@ -854,6 +1165,7 @@
     }
 
     function wireEvents(){
+      initDateRangePicker();
       addFilterRow();
       ['ae-account','ae-group-by','ae-status','ae-date-field','ae-date-from','ae-date-to','ae-target-imp','ae-target-roas','ae-target-cpn','ae-target-ftewv'].forEach(function(id){
         el(id).addEventListener('change', compute);
@@ -866,9 +1178,7 @@
       el('clearRangesBtn').addEventListener('click', function(e){ e.preventDefault(); clearRanges(); });
       el('clearFiltersBtn').addEventListener('click', clearFilters);
       el('clearDateBtn').addEventListener('click', function(){
-        el('ae-date-from').value = '';
-        el('ae-date-to').value = '';
-        compute();
+        drpClearDateRange(true);
       });
       el('pageSize').addEventListener('change', function(){ aePerPage = Number(el('pageSize').value) || 100; aeCurPage = 0; renderTable(); });
       el('prevPageBtn').addEventListener('click', function(){ page(-1); });
