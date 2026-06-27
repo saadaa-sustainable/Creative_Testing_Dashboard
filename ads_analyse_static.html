@@ -68,6 +68,7 @@
     tr:hover td{background:#fff7f2}
     .num{text-align:right;font-family:Consolas,Roboto Mono,monospace}
     .clip{max-width:240px;overflow:hidden;text-overflow:ellipsis}
+    .hover-name{cursor:help}
     .badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 9px;font-size:10px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;border:1px solid transparent}
     .b-win{background:var(--sage2);color:var(--sage);border-color:rgba(74,124,111,.25)}
     .b-inc{background:var(--terra2);color:var(--terra);border-color:rgba(192,96,58,.25)}
@@ -285,7 +286,7 @@
       {key:'campName',label:'Campaign',cls:'clip'},
       {key:'adsetId',label:'Ad Set ID'},
       {key:'adId',label:'Ad ID'},
-      {key:'adName',label:'Ad Name',cls:'clip'},
+      {key:'adName',label:'Ad Name',cls:'clip hover-name'},
       {key:'acct',label:'Account'},
       {key:'created',label:'Created'},
       {key:'firstSeen',label:'First Seen'},
@@ -763,13 +764,17 @@
         return;
       }
       el('tableBody').innerHTML = pageRows.map(function(r){
-        return '<tr>' + TABLE_COLS.map(function(c){ return '<td class="' + cellClass(c) + '">' + cellValue(c,r) + '</td>'; }).join('') + '</tr>';
+        return '<tr>' + TABLE_COLS.map(function(c){ return '<td class="' + cellClass(c) + '"' + cellAttrs(c,r) + '>' + cellValue(c,r) + '</td>'; }).join('') + '</tr>';
       }).join('');
     }
 
     function cellClass(c){
       const numeric = ['num','int','dec','money','money0','pct'].includes(c.type);
       return (numeric ? 'num ' : '') + (c.cls || '');
+    }
+    function cellAttrs(c,r){
+      if(c.key === 'adName') return ' title="' + safe(r.adName || '-') + '"';
+      return '';
     }
     function cellValue(c,r){
       const v = r[c.key];
