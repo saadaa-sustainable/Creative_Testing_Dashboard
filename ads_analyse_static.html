@@ -1174,6 +1174,26 @@
       return [r.dailyKey || '', range.from || '', range.to || '', range.capped ? 'last30' : 'selected'].join('|');
     }
 
+    function computeDailyTotals(rows){
+      const totals = rows.reduce(function(acc,d){
+        acc.spend += d.spend;
+        acc.impressions += d.impressions;
+        acc.reach += d.reach;
+        acc.linkClicks += d.linkClicks;
+        acc.purchases += d.purchases;
+        acc.convValue += d.convValue;
+        acc.ftewv += d.ftewv;
+        acc.ncp += d.ncp;
+        return acc;
+      }, {spend:0, impressions:0, reach:0, linkClicks:0, purchases:0, convValue:0, ftewv:0, ncp:0});
+      totals.freq = div(totals.impressions, totals.reach);
+      totals.ctr = div(totals.linkClicks, totals.impressions) * 100;
+      totals.roas = totals.convValue > 0 ? div(totals.convValue, totals.spend) : 0;
+      totals.costFtewv = totals.ftewv > 0 ? div(totals.spend, totals.ftewv) : 0;
+      totals.costNcp = totals.ncp > 0 ? div(totals.spend, totals.ncp) : 0;
+      return totals;
+    }
+
     async function toggleDailyAttribution(adId, cacheKey){
       if(!adId) return;
       if(dailyOpenKey === cacheKey){
@@ -1183,13 +1203,14 @@
       }
       dailyOpenKey = cacheKey;
       if(!dailyCache[cacheKey]){
-        dailyCache[cacheKey] = {state:'loading', rows:[], error:''};
+        dailyCache[cacheKey] = {state:'loading', rows:[], totals:null, error:''};
         renderTable();
         try{
           const raw = await fetchDailyAttribution(adId);
-          dailyCache[cacheKey] = {state:'ready', rows:buildDailyAttributionRows(raw), error:''};
+          const rows = buildDailyAttributionRows(raw);
+          dailyCache[cacheKey] = {state:'ready', rows:rows, totals:computeDailyTotals(rows), error:''};
         }catch(e){
-          dailyCache[cacheKey] = {state:'error', rows:[], error:e.message || String(e)};
+          dailyCache[cacheKey] = {state:'error', rows:[], totals:null, error:e.message || String(e)};
         }
       }
       renderTable();
@@ -1448,6 +1469,23 @@
       return '';
     }
     function cellValue(c,r){
+      const dailyTotals = dailyTotalsForRow(r);
+      if(dailyTotals){
+        if(c.key === 'imp') return fmtNum(dailyTotals.impressions);
+        if(c.key === 'rawReach') return fmtNum(dailyTotals.reach);
+        if(c.key === 'rawFreq') return fmtDec(dailyTotals.freq);
+        if(c.key === 'rawSpend') return fmtMoney0(dailyTotals.spend);
+        if(c.key === 'rawCpcLink') return fmtMoney(dailyTotals.linkClicks ? div(dailyTotals.spend, dailyTotals.linkClicks) : 0);
+        if(c.key === 'rawCtrLink') return fmtPct(dailyTotals.ctr);
+        if(c.key === 'rawLinkClicks') return fmtNum(dailyTotals.linkClicks);
+        if(c.key === 'rawPurchases') return fmtDec(dailyTotals.purchases);
+        if(c.key === 'rawConvValue') return fmtMoney0(dailyTotals.convValue);
+        if(c.key === 'rawRoas') return fmtDec(dailyTotals.roas);
+        if(c.key === 'rawCpFtewv') return fmtMoney(dailyTotals.costFtewv);
+        if(c.key === 'rawFtewvCount') return fmtNum(dailyTotals.ftewv);
+        if(c.key === 'rawCostPerNcp') return fmtMoney(dailyTotals.costNcp);
+        if(c.key === 'rawNcpCount') return fmtNum(dailyTotals.ncp);
+      }
       const v = r[c.key];
       if(c.type === 'int') return fmtNum(v);
       if(c.type === 'dec' || c.type === 'num') return fmtDec(v);
@@ -1468,6 +1506,14 @@
       if(c.type === 'link') return v ? '<a class="link" href="' + safe(v) + '" target="_blank" rel="noopener">Open</a>' : '-';
       return safe(v || '-');
     }
+    function dailyTotalsForRow(r){
+      if(!r.dailyKey) return null;
+      const cacheKey = dailyCacheKey(r);
+      const state = dailyCache[cacheKey];
+      if(!state || state.state !== 'ready' || !state.totals) return null;
+      return state.totals;
+    }
+
     function categoryBadge(cat){
       const cls = cat === 'Incremental Winner' ? 'b-inc' :
         cat === 'Winner' ? 'b-win' :
