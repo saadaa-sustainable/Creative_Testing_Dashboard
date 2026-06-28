@@ -81,6 +81,20 @@
     .status{display:inline-flex;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900;text-transform:uppercase;background:#edeae2;color:var(--muted)}
     .status.active{background:var(--sage2);color:var(--sage)}
     .link{color:var(--slate);font-weight:800;text-decoration:none}
+    .attrib-btn{height:28px;border:1px solid rgba(74,111,165,.28);border-radius:6px;background:var(--slate2);color:var(--slate);padding:0 10px;font-size:11px;font-weight:900;white-space:nowrap}
+    .attrib-btn.open{background:var(--terra2);border-color:rgba(192,96,58,.3);color:var(--terra)}
+    .attrib-btn:disabled{background:#f1efeb;border-color:var(--border);color:var(--muted);cursor:not-allowed}
+    .daily-row td{background:#fffdf9!important;padding:0;border-bottom:1px solid var(--border)}
+    .daily-panel{padding:14px 16px 16px;background:linear-gradient(180deg,#fffdf9,#faf8f5);border-top:1px solid var(--border)}
+    .daily-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:10px}
+    .daily-title{font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--terra)}
+    .daily-sub{font-size:12px;color:var(--muted);margin-top:4px;white-space:normal}
+    .daily-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:8px;background:#fff}
+    table.daily-table{min-width:1220px;border-collapse:separate;border-spacing:0;width:100%}
+    .daily-table th{position:sticky;top:0;background:var(--surface2);font-size:9px;padding:9px 10px}
+    .daily-table td{background:#fff!important;padding:9px 10px;font-size:11.5px;border-bottom:1px solid #f0ece4}
+    .daily-table tr:nth-child(even) td{background:var(--surface2)!important}
+    .daily-note{padding:16px;text-align:center;color:var(--muted);font-size:12px}
     .empty{padding:36px;text-align:center;color:var(--muted);font-size:13px}
     #statusLine{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface2);font-size:11px;color:var(--muted)}
     .drp-wrap{position:relative}
@@ -365,6 +379,7 @@
       {key:'adsetId',label:'Ad Set ID'},
       {key:'adId',label:'Ad ID'},
       {key:'adName',label:'Ad Name',cls:'clip hover-name'},
+      {key:'dailyAttribution',label:'Attribution',type:'daily',noSort:true,noExport:true},
       {key:'acct',label:'Account'},
       {key:'created',label:'Created'},
       {key:'firstSeen',label:'First Seen'},
@@ -408,6 +423,8 @@
     let aeSortDir = -1;
     let aeCurPage = 0;
     let aePerPage = 100;
+    let dailyOpenKey = '';
+    const dailyCache = {};
 
     function el(id){ return document.getElementById(id); }
     function num(v){
@@ -850,11 +867,13 @@
         const f4Pass = rawCpFtewv > 0 && rawCpFtewv <= tFtewv;
         const category = getAdCategory(a.imp, rawRoas, rawCostPerNcp, rawCpFtewv, tImp, tRoas, tCpn, tFtewv);
         const adIds = Array.from(a.adIds);
+        const dailyKey = adIds.length === 1 ? String(adIds[0]) : '';
         return {
           adName:a.adName,
           campName:a.campName,
           adId:groupBy === 'ad' ? (adIds[0] || a.key) : (adIds.length ? adIds.length + ' ad_ids' : a.key),
           adIds:adIds,
+          dailyKey:dailyKey,
           adsetId:a.adsetId,
           adsetName:a.adsetName,
           acct:Array.from(a.accounts).join(', ') || '-',
@@ -1046,13 +1065,166 @@
       });
     }
 
+    function dailyCacheKey(r){
+      return [r.dailyKey || '', el('ae-date-from').value || '', el('ae-date-to').value || ''].join('|');
+    }
+
+    async function toggleDailyAttribution(adId, cacheKey){
+      if(!adId) return;
+      if(dailyOpenKey === cacheKey){
+        dailyOpenKey = '';
+        renderTable();
+        return;
+      }
+      dailyOpenKey = cacheKey;
+      if(!dailyCache[cacheKey]){
+        dailyCache[cacheKey] = {state:'loading', rows:[], error:''};
+        renderTable();
+        try{
+          const raw = await fetchDailyAttribution(adId);
+          dailyCache[cacheKey] = {state:'ready', rows:buildDailyAttributionRows(raw), error:''};
+        }catch(e){
+          dailyCache[cacheKey] = {state:'error', rows:[], error:e.message || String(e)};
+        }
+      }
+      renderTable();
+    }
+
+    async function fetchDailyAttribution(adId){
+      const cols = [
+        'date','account_name','campaign_name','adset_id','adset_name','ad_id','ad_name',
+        'ad_status','ad_created_date','impressions','reach','amount_spent_inr',
+        'purchase_roas','outbound_clicks','inline_link_clicks','purchases',
+        'conversion_value','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp',
+        'preview_link','ad_link'
+      ].join(',');
+      const from = el('ae-date-from').value;
+      const to = el('ae-date-to').value;
+      let offset = 0;
+      let out = [];
+      while(true){
+        let url = SUPABASE_URL + '/rest/v1/primary_table?select=' + cols +
+          '&ad_id=eq.' + encodeURIComponent(adId) +
+          '&order=date.desc&limit=' + BATCH + '&offset=' + offset;
+        if(from) url += '&date=gte.' + from;
+        if(to) url += '&date=lte.' + to;
+        const res = await fetch(url, {
+          headers:{
+            apikey: SUPABASE_ANON,
+            Authorization: 'Bearer ' + SUPABASE_ANON,
+            Prefer: 'count=none'
+          }
+        });
+        if(!res.ok){
+          const text = await res.text().catch(function(){return '';});
+          throw new Error('primary_table HTTP ' + res.status + (text ? ': ' + text.slice(0,160) : ''));
+        }
+        const chunk = await res.json();
+        if(!Array.isArray(chunk) || !chunk.length) break;
+        out = out.concat(chunk);
+        offset += chunk.length;
+        if(chunk.length < BATCH) break;
+      }
+      return out;
+    }
+
+    function buildDailyAttributionRows(rawRows){
+      const byDate = new Map();
+      rawRows.forEach(function(r){
+        const d = dateKey(r.date);
+        if(!d) return;
+        if(!byDate.has(d)){
+          byDate.set(d, {
+            date:d, status:'', spend:0, impressions:0, reach:0, linkClicks:0,
+            purchases:0, convValue:0, ftewv:0, ncp:0, costFtewvSheet:[], costNcpSheet:[], roasSheet:[]
+          });
+        }
+        const x = byDate.get(d);
+        if(r.ad_status) x.status = String(r.ad_status);
+        x.spend += num(r.amount_spent_inr);
+        x.impressions += num(r.impressions);
+        x.reach += num(r.reach);
+        x.linkClicks += num(r.inline_link_clicks) || num(r.outbound_clicks);
+        x.purchases += num(r.purchases);
+        x.convValue += num(r.conversion_value);
+        x.ftewv += num(r.ftewv_count);
+        x.ncp += num(r.ncp_count);
+        pushMetric(x.costFtewvSheet, r.cost_per_ftewv);
+        pushMetric(x.costNcpSheet, r.cost_per_ncp);
+        pushMetric(x.roasSheet, r.purchase_roas);
+      });
+      return Array.from(byDate.values()).map(function(r){
+        const freq = div(r.impressions, r.reach);
+        const ctr = div(r.linkClicks, r.impressions) * 100;
+        const roas = r.convValue > 0 ? div(r.convValue, r.spend) : avg(r.roasSheet);
+        const costFtewv = r.ftewv > 0 ? div(r.spend, r.ftewv) : avg(r.costFtewvSheet);
+        const costNcp = r.ncp > 0 ? div(r.spend, r.ncp) : avg(r.costNcpSheet);
+        return Object.assign(r, {freq:freq, ctr:ctr, roas:roas, costFtewv:costFtewv, costNcp:costNcp});
+      }).sort(function(a,b){ return b.date.localeCompare(a.date); });
+    }
+
+    function renderDailyAttributionRow(r){
+      const cacheKey = dailyCacheKey(r);
+      const state = dailyCache[cacheKey] || {state:'loading', rows:[], error:''};
+      const range = (el('ae-date-from').value || el('ae-date-to').value)
+        ? (el('ae-date-from').value || 'start') + ' to ' + (el('ae-date-to').value || 'latest')
+        : 'all available primary_table dates';
+      let inner = '';
+      if(state.state === 'loading'){
+        inner = '<div class="daily-note">Loading daily attribution from primary_table...</div>';
+      }else if(state.state === 'error'){
+        inner = '<div class="daily-note" style="color:var(--terra)">Failed to load daily attribution: ' + safe(state.error) + '</div>';
+      }else if(!state.rows.length){
+        inner = '<div class="daily-note">No primary_table daily rows found for this ad and date range.</div>';
+      }else{
+        inner =
+          '<div class="daily-table-wrap"><table class="daily-table">' +
+            '<thead><tr>' +
+              '<th>Date</th><th class="num">Spend</th><th class="num">Impr.</th><th class="num">Reach</th><th class="num">Freq.</th>' +
+              '<th class="num">Link Clicks</th><th class="num">CTR</th><th class="num">Purchases</th><th class="num">Conv Value</th>' +
+              '<th class="num">ROAS</th><th class="num">FTEWV</th><th class="num">Cost/FTEWV</th><th class="num">NCP</th><th class="num">Cost/NCP</th><th>Status</th>' +
+            '</tr></thead>' +
+            '<tbody>' + state.rows.map(function(d){
+              return '<tr>' +
+                '<td>' + safe(d.date) + '</td>' +
+                '<td class="num">' + fmtMoney0(d.spend) + '</td>' +
+                '<td class="num">' + fmtNum(d.impressions) + '</td>' +
+                '<td class="num">' + fmtNum(d.reach) + '</td>' +
+                '<td class="num">' + fmtDec(d.freq) + '</td>' +
+                '<td class="num">' + fmtNum(d.linkClicks) + '</td>' +
+                '<td class="num">' + fmtPct(d.ctr) + '</td>' +
+                '<td class="num">' + fmtDec(d.purchases) + '</td>' +
+                '<td class="num">' + fmtMoney0(d.convValue) + '</td>' +
+                '<td class="num">' + fmtDec(d.roas) + '</td>' +
+                '<td class="num">' + fmtNum(d.ftewv) + '</td>' +
+                '<td class="num">' + fmtMoney(d.costFtewv) + '</td>' +
+                '<td class="num">' + fmtNum(d.ncp) + '</td>' +
+                '<td class="num">' + fmtMoney(d.costNcp) + '</td>' +
+                '<td><span class="status ' + (String(d.status).toUpperCase() === 'ACTIVE' ? 'active' : '') + '">' + safe(d.status || '-') + '</span></td>' +
+              '</tr>';
+            }).join('') + '</tbody></table></div>';
+      }
+      return '<tr class="daily-row"><td colspan="' + TABLE_COLS.length + '">' +
+        '<div class="daily-panel">' +
+          '<div class="daily-head">' +
+            '<div><div class="daily-title">Daily Attribution Breakdown</div>' +
+            '<div class="daily-sub">' + safe(r.adName) + ' | ad_id ' + safe(r.dailyKey) + ' | ' + safe(range) + '</div></div>' +
+            '<button class="btn" type="button" data-daily-close="1">Close</button>' +
+          '</div>' + inner +
+        '</div></td></tr>';
+    }
+
     function renderTableHead(){
       el('tableHead').innerHTML = '<tr>' + TABLE_COLS.map(function(c){
-        return '<th class="sortable ' + (c.type === 'num' || c.type === 'int' || c.type === 'dec' || c.type === 'money' || c.type === 'money0' || c.type === 'pct' ? 'num' : '') + '" data-key="' + safe(c.key) + '">' + safe(c.label) + (aeSortKey === c.key ? (aeSortDir === 1 ? ' ^' : ' v') : '') + '</th>';
+        const numeric = c.type === 'num' || c.type === 'int' || c.type === 'dec' || c.type === 'money' || c.type === 'money0' || c.type === 'pct';
+        const sortable = !c.noSort;
+        return '<th class="' + (sortable ? 'sortable ' : '') + (numeric ? 'num' : '') + '" data-key="' + safe(c.key) + '">' + safe(c.label) + (sortable && aeSortKey === c.key ? (aeSortDir === 1 ? ' ^' : ' v') : '') + '</th>';
       }).join('') + '</tr>';
       el('tableHead').querySelectorAll('th').forEach(function(th){
         th.addEventListener('click', function(){
           const key = th.dataset.key;
+          const col = TABLE_COLS.find(function(c){ return c.key === key; });
+          if(col && col.noSort) return;
           if(aeSortKey === key) aeSortDir *= -1;
           else { aeSortKey = key; aeSortDir = -1; }
           sortRows(false);
@@ -1075,8 +1247,24 @@
         return;
       }
       el('tableBody').innerHTML = pageRows.map(function(r){
-        return '<tr>' + TABLE_COLS.map(function(c){ return '<td class="' + cellClass(c) + '"' + cellAttrs(c,r) + '>' + cellValue(c,r) + '</td>'; }).join('') + '</tr>';
+        const parent = '<tr>' + TABLE_COLS.map(function(c){ return '<td class="' + cellClass(c) + '"' + cellAttrs(c,r) + '>' + cellValue(c,r) + '</td>'; }).join('') + '</tr>';
+        return parent + (r.dailyKey && dailyOpenKey === dailyCacheKey(r) ? renderDailyAttributionRow(r) : '');
       }).join('');
+      wireDailyAttributionButtons();
+    }
+
+    function wireDailyAttributionButtons(){
+      el('tableBody').querySelectorAll('[data-daily-ad]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          toggleDailyAttribution(btn.dataset.dailyAd, btn.dataset.dailyCache);
+        });
+      });
+      el('tableBody').querySelectorAll('[data-daily-close]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          dailyOpenKey = '';
+          renderTable();
+        });
+      });
     }
 
     function cellClass(c){
@@ -1097,6 +1285,14 @@
       if(c.type === 'flag') return '<span class="flag ' + (v ? 'y">YES' : 'n">NO') + '</span>';
       if(c.type === 'status') return '<span class="status ' + (String(v).toUpperCase() === 'ACTIVE' ? 'active' : '') + '">' + safe(v || '-') + '</span>';
       if(c.type === 'category') return categoryBadge(v);
+      if(c.type === 'daily'){
+        if(!r.dailyKey) return '<button class="attrib-btn" type="button" disabled title="Use Ad Level to view daily attribution">Ad level only</button>';
+        const cacheKey = dailyCacheKey(r);
+        const state = dailyCache[cacheKey];
+        const isOpen = dailyOpenKey === cacheKey;
+        const label = state && state.state === 'loading' && isOpen ? 'Loading...' : isOpen ? 'Hide daily' : 'Daily';
+        return '<button class="attrib-btn ' + (isOpen ? 'open' : '') + '" type="button" data-daily-ad="' + safe(r.dailyKey) + '" data-daily-cache="' + safe(cacheKey) + '">' + label + '</button>';
+      }
       if(c.type === 'link') return v ? '<a class="link" href="' + safe(v) + '" target="_blank" rel="noopener">Open</a>' : '-';
       return safe(v || '-');
     }
@@ -1141,9 +1337,10 @@
         ['# Rows', aeFiltered.length],
         ['#']
       ];
-      const headers = TABLE_COLS.map(function(c){return c.label;});
+      const exportCols = TABLE_COLS.filter(function(c){ return !c.noExport; });
+      const headers = exportCols.map(function(c){return c.label;});
       const rows = aeFiltered.map(function(r){
-        return TABLE_COLS.map(function(c){
+        return exportCols.map(function(c){
           const v = r[c.key];
           if(c.type === 'link') return v || '';
           if(c.type === 'flag') return v ? 'TRUE' : 'FALSE';
