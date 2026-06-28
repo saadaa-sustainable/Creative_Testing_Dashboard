@@ -55,6 +55,14 @@
     .range-inputs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
     .range-inputs input{height:31px;width:100%;border:1px solid var(--border);border-radius:6px;background:#fff;padding:5px 7px;font-size:11px;color:var(--ink)}
     .range-bounds{display:flex;justify-content:space-between;gap:8px;font-size:10px;color:var(--muted);margin-top:6px;font-family:Consolas,monospace}
+    .definitions-panel{margin-bottom:12px;overflow:hidden}
+    .definitions-panel summary{border-bottom:0}
+    .definitions-panel[open] summary{border-bottom:1px solid var(--border)}
+    .definition-count{margin-left:auto;font-size:11px;color:var(--muted);font-weight:800;letter-spacing:0;text-transform:none}
+    .definition-grid{padding:12px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+    .definition-item{border:1px solid var(--border);border-radius:8px;background:var(--surface2);padding:10px}
+    .definition-term{font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);margin-bottom:5px}
+    .definition-copy{font-size:12px;line-height:1.45;color:var(--muted);white-space:normal}
     .table-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border)}
     .pager{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
     .pager select{height:30px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--ink);padding:4px 8px}
@@ -64,6 +72,7 @@
     th.sortable{cursor:pointer}
     th.sortable:hover{color:var(--terra)}
     td{border-bottom:1px solid var(--border);padding:10px 12px;font-size:12px;color:var(--ink2);white-space:nowrap;vertical-align:middle}
+    tfoot td{background:var(--surface2);font-weight:900;border-top:1px solid var(--border)}
     tr:nth-child(even) td{background:var(--surface2)}
     tr:hover td{background:#fff7f2}
     .num{text-align:right;font-family:Consolas,Roboto Mono,monospace}
@@ -94,6 +103,7 @@
     .daily-table th{position:sticky;top:0;background:var(--surface2);font-size:9px;padding:9px 10px}
     .daily-table td{background:#fff!important;padding:9px 10px;font-size:11.5px;border-bottom:1px solid #f0ece4}
     .daily-table tr:nth-child(even) td{background:var(--surface2)!important}
+    .daily-table tfoot td{background:#f8f5ed!important;font-weight:900!important;color:var(--ink)!important}
     .daily-note{padding:16px;text-align:center;color:var(--muted);font-size:12px}
     .empty{padding:36px;text-align:center;color:var(--muted);font-size:13px}
     #statusLine{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface2);font-size:11px;color:var(--muted)}
@@ -168,6 +178,14 @@
         <button class="btn primary" id="reloadBtn" type="button">Reload</button>
       </div>
     </header>
+
+    <details class="panel definitions-panel">
+      <summary>
+        <span class="filter-title">Metric Definitions</span>
+        <span id="definitionCount" class="definition-count"></span>
+      </summary>
+      <div id="definitionGrid" class="definition-grid"></div>
+    </details>
 
     <section class="panel controls" aria-label="Analysis controls">
       <div class="field span-2">
@@ -330,6 +348,7 @@
         <table>
           <thead id="tableHead"></thead>
           <tbody id="tableBody"><tr><td class="empty">Loading...</td></tr></tbody>
+          <tfoot id="tableFoot"></tfoot>
         </table>
       </div>
     </section>
@@ -414,6 +433,48 @@
       {key:'previewLink',label:'Preview',type:'link'},
       {key:'adLink',label:'Ad Link',type:'link'}
     ];
+    const METRIC_DEFINITIONS = {
+      campName:'Campaign name from Meta for the ad row or grouped result.',
+      adsetId:'Meta ad set identifier attached to the ad.',
+      adId:'Meta ad identifier. In grouped views this can show the number of ad IDs inside the group.',
+      adName:'Meta ad name. Hover the table cell to see the full name.',
+      dailyAttribution:'Opens daily primary_table performance for this ad. Uses the selected date range, capped to the last 30 days when the selected range is 30 days or longer.',
+      acct:'Meta ad account where the ad belongs.',
+      created:'Date when the ad was created in Meta.',
+      firstSeen:'Earliest date this ad first appeared in the reporting data.',
+      reportingStart:'First reporting date for the ad row, usually the first day the ad contributed delivery or attribution data in the selected range.',
+      reportingEnd:'Last reporting date for the ad row, usually the latest day the ad contributed delivery or attribution data in the selected range.',
+      dateTargetF1:'First date the ad reached the F1 impression target.',
+      dateOfResult:'Date when the ad received its analysis result or category.',
+      daysToResultNum:'Average number of days from ad creation to result.',
+      daysToF1Num:'Average number of days from ad creation to the F1 target.',
+      category:'Current AE decision bucket based on the configured F1-F4 thresholds.',
+      f1Pass:'YES when impressions meet or exceed the F1 target.',
+      f2Pass:'YES when Meta ROAS meets or exceeds the F2 target.',
+      f3Pass:'YES when Cost/NCP is greater than zero and at or below the F3 target.',
+      f4Pass:'YES when Cost/FTEWV is greater than zero and at or below the F4 target.',
+      adStatus:'Current delivery status from Meta, such as ACTIVE or PAUSED.',
+      imp:'Total impressions.',
+      rawReach:'Total unique reach.',
+      rawFreq:'Frequency, calculated as impressions divided by reach.',
+      rawSpend:'Total amount spent.',
+      rawCpcLink:'Cost per link click, calculated as spend divided by link clicks.',
+      rawCtrLink:'Link click-through rate, calculated as link clicks divided by impressions.',
+      rawLinkClicks:'Total link clicks.',
+      rawPurchases:'Meta-attributed purchase count.',
+      rawConvValue:'Meta-attributed purchase conversion value.',
+      rawRoas:'Meta ROAS, calculated as conversion value divided by spend.',
+      rawShopOrders:'Shopify-attributed order count attached by the backend attribution process.',
+      rawShopSales:'Shopify-attributed sales attached by the backend attribution process.',
+      rawCpFtewv:'Cost per FTEWV, calculated as spend divided by first-time engaged website visitor count.',
+      rawFtewvCount:'FTEWV custom conversion count.',
+      rawCostPerNcp:'Cost per NCP, calculated as spend divided by new customer purchase count.',
+      rawNcpCount:'NCP custom conversion count.',
+      rawProfit:'Profit efficiency, calculated here as Meta conversion value minus spend.',
+      rawBlended:'Blended efficiency value from ae_table_view.',
+      previewLink:'Meta preview URL for the ad creative.',
+      adLink:'Live ad or settings URL when available.'
+    };
 
     let aeRaw = [];
     let aeResults = [];
@@ -1220,6 +1281,23 @@
       }else if(!state.rows.length){
         inner = '<div class="daily-note">No primary_table daily rows found for this ad and date range.</div>';
       }else{
+        const totals = state.rows.reduce(function(acc,d){
+          acc.spend += d.spend;
+          acc.impressions += d.impressions;
+          acc.reach += d.reach;
+          acc.linkClicks += d.linkClicks;
+          acc.purchases += d.purchases;
+          acc.convValue += d.convValue;
+          acc.ftewv += d.ftewv;
+          acc.ncp += d.ncp;
+          return acc;
+        }, {spend:0, impressions:0, reach:0, linkClicks:0, purchases:0, convValue:0, ftewv:0, ncp:0});
+        totals.freq = div(totals.impressions, totals.reach);
+        totals.ctr = div(totals.linkClicks, totals.impressions) * 100;
+        totals.roas = totals.convValue > 0 ? div(totals.convValue, totals.spend) : 0;
+        totals.costFtewv = totals.ftewv > 0 ? div(totals.spend, totals.ftewv) : 0;
+        totals.costNcp = totals.ncp > 0 ? div(totals.spend, totals.ncp) : 0;
+
         inner =
           '<div class="daily-table-wrap"><table class="daily-table">' +
             '<thead><tr>' +
@@ -1245,7 +1323,24 @@
                 '<td class="num">' + fmtMoney(d.costNcp) + '</td>' +
                 '<td><span class="status ' + (String(d.status).toUpperCase() === 'ACTIVE' ? 'active' : '') + '">' + safe(d.status || '-') + '</span></td>' +
               '</tr>';
-            }).join('') + '</tbody></table></div>';
+            }).join('') + '</tbody>' +
+            '<tfoot><tr>' +
+              '<td>Totals</td>' +
+              '<td class="num">' + fmtMoney0(totals.spend) + '</td>' +
+              '<td class="num">' + fmtNum(totals.impressions) + '</td>' +
+              '<td class="num">' + fmtNum(totals.reach) + '</td>' +
+              '<td class="num">' + fmtDec(totals.freq) + '</td>' +
+              '<td class="num">' + fmtNum(totals.linkClicks) + '</td>' +
+              '<td class="num">' + fmtPct(totals.ctr) + '</td>' +
+              '<td class="num">' + fmtDec(totals.purchases) + '</td>' +
+              '<td class="num">' + fmtMoney0(totals.convValue) + '</td>' +
+              '<td class="num">' + fmtDec(totals.roas) + '</td>' +
+              '<td class="num">' + fmtNum(totals.ftewv) + '</td>' +
+              '<td class="num">' + fmtMoney(totals.costFtewv) + '</td>' +
+              '<td class="num">' + fmtNum(totals.ncp) + '</td>' +
+              '<td class="num">' + fmtMoney(totals.costNcp) + '</td>' +
+              '<td></td>' +
+            '</tr></tfoot></table></div>';
       }
       return '<tr class="daily-row"><td colspan="' + TABLE_COLS.length + '">' +
         '<div class="daily-panel">' +
@@ -1293,7 +1388,41 @@
         const parent = '<tr>' + TABLE_COLS.map(function(c){ return '<td class="' + cellClass(c) + '"' + cellAttrs(c,r) + '>' + cellValue(c,r) + '</td>'; }).join('') + '</tr>';
         return parent + (r.dailyKey && dailyOpenKey === dailyCacheKey(r) ? renderDailyAttributionRow(r) : '');
       }).join('');
+      renderTableFoot(aeFiltered);
       wireDailyAttributionButtons();
+    }
+
+    function tableTotals(rows){
+      const totals = {
+        campName:'Totals', adId:'', adName:'', acct:'', adStatus:'', created:'', firstSeen:'', reportingStart:'', reportingEnd:'', dateTargetF1:'', dateOfResult:'', category:'', f1Pass:false, f2Pass:false, f3Pass:false, f4Pass:false,
+        imp:0, rawReach:0, rawSpend:0, rawConvValue:0, rawPurchases:0, rawShopOrders:0, rawShopSales:0, rawLinkClicks:0, rawFtewvCount:0, rawNcpCount:0
+      };
+      rows.forEach(function(r){
+        totals.imp += num(r.imp);
+        totals.rawReach += num(r.rawReach);
+        totals.rawSpend += num(r.rawSpend);
+        totals.rawConvValue += num(r.rawConvValue);
+        totals.rawPurchases += num(r.rawPurchases);
+        totals.rawShopOrders += num(r.rawShopOrders);
+        totals.rawShopSales += num(r.rawShopSales);
+        totals.rawLinkClicks += num(r.rawLinkClicks);
+        totals.rawFtewvCount += num(r.rawFtewvCount);
+        totals.rawNcpCount += num(r.rawNcpCount);
+      });
+      totals.rawRoas = div(totals.rawConvValue, totals.rawSpend);
+      totals.rawFreq = div(totals.imp, totals.rawReach);
+      totals.rawCpcLink = div(totals.rawSpend, totals.rawLinkClicks);
+      totals.rawCtrLink = div(totals.rawLinkClicks, totals.imp) * 100;
+      totals.rawCpFtewv = div(totals.rawSpend, totals.rawFtewvCount);
+      totals.rawCostPerNcp = div(totals.rawSpend, totals.rawNcpCount);
+      totals.rawProfit = totals.rawConvValue - totals.rawSpend;
+      return totals;
+    }
+
+    function renderTableFoot(rows){
+      if(!rows || !rows.length){ el('tableFoot').innerHTML = ''; return; }
+      const totals = tableTotals(rows);
+      el('tableFoot').innerHTML = '<tr class="totals-row">' + TABLE_COLS.map(function(c){ return '<td class="' + cellClass(c) + '">' + cellValue(c, totals) + '</td>'; }).join('') + '</tr>';
     }
 
     function wireDailyAttributionButtons(){
@@ -1346,6 +1475,16 @@
         cat === 'Analyze 1' ? 'b-a1' :
         cat === 'Analyze 2' ? 'b-a2' : 'b-disc';
       return '<span class="badge ' + cls + '">' + safe(cat || '-') + '</span>';
+    }
+
+    function renderMetricDefinitions(){
+      el('definitionCount').textContent = TABLE_COLS.length + ' table headers';
+      el('definitionGrid').innerHTML = TABLE_COLS.map(function(c){
+        return '<div class="definition-item">' +
+          '<div class="definition-term">' + safe(c.label) + '</div>' +
+          '<div class="definition-copy">' + safe(METRIC_DEFINITIONS[c.key] || 'Table field from ae_table_view.') + '</div>' +
+        '</div>';
+      }).join('');
     }
 
     function page(delta){
@@ -1405,6 +1544,7 @@
     }
 
     function wireEvents(){
+      renderMetricDefinitions();
       initDateRangePicker();
       addFilterRow();
       ['ae-account','ae-group-by','ae-status','ae-date-field','ae-date-from','ae-date-to','ae-target-imp','ae-target-roas','ae-target-cpn','ae-target-ftewv'].forEach(function(id){
