@@ -1478,11 +1478,14 @@
     }
 
     function renderMetricDefinitions(){
-      el('definitionCount').textContent = TABLE_COLS.length + ' table headers';
-      el('definitionGrid').innerHTML = TABLE_COLS.map(function(c){
+      const keys = Array.from(new Set(TABLE_COLS.map(function(c){ return c.key; }).concat(Object.keys(METRIC_DEFINITIONS))));
+      el('definitionCount').textContent = keys.length + ' definitions';
+      el('definitionGrid').innerHTML = keys.map(function(key){
+        const col = TABLE_COLS.find(function(c){ return c.key === key; });
+        const label = col ? col.label : String(key).replace(/([A-Z])/g, ' $1').replace(/^./, function(s){ return s.toUpperCase(); });
         return '<div class="definition-item">' +
-          '<div class="definition-term">' + safe(c.label) + '</div>' +
-          '<div class="definition-copy">' + safe(METRIC_DEFINITIONS[c.key] || 'Table field from ae_table_view.') + '</div>' +
+          '<div class="definition-term">' + safe(label) + '</div>' +
+          '<div class="definition-copy">' + safe(METRIC_DEFINITIONS[key] || 'Table field from ae_table_view.') + '</div>' +
         '</div>';
       }).join('');
     }
