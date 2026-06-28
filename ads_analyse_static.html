@@ -1065,8 +1065,52 @@
       });
     }
 
+    function dailyAttributionRange(){
+      const rawFrom = el('ae-date-from').value;
+      const rawTo = el('ae-date-to').value;
+      if(!rawFrom && !rawTo){
+        return {
+          from:'',
+          to:'',
+          selectedFrom:'',
+          selectedTo:'',
+          capped:false,
+          label:'all available primary_table dates'
+        };
+      }
+      let from = rawFrom ? drpParseLocal(rawFrom) : null;
+      let to = rawTo ? drpParseLocal(rawTo) : null;
+      if(from && !to) to = new Date(from);
+      if(to && !from) from = new Date(to);
+      if(from && to && from > to){ const t = from; from = to; to = t; }
+      const selectedFrom = drpFmtLocal(from);
+      const selectedTo = drpFmtLocal(to);
+      const inclusiveDays = Math.floor((to - from) / 86400000) + 1;
+      if(inclusiveDays >= 30){
+        const cappedFrom = new Date(to);
+        cappedFrom.setDate(to.getDate() - 29);
+        return {
+          from:drpFmtLocal(cappedFrom),
+          to:selectedTo,
+          selectedFrom:selectedFrom,
+          selectedTo:selectedTo,
+          capped:true,
+          label:'last 30 days of selected range: ' + drpFmtLocal(cappedFrom) + ' to ' + selectedTo + ' (selected ' + selectedFrom + ' to ' + selectedTo + ')'
+        };
+      }
+      return {
+        from:selectedFrom,
+        to:selectedTo,
+        selectedFrom:selectedFrom,
+        selectedTo:selectedTo,
+        capped:false,
+        label:'selected range: ' + selectedFrom + ' to ' + selectedTo
+      };
+    }
+
     function dailyCacheKey(r){
-      return [r.dailyKey || '', el('ae-date-from').value || '', el('ae-date-to').value || ''].join('|');
+      const range = dailyAttributionRange();
+      return [r.dailyKey || '', range.from || '', range.to || '', range.capped ? 'last30' : 'selected'].join('|');
     }
 
     async function toggleDailyAttribution(adId, cacheKey){
@@ -1098,8 +1142,9 @@
         'conversion_value','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp',
         'preview_link','ad_link'
       ].join(',');
-      const from = el('ae-date-from').value;
-      const to = el('ae-date-to').value;
+      const range = dailyAttributionRange();
+      const from = range.from;
+      const to = range.to;
       let offset = 0;
       let out = [];
       while(true){
@@ -1166,9 +1211,7 @@
     function renderDailyAttributionRow(r){
       const cacheKey = dailyCacheKey(r);
       const state = dailyCache[cacheKey] || {state:'loading', rows:[], error:''};
-      const range = (el('ae-date-from').value || el('ae-date-to').value)
-        ? (el('ae-date-from').value || 'start') + ' to ' + (el('ae-date-to').value || 'latest')
-        : 'all available primary_table dates';
+      const range = dailyAttributionRange();
       let inner = '';
       if(state.state === 'loading'){
         inner = '<div class="daily-note">Loading daily attribution from primary_table...</div>';
@@ -1208,7 +1251,7 @@
         '<div class="daily-panel">' +
           '<div class="daily-head">' +
             '<div><div class="daily-title">Daily Attribution Breakdown</div>' +
-            '<div class="daily-sub">' + safe(r.adName) + ' | ad_id ' + safe(r.dailyKey) + ' | ' + safe(range) + '</div></div>' +
+            '<div class="daily-sub">' + safe(r.adName) + ' | ad_id ' + safe(r.dailyKey) + ' | ' + safe(range.label) + '</div></div>' +
             '<button class="btn" type="button" data-daily-close="1">Close</button>' +
           '</div>' + inner +
         '</div></td></tr>';
