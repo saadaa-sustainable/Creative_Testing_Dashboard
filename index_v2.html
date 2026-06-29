@@ -1780,7 +1780,7 @@
       <canvas id="modalChart" style="max-height:340px"></canvas>
       <table class="tbl" id="modalTbl" style="margin-top:18px">
         <thead><tr>
-          <th></th><th>Ad</th><th>Spend</th><th>ROAS</th><th>FTEWV</th><th>NCP</th><th>Shopify orders</th><th>Status</th>
+          <th style="width:52px">Preview</th><th>Ad</th><th>Spend</th><th>ROAS</th><th>FTEWV</th><th>NCP</th><th>Shopify orders</th><th>Status</th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -2301,8 +2301,12 @@ function renderModal(){
     const tr = document.createElement('tr'); tr.style.cursor='pointer';
     tr.onclick = ()=>openDrawer(r);
     const name = (r.ad_name||'—').replace(/"/g,'&quot;');
+    const thumbUrl = r.ad_id ? thumbsByAdId[r.ad_id] : '';
+    const thumbCell = thumbUrl
+      ? '<td class="thumb-cell"><img class="ae-thumb" src="'+thumbUrl+'" loading="lazy" alt=""></td>'
+      : '<td class="thumb-cell"><div class="ae-thumb-placeholder" title="No thumbnail">—</div></td>';
     tr.innerHTML =
-      '<td><div class="thumb"></div></td>'+
+      thumbCell+
       '<td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+name+'">'+name+'</td>'+
       '<td class="mono">'+fmtRs(r.amount_spent)+'</td>'+
       '<td class="mono">'+fmtRoas(r.roas_ma)+'</td>'+
