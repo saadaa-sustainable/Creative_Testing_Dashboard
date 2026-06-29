@@ -158,11 +158,11 @@
   .search-clear:hover{color:var(--text-primary)}
   .search-clear.show{display:inline-flex;align-items:center}
 
-  /* ── Filter grid (Campaign / Date / Content / Tier / Status) ────── */
+  /* ── Filter grid (Campaign / Content / Tier / Status / Account) + Created ── */
   .filter-grid{background:var(--bg-surface);border:1px solid var(--border-primary);
     border-radius:12px;padding:14px 16px;margin-bottom:14px;
     display:grid;gap:12px 14px;
-    grid-template-columns:minmax(260px,2fr) 170px 170px 200px 160px}
+    grid-template-columns:minmax(220px,1.6fr) minmax(160px,1fr) minmax(160px,1fr) minmax(160px,1fr) minmax(160px,1fr)}
   .fg-field{display:flex;flex-direction:column;gap:5px;min-width:0}
   .fg-field.wide{grid-column:span 2}
   .fg-lbl{font-family:'Space Grotesk',sans-serif;font-size:10.5px;color:var(--text-secondary);
@@ -186,11 +186,21 @@
   .preset[data-p="custom"]:hover{background:#FCE9B9}
   .preset[data-p="custom"].active{background:var(--accent-yellow);
     border-color:var(--accent-yellow-hover)}
-  /* Creative Testing — Created Date filter + toggles (inline in filter-grid
-     row 2, fills the blank space next to Account). Spans 3 grid columns. */
-  .fg-field.fg-created{grid-column:span 3;min-width:0}
-  .fg-created-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-  .fg-created-row .fg-input{flex:0 1 130px;min-width:0;padding:9px 10px}
+  /* Inline date inputs that live in the preset row right next to Custom */
+  .preset-sep{color:var(--border-mid);font-size:18px;padding:0 4px;user-select:none}
+  .preset-arrow{color:var(--text-tertiary);font-weight:700;padding:0 2px}
+  .fg-input.preset-date{min-height:36px;padding:7px 10px;width:148px;font-size:12.5px;
+    background:var(--accent-warm-tint);border:1px solid var(--accent-yellow);
+    border-radius:7px;cursor:pointer;font-weight:600;font-family:'Inter',sans-serif;
+    color:var(--text-primary)}
+  .fg-input.preset-date:hover{background:#FCE9B9;border-color:var(--accent-yellow-hover)}
+  .fg-input.preset-date::-webkit-calendar-picker-indicator{cursor:pointer;
+    filter:invert(.3) sepia(1) saturate(5) hue-rotate(-10deg)}
+  /* Creative Testing — Created Date filter + toggles (filter-grid row 2,
+     full width since Date from / Date to moved up to the preset row). */
+  .fg-field.fg-created{grid-column:1 / -1;min-width:0}
+  .fg-created-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .fg-created-row .fg-input{flex:0 1 160px;min-width:0;padding:9px 10px}
   .ct-created-sep{color:var(--text-tertiary);font-weight:700;padding:0 2px}
   /* Tiny × button to clear the Created-Date range without taking much width */
   .ct-clr-x{width:28px;height:38px;border:1px solid var(--border-primary);
@@ -980,7 +990,7 @@
     </div>
   </div>
 
-  <!-- Date presets + search -->
+  <!-- Date range — presets + custom from/to inline next to Custom button -->
   <div class="filter-top">
     <div class="preset-row" id="presetRow">
       <button class="preset" data-p="lifetime">Lifetime</button>
@@ -990,6 +1000,10 @@
       <button class="preset" data-p="thisMonth">This Month</button>
       <button class="preset" data-p="lastMonth">Last Month</button>
       <button class="preset" data-p="custom">Custom</button>
+      <span class="preset-sep">|</span>
+      <input class="fg-input preset-date" id="fDateFrom" type="date" title="Date from">
+      <span class="preset-arrow">→</span>
+      <input class="fg-input preset-date" id="fDateTo"   type="date" title="Date to">
     </div>
   </div>
 
@@ -1012,14 +1026,6 @@
     <div class="fg-field">
       <label class="fg-lbl">Campaign</label>
       <select class="fg-select" id="fCampaign"><option value="">All campaigns</option></select>
-    </div>
-    <div class="fg-field">
-      <label class="fg-lbl">Date from</label>
-      <input class="fg-input" id="fDateFrom" type="date" placeholder="mm/dd/yyyy">
-    </div>
-    <div class="fg-field">
-      <label class="fg-lbl">Date to</label>
-      <input class="fg-input" id="fDateTo" type="date" placeholder="mm/dd/yyyy">
     </div>
     <div class="fg-field">
       <label class="fg-lbl">Content type</label>
@@ -1061,8 +1067,8 @@
         <option value="Fourth Ad Account - SD">Fourth Account</option>
       </select>
     </div>
-    <!-- Created Date filter + Excl. copy / CT Format toggles — all live in
-         the blank row-2 space of the filter grid (cols 3-5). -->
+    <!-- Created Date filter + Excl. copy / CT Format toggles — full row 2
+         of the filter grid (Date from / Date to moved up to the preset row). -->
     <div class="fg-field fg-created">
       <label class="fg-lbl">Created Date <span id="fCreatedChip" class="ct-created-chip" style="display:none"></span></label>
       <div class="fg-created-row">
