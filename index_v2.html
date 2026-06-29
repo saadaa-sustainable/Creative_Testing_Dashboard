@@ -203,9 +203,9 @@
   .fg-created-row .fg-input{flex:0 1 160px;min-width:0;padding:9px 10px}
   .ct-created-sep{color:var(--text-tertiary);font-weight:700;padding:0 2px}
   /* Tiny × button to clear the Created-Date range without taking much width */
-  .ct-clr-x{width:28px;height:38px;border:1px solid var(--border-primary);
+  .ct-clr-x{width:45Ropx;height:38px;border:1px solid var(--border-primary);
     border-radius:6px;background:var(--bg-white);color:var(--text-tertiary);
-    cursor:pointer;font-size:16px;line-height:1;padding:0;
+    cursor:pointer;font-size:10px;line-height:1;padding:0;
     transition:all .12s;flex-shrink:0}
   .ct-clr-x:hover{background:var(--bg-page-alt);color:var(--text-primary);
     border-color:var(--text-tertiary)}
@@ -993,12 +993,10 @@
   <!-- Date range — presets + custom from/to inline next to Custom button -->
   <div class="filter-top">
     <div class="preset-row" id="presetRow">
-      <button class="preset" data-p="lifetime">Lifetime</button>
       <button class="preset" data-p="last7">Last 7d</button>
       <button class="preset active" data-p="last30">Last 30d</button>
       <button class="preset" data-p="last90">Last 90d</button>
       <button class="preset" data-p="thisMonth">This Month</button>
-      <button class="preset" data-p="lastMonth">Last Month</button>
       <button class="preset" data-p="custom">Custom</button>
       <span class="preset-sep">|</span>
       <input class="fg-input preset-date" id="fDateFrom" type="date" title="Date from">
@@ -1075,7 +1073,6 @@
         <input class="fg-input" id="fCreatedFrom" type="date">
         <span class="ct-created-sep">→</span>
         <input class="fg-input" id="fCreatedTo"   type="date">
-        <button class="ct-clr-x" id="fCreatedClear" type="button" title="Clear created-date filter">×</button>
         <button class="ct-toggle on" id="fExclCopy" type="button"
                 title="Hide ads whose name contains the word 'copy'">
           <span class="ct-toggle-dot"></span>
@@ -1086,6 +1083,7 @@
           <span class="ct-toggle-dot"></span>
           <span class="ct-toggle-lbl">CT Format</span>
         </button>
+        <button class="ct-clr-x" id="fCreatedClear" type="button" title="Clear created-date filter">Reset Filters</button>
       </div>
     </div>
   </div>
@@ -1259,6 +1257,49 @@
         <button class="lt-btn active" data-sec="freq">Frequency distribution</button>
         <button class="lt-btn"        data-sec="buffer">14-Day buffer</button>
       </div>
+      <!-- Date Range — same component as Ads Analyse, filters by ad_created -->
+      <div id="life-drp-wrap" class="drp-wrap">
+        <button id="life-drp-btn" class="drp-btn" type="button" style="width:auto;min-width:200px">
+          <span id="life-drp-label" class="drp-label">All time</span>
+          <span class="drp-caret">▾</span>
+        </button>
+        <div id="life-drp-panel" class="drp-panel" aria-hidden="true">
+          <div class="drp-shell">
+            <div id="life-drp-presets" class="drp-presets">
+              <div class="drp-preset" data-key="today">Today</div>
+              <div class="drp-preset" data-key="yesterday">Yesterday</div>
+              <div class="drp-preset" data-key="last7">Last 7 Days</div>
+              <div class="drp-preset" data-key="last30">Last 30 Days</div>
+              <div class="drp-preset" data-key="thisMonth">This Month</div>
+              <div class="drp-preset" data-key="lastMonth">Last Month</div>
+              <div class="drp-preset" data-key="last90">Last 90 Days</div>
+              <div class="drp-preset active" data-key="lifetime">Lifetime</div>
+              <div class="drp-preset" data-key="custom">Custom Range</div>
+            </div>
+            <div class="drp-main">
+              <div class="drp-monthbar">
+                <button id="life-drp-prev" class="drp-nav" type="button">‹</button>
+                <div id="life-drp-month-l" class="drp-month"></div>
+                <div id="life-drp-month-r" class="drp-month"></div>
+                <button id="life-drp-next" class="drp-nav" type="button">›</button>
+              </div>
+              <div class="drp-cals">
+                <div id="life-drp-cal-l" class="drp-cal"></div>
+                <div id="life-drp-cal-r" class="drp-cal"></div>
+              </div>
+              <div class="drp-footer">
+                <div id="life-drp-footer-range" class="drp-range-text">--/--/---- - --/--/----</div>
+                <div class="drp-footer-actions">
+                  <button id="life-drp-cancel" class="ae-fbtn" type="button">Cancel</button>
+                  <button id="life-drp-apply"  class="ae-fbtn primary" type="button">Apply</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <input type="hidden" id="lifeDateFrom">
+      <input type="hidden" id="lifeDateTo">
       <button class="btn ghost" id="lifeRefresh">↻ Refresh</button>
       <button class="btn ghost" id="lifeExport">Export CSV</button>
     </div>
@@ -2908,9 +2949,27 @@ let lifeBufferStatus = '';
 let lifeBufferSearch = '';
 let lifeSection      = 'freq';   // 'freq' (frequency distribution) | 'buffer' (14-day)
 
+/* Filter ae_table_view rows by ad_created against the Lifecycle DRP window. */
+function lifeFilterByDate(rows){
+  const f = document.getElementById('lifeDateFrom')?.value || '';
+  const t = document.getElementById('lifeDateTo')?.value   || '';
+  if (!f && !t) return rows;
+  const from = f ? new Date(f+'T00:00:00') : null;
+  const to   = t ? new Date(t+'T23:59:59') : null;
+  return rows.filter(a => {
+    if (!a.ad_created) return false;
+    const d = new Date(a.ad_created);
+    if (from && d < from) return false;
+    if (to   && d > to)   return false;
+    return true;
+  });
+}
 function renderLifecycle(){
+  /* Apply the Lifecycle date-range filter (ad_created window) once up front,
+     so both the frequency buckets and the 14-day buffer read the same set. */
+  const lifeRows = lifeFilterByDate(allAds);
   /* ── Frequency buckets ────────────────────────────────────────────── */
-  const eligible = allAds.filter(a => {
+  const eligible = lifeRows.filter(a => {
     const f = effFreq(a);
     return f > 0 && f <= 3;
   });
@@ -2958,7 +3017,7 @@ function renderLifecycle(){
 
   /* ── 14-Day buffer ────────────────────────────────────────────────── */
   const today = new Date(); today.setHours(0,0,0,0);
-  let bufRows = allAds.filter(a => {
+  let bufRows = lifeRows.filter(a => {
     if (!a.ad_created) return false;
     const days = Math.floor((today - new Date(a.ad_created)) / 86400000);
     return days >= 14;
@@ -3634,6 +3693,198 @@ function initDateRangePicker(){
   drpUpdateButton();
 }
 
+/* ────────────────────────────────────────────────────────────
+   Lifecycle Date Range Picker — clone of the AE DRP wired to
+   the #life-drp-* DOM, #lifeDateFrom / #lifeDateTo hidden inputs,
+   and the renderLifecycle() callback.
+   ──────────────────────────────────────────────────────────── */
+const lifeDrpState = {
+  open:false,
+  viewYear: new Date().getFullYear(),
+  viewMonth: new Date().getMonth() - 1,
+  from:null, to:null, hov:null,
+  preset:'lifetime',
+  selecting:false,
+};
+if (lifeDrpState.viewMonth < 0){ lifeDrpState.viewMonth = 11; lifeDrpState.viewYear -= 1; }
+const lifeDrpEl = (id) => document.getElementById(id);
+function lifeDrpSetPresetActive(key){
+  document.querySelectorAll('#life-drp-presets .drp-preset').forEach(n => {
+    n.classList.toggle('active', n.dataset.key === key);
+  });
+}
+function lifeDrpPositionPanel(){
+  const btn = lifeDrpEl('life-drp-btn'), panel = lifeDrpEl('life-drp-panel');
+  if (!btn || !panel) return;
+  const r = btn.getBoundingClientRect();
+  const panelW = panel.offsetWidth || 680;
+  const panelH = panel.offsetHeight || 380;
+  let top = r.bottom + 6;
+  let left = r.right - panelW;
+  if (top + panelH > window.innerHeight - 8) top = Math.max(8, r.top - panelH - 6);
+  if (left < 8) left = 8;
+  if (left + panelW > window.innerWidth - 8) left = window.innerWidth - panelW - 8;
+  panel.style.top  = top  + 'px';
+  panel.style.left = left + 'px';
+}
+function lifeDrpOpen(){
+  lifeDrpState.open = true;
+  lifeDrpEl('life-drp-panel').classList.add('open');
+  lifeDrpEl('life-drp-panel').setAttribute('aria-hidden','false');
+  lifeDrpEl('life-drp-btn').classList.add('open');
+  lifeDrpRender();
+  lifeDrpPositionPanel();
+  setTimeout(lifeDrpPositionPanel, 0);
+}
+function lifeDrpClose(){
+  lifeDrpState.open = false;
+  lifeDrpEl('life-drp-panel').classList.remove('open');
+  lifeDrpEl('life-drp-panel').setAttribute('aria-hidden','true');
+  lifeDrpEl('life-drp-btn').classList.remove('open');
+}
+function lifeDrpToggle(){ lifeDrpState.open ? lifeDrpClose() : lifeDrpOpen(); }
+function lifeDrpNavMonth(dir){
+  lifeDrpState.viewMonth += dir;
+  if (lifeDrpState.viewMonth > 11){ lifeDrpState.viewMonth = 0;  lifeDrpState.viewYear += 1; }
+  if (lifeDrpState.viewMonth <  0){ lifeDrpState.viewMonth = 11; lifeDrpState.viewYear -= 1; }
+  lifeDrpRender();
+  lifeDrpPositionPanel();
+}
+function lifeDrpCalHTML(year, month){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  let rFrom = lifeDrpState.from;
+  let rTo   = lifeDrpState.selecting && lifeDrpState.hov ? lifeDrpState.hov : lifeDrpState.to;
+  if (rFrom && rTo && rFrom > rTo){ const t = rFrom; rFrom = rTo; rTo = t; }
+  let html = '<div class="drp-grid">';
+  DRP_DAYS.forEach(d => { html += '<div class="drp-dow">' + d + '</div>'; });
+  for (let i = 0; i < firstDay; i++){
+    html += '<div class="drp-day other-month">' + (daysInPrevMonth - firstDay + 1 + i) + '</div>';
+  }
+  for (let d = 1; d <= daysInMonth; d++){
+    const dt = new Date(year, month, d); dt.setHours(0,0,0,0);
+    const iso = drpFmtLocal(dt);
+    const isFuture = dt > today;
+    let cls = 'drp-day';
+    if (dt.getTime() === today.getTime())            cls += ' today';
+    if (rFrom && dt.getTime() === rFrom.getTime())   cls += ' range-start';
+    if (rTo   && dt.getTime() === rTo.getTime())     cls += ' range-end';
+    if (rFrom && rTo && dt > rFrom && dt < rTo)      cls += ' in-range';
+    if (isFuture)                                    cls += ' disabled';
+    html += '<div class="' + cls + '" data-date="' + iso + '">' + d + '</div>';
+  }
+  const total = firstDay + daysInMonth;
+  const remainder = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (let d = 1; d <= remainder; d++) html += '<div class="drp-day other-month">' + d + '</div>';
+  return html + '</div>';
+}
+function lifeDrpRender(){
+  let rMonth = lifeDrpState.viewMonth + 1;
+  let rYear  = lifeDrpState.viewYear;
+  if (rMonth > 11){ rMonth = 0; rYear += 1; }
+  lifeDrpEl('life-drp-month-l').textContent = DRP_MONTHS[lifeDrpState.viewMonth] + ' ' + lifeDrpState.viewYear;
+  lifeDrpEl('life-drp-month-r').textContent = DRP_MONTHS[rMonth]                  + ' ' + rYear;
+  lifeDrpEl('life-drp-cal-l').innerHTML = lifeDrpCalHTML(lifeDrpState.viewYear, lifeDrpState.viewMonth);
+  lifeDrpEl('life-drp-cal-r').innerHTML = lifeDrpCalHTML(rYear, rMonth);
+  const end = lifeDrpState.selecting && lifeDrpState.hov ? lifeDrpState.hov : lifeDrpState.to;
+  let a = lifeDrpState.from, b = end;
+  if (a && b && a > b){ const t = a; a = b; b = t; }
+  lifeDrpEl('life-drp-footer-range').textContent = drpDisplay(a) + ' - ' + drpDisplay(b);
+  lifeDrpSetPresetActive(lifeDrpState.preset);
+}
+function lifeDrpDayClick(node){
+  if (!node || node.classList.contains('other-month') || node.classList.contains('disabled')) return;
+  const dt = drpParseLocal(node.dataset.date);
+  if (!lifeDrpState.selecting){
+    lifeDrpState.from = dt; lifeDrpState.to = null; lifeDrpState.hov = null;
+    lifeDrpState.selecting = true; lifeDrpState.preset = 'custom';
+  } else {
+    lifeDrpState.to = dt; lifeDrpState.hov = null; lifeDrpState.selecting = false;
+    if (lifeDrpState.from > lifeDrpState.to){ const t = lifeDrpState.from; lifeDrpState.from = lifeDrpState.to; lifeDrpState.to = t; }
+  }
+  lifeDrpRender();
+}
+function lifeDrpDayHover(node){
+  if (!lifeDrpState.selecting || !node || node.classList.contains('other-month') || node.classList.contains('disabled')) return;
+  lifeDrpState.hov = drpParseLocal(node.dataset.date);
+  lifeDrpRender();
+}
+function lifeDrpPreset(key){
+  const now = new Date(); now.setHours(0,0,0,0);
+  let from = null, to = null;
+  if      (key === 'today')      { from = new Date(now); to = new Date(now); }
+  else if (key === 'yesterday')  { from = new Date(now); from.setDate(now.getDate()-1); to = new Date(from); }
+  else if (key === 'last7')      { from = new Date(now); from.setDate(now.getDate()-6);  to = new Date(now); }
+  else if (key === 'last30')     { from = new Date(now); from.setDate(now.getDate()-29); to = new Date(now); }
+  else if (key === 'last90')     { from = new Date(now); from.setDate(now.getDate()-89); to = new Date(now); }
+  else if (key === 'thisMonth')  { from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now); }
+  else if (key === 'lastMonth')  { from = new Date(now.getFullYear(), now.getMonth()-1, 1);
+                                   to   = new Date(now.getFullYear(), now.getMonth(),    0); }
+  else if (key === 'lifetime')   { from = null; to = null; }
+  else if (key === 'custom')     {
+    lifeDrpState.from = null; lifeDrpState.to = null; lifeDrpState.hov = null;
+    lifeDrpState.selecting = false; lifeDrpState.preset = 'custom';
+    lifeDrpRender(); return;
+  }
+  lifeDrpState.from = from; lifeDrpState.to = to; lifeDrpState.hov = null;
+  lifeDrpState.selecting = false; lifeDrpState.preset = key;
+  if (from){ lifeDrpState.viewYear = from.getFullYear(); lifeDrpState.viewMonth = from.getMonth(); }
+  else { const n = new Date(); lifeDrpState.viewYear = n.getFullYear(); lifeDrpState.viewMonth = n.getMonth() - 1;
+         if (lifeDrpState.viewMonth < 0){ lifeDrpState.viewMonth = 11; lifeDrpState.viewYear -= 1; } }
+  lifeDrpRender();
+  lifeDrpPositionPanel();
+}
+function lifeDrpUpdateButton(){
+  const lbl = lifeDrpEl('life-drp-label');
+  const map = {today:'Today', yesterday:'Yesterday', last7:'Last 7 Days', last30:'Last 30 Days',
+               thisMonth:'This Month', lastMonth:'Last Month', last90:'Last 90 Days', lifetime:'All time'};
+  if (lifeDrpState.preset === 'lifetime' || (!lifeDrpState.from && !lifeDrpState.to)){
+    lbl.textContent = 'All time'; lbl.classList.remove('active');
+  } else if (lifeDrpState.preset !== 'custom'){
+    lbl.textContent = map[lifeDrpState.preset] || lifeDrpState.preset; lbl.classList.add('active');
+  } else {
+    const a = lifeDrpState.from, b = lifeDrpState.to || lifeDrpState.from;
+    lbl.textContent = drpDisplay(a) + (a && b && a.getTime() !== b.getTime() ? ' - ' + drpDisplay(b) : '');
+    lbl.classList.add('active');
+  }
+}
+function lifeDrpApply(){
+  const fromInp = lifeDrpEl('lifeDateFrom'), toInp = lifeDrpEl('lifeDateTo');
+  if (lifeDrpState.preset === 'lifetime' || (!lifeDrpState.from && !lifeDrpState.to)){
+    fromInp.value = ''; toInp.value = '';
+  } else {
+    let from = lifeDrpState.from, to = lifeDrpState.to || lifeDrpState.from;
+    if (from > to){ const t = from; from = to; to = t; }
+    fromInp.value = drpFmtLocal(from); toInp.value = drpFmtLocal(to);
+  }
+  lifeDrpUpdateButton();
+  lifeDrpClose();
+  renderLifecycle();
+}
+function initLifecycleDRP(){
+  lifeDrpEl('life-drp-btn'   ).addEventListener('click',  e => { e.stopPropagation(); lifeDrpToggle(); });
+  lifeDrpEl('life-drp-prev'  ).addEventListener('click',  e => { e.stopPropagation(); lifeDrpNavMonth(-1); });
+  lifeDrpEl('life-drp-next'  ).addEventListener('click',  e => { e.stopPropagation(); lifeDrpNavMonth( 1); });
+  lifeDrpEl('life-drp-cancel').addEventListener('click',  e => { e.stopPropagation(); lifeDrpClose(); });
+  lifeDrpEl('life-drp-apply' ).addEventListener('click',  e => { e.stopPropagation(); lifeDrpApply(); });
+  document.querySelectorAll('#life-drp-presets .drp-preset').forEach(node => {
+    node.addEventListener('click', e => { e.stopPropagation(); lifeDrpPreset(node.dataset.key); });
+  });
+  ['life-drp-cal-l','life-drp-cal-r'].forEach(id => {
+    lifeDrpEl(id).addEventListener('click',     e => { e.stopPropagation(); lifeDrpDayClick(e.target.closest('.drp-day')); });
+    lifeDrpEl(id).addEventListener('mouseover', e => { lifeDrpDayHover(e.target.closest('.drp-day')); });
+  });
+  document.addEventListener('click', e => {
+    const wrap = lifeDrpEl('life-drp-wrap');
+    if (lifeDrpState.open && wrap && !wrap.contains(e.target)) lifeDrpClose();
+  });
+  window.addEventListener('resize', () => { if (lifeDrpState.open) lifeDrpPositionPanel(); });
+  lifeDrpRender();
+  lifeDrpUpdateButton();
+}
+
 /* Group ad rows by ad_name or campaign — sum numeric fields, keep most-recent ad meta */
 function aeGroupBy(rows, key){
   if (key === 'ad') return rows;
@@ -4087,8 +4338,9 @@ document.getElementById('aeMfClear').onclick = () => {
 
 // Render the initial empty rule on page load
 aeMfRender();
-// Init the date-range picker once the DOM is wired
+// Init the date-range pickers once the DOM is wired
 initDateRangePicker();
+initLifecycleDRP();
 document.getElementById('aeCats').addEventListener('click', e => {
   const card = e.target.closest('.kpi'); if (!card) return;
   const c = card.dataset.cat;
