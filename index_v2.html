@@ -303,6 +303,27 @@
   .chart-card{background:var(--bg-white);border:1px solid var(--border-primary);border-radius:12px;
     padding:16px 18px;min-height:280px}
   .chart-card .ch-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .chart-card .ch-hdr-left{display:flex;align-items:center;gap:6px}
+  /* Info "i" button + popover for charts */
+  .ch-info{width:18px;height:18px;border-radius:50%;border:1px solid var(--border-warm);
+    background:var(--bg-page-alt);color:var(--text-secondary);font-size:10.5px;
+    font-weight:700;font-family:'Space Grotesk',sans-serif;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;line-height:1;
+    transition:all .12s;padding:0}
+  .ch-info:hover{background:var(--accent-yellow);color:var(--text-primary);
+    border-color:var(--accent-yellow-hover)}
+  .ch-info-pop{position:absolute;top:38px;left:0;z-index:20;width:280px;
+    background:var(--bg-white);border:1px solid var(--border-warm);border-radius:10px;
+    box-shadow:0 8px 22px rgba(28,25,22,0.12);padding:12px 14px;
+    font-size:12px;line-height:1.5;color:var(--text-mid);display:none}
+  .ch-info-pop.open{display:block}
+  .ch-info-pop .ci-ttl{font-family:'Space Grotesk',sans-serif;font-size:11px;
+    font-weight:800;text-transform:uppercase;letter-spacing:.6px;
+    color:var(--text-primary);margin-bottom:6px}
+  .ch-info-pop ul{margin:4px 0 0 0;padding-left:18px}
+  .ch-info-pop li{margin-bottom:3px}
+  .ch-info-pop b{color:var(--text-primary);font-weight:700}
+  .chart-card{position:relative}
   .chart-card h4{font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;
     color:var(--text-secondary);text-transform:uppercase;letter-spacing:.7px}
   .chart-card .ch-val{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;
@@ -349,6 +370,18 @@
   .mc-close:hover{color:var(--text-primary);background:var(--bg-muted)}
   .mc-toolbar{padding:12px 22px;border-bottom:1px solid var(--border-soft);
     display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--bg-surface)}
+  .mc-toolbar .fb-lbl{font-family:'Space Grotesk',sans-serif;font-size:10px;
+    font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+    color:var(--text-secondary);margin-right:2px}
+  .mc-toolbar .chip-toggle{display:inline-flex;background:var(--bg-white);
+    border:1px solid var(--border-warm);border-radius:9px;padding:3px;gap:2px}
+  .mc-toolbar .chip{background:transparent;border:none;font-family:'Space Grotesk',sans-serif;
+    font-size:11px;font-weight:600;letter-spacing:.3px;padding:6px 12px;border-radius:7px;
+    color:var(--text-secondary);cursor:pointer;transition:all .12s;user-select:none;
+    white-space:nowrap}
+  .mc-toolbar .chip:hover{color:var(--text-primary);background:var(--bg-page-alt)}
+  .mc-toolbar .chip.active{background:var(--accent-yellow);color:var(--text-primary);
+    box-shadow:0 1px 3px rgba(0,0,0,0.08)}
   .mc-body{padding:18px 22px;overflow:auto;flex:1;background:var(--bg-white)}
   .mc-body canvas{max-height:380px}
 
@@ -379,6 +412,14 @@
   .dr-preview .ph a:hover{text-decoration:underline}
   .dr-iframe{width:100%;aspect-ratio:9/16;max-height:380px;border:1px solid var(--border-primary);
     border-radius:10px;background:var(--bg-muted)}
+  /* New drawer preview image — uses ad_thumbnails.thumbnail_url because
+     preview_link is a fb.me short URL that Meta blocks from iframe embeds. */
+  .dr-img{width:100%;max-height:420px;object-fit:contain;border:1px solid var(--border-primary);
+    border-radius:10px;background:var(--bg-muted);display:block}
+  .dr-no-preview{padding:36px 16px;text-align:center;font-size:12px;color:var(--text-tertiary);
+    border:1px dashed var(--border-warm);border-radius:10px;background:var(--bg-page-alt)}
+  .dr-no-preview a{color:var(--accent-yellow-hover);font-weight:700;text-decoration:none}
+  .dr-no-preview a:hover{text-decoration:underline}
 
   /* ── Tables (inside modal) ────────────────────────────────────── */
   .tbl{width:100%;border-collapse:collapse;font-size:12px}
@@ -1011,15 +1052,67 @@
   <!-- Charts row -->
   <div class="chart-row">
     <div class="chart-card">
-      <div class="ch-hdr"><h4>Product mix</h4><div class="ch-val mono" id="prodTotalCnt">—</div></div>
+      <div class="ch-hdr">
+        <div class="ch-hdr-left">
+          <h4>Product mix</h4>
+          <button class="ch-info" type="button" data-ci="prod" title="What this chart shows">i</button>
+        </div>
+        <div class="ch-val mono" id="prodTotalCnt">—</div>
+      </div>
+      <div class="ch-info-pop" id="ci-pop-prod">
+        <div class="ci-ttl">Product mix donut</div>
+        Distribution of ads by the <b>landing-page type</b> their ad name targets.
+        Buckets are detected from substrings in <code>ad_name</code>:
+        <ul>
+          <li><b>Collection page</b> — name contains <code>CLP</code></li>
+          <li><b>Product page</b> — name contains <code>PDP</code> · <code>VRP</code> · "product"</li>
+          <li><b>Custom page</b> — name contains <code>CTP</code> · "custom"</li>
+          <li><b>Other</b> — none of the above</li>
+        </ul>
+        Count = unique ads in the current filter set (Last 30 days by default).
+      </div>
       <canvas id="chProd"></canvas>
     </div>
     <div class="chart-card">
-      <div class="ch-hdr"><h4>Creatives by week</h4><div class="ch-val mono" id="chTrendCount">—</div></div>
+      <div class="ch-hdr">
+        <div class="ch-hdr-left">
+          <h4>Creatives by week</h4>
+          <button class="ch-info" type="button" data-ci="trend" title="What this chart shows">i</button>
+        </div>
+        <div class="ch-val mono" id="chTrendCount">—</div>
+      </div>
+      <div class="ch-info-pop" id="ci-pop-trend">
+        <div class="ci-ttl">Creatives by week</div>
+        Number of <b>new ads created</b> per week, bucketed by their
+        <code>ad_created</code> date (Monday-anchored).
+        Header total = sum of all weekly counts in the current view.
+        Use this to spot bursts or droughts in creative production.
+      </div>
       <canvas id="chTrend"></canvas>
     </div>
     <div class="chart-card">
-      <div class="ch-hdr"><h4>Creative mix</h4><div class="ch-val mono" id="creativeTotalCnt">—</div></div>
+      <div class="ch-hdr">
+        <div class="ch-hdr-left">
+          <h4>Creative mix</h4>
+          <button class="ch-info" type="button" data-ci="creative" title="What this chart shows">i</button>
+        </div>
+        <div class="ch-val mono" id="creativeTotalCnt">—</div>
+      </div>
+      <div class="ch-info-pop" id="ci-pop-creative">
+        <div class="ci-ttl">Creative mix donut</div>
+        Distribution of ads by <b>asset-code marker</b> in <code>ad_name</code>:
+        <ul>
+          <li><b>IFAD</b> — Influencer / UGC partnership ad</li>
+          <li><b>GAD</b> — Graphic ad (static image / poster)</li>
+          <li><b>VID</b> — Video ad (matches <code>VID</code> as a whole word)</li>
+          <li><b>UGC</b> — User-generated-content style</li>
+          <li><b>ADB</b> — Ad-batch / re-uploaded creative</li>
+          <li><b>BR</b> — Brand-led ad (matches <code>BR_</code>)</li>
+          <li><b>BST</b> — Bestseller-focused ad</li>
+          <li><b>Other</b> — no marker recognised</li>
+        </ul>
+        Count = unique ads in the current filter set.
+      </div>
       <canvas id="chCreative"></canvas>
     </div>
   </div>
@@ -1645,8 +1738,12 @@
   <div class="dr-body">
     <div class="dr-metrics" id="drMetrics"></div>
     <div class="dr-preview">
-      <div class="ph">Preview <a id="drPreviewLink" href="#" target="_blank" style="float:right">Open ↗</a></div>
-      <iframe id="drIframe" class="dr-iframe" sandbox="allow-same-origin allow-scripts"></iframe>
+      <div class="ph">Preview <a id="drPreviewLink" href="#" target="_blank" style="float:right">Open in Meta ↗</a></div>
+      <img id="drImg" class="dr-img" alt="" style="display:none">
+      <div id="drNoPreview" class="dr-no-preview" style="display:none">
+        No thumbnail available for this ad.
+        <div style="margin-top:6px"><a id="drOpenLib" href="#" target="_blank">Open in Meta Ads Library ↗</a></div>
+      </div>
     </div>
   </div>
 </aside>
@@ -2294,6 +2391,24 @@ function bindFocusStrip(stripId){
 bindFocusStrip('prodStrip');
 bindFocusStrip('creativeStrip');
 
+/* Chart info-button toggles — show a small popover with what each chart shows */
+document.querySelectorAll('.ch-info').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const key = btn.dataset.ci;
+    const pop = document.getElementById('ci-pop-' + key);
+    if (!pop) return;
+    const isOpen = pop.classList.contains('open');
+    document.querySelectorAll('.ch-info-pop').forEach(p => p.classList.remove('open'));
+    if (!isOpen) pop.classList.add('open');
+  });
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ch-info-pop') && !e.target.closest('.ch-info')){
+    document.querySelectorAll('.ch-info-pop').forEach(p => p.classList.remove('open'));
+  }
+});
+
 /* ── Drawer (preview + metrics) ────────────────────────────────────── */
 function openDrawer(r){
   document.getElementById('drTtl').textContent = r.ad_name || 'Untitled ad';
@@ -2306,16 +2421,36 @@ function openDrawer(r){
     ['Shopify sales', fmtRs(r.shopify_sales)], ['Shopify ROAS', fmtRoas(r.shopify_roas)],
   ];
   m.innerHTML = cells.map(([l,v])=>'<div class="dr-metric"><div class="lbl">'+l+'</div><div class="val mono">'+v+'</div></div>').join('');
-  const ifr = document.getElementById('drIframe');
-  const link = r.preview_link || '';
-  ifr.src = link || 'about:blank';
-  document.getElementById('drPreviewLink').href = link || '#';
-  document.getElementById('drPreviewLink').style.display = link ? 'inline' : 'none';
+  // Preview — prefer Meta-CDN thumbnail (from ad_thumbnails). fb.me short
+  // URLs in preview_link are blocked from iframe embedding by Facebook, so
+  // we no longer use an iframe.
+  const thumb = (r.ad_id && thumbsByAdId[r.ad_id]) || '';
+  const link  = r.preview_link || '';
+  const img   = document.getElementById('drImg');
+  const noPv  = document.getElementById('drNoPreview');
+  const lnk   = document.getElementById('drPreviewLink');
+  const lib   = document.getElementById('drOpenLib');
+  if (thumb){
+    img.src = thumb; img.style.display = 'block';
+    noPv.style.display = 'none';
+  } else {
+    img.removeAttribute('src'); img.style.display = 'none';
+    noPv.style.display = 'block';
+    // Meta Ads Library is the universal fallback (public, by ad_id)
+    lib.href = 'https://www.facebook.com/ads/library/?id=' + encodeURIComponent(r.ad_id || '');
+  }
+  // Header "Open in Meta" link — prefer ad_link (Ads Manager), fall back to
+  // preview_link (the fb.me URL works fine in a new tab), then Ads Library
+  const openHref = r.ad_link || link
+                   || ('https://www.facebook.com/ads/library/?id=' + encodeURIComponent(r.ad_id || ''));
+  lnk.href = openHref;
+  lnk.style.display = 'inline';
   document.getElementById('drawer').classList.add('open');
 }
 function closeDrawer(){
   document.getElementById('drawer').classList.remove('open');
-  document.getElementById('drIframe').src = 'about:blank';
+  const img = document.getElementById('drImg');
+  img.removeAttribute('src'); img.style.display = 'none';
 }
 document.getElementById('drClose').onclick = closeDrawer;
 
