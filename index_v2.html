@@ -436,10 +436,24 @@
   .dr-preview .ph a:hover{text-decoration:underline}
   .dr-iframe{width:100%;aspect-ratio:9/16;max-height:380px;border:1px solid var(--border-primary);
     border-radius:10px;background:var(--bg-muted)}
-  /* New drawer preview image — uses ad_thumbnails.thumbnail_url because
-     preview_link is a fb.me short URL that Meta blocks from iframe embeds. */
-  .dr-img{width:100%;max-height:420px;object-fit:contain;border:1px solid var(--border-primary);
-    border-radius:10px;background:var(--bg-muted);display:block}
+  /* Drawer preview image — uses ad_thumbnails (image_url if available, else
+     the smaller thumbnail_url). preview_link is a fb.me short URL that Meta
+     blocks from iframe embeds, so we render an <img> instead. */
+  .dr-img{
+    display:block;
+    max-width:100%;
+    max-height:520px;
+    margin:0 auto;
+    border:1px solid var(--border-primary);
+    border-radius:10px;
+    background:var(--bg-muted);
+    /* Sharpen any upscale done by the browser when the source image is
+       smaller than the available drawer width (most Meta thumbnails are
+       ~300x300). object-fit:contain keeps aspect ratio without cropping. */
+    object-fit:contain;
+    image-rendering:auto;
+    image-rendering:-webkit-optimize-contrast;
+  }
   .dr-no-preview{padding:36px 16px;text-align:center;font-size:12px;color:var(--text-tertiary);
     border:1px dashed var(--border-warm);border-radius:10px;background:var(--bg-page-alt)}
   .dr-no-preview a{color:var(--accent-yellow-hover);font-weight:700;text-decoration:none}
@@ -1875,8 +1889,11 @@ async function fetchAds(){
   return out;
 }
 
-/* Pull the ad_thumbnails table once and index by ad_id. Cheap (~15k rows,
-   one URL each) — let the dashboard render a small <img> per row. */
+/* Pull ad_thumbnails once and index by ad_id. Each entry stores BOTH the
+   small thumbnail (for inline 44x44 table cells) AND the higher-res image
+   (used in the drawer preview where upscaling a small thumb shows blur). */
+const thumbUrlOf  = e => (e ? e.t : '') || '';
+const previewUrlOf = e => (e ? (e.i || e.t) : '') || '';
 async function fetchThumbnails(){
   if (!SUPABASE_URL || !SUPABASE_ANON) return {};
   const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
@@ -1884,13 +1901,17 @@ async function fetchThumbnails(){
   const out = {};
   let offset = 0, BATCH = 1000;
   while (true){
-    const url = SUPABASE_URL+'/rest/v1/ad_thumbnails?select=ad_id,thumbnail_url'+
-                '&thumbnail_url=not.is.null&limit='+BATCH+'&offset='+offset;
+    const url = SUPABASE_URL+'/rest/v1/ad_thumbnails?select=ad_id,thumbnail_url,image_url'+
+                '&or=(thumbnail_url.not.is.null,image_url.not.is.null)'+
+                '&limit='+BATCH+'&offset='+offset;
     const r = await fetch(url,{headers});
     if (!r.ok) break;
     const j = await r.json();
     if (!Array.isArray(j) || !j.length) break;
-    for (const row of j) if (row.ad_id && row.thumbnail_url) out[row.ad_id] = row.thumbnail_url;
+    for (const row of j){
+      if (!row.ad_id) continue;
+      out[row.ad_id] = {t: row.thumbnail_url || '', i: row.image_url || ''};
+    }
     if (j.length < BATCH) break;
     offset += BATCH;
   }
@@ -2301,7 +2322,7 @@ function renderModal(){
     const tr = document.createElement('tr'); tr.style.cursor='pointer';
     tr.onclick = ()=>openDrawer(r);
     const name = (r.ad_name||'—').replace(/"/g,'&quot;');
-    const thumbUrl = r.ad_id ? thumbsByAdId[r.ad_id] : '';
+    const thumbUrl = thumbUrlOf(r.ad_id ? thumbsByAdId[r.ad_id] : null);
     const thumbCell = thumbUrl
       ? '<td class="thumb-cell"><img class="ae-thumb" src="'+thumbUrl+'" loading="lazy" alt=""></td>'
       : '<td class="thumb-cell"><div class="ae-thumb-placeholder" title="No thumbnail">—</div></td>';
@@ -2437,7 +2458,7 @@ function renderBucket(){
     tr.onclick = ()=>openDrawer(r);
     const name = (r.ad_name||'—').replace(/"/g,'&quot;');
     const created = r.ad_created ? new Date(r.ad_created).toISOString().slice(0,10) : '—';
-    const thumbUrl = r.ad_id ? thumbsByAdId[r.ad_id] : '';
+    const thumbUrl = thumbUrlOf(r.ad_id ? thumbsByAdId[r.ad_id] : null);
     const thumbCell = thumbUrl
       ? '<td class="thumb-cell"><img class="ae-thumb" src="'+thumbUrl+'" loading="lazy" alt=""></td>'
       : '<td class="thumb-cell"><div class="ae-thumb-placeholder" title="No thumbnail">—</div></td>';
@@ -2496,17 +2517,19 @@ function openDrawer(r){
     ['Shopify sales', fmtRs(r.shopify_sales)], ['Shopify ROAS', fmtRoas(r.shopify_roas)],
   ];
   m.innerHTML = cells.map(([l,v])=>'<div class="dr-metric"><div class="lbl">'+l+'</div><div class="val mono">'+v+'</div></div>').join('');
-  // Preview — prefer Meta-CDN thumbnail (from ad_thumbnails). fb.me short
-  // URLs in preview_link are blocked from iframe embedding by Facebook, so
-  // we no longer use an iframe.
-  const thumb = (r.ad_id && thumbsByAdId[r.ad_id]) || '';
+  // Preview — prefer the higher-res `image_url` (creative.image_url or
+  // object_story_spec.link_data.image_url, written by fetch_ad_thumbnails.py)
+  // and fall back to `thumbnail_url`. fb.me short URLs are blocked from
+  // iframe embedding so we no longer use an iframe.
+  const entry = r.ad_id ? thumbsByAdId[r.ad_id] : null;
+  const big   = previewUrlOf(entry);
   const link  = r.preview_link || '';
   const img   = document.getElementById('drImg');
   const noPv  = document.getElementById('drNoPreview');
   const lnk   = document.getElementById('drPreviewLink');
   const lib   = document.getElementById('drOpenLib');
-  if (thumb){
-    img.src = thumb; img.style.display = 'block';
+  if (big){
+    img.src = big; img.style.display = 'block';
     noPv.style.display = 'none';
   } else {
     img.removeAttribute('src'); img.style.display = 'none';
@@ -3745,7 +3768,7 @@ function renderAE(){
     const ncpVal     = dTot ? fmtInt(dTot.ncp)                : fmtInt(r.ncp_count);
     const cNcpVal    = dTot ? fmtRs(dTot.costNcp)             : fmtRs(r.cost_per_ncp);
     // Thumbnail cell — Meta Graph creative.thumbnail_url, clickable to open drawer
-    const thumbUrl = r.ad_id ? thumbsByAdId[r.ad_id] : '';
+    const thumbUrl = thumbUrlOf(r.ad_id ? thumbsByAdId[r.ad_id] : null);
     const thumbCell = thumbUrl
       ? '<td class="thumb-cell"><img class="ae-thumb" src="'+thumbUrl+'" loading="lazy" alt="" data-ae-thumb-ad="'+r.ad_id+'" title="Click to preview"></td>'
       : '<td class="thumb-cell"><div class="ae-thumb-placeholder" title="No thumbnail">—</div></td>';
