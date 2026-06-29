@@ -6,9 +6,10 @@ ad in primary_table. Re-run after each primary_sync.
 
 import os, time
 import psycopg2
-from dotenv import load_dotenv
 
-load_dotenv()
+from supabase_config import load_supabase_settings
+
+settings = load_supabase_settings()
 
 SETUP_SQL = """
 -- Idempotent — drops only if exists; never errors on first run.
@@ -307,7 +308,7 @@ SELECT
     (e.impressions >= 50000),
     (amount_spent > 0 AND conv_value / amount_spent >= 3.2),
     (ncp_count   > 0 AND amount_spent / ncp_count <= 525),
-    (ftewv_count > 0 AND amount_spent / ftewv_count <= 25),
+    (ftewv_count > 0 AND amount_spent / ftewv_count <= 12),
     impressions,
     reach,
     ROUND(cpr_1000::numeric, 2),
