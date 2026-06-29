@@ -438,22 +438,17 @@
     border-radius:10px;background:var(--bg-muted)}
   /* Drawer preview image — uses ad_thumbnails (image_url if available, else
      the smaller thumbnail_url). preview_link is a fb.me short URL that Meta
-     blocks from iframe embeds, so we render an <img> instead. */
-  .dr-img{
-    display:block;
-    max-width:100%;
-    max-height:520px;
-    margin:0 auto;
-    border:1px solid var(--border-primary);
-    border-radius:10px;
-    background:var(--bg-muted);
-    /* Sharpen any upscale done by the browser when the source image is
-       smaller than the available drawer width (most Meta thumbnails are
-       ~300x300). object-fit:contain keeps aspect ratio without cropping. */
-    object-fit:contain;
-    image-rendering:auto;
-    image-rendering:-webkit-optimize-contrast;
-  }
+     blocks from iframe embeds, so we render an <img> instead.
+
+     The image fills the drawer width as before. Quality is driven by the
+     SOURCE url: openDrawer() prefers image_url (full-res, from
+     object_story_spec when creative.image_url is absent) and only falls
+     back to the small thumbnail_url. The image-rendering hint keeps any
+     remaining upscale crisp instead of bilinear-blurred. */
+  .dr-img{width:100%;max-height:420px;object-fit:contain;
+    border:1px solid var(--border-primary);border-radius:10px;
+    background:var(--bg-muted);display:block;
+    image-rendering:-webkit-optimize-contrast}
   .dr-no-preview{padding:36px 16px;text-align:center;font-size:12px;color:var(--text-tertiary);
     border:1px dashed var(--border-warm);border-radius:10px;background:var(--bg-page-alt)}
   .dr-no-preview a{color:var(--accent-yellow-hover);font-weight:700;text-decoration:none}
