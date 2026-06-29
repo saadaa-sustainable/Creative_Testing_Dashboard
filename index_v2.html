@@ -1,0 +1,3908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creative Testing v2 — Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  /* ════════════════════════════════════════════════════════════════════════
+     SAADAA brand palette — ecru base, yellow CTA only, Inter + Space Grotesk
+     ════════════════════════════════════════════════════════════════════════ */
+  :root{
+    /* Backgrounds (ecru-warm, never cold) */
+    --bg-base:#FAF8F5;
+    --bg-surface:#F5F1EC;
+    --bg-ecru:#F0EAD6;
+    --bg-page-alt:#F6F3F1;
+    --bg-muted:#F0EDE6;
+    --bg-white:#FFFFFF;
+
+    /* Text */
+    --text-primary:#161513;
+    --text-primary-hover:#1B1A17;
+    --text-charcoal:#2C2420;
+    --text-mid:#494640;
+    --text-secondary:#6E695E;
+    --text-tertiary:#9A9384;
+    --text-link:#3B6FD4;
+
+    /* Borders */
+    --border-primary:#E7E2D2;
+    --border-soft:#EFEAE0;
+    --border-warm:#EDE8DC;
+    --border-mid:#DDD8CC;
+    --border-strong:#C9C2AE;
+
+    /* Primary accent — yellow CTA only */
+    --accent-yellow:#F0C61E;
+    --accent-yellow-hover:#DDB519;
+    --accent-sand:#C9A882;
+    --accent-amber:#E8C87A;
+    --accent-warm-tint:#FAF1DC;
+
+    /* Status colours (paired tokens) */
+    --success-text:#4F7C4D;
+    --success-mid:#3D9E6B;
+    --success-bg:#ECF1E9;
+    --success-alt:#4CAF7D;
+    --warning-text:#B57514;
+    --warning-mid:#D9922A;
+    --warning-bg:#FAF1DC;
+    --warning-border:#E8C87A;
+    --error-text:#C0392B;
+    --error-mid:#C94343;
+    --error-dark:#A03A2C;
+    --error-bg:#FDECEA;
+    --info-text:#355C7A;
+    --info-mid:#2C5AB8;
+    --info-link:#3B6FD4;
+    --info-bg:#D6E1F5;
+
+    /* Secondary accents — detail-panel use only */
+    --accent-purple:#7B4FBF;
+    --accent-purple-bg:#F5F3FB;
+    --accent-pink:#B54F7A;
+    --accent-pink-bg:#FDF3F8;
+    --accent-indigo:#3B6FD4;
+    --accent-indigo-bg:#F0F6FB;
+
+    /* Sidebar */
+    --sb-bg:#2C2420;
+    --sb-text:#FAF8F5;
+    --sb-active:#E8A87C;
+    --sb-border:#E7E2D2;
+
+    /* Glass card */
+    --glass-bg:rgba(255,252,248,0.72);
+    --glass-border:rgba(255,255,255,0.55);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{
+    font-family:'Inter',system-ui,sans-serif;
+    background:var(--bg-base);color:var(--text-primary);
+    min-height:100vh;font-size:13.5px;-webkit-font-smoothing:antialiased
+  }
+  body{
+    background:
+      radial-gradient(ellipse 800px 540px at 92% -8%, rgba(232,200,122,0.18), transparent 60%),
+      radial-gradient(ellipse 600px 420px at -5% 100%, rgba(201,168,130,0.12), transparent 60%),
+      var(--bg-base);
+  }
+  .heading{font-family:'Space Grotesk',sans-serif;letter-spacing:.2px}
+  .mono{font-family:'JetBrains Mono',monospace}
+
+  /* ── Sidebar (dark on ecru base) ─────────────────────────────────── */
+  #sidebar{position:fixed;top:0;left:0;bottom:0;width:212px;
+    background:var(--sb-bg);
+    display:flex;flex-direction:column;padding:18px 0;z-index:10}
+  .sb-logo{display:flex;align-items:center;gap:10px;padding:0 18px;margin-bottom:24px}
+  .sb-logo .dot{width:28px;height:28px;border-radius:7px;
+    background:var(--accent-yellow);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;color:#1B1A17}
+  .sb-logo .name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;
+    color:var(--sb-text);letter-spacing:.3px}
+  .sb-section{padding:14px 18px 6px;font-size:9.5px;font-weight:700;
+    color:rgba(250,248,245,0.55);text-transform:uppercase;letter-spacing:.8px;
+    font-family:'Space Grotesk',sans-serif}
+  .sb-item{display:flex;align-items:center;gap:10px;padding:9px 18px;cursor:pointer;
+    color:rgba(250,248,245,0.78);font-size:13px;font-weight:500;
+    border-left:2px solid transparent;
+    transition:color .15s, background-color .15s, border-left-color .15s}
+  .sb-item:hover{background:rgba(255,255,255,0.04);color:var(--sb-text)}
+  .sb-item.active{color:var(--accent-yellow);border-left-color:var(--accent-yellow);
+    background:rgba(232,168,124,0.18)}
+  .sb-bottom{margin-top:auto;padding:14px 18px;border-top:1px solid rgba(231,226,210,0.18);
+    font-size:11px;color:rgba(250,248,245,0.55)}
+
+  /* ── Main shell ──────────────────────────────────────────────────── */
+  #main{margin-left:212px;padding:22px 26px 56px}
+  .page-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .page-hdr h1{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;
+    color:var(--text-primary);letter-spacing:.1px}
+  .page-hdr .sub{font-size:12px;color:var(--text-secondary);margin-top:3px}
+
+  /* ── Filter top row (date presets + search) ─────────────────────── */
+  .filter-top{background:var(--bg-surface);border:1px solid var(--border-primary);
+    border-radius:12px;padding:12px 16px;margin-bottom:10px;
+    display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .preset-row{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+  .preset{padding:7px 12px;border-radius:7px;border:1px solid var(--border-primary);
+    background:var(--bg-white);font-size:12px;font-weight:500;color:var(--text-mid);
+    cursor:pointer;min-height:36px;
+    transition:background-color .12s, border-color .12s, color .12s}
+  .preset:hover{border-color:var(--border-mid);color:var(--text-primary);background:var(--bg-page-alt)}
+  .preset.active{background:var(--accent-yellow);border-color:var(--accent-yellow);
+    color:#1B1A17;font-weight:700}
+  .search-box{display:flex;flex:1;min-width:280px;align-items:stretch;
+    background:var(--bg-white);border:1px solid var(--border-primary);border-radius:8px;
+    overflow:hidden;min-height:40px;
+    transition:border-color .12s}
+  .search-box:focus-within{border-color:var(--accent-yellow);
+    box-shadow:0 0 0 3px rgba(240,198,30,.18)}
+  .search-mode{background:var(--bg-page-alt);border:none;border-right:1px solid var(--border-primary);
+    padding:8px 11px;font-family:'Space Grotesk',sans-serif;font-size:11.5px;font-weight:700;
+    color:var(--text-secondary);cursor:pointer;text-transform:uppercase;letter-spacing:.5px;
+    min-width:108px;
+    transition:color .12s, background-color .12s}
+  .search-mode:hover{color:var(--text-primary);background:var(--bg-muted)}
+  .search-mode.neg{color:var(--error-text);background:var(--error-bg)}
+  .search-input{flex:1;border:none;outline:none;padding:8px 12px;font-size:13px;
+    color:var(--text-primary);background:transparent;font-family:'Inter',sans-serif}
+  .search-input::placeholder{color:var(--text-tertiary)}
+  .search-clear{background:transparent;border:none;color:var(--text-secondary);
+    padding:0 14px;cursor:pointer;font-size:14px;display:none;
+    transition:color .12s}
+  .search-clear:hover{color:var(--text-primary)}
+  .search-clear.show{display:inline-flex;align-items:center}
+
+  /* ── Filter grid (Campaign / Date / Content / Tier / Status) ────── */
+  .filter-grid{background:var(--bg-surface);border:1px solid var(--border-primary);
+    border-radius:12px;padding:14px 16px;margin-bottom:14px;
+    display:grid;gap:12px 14px;
+    grid-template-columns:minmax(260px,2fr) 170px 170px 200px 160px}
+  .fg-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .fg-field.wide{grid-column:span 2}
+  .fg-lbl{font-family:'Space Grotesk',sans-serif;font-size:10.5px;color:var(--text-secondary);
+    text-transform:uppercase;letter-spacing:.7px;font-weight:700}
+  .fg-input,.fg-select{background:var(--bg-white);border:1px solid var(--border-primary);
+    border-radius:7px;padding:9px 11px;font-size:13px;color:var(--text-primary);
+    font-family:'Inter',sans-serif;min-height:40px;
+    transition:border-color .12s, background-color .12s}
+  .fg-input:hover,.fg-select:hover{border-color:var(--border-mid)}
+  .fg-input:focus,.fg-select:focus{outline:none;border-color:var(--accent-yellow);
+    box-shadow:0 0 0 3px rgba(240,198,30,.18)}
+  .fg-actions{display:flex;align-items:flex-end;gap:8px}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;
+    border-radius:8px;background:var(--accent-yellow);color:#1B1A17;
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:12.5px;
+    border:none;cursor:pointer;
+    transition:background-color .15s, color .15s; min-height:40px}
+  .btn:hover{background:var(--accent-yellow-hover)}
+  .btn.ghost{background:var(--bg-white);color:var(--text-mid);border:1px solid var(--border-primary)}
+  .btn.ghost:hover{color:var(--text-primary);border-color:var(--border-mid);background:var(--bg-page-alt)}
+
+  /* ── KPI grid ────────────────────────────────────────────────────── */
+  .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
+  .kpi{background:var(--bg-white);border:1px solid var(--border-primary);border-radius:12px;
+    padding:14px 14px 12px;cursor:pointer;position:relative;overflow:hidden;
+    transition:transform .18s, box-shadow .18s, border-color .18s}
+  .kpi:hover{border-color:var(--border-mid);transform:translateY(-1px);
+    box-shadow:0 8px 22px -10px rgba(28,25,22,0.18)}
+  .kpi::after{content:'';position:absolute;left:0;top:0;height:3px;width:100%;
+    background:var(--accent,var(--accent-yellow));opacity:.85}
+  .kpi[data-cat="winner"]    { --accent:var(--success-mid) }
+  .kpi[data-cat="incr"]      { --accent:var(--success-alt) }
+  .kpi[data-cat="priority"]  { --accent:var(--info-mid) }
+  .kpi[data-cat="analyze1"]  { --accent:var(--warning-mid) }
+  .kpi[data-cat="analyze2"]  { --accent:var(--warning-text) }
+  .kpi[data-cat="discarded"] { --accent:var(--error-mid) }
+  .kpi .k-lbl{font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:700;
+    color:var(--text-secondary);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px}
+  .kpi .k-val{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;
+    color:var(--text-primary);letter-spacing:-.4px;margin-bottom:4px;line-height:1.1}
+  .kpi .k-sub{font-size:11px;color:var(--text-secondary);display:flex;gap:8px}
+  .kpi .k-sub b{color:var(--accent,var(--text-primary));font-weight:600}
+
+  /* ── Funnel breakdown (Creative Type × Category) ─────────────────── */
+  .funnel-card{background:var(--bg-white);border:1px solid var(--border-primary);
+    border-radius:12px;padding:0;margin-bottom:14px;overflow:hidden}
+  .funnel-hdr{padding:14px 18px 12px;border-bottom:1px solid var(--border-soft);
+    display:flex;justify-content:space-between;align-items:center}
+  .funnel-hdr h3{font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;
+    color:var(--text-secondary);text-transform:uppercase;letter-spacing:.7px}
+  .funnel-hdr .h-sub{font-family:'Inter',sans-serif;font-size:11px;color:var(--text-tertiary);
+    font-weight:500}
+  .funnel-grid{display:grid;font-size:11.5px}
+  .fk-row{display:grid;align-items:stretch}
+  .fk-master{background:var(--bg-surface);border-bottom:1px solid var(--border-primary)}
+  .fk-master-cell{padding:9px 12px;text-align:center;
+    font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:800;
+    text-transform:uppercase;letter-spacing:.7px;
+    border-left:1px solid var(--border-soft)}
+  .fk-master-cell.win  {color:var(--success-text); background:rgba(79,124,77,.07)}
+  .fk-master-cell.pri  {color:var(--info-text);    background:rgba(53,92,122,.07)}
+  .fk-master-cell.anl  {color:var(--accent-purple);background:rgba(123,79,191,.06)}
+  .fk-master-cell.dis  {color:var(--error-text);   background:rgba(192,57,43,.06)}
+  .fk-master-cell.f4   {color:var(--warning-text); background:rgba(181,117,20,.07);
+    border-left:2px solid var(--border-primary)}
+  .fk-sub{background:var(--bg-page-alt);border-bottom:2px solid var(--border-primary)}
+  .fk-sub-cell{padding:8px 10px;text-align:center;
+    font-family:'Space Grotesk',sans-serif;font-size:9.5px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.6px;color:var(--text-secondary);
+    border-left:1px solid var(--border-soft)}
+  .fk-sub-cell.first{border-left:none;text-align:left;padding-left:18px}
+  .fk-data{background:var(--bg-white);border-bottom:1px solid var(--border-soft)}
+  .fk-data:last-child{border-bottom:none}
+  .fk-cell{padding:12px;border-left:1px solid var(--border-soft);
+    display:flex;flex-direction:column;justify-content:center;gap:5px}
+  .fk-cell.f4{border-left:2px solid var(--border-primary)}
+  .fk-cell .n{font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:700;
+    color:var(--text-primary);line-height:1}
+  .fk-cell .p{font-size:10px;font-weight:600;color:var(--text-tertiary);margin-left:5px}
+  .fk-cell .bar{height:4px;background:var(--bg-muted);border-radius:99px;overflow:hidden}
+  .fk-cell .bar-fill{height:100%;border-radius:99px;
+    transition:width .4s cubic-bezier(.4,0,.2,1)}
+  .fk-cell.col-incr  .bar-fill{background:var(--success-alt)}
+  .fk-cell.col-win   .bar-fill{background:var(--success-mid)}
+  .fk-cell.col-pri   .bar-fill{background:var(--info-mid)}
+  .fk-cell.col-a1    .bar-fill{background:var(--accent-purple)}
+  .fk-cell.col-a2    .bar-fill{background:var(--accent-pink)}
+  .fk-cell.col-disc  .bar-fill{background:var(--error-mid)}
+  .fk-cell.col-f4    .bar-fill{background:var(--warning-mid)}
+  .fk-ctype{padding:14px 18px;display:flex;align-items:center;gap:10px;
+    background:var(--bg-white);border-left:none}
+  .fk-ctype .icon{font-size:18px}
+  .fk-ctype .nm{font-family:'Space Grotesk',sans-serif;font-size:12.5px;font-weight:700;
+    color:var(--text-primary)}
+  .fk-ctype .ttl{font-size:10.5px;color:var(--text-tertiary);margin-top:2px}
+  .fk-total{padding:14px 12px;text-align:center;border-left:1px solid var(--border-soft);
+    background:var(--bg-white)}
+  .fk-total .n{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;
+    color:var(--text-primary)}
+  .fk-grand{background:var(--bg-surface);border-top:2px solid var(--border-primary)}
+  .fk-grand .fk-ctype{background:var(--bg-surface)}
+  .fk-grand .fk-total{background:var(--bg-surface);color:var(--accent-yellow)}
+  .fk-grand .fk-cell{background:var(--bg-surface)}
+  .fk-grand .nm{color:var(--text-charcoal);text-transform:uppercase;letter-spacing:.6px;font-size:11.5px}
+
+  /* ── Panel rows ──────────────────────────────────────────────────── */
+  .panel-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+  .panel{background:var(--bg-white);border:1px solid var(--border-primary);border-radius:12px;
+    padding:18px}
+  .panel h3{font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;
+    color:var(--text-secondary);text-transform:uppercase;letter-spacing:.7px;margin-bottom:14px;
+    display:flex;justify-content:space-between;align-items:center}
+  .panel h3 .h-sub{font-family:'Inter',sans-serif;font-size:11px;color:var(--text-tertiary);
+    font-weight:500;text-transform:none;letter-spacing:0}
+  .focus-strip{display:flex;gap:8px;flex-wrap:wrap}
+  .focus-pill{display:inline-flex;align-items:center;gap:7px;background:var(--bg-page-alt);
+    border:1px solid var(--border-soft);border-radius:100px;padding:6px 13px;
+    font-size:12px;color:var(--text-mid);min-height:32px;cursor:pointer;
+    transition:background-color .12s, border-color .12s, color .12s}
+  .focus-pill:hover{background:var(--bg-white);border-color:var(--border-mid);
+    color:var(--text-primary)}
+  .focus-pill.disabled{cursor:not-allowed;opacity:.55}
+  .focus-pill.disabled:hover{background:var(--bg-page-alt);border-color:var(--border-soft);
+    color:var(--text-mid)}
+  .focus-pill b{color:var(--text-primary);font-weight:700;
+    font-family:'JetBrains Mono',monospace}
+  .focus-pill .dot{width:7px;height:7px;border-radius:50%;background:var(--text-tertiary)}
+  .focus-pill[data-c="IFAD"] .dot{background:var(--success-mid)}
+  .focus-pill[data-c="GAD"]  .dot{background:var(--info-mid)}
+  .focus-pill[data-c="VID"]  .dot{background:var(--accent-purple)}
+  .focus-pill[data-c="UGC"]  .dot{background:var(--warning-mid)}
+  .focus-pill[data-c="ADB"]  .dot{background:var(--accent-pink)}
+  .focus-pill[data-c="BR"]   .dot{background:var(--accent-sand)}
+  .focus-pill[data-c="BST"]  .dot{background:var(--error-mid)}
+
+  /* ── Chart row ───────────────────────────────────────────────────── */
+  .chart-row{display:grid;grid-template-columns:1fr 1.8fr 1fr;gap:12px;margin-bottom:14px}
+  .chart-card{background:var(--bg-white);border:1px solid var(--border-primary);border-radius:12px;
+    padding:16px 18px;min-height:280px}
+  .chart-card .ch-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .chart-card h4{font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;
+    color:var(--text-secondary);text-transform:uppercase;letter-spacing:.7px}
+  .chart-card .ch-val{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;
+    color:var(--text-primary)}
+  .chart-card canvas{max-height:230px}
+
+  /* ── Definitions modal extras ──────────────────────────────────── */
+  .def-section-lbl{font-family:'Space Grotesk',sans-serif;
+    font-size:10.5px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;
+    color:var(--text-secondary);
+    display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .def-section-lbl::before,.def-section-lbl::after{content:'';flex:1;height:1px;
+    background:var(--border-soft)}
+  .def-thresh{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .def-th{background:var(--bg-surface);border:1px solid var(--border-soft);border-radius:10px;
+    padding:13px 14px}
+  .def-th .ttl{font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.6px;color:var(--text-secondary);margin-bottom:6px}
+  .def-th .val{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;
+    color:var(--text-primary);line-height:1}
+  .def-th .hint{font-size:10.5px;color:var(--text-tertiary);margin-top:8px;line-height:1.5}
+  .def-prose{font-size:13px;color:var(--text-mid);line-height:1.65;margin:6px 0 14px}
+  .def-prose b{color:var(--text-primary);font-weight:700}
+  table.tbl.def-cats td{vertical-align:middle}
+  table.tbl.def-cats td:first-child{width:170px}
+  table.tbl.def-cats td:last-child{color:var(--text-secondary);font-size:11.5px}
+
+  /* ── Modal (Winners popup) ────────────────────────────────────────── */
+  #modal{position:fixed;inset:0;background:rgba(44,36,32,0.55);backdrop-filter:blur(4px);
+    z-index:100;display:none;align-items:center;justify-content:center;padding:24px}
+  #modal.show{display:flex}
+  .modal-card{background:var(--bg-white);border:1px solid var(--border-primary);
+    border-radius:14px;max-width:1180px;width:100%;max-height:90vh;
+    overflow:hidden;display:flex;flex-direction:column;
+    box-shadow:0 24px 60px -20px rgba(28,25,22,0.35)}
+  .mc-hdr{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;
+    border-bottom:1px solid var(--border-soft)}
+  .mc-hdr .ttl{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;
+    color:var(--text-primary);letter-spacing:.3px}
+  .mc-hdr .sub{font-size:11.5px;color:var(--text-secondary);margin-top:2px}
+  .mc-close{background:transparent;border:none;color:var(--text-secondary);font-size:22px;
+    cursor:pointer;padding:0 8px;line-height:1;min-width:40px;min-height:40px;
+    border-radius:6px;transition:background-color .12s, color .12s}
+  .mc-close:hover{color:var(--text-primary);background:var(--bg-muted)}
+  .mc-toolbar{padding:12px 22px;border-bottom:1px solid var(--border-soft);
+    display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--bg-surface)}
+  .mc-body{padding:18px 22px;overflow:auto;flex:1;background:var(--bg-white)}
+  .mc-body canvas{max-height:380px}
+
+  /* ── Drawer (KPI/row click → ad detail) ───────────────────────────── */
+  #drawer{position:fixed;top:0;right:-560px;bottom:0;width:540px;background:var(--bg-white);
+    border-left:1px solid var(--border-primary);z-index:95;display:flex;flex-direction:column;
+    transition:right .25s cubic-bezier(.2,.6,.2,1);
+    box-shadow:-10px 0 30px rgba(28,25,22,0.18)}
+  #drawer.open{right:0}
+  .dr-hdr{padding:18px 22px;border-bottom:1px solid var(--border-soft);
+    display:flex;justify-content:space-between;align-items:flex-start}
+  .dr-hdr .ttl{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;
+    color:var(--text-primary)}
+  .dr-hdr .sub{font-size:11.5px;color:var(--text-secondary);margin-top:3px}
+  .dr-body{flex:1;overflow:auto;padding:18px 22px}
+  .dr-metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+  .dr-metric{background:var(--bg-surface);border:1px solid var(--border-soft);
+    border-radius:10px;padding:11px 13px}
+  .dr-metric .lbl{font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:700;
+    color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px}
+  .dr-metric .val{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;
+    color:var(--text-primary);margin-top:3px}
+  .dr-preview{margin-top:16px}
+  .dr-preview .ph{font-family:'Space Grotesk',sans-serif;font-size:10.5px;
+    color:var(--text-secondary);text-transform:uppercase;letter-spacing:.6px;
+    margin-bottom:8px;font-weight:700}
+  .dr-preview .ph a{color:var(--text-link);text-decoration:none;font-weight:600}
+  .dr-preview .ph a:hover{text-decoration:underline}
+  .dr-iframe{width:100%;aspect-ratio:9/16;max-height:380px;border:1px solid var(--border-primary);
+    border-radius:10px;background:var(--bg-muted)}
+
+  /* ── Tables (inside modal) ────────────────────────────────────── */
+  .tbl{width:100%;border-collapse:collapse;font-size:12px}
+  .tbl th{text-align:left;padding:9px 11px;color:var(--text-secondary);font-weight:700;
+    text-transform:uppercase;font-size:9.5px;letter-spacing:.6px;
+    border-bottom:1px solid var(--border-primary);
+    font-family:'Space Grotesk',sans-serif;background:var(--bg-surface)}
+  .tbl td{padding:9px 11px;border-bottom:1px solid var(--border-soft);color:var(--text-primary)}
+  .tbl tr{transition:background-color .12s}
+  .tbl tr:hover td{background:var(--bg-surface)}
+  .tbl .thumb{width:36px;height:36px;border-radius:7px;background:var(--bg-muted);
+    border:1px solid var(--border-soft);object-fit:cover}
+
+  /* ── Status badges (paired tokens) ───────────────────────────────── */
+  .badge{display:inline-block;padding:3px 9px;border-radius:100px;
+    font-family:'Space Grotesk',sans-serif;
+    font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+    border:1px solid currentColor}
+  .badge.win  {background:var(--success-bg);  color:var(--success-text);  border-color:rgba(79,124,77,.35)}
+  .badge.incr {background:var(--success-bg);  color:var(--success-alt);   border-color:rgba(76,175,125,.45)}
+  .badge.pri  {background:var(--info-bg);     color:var(--info-text);     border-color:rgba(53,92,122,.35)}
+  .badge.a1   {background:var(--warning-bg);  color:var(--warning-text);  border-color:var(--warning-border)}
+  .badge.a2   {background:var(--warning-bg);  color:var(--warning-mid);   border-color:var(--warning-border)}
+  .badge.disc {background:var(--error-bg);    color:var(--error-text);    border-color:rgba(192,57,43,.35)}
+
+  .empty{padding:40px 20px;text-align:center;color:var(--text-tertiary);font-size:13px}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border-primary);
+    border-top-color:var(--accent-yellow);border-radius:50%;
+    animation:sp 0.6s linear infinite;vertical-align:-3px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--border-mid);border-radius:4px}
+  ::-webkit-scrollbar-thumb:hover{background:var(--border-strong)}
+
+  /* ── View switcher / multi-page additions ───────────────────────── */
+  .view{animation:fadeIn 0.18s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  /* ── Inventory table styles ─────────────────────────────────────── */
+  .inv-tbl th{position:sticky;top:0;background:var(--bg-white);z-index:1;font-size:11px}
+  .inv-tbl tbody tr:hover{background:var(--bg-page-alt)}
+  .inv-tbl .thumb{width:48px;height:48px;border-radius:8px;background:var(--bg-muted);
+    object-fit:cover;border:1px solid var(--border-warm);display:block}
+  .inv-tbl .thumb-ph{width:48px;height:48px;border-radius:8px;background:var(--bg-muted);
+    display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);
+    border:1px solid var(--border-warm);font-size:10px}
+  .inv-tbl .title-cell{max-width:340px}
+  .inv-tbl .title-cell .title{font-weight:600;color:var(--text-primary);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .inv-tbl .title-cell .handle{font-size:11px;color:var(--text-tertiary);margin-top:2px}
+  .status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;
+    border-radius:999px;font-size:11px;font-weight:600;border:1px solid transparent}
+  .status-pill::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+  .status-pill.s-active  { color:var(--success-text);  background:var(--success-bg);  border-color:#cfd8c5 }
+  .status-pill.s-draft   { color:var(--warning-text);  background:var(--warning-bg);  border-color:var(--warning-border) }
+  .status-pill.s-archived{ color:var(--text-tertiary); background:var(--bg-muted);    border-color:var(--border-warm) }
+  .tbl .num{text-align:right;font-family:'JetBrains Mono',monospace;font-size:12.5px}
+
+  /* ── Ads Analyse view ─────────────────────────────────────────── */
+  /* Card-grid filter section — relaxed spacing so labels never wrap */
+  .ae-fgrid{display:grid;gap:12px;margin-bottom:12px}
+  .ae-fgrid.row1{grid-template-columns:repeat(6, minmax(160px, 1fr))}
+  /* Row 2: F1-F4 fixed-ish · spacer · Actions at far right */
+  .ae-fgrid.row2{
+    grid-template-columns: repeat(4, minmax(135px, 1fr)) auto;
+  }
+  /* Row 3: Quick Search full-width */
+  .ae-fgrid.row3{grid-template-columns: 1fr}
+  @media (max-width:1280px){
+    .ae-fgrid.row1{grid-template-columns:repeat(3, 1fr)}
+    .ae-fgrid.row2{grid-template-columns:repeat(2, 1fr) auto; grid-auto-flow:dense}
+    .ae-fgrid.row2 .ae-actions{grid-column:1 / -1}
+  }
+  .ae-fcard{
+    background:var(--bg-surface);
+    border:1px solid var(--border-warm);
+    border-radius:10px;
+    padding:12px 14px 13px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-width:0;     /* allow flex children to shrink */
+  }
+  .ae-flbl{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:10.5px;font-weight:700;letter-spacing:1.2px;
+    text-transform:uppercase;color:var(--text-secondary);
+    line-height:1.1;
+    white-space:nowrap;     /* never wrap the label across two lines */
+  }
+  .ae-finput{
+    width:100%;
+    padding:9px 12px;
+    border-radius:7px;
+    border:1px solid var(--border-warm);
+    background:var(--bg-white);
+    color:var(--text-primary);
+    font-size:13.5px;
+    font-family:inherit;
+    outline:none;
+    box-sizing:border-box;
+    transition:border-color 0.15s, box-shadow 0.15s;
+  }
+  .ae-finput:focus{
+    border-color:var(--accent-yellow);
+    box-shadow:0 0 0 3px rgba(240,198,30,0.20);
+  }
+  .ae-finput.mono{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:0.3px}
+  /* number inputs (F1-F4): a bit more right padding so steppers don't crowd */
+  .ae-finput[type="number"]{padding-right:8px}
+  .ae-actions-row{display:flex;gap:8px}
+  .ae-fbtn{
+    flex:1;
+    padding:9px 14px;
+    background:var(--bg-white);
+    border:1px solid var(--border-mid);
+    border-radius:7px;
+    font-family:'Space Grotesk',sans-serif;
+    font-size:12px;font-weight:600;
+    color:var(--text-primary);
+    cursor:pointer;
+    transition:background 0.15s, border-color 0.15s;
+    white-space:nowrap;
+  }
+  .ae-fbtn:hover{background:var(--bg-page-alt);border-color:var(--text-secondary)}
+  .ae-fbtn:active{transform:translateY(1px)}
+  .ae-fbtn.primary{background:#C0603A;color:#FFF;border-color:#A0512E}
+  .ae-fbtn.primary:hover{background:#A0512E;border-color:#8A4326}
+
+  /* ── Date Range Picker (DRP) ─────────────────────────────────────── */
+  .drp-wrap{position:relative}
+  .drp-btn{
+    width:100%;height:38px;
+    border:1px solid var(--border-warm);
+    border-radius:7px;
+    background:var(--bg-white);
+    color:var(--text-primary);
+    padding:6px 12px;font-size:13.5px;
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    cursor:pointer;font-family:inherit;
+    transition:border-color 0.15s, box-shadow 0.15s;
+  }
+  .drp-btn.open,.drp-btn:focus{
+    border-color:var(--accent-yellow);
+    box-shadow:0 0 0 3px rgba(240,198,30,0.22);outline:none;
+  }
+  .drp-label{
+    min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    color:var(--text-secondary);font-weight:600;
+  }
+  .drp-label.active{color:var(--text-primary)}
+  .drp-caret{font-size:10px;color:var(--text-tertiary)}
+  .drp-panel{
+    display:none;position:fixed;z-index:9999;
+    width:680px;max-width:calc(100vw - 16px);
+    background:var(--bg-white);
+    border:1px solid var(--border-mid);border-radius:14px;
+    box-shadow:0 14px 42px rgba(28,25,22,0.18);overflow:hidden;
+    font-family:inherit;
+  }
+  .drp-panel.open{display:block}
+  .drp-shell{display:flex}
+  .drp-presets{
+    width:148px;flex-shrink:0;
+    background:var(--bg-surface);
+    border-right:1px solid var(--border-warm);
+    padding:8px 0;
+  }
+  .drp-preset{
+    padding:10px 16px;font-size:12px;font-weight:600;
+    color:var(--text-mid);cursor:pointer;user-select:none;
+    font-family:'Space Grotesk',sans-serif;letter-spacing:0.2px;
+  }
+  .drp-preset:hover{background:var(--bg-page-alt)}
+  .drp-preset.active{
+    background:var(--accent-warm-tint);color:var(--accent-yellow-hover);
+    border-left:3px solid var(--accent-yellow);padding-left:13px;
+  }
+  .drp-main{flex:1;padding:14px 18px 12px}
+  .drp-monthbar{
+    display:grid;grid-template-columns:34px 1fr 1fr 34px;
+    align-items:center;gap:8px;margin-bottom:12px;
+  }
+  .drp-nav{
+    width:30px;height:30px;border:0;background:transparent;border-radius:6px;
+    color:var(--text-mid);font-size:18px;font-weight:700;cursor:pointer;
+  }
+  .drp-nav:hover{background:var(--bg-page-alt)}
+  .drp-month{
+    text-align:center;font-size:13px;font-weight:700;color:var(--text-primary);
+    font-family:'Space Grotesk',sans-serif;
+  }
+  .drp-cals{display:flex;gap:14px}
+  .drp-cal{flex:1}
+  .drp-grid{display:grid;grid-template-columns:repeat(7,32px);gap:1px;justify-content:center}
+  .drp-dow{
+    width:32px;height:24px;display:flex;align-items:center;justify-content:center;
+    font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;
+    letter-spacing:0.4px;
+  }
+  .drp-day{
+    width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+    border-radius:50%;font-size:12px;font-weight:600;
+    color:var(--text-mid);cursor:pointer;position:relative;user-select:none;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .drp-day:hover:not(.other-month):not(.disabled){
+    background:var(--bg-page-alt);color:var(--text-primary);
+  }
+  .drp-day.other-month{color:#CFC8BE;cursor:default}
+  .drp-day.disabled{color:#D8D2C9;cursor:default}
+  .drp-day.in-range{
+    background:var(--accent-warm-tint);border-radius:0;color:var(--accent-yellow-hover);
+  }
+  .drp-day.range-start,.drp-day.range-end{
+    background:var(--accent-yellow) !important;
+    color:var(--text-primary) !important;border-radius:50% !important;
+  }
+  .drp-day.range-start{border-radius:50% 0 0 50% !important}
+  .drp-day.range-end  {border-radius:0 50% 50% 0 !important}
+  .drp-day.range-start.range-end{border-radius:50% !important}
+  .drp-day.today::after{
+    content:'';position:absolute;bottom:3px;left:50%;transform:translateX(-50%);
+    width:4px;height:4px;border-radius:50%;background:currentColor;
+  }
+  .drp-footer{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    margin-top:12px;padding-top:10px;border-top:1px solid var(--border-warm);
+  }
+  .drp-range-text{
+    font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;
+    color:var(--text-tertiary);
+  }
+  .drp-footer-actions{display:flex;gap:8px}
+  .drp-footer-actions .ae-fbtn{padding:7px 16px}
+
+  @media (max-width:780px){
+    .drp-panel{width:calc(100vw - 16px)}
+    .drp-shell{display:block}
+    .drp-presets{
+      width:100%;display:grid;grid-template-columns:repeat(3,1fr);
+      border-right:0;border-bottom:1px solid var(--border-warm);
+    }
+    .drp-preset.active{border-left:0;padding-left:16px}
+    .drp-cals{display:block}
+    .drp-monthbar{grid-template-columns:34px 1fr 34px}
+    .drp-month + .drp-month{display:none}
+  }
+
+  /* Multi-Filter chainable rules */
+  .ae-mfilter{padding:14px 16px 14px}
+  .ae-mfilter-head{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:10px;
+  }
+  .ae-mfilter-actions{display:flex;gap:6px}
+  .ae-mfilter-actions .ae-fbtn{padding:6px 14px;font-size:11px}
+  .ae-mfilter-row{
+    display:grid;
+    grid-template-columns: 180px 200px 1fr 32px;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .ae-mfilter-row:last-of-type{margin-bottom:6px}
+  .ae-mfilter-row .ae-finput{padding:8px 10px;font-size:13px}
+  .ae-mfilter-row .ae-rule-del{
+    background:none;border:1px solid var(--border-warm);
+    color:var(--text-tertiary);cursor:pointer;border-radius:6px;
+    font-size:14px;line-height:1;padding:0;
+  }
+  .ae-mfilter-row .ae-rule-del:hover{
+    color:var(--error-text);border-color:var(--error-text);
+    background:var(--error-bg);
+  }
+  .ae-mfilter-add{
+    background:none;border:none;color:#C0603A;
+    font-family:'Space Grotesk',sans-serif;font-weight:600;
+    cursor:pointer;padding:6px 0 0;font-size:12px;letter-spacing:0.3px;
+  }
+  .ae-mfilter-add:hover{color:#A0512E;text-decoration:underline}
+  @media (max-width:960px){
+    .ae-mfilter-row{grid-template-columns: 1fr 1fr; grid-auto-flow:row}
+    .ae-mfilter-row .rule-value{grid-column:1 / -1}
+    .ae-mfilter-row .ae-rule-del{grid-column:1 / -1}
+  }
+  /* Category KPI tints (reuse what's defined for #kpiRow but add IW/Pri/etc.) */
+  .kpi[data-cls="incr"]      { --accent:var(--success-alt) }
+  .kpi[data-cls="winner"]    { --accent:var(--success-mid) }
+  .kpi[data-cls="priority"]  { --accent:var(--info-mid) }
+  .kpi[data-cls="analyze1"]  { --accent:var(--warning-mid) }
+  .kpi[data-cls="analyze2"]  { --accent:var(--warning-text) }
+  .kpi[data-cls="discarded"] { --accent:var(--error-mid) }
+  .kpi.cat-selected{box-shadow:0 0 0 2px var(--accent-yellow) inset;
+    background:var(--accent-warm-tint)}
+  /* AE table card — pager strip on top, then scrollable table */
+  .ae-tbl-card{background:var(--bg-white);border:1px solid var(--border-warm);
+    border-radius:10px;overflow:hidden;display:flex;flex-direction:column;
+    flex:1 1 auto;height:calc(100vh - 220px);min-height:640px}
+  /* Daily attribution — button in main row + expandable sub-row */
+  .ae-attrib-btn{height:24px;border:1px solid rgba(192,138,0,0.32);border-radius:5px;
+    background:var(--accent-warm-tint);color:var(--accent-yellow-hover);
+    padding:0 9px;font-size:10.5px;font-weight:800;letter-spacing:0.3px;
+    white-space:nowrap;cursor:pointer;font-family:'Space Grotesk',sans-serif;
+    transition:all 0.12s}
+  .ae-attrib-btn:hover{background:var(--accent-yellow);color:var(--text-primary)}
+  .ae-attrib-btn.open{background:var(--accent-yellow);color:var(--text-primary);
+    border-color:var(--accent-yellow-hover)}
+  .ae-attrib-btn:disabled{background:var(--bg-muted);border-color:var(--border-warm);
+    color:var(--text-tertiary);cursor:not-allowed}
+  .ae-daily-row td{background:#FFFBF0!important;padding:0!important;
+    border-bottom:1px solid var(--border-warm)!important}
+  .ae-daily-panel{padding:14px 18px 16px;background:linear-gradient(180deg,#FFFBF0,#FAF5E8);
+    border-top:1px solid var(--accent-warm-tint)}
+  .ae-daily-head{display:flex;align-items:flex-start;justify-content:space-between;
+    gap:14px;margin-bottom:10px}
+  .ae-daily-title{font-size:11px;font-weight:800;letter-spacing:0.7px;
+    text-transform:uppercase;color:var(--accent-yellow-hover);
+    font-family:'Space Grotesk',sans-serif}
+  .ae-daily-sub{font-size:11.5px;color:var(--text-tertiary);margin-top:4px;
+    white-space:normal}
+  .ae-daily-table-wrap{overflow:auto;border:1px solid var(--border-warm);
+    border-radius:8px;background:var(--bg-white)}
+  table.ae-daily-table{min-width:1280px;border-collapse:separate;border-spacing:0;
+    width:100%}
+  .ae-daily-table th{position:sticky;top:0;background:var(--bg-page-alt);
+    font-size:9px;letter-spacing:0.6px;text-transform:uppercase;font-weight:700;
+    color:var(--text-secondary);padding:9px 10px;border-bottom:1px solid var(--border-warm);
+    text-align:left;white-space:nowrap}
+  .ae-daily-table th.num{text-align:right}
+  .ae-daily-table td{background:var(--bg-white)!important;padding:8px 10px;
+    font-size:11px;color:var(--text-mid);border-bottom:1px solid #F0EDE6;
+    white-space:nowrap}
+  .ae-daily-table td.num{font-family:'JetBrains Mono',monospace;text-align:right}
+  .ae-daily-table tr:nth-child(even) td{background:var(--bg-page-alt)!important}
+  .ae-daily-table tfoot td{background:var(--accent-warm-tint)!important;
+    font-weight:800!important;color:var(--text-primary)!important}
+  .ae-daily-note{padding:24px;text-align:center;color:var(--text-tertiary);
+    font-size:12px}
+  /* Pagination strip — sits at TOP of the table card */
+  .ae-pager{display:flex;align-items:center;gap:10px;padding:10px 14px;
+    background:var(--bg-page-alt);border-bottom:1px solid var(--border-warm);
+    font-size:12px;color:var(--text-mid);flex-wrap:wrap;flex:0 0 auto}
+  .ae-pager .ae-pager-sep{color:var(--border-mid)}
+  .ae-pager .ae-pager-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+  /* Inner scroll area for the table */
+  .ae-tbl-wrap{overflow:auto;flex:1 1 auto;min-height:0}
+  /* AE table — wide layout with horizontal scroll, sticky header */
+  .ae-tbl{width:100%;table-layout:auto;border-collapse:separate;border-spacing:0;
+    min-width:2400px}
+  .ae-tbl thead th{position:sticky;top:0;background:var(--bg-page-alt);z-index:2;
+    font-size:9.5px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;
+    color:var(--text-secondary);padding:9px 10px;cursor:pointer;user-select:none;
+    border-bottom:1px solid var(--border-warm);white-space:nowrap;text-align:left}
+  .ae-tbl thead th.num{text-align:right}
+  .ae-tbl thead th:hover{color:var(--accent-yellow-hover);background:var(--accent-warm-tint)}
+  .ae-tbl thead th.sort-asc::after  { content:' ↑';color:var(--accent-yellow) }
+  .ae-tbl thead th.sort-desc::after { content:' ↓';color:var(--accent-yellow) }
+  .ae-tbl thead th.col-adname{min-width:240px;max-width:320px}
+  .ae-tbl thead th.col-camp{min-width:180px;max-width:260px}
+  .ae-tbl tbody tr:nth-child(even) td{background:var(--bg-page-alt)}
+  .ae-tbl tbody tr:hover td{background:var(--accent-warm-tint)}
+  .ae-tbl td{padding:8px 10px;font-size:11.5px;color:var(--text-mid);
+    border-bottom:1px solid #F0EDE6;white-space:nowrap;vertical-align:middle;
+    background:var(--bg-white)}
+  .ae-tbl td.num{font-family:'JetBrains Mono',monospace;text-align:right;font-size:11px}
+  .ae-tbl td.ad-cell{max-width:320px;overflow:hidden;text-overflow:ellipsis}
+  .ae-tbl td.camp-cell{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+  .ae-tbl td.id-cell{font-family:'JetBrains Mono',monospace;font-size:10.5px;
+    color:var(--text-tertiary)}
+  /* Inline pills — F1/F2/F3/F4 pass flags */
+  .ae-flag{display:inline-flex;align-items:center;justify-content:center;min-width:26px;
+    border-radius:999px;padding:2px 7px;font-size:9.5px;font-weight:800;letter-spacing:0.3px}
+  .ae-flag.y{background:var(--success-bg);color:var(--success-text)}
+  .ae-flag.n{background:var(--error-bg,#FBE9E7);color:var(--error-text)}
+  /* Ad-status pill */
+  .ae-status{display:inline-flex;border-radius:999px;padding:2px 8px;
+    font-size:9.5px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;
+    background:var(--bg-muted);color:var(--text-tertiary)}
+  .ae-status.active{background:var(--success-bg);color:var(--success-text)}
+  /* Anchor cells (Preview / Ad Link) */
+  .ae-link{color:var(--accent-yellow-hover);font-weight:800;text-decoration:none;
+    font-size:13px}
+  .ae-link:hover{text-decoration:underline}
+  /* Inline thumbnail cell — Meta Graph creative.thumbnail_url */
+  .ae-thumb{width:44px;height:44px;border-radius:6px;object-fit:cover;
+    border:1px solid var(--border-warm);background:var(--bg-page-alt);
+    cursor:pointer;display:block;transition:transform 0.15s,box-shadow 0.15s}
+  .ae-thumb:hover{transform:scale(1.4);
+    box-shadow:0 6px 18px rgba(28,25,22,0.18);position:relative;z-index:5}
+  .ae-thumb-placeholder{width:44px;height:44px;border-radius:6px;
+    background:var(--bg-page-alt);border:1px dashed var(--border-warm);
+    display:flex;align-items:center;justify-content:center;
+    font-size:10px;color:var(--text-tertiary)}
+  .ae-tbl thead th.col-thumb{width:52px;min-width:52px;max-width:52px}
+  .ae-tbl td.thumb-cell{padding:6px 8px;width:52px}
+  .cat-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;
+    font-weight:700;letter-spacing:0.4px;text-transform:uppercase}
+  .cat-badge.cat-iw       {background:#E0F0E5;color:#2E7755}
+  .cat-badge.cat-winner   {background:var(--success-bg);color:var(--success-text)}
+  .cat-badge.cat-priority {background:var(--info-bg);color:var(--info-text)}
+  .cat-badge.cat-a1       {background:var(--warning-bg);color:var(--warning-text)}
+  .cat-badge.cat-a2       {background:#F5E2C5;color:var(--warning-text)}
+  .cat-badge.cat-disc     {background:var(--bg-muted);color:var(--text-tertiary)}
+
+  /* ── Lifecycle: frequency buckets ──────────────────────────────── */
+  .freq-buckets{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .freq-bucket{position:relative;background:var(--bg-white);border:1px solid var(--border-primary);
+    border-radius:12px;padding:22px 20px 18px;cursor:pointer;transition:all 0.2s}
+  .freq-bucket:hover{transform:translateY(-2px);border-color:var(--border-mid);
+    box-shadow:0 6px 22px rgba(28,25,22,0.05)}
+  .freq-bucket.active{box-shadow:0 0 0 2px var(--accent-yellow) inset;border-color:var(--accent-yellow)}
+  .freq-bucket .fb-tag{font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:700;
+    text-transform:uppercase;letter-spacing:1.2px;color:var(--text-secondary);
+    display:flex;align-items:center;gap:7px;margin-bottom:8px}
+  .freq-bucket .fb-tag .dot{width:8px;height:8px;border-radius:50%}
+  .freq-bucket .fb-range{font-size:11px;color:var(--text-tertiary);margin-bottom:18px;
+    font-family:'JetBrains Mono',monospace}
+  .freq-bucket .fb-count{font-size:42px;font-weight:700;line-height:1;color:var(--text-primary);
+    margin-bottom:16px;letter-spacing:-1px}
+  .freq-bucket .fb-metric{display:flex;justify-content:space-between;align-items:baseline;
+    padding:7px 0;border-bottom:1px solid rgba(28,25,22,0.05);font-size:12px}
+  .freq-bucket .fb-metric:last-of-type{border-bottom:none}
+  .freq-bucket .fb-metric span{color:var(--text-secondary);font-size:10px;
+    text-transform:uppercase;letter-spacing:0.8px;font-weight:600}
+  .freq-bucket .fb-metric b{font-weight:600;color:var(--text-primary)}
+  .freq-bucket .fb-hint{position:absolute;right:20px;top:22px;font-size:10px;
+    color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.6px;
+    opacity:0;transition:opacity 0.2s}
+  .freq-bucket:hover .fb-hint, .freq-bucket.active .fb-hint{opacity:1}
+  .freq-bucket .fb-hint::after{content:' ↓'}
+
+  /* Lifecycle section toggle (Frequency / Buffer) */
+  .life-toggle{display:inline-flex;background:var(--bg-white);border:1px solid var(--border-warm);
+    border-radius:9px;padding:3px;gap:2px}
+  .life-toggle .lt-btn{background:transparent;border:none;font-family:'Space Grotesk',sans-serif;
+    font-size:11px;font-weight:600;letter-spacing:0.4px;padding:7px 14px;border-radius:7px;
+    color:var(--text-secondary);cursor:pointer;transition:all 0.15s;text-transform:none}
+  .life-toggle .lt-btn:hover{color:var(--text-primary);background:var(--bg-page-alt)}
+  .life-toggle .lt-btn.active{background:var(--accent-yellow);color:var(--text-primary);
+    box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+
+  /* Tier badge inside the 14-day buffer table */
+  .tier-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;
+    font-weight:700;letter-spacing:0.4px;text-transform:uppercase}
+  .tier-badge.winner    {background:var(--success-bg);color:var(--success-text)}
+  .tier-badge.incwinner {background:#E0F0E5;color:#2E7755}
+  .tier-badge.priority  {background:var(--info-bg);color:var(--info-text)}
+  .tier-badge.analyze1  {background:var(--warning-bg);color:var(--warning-text)}
+  .tier-badge.analyze2  {background:#F5E2C5;color:var(--warning-text)}
+  .tier-badge.discarded {background:var(--bg-muted);color:var(--text-tertiary)}
+  .pass-yes{color:var(--success-text);font-weight:700}
+  .pass-no {color:var(--error-text);opacity:0.7}
+</style>
+</head>
+<body>
+
+<!-- ═════════════════ SIDEBAR ═════════════════ -->
+<aside id="sidebar">
+  <div class="sb-logo">
+    <div class="dot">S</div>
+    <div class="name">Saadaa</div>
+  </div>
+  <div class="sb-section">Creative Testing</div>
+  <div class="sb-item active" data-view="testing">Creative testing</div>
+  <div class="sb-item" data-view="lifecycle">Creative Lifecycle</div>
+  <div class="sb-section">Analysis</div>
+  <div class="sb-item" data-view="ae">Ads Analyse</div>
+  <div class="sb-section">Catalog</div>
+  <div class="sb-item" data-view="inventory">Inventory</div>
+  <div class="sb-bottom"><span class="mono" id="dbStat">Idle</span></div>
+</aside>
+
+<!-- ═════════════════ MAIN ═════════════════ -->
+<main id="main">
+
+<!-- ─── VIEW: CREATIVE TESTING (default) ──────────────────────────── -->
+<div class="view" id="view-testing">
+
+  <div class="page-hdr">
+    <div>
+      <h1 class="heading">Creative Testing — Analytics</h1>
+      <div class="sub">v2 layout · powered by primary_table (same source as old dashboard)</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn ghost" id="btnDef" title="Show category definitions">ⓘ Definitions</button>
+      <button class="btn ghost" id="btnRefresh">↻ Refresh</button>
+      <button class="btn" id="btnExport">Export CSV</button>
+    </div>
+  </div>
+
+  <!-- Date presets + search -->
+  <div class="filter-top">
+    <div class="preset-row" id="presetRow">
+      <button class="preset" data-p="lifetime">Lifetime</button>
+      <button class="preset" data-p="last7">Last 7d</button>
+      <button class="preset active" data-p="last30">Last 30d</button>
+      <button class="preset" data-p="last90">Last 90d</button>
+      <button class="preset" data-p="thisMonth">This Month</button>
+      <button class="preset" data-p="lastMonth">Last Month</button>
+      <button class="preset" data-p="custom">Custom</button>
+    </div>
+    <div class="search-box">
+      <button class="search-mode" id="searchMode" type="button" title="Toggle contains / doesn't contain">contains</button>
+      <input class="search-input" id="searchInput" type="text" placeholder="Search ad name, campaign, adset…">
+      <button class="search-clear" id="searchClear" type="button" title="Clear">✕</button>
+    </div>
+  </div>
+
+  <!-- Filter grid -->
+  <div class="filter-grid">
+    <div class="fg-field">
+      <label class="fg-lbl">Campaign</label>
+      <select class="fg-select" id="fCampaign"><option value="">All campaigns</option></select>
+    </div>
+    <div class="fg-field">
+      <label class="fg-lbl">Date from</label>
+      <input class="fg-input" id="fDateFrom" type="date" placeholder="mm/dd/yyyy">
+    </div>
+    <div class="fg-field">
+      <label class="fg-lbl">Date to</label>
+      <input class="fg-input" id="fDateTo" type="date" placeholder="mm/dd/yyyy">
+    </div>
+    <div class="fg-field">
+      <label class="fg-lbl">Content type</label>
+      <select class="fg-select" id="fContent">
+        <option value="">All content</option>
+        <option value="IFAD">IFAD</option>
+        <option value="Graphic AD">Graphic AD</option>
+        <option value="VID">Video</option>
+        <option value="STATIC">Static</option>
+      </select>
+    </div>
+    <div class="fg-field">
+      <label class="fg-lbl">Tier</label>
+      <select class="fg-select" id="fTier">
+        <option value="">All tiers</option>
+        <option value="Incremental Winner">Incremental Winner</option>
+        <option value="Winner">Winner</option>
+        <option value="Priority">Priority</option>
+        <option value="Analyze 1">Analyze 1</option>
+        <option value="Analyze 2">Analyze 2</option>
+        <option value="Discarded">Discarded</option>
+      </select>
+    </div>
+    <div class="fg-field">
+      <label class="fg-lbl">Status</label>
+      <select class="fg-select" id="fStatus">
+        <option value="">All status</option>
+        <option value="ACTIVE">Active only</option>
+        <option value="PAUSED">Paused</option>
+        <option value="ARCHIVED">Archived</option>
+      </select>
+    </div>
+    <div class="fg-field">
+      <label class="fg-lbl">Account</label>
+      <select class="fg-select" id="fAccount">
+        <option value="">All accounts</option>
+        <option value="Raho Saadaa">Raho Saadaa</option>
+        <option value="Third Ad Account - SD">Third Account</option>
+        <option value="Fourth Ad Account - SD">Fourth Account</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- KPI funnel cards -->
+  <div class="kpi-row" id="kpiRow">
+    <div class="kpi" data-cat="winner"    data-filter="Winner">
+      <div class="k-lbl">Winner</div><div class="k-val mono" id="kp-winner">—</div>
+      <div class="k-sub">Spend <b id="kp-winner-sp">—</b></div>
+    </div>
+    <div class="kpi" data-cat="incr"      data-filter="Incremental Winner">
+      <div class="k-lbl">Incremental Winner</div><div class="k-val mono" id="kp-incr">—</div>
+      <div class="k-sub">Spend <b id="kp-incr-sp">—</b></div>
+    </div>
+    <div class="kpi" data-cat="priority"  data-filter="Priority">
+      <div class="k-lbl">Priority</div><div class="k-val mono" id="kp-pri">—</div>
+      <div class="k-sub">Spend <b id="kp-pri-sp">—</b></div>
+    </div>
+    <div class="kpi" data-cat="analyze1"  data-filter="Analyze 1">
+      <div class="k-lbl">Analyze 1</div><div class="k-val mono" id="kp-a1">—</div>
+      <div class="k-sub">Spend <b id="kp-a1-sp">—</b></div>
+    </div>
+    <div class="kpi" data-cat="analyze2"  data-filter="Analyze 2">
+      <div class="k-lbl">Analyze 2</div><div class="k-val mono" id="kp-a2">—</div>
+      <div class="k-sub">Spend <b id="kp-a2-sp">—</b></div>
+    </div>
+    <div class="kpi" data-cat="discarded" data-filter="Discarded">
+      <div class="k-lbl">Discarded</div><div class="k-val mono" id="kp-dis">—</div>
+      <div class="k-sub">Spend <b id="kp-dis-sp">—</b></div>
+    </div>
+  </div>
+
+  <!-- Creative Type × Category Funnel -->
+  <div class="funnel-card">
+    <div class="funnel-hdr">
+      <h3>Creative Type funnel <span class="h-sub">distribution across categories</span></h3>
+      <span class="mono" style="font-size:11px;color:var(--text-tertiary)" id="funnelTotal">—</span>
+    </div>
+    <div id="funnelBody"></div>
+  </div>
+
+  <!-- Product & Creative focus -->
+  <div class="panel-row">
+    <div class="panel">
+      <h3>Product in Focus <span class="h-sub" id="prodSub">based on landing page</span></h3>
+      <div class="focus-strip" id="prodStrip">
+        <div class="focus-pill"><span class="dot"></span><b>—</b>&nbsp;Collection page</div>
+        <div class="focus-pill"><span class="dot"></span><b>—</b>&nbsp;Product page</div>
+        <div class="focus-pill"><span class="dot"></span><b>—</b>&nbsp;Custom page</div>
+        <div class="focus-pill"><span class="dot"></span><b>—</b>&nbsp;Other</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Creative Focus <span class="h-sub">asset code in ad name</span></h3>
+      <div class="focus-strip" id="creativeStrip">
+        <div class="focus-pill" data-c="IFAD"><span class="dot"></span><b>—</b>&nbsp;IFAD</div>
+        <div class="focus-pill" data-c="GAD"><span class="dot"></span><b>—</b>&nbsp;GAD</div>
+        <div class="focus-pill" data-c="VID"><span class="dot"></span><b>—</b>&nbsp;Video</div>
+        <div class="focus-pill" data-c="UGC"><span class="dot"></span><b>—</b>&nbsp;UGC</div>
+        <div class="focus-pill" data-c="ADB"><span class="dot"></span><b>—</b>&nbsp;ADB</div>
+        <div class="focus-pill" data-c="BR"><span class="dot"></span><b>—</b>&nbsp;Brand</div>
+        <div class="focus-pill" data-c="BST"><span class="dot"></span><b>—</b>&nbsp;BST</div>
+        <div class="focus-pill"><span class="dot"></span><b>—</b>&nbsp;Other</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="ch-hdr"><h4>Product mix</h4><div class="ch-val mono" id="prodTotalCnt">—</div></div>
+      <canvas id="chProd"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="ch-hdr"><h4>Creatives by week</h4><div class="ch-val mono" id="chTrendCount">—</div></div>
+      <canvas id="chTrend"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="ch-hdr"><h4>Creative mix</h4><div class="ch-val mono" id="creativeTotalCnt">—</div></div>
+      <canvas id="chCreative"></canvas>
+    </div>
+  </div>
+
+</div><!-- /view-testing -->
+
+<!-- ─── VIEW: CREATIVE LIFECYCLE  (frequency buckets + 14-day buffer) ─ -->
+<div class="view" id="view-lifecycle" style="display:none">
+  <div class="page-hdr">
+    <div>
+      <h1 class="heading">Creative Lifecycle</h1>
+      <div class="sub">frequency buckets · 14-day buffer resolver · re-evaluated after every primary sync</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="life-toggle" id="lifeSectionToggle">
+        <button class="lt-btn active" data-sec="freq">Frequency distribution</button>
+        <button class="lt-btn"        data-sec="buffer">14-Day buffer</button>
+      </div>
+      <button class="btn ghost" id="lifeRefresh">↻ Refresh</button>
+      <button class="btn ghost" id="lifeExport">Export CSV</button>
+    </div>
+  </div>
+
+  <!-- Frequency buckets ─────────────────────────────────────────────── -->
+  <div class="funnel-card" id="lifeFreqSection" style="margin-bottom:18px">
+    <div class="funnel-hdr">
+      <h3>Frequency buckets <span class="h-sub">Σ impressions ÷ max single-day reach (ads with freq &gt; 3 excluded)</span></h3>
+      <span class="mono" style="font-size:11px;color:var(--text-tertiary)" id="lifeFreqTot">—</span>
+    </div>
+    <div class="freq-buckets" id="lifeFreqBuckets">
+      <div class="freq-bucket" data-b="low"  data-min="0"   data-max="2">
+        <div class="fb-tag"><span class="dot" style="background:var(--success-mid)"></span>Low frequency</div>
+        <div class="fb-range">0.0 — 2.0×</div>
+        <div class="fb-count mono" id="freqLowCount">—</div>
+        <div class="fb-metric"><span>Total spend</span><b class="mono" id="freqLowSpend">—</b></div>
+        <div class="fb-metric"><span>Total reach</span><b class="mono" id="freqLowReach">—</b></div>
+        <div class="fb-hint">click to drill</div>
+      </div>
+      <div class="freq-bucket" data-b="mid"  data-min="2"   data-max="2.5">
+        <div class="fb-tag"><span class="dot" style="background:var(--warning-mid)"></span>Mid frequency</div>
+        <div class="fb-range">2.0 — 2.5×</div>
+        <div class="fb-count mono" id="freqMidCount">—</div>
+        <div class="fb-metric"><span>Total spend</span><b class="mono" id="freqMidSpend">—</b></div>
+        <div class="fb-metric"><span>Total reach</span><b class="mono" id="freqMidReach">—</b></div>
+        <div class="fb-hint">click to drill</div>
+      </div>
+      <div class="freq-bucket" data-b="high" data-min="2.5" data-max="3">
+        <div class="fb-tag"><span class="dot" style="background:var(--error-mid)"></span>High frequency</div>
+        <div class="fb-range">2.5 — 3.0×</div>
+        <div class="fb-count mono" id="freqHighCount">—</div>
+        <div class="fb-metric"><span>Total spend</span><b class="mono" id="freqHighSpend">—</b></div>
+        <div class="fb-metric"><span>Total reach</span><b class="mono" id="freqHighReach">—</b></div>
+        <div class="fb-hint">click to drill</div>
+      </div>
+    </div>
+    <!-- Drill table for selected bucket -->
+    <div id="freqDrill" style="display:none;margin-top:14px;overflow:auto;max-height:380px">
+      <table class="tbl" style="margin:0">
+        <thead><tr>
+          <th>Ad name</th><th>Status</th><th>Created</th>
+          <th class="num">Frequency</th><th class="num">Reach</th>
+          <th class="num">Impressions</th><th class="num">Spend</th>
+          <th class="num">ROAS</th><th>Category</th>
+        </tr></thead>
+        <tbody id="freqDrillBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 14-day buffer ──────────────────────────────────────────────────── -->
+  <div class="funnel-card" id="lifeBufferSection" style="display:none">
+    <div class="funnel-hdr">
+      <h3>14-Day buffer resolver <span class="h-sub">ads at or past day 14 from creation · current verdict + F1-F4 passes</span></h3>
+      <span class="mono" style="font-size:11px;color:var(--text-tertiary)" id="lifeBufferTot">—</span>
+    </div>
+    <div class="filter-top" style="margin-bottom:10px">
+      <div class="preset-row" id="lifeBufferStatusRow">
+        <button class="preset active" data-s="">All verdicts</button>
+        <button class="preset" data-s="Winner">Winners</button>
+        <button class="preset" data-s="Incremental Winner">Inc. Winners</button>
+        <button class="preset" data-s="Priority">Priority</button>
+        <button class="preset" data-s="Analyze 1">Analyze 1</button>
+        <button class="preset" data-s="Analyze 2">Analyze 2</button>
+        <button class="preset" data-s="Discarded">Discarded</button>
+      </div>
+      <input class="fg-input" id="lifeBufferSearch" type="text" placeholder="search ad name / campaign" style="width:240px">
+    </div>
+    <div style="overflow:auto;max-height:calc(100vh - 460px)">
+      <table class="tbl" id="lifeBufferTbl" style="margin:0">
+        <thead><tr>
+          <th>Ad name</th><th>Status</th><th>Created</th><th class="num">Days since</th>
+          <th>Verdict</th><th>F1 ≥50k</th><th>F2 ROAS</th><th>F3 CPNCP</th><th>F4 CPFTV</th>
+          <th class="num">Spend</th><th class="num">ROAS</th><th class="num">FTEWV</th><th class="num">NCP</th>
+        </tr></thead>
+        <tbody id="lifeBufferBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div><!-- /view-lifecycle -->
+
+<!-- ─── VIEW: ADS ANALYSE — native v2 design, same ae_table_view logic ─ -->
+<div class="view" id="view-ae" style="display:none">
+  <div class="page-hdr">
+    <div>
+      <h1 class="heading">Ads Analyse</h1>
+      <div class="sub">4-filter category engine · live from ae_table_view · re-evaluated client-side when thresholds change</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn ghost" id="aeBtnCrosscheck">⇄ Cross-check vs old dashboard</button>
+      <button class="btn ghost" id="aeBtnRefresh">↻ Refresh</button>
+      <button class="btn"       id="aeBtnExport">Export CSV</button>
+    </div>
+  </div>
+
+  <!-- ── Filter section — card-grid layout, two rows ─────────────────── -->
+  <div class="ae-fgrid row1">
+    <div class="ae-fcard">
+      <label class="ae-flbl" for="aeAcct">Account</label>
+      <select class="ae-finput" id="aeAcct">
+        <option value="">All Accounts</option>
+        <option value="Raho Saadaa">Raho Saadaa</option>
+        <option value="Fourth Ad Account - SD">Fourth Ad Account</option>
+        <option value="Third Ad Account - SD">Third Ad Account</option>
+      </select>
+    </div>
+    <div class="ae-fcard">
+      <label class="ae-flbl" for="aeGroupBy">Group By</label>
+      <select class="ae-finput" id="aeGroupBy">
+        <option value="ad">Ad Level</option>
+        <option value="ad_name">Ad Name</option>
+        <option value="campaign">Campaign</option>
+      </select>
+    </div>
+    <div class="ae-fcard">
+      <label class="ae-flbl" for="aeCategory">Category</label>
+      <select class="ae-finput" id="aeCategory">
+        <option value="">All Categories</option>
+        <option>Incremental Winner</option>
+        <option>Winner</option>
+        <option>Priority</option>
+        <option>Analyze 1</option>
+        <option>Analyze 2</option>
+        <option>Discarded</option>
+      </select>
+    </div>
+    <div class="ae-fcard">
+      <label class="ae-flbl" for="aeStatus">Ad Status</label>
+      <select class="ae-finput" id="aeStatus">
+        <option value="">All Statuses</option>
+        <option value="ACTIVE">Active</option>
+        <option value="PAUSED">Paused</option>
+        <option value="CAMPAIGN_PAUSED">Campaign paused</option>
+        <option value="ADSET_PAUSED">Adset paused</option>
+        <option value="ARCHIVED">Archived</option>
+        <option value="WITH_ISSUES">With issues</option>
+      </select>
+    </div>
+    <div class="ae-fcard">
+      <label class="ae-flbl" for="aeDateField">Date Field</label>
+      <select class="ae-finput" id="aeDateField">
+        <option value="ad_created">Ad Created</option>
+        <option value="first_seen_date">First Seen</option>
+        <option value="date_of_result">Date of Result</option>
+        <option value="reporting_ends">Reporting End</option>
+      </select>
+    </div>
+    <div class="ae-fcard">
+      <label class="ae-flbl">Date Range</label>
+      <div id="ae-drp-wrap" class="drp-wrap">
+        <button id="ae-drp-btn" class="drp-btn" type="button">
+          <span id="ae-drp-label" class="drp-label">All time</span>
+          <span class="drp-caret">▾</span>
+        </button>
+        <div id="ae-drp-panel" class="drp-panel" aria-hidden="true">
+          <div class="drp-shell">
+            <div id="ae-drp-presets" class="drp-presets">
+              <div class="drp-preset" data-key="today">Today</div>
+              <div class="drp-preset" data-key="yesterday">Yesterday</div>
+              <div class="drp-preset" data-key="last7">Last 7 Days</div>
+              <div class="drp-preset" data-key="last30">Last 30 Days</div>
+              <div class="drp-preset" data-key="thisMonth">This Month</div>
+              <div class="drp-preset" data-key="lastMonth">Last Month</div>
+              <div class="drp-preset" data-key="last90">Last 90 Days</div>
+              <div class="drp-preset active" data-key="lifetime">Lifetime</div>
+              <div class="drp-preset" data-key="custom">Custom Range</div>
+            </div>
+            <div class="drp-main">
+              <div class="drp-monthbar">
+                <button id="ae-drp-prev" class="drp-nav" type="button">‹</button>
+                <div id="ae-drp-month-l" class="drp-month"></div>
+                <div id="ae-drp-month-r" class="drp-month"></div>
+                <button id="ae-drp-next" class="drp-nav" type="button">›</button>
+              </div>
+              <div class="drp-cals">
+                <div id="ae-drp-cal-l" class="drp-cal"></div>
+                <div id="ae-drp-cal-r" class="drp-cal"></div>
+              </div>
+              <div class="drp-footer">
+                <div id="ae-drp-footer-range" class="drp-range-text">--/--/---- - --/--/----</div>
+                <div class="drp-footer-actions">
+                  <button id="ae-drp-cancel" class="ae-fbtn" type="button">Cancel</button>
+                  <button id="ae-drp-apply"  class="ae-fbtn primary" type="button">Apply</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ae-fgrid row2">
+    <div class="ae-fcard"><label class="ae-flbl" for="aeF1">F1 Imp</label>
+      <input class="ae-finput mono" id="aeF1" type="number" value="50000" step="1000"></div>
+    <div class="ae-fcard"><label class="ae-flbl" for="aeF2">F2 ROAS</label>
+      <input class="ae-finput mono" id="aeF2" type="number" value="3.2" step="0.1"></div>
+    <div class="ae-fcard"><label class="ae-flbl" for="aeF3">F3 C/NCP</label>
+      <input class="ae-finput mono" id="aeF3" type="number" value="525" step="1"></div>
+    <div class="ae-fcard"><label class="ae-flbl" for="aeF4">F4 C/FTEWV</label>
+      <input class="ae-finput mono" id="aeF4" type="number" value="12" step="1"></div>
+    <div class="ae-fcard ae-actions">
+      <label class="ae-flbl">Actions</label>
+      <div class="ae-actions-row">
+        <button class="ae-fbtn" id="aeClearDates"   type="button">Clear Dates</button>
+        <button class="ae-fbtn" id="aeClearFilters" type="button">Clear Filters</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Multi-Filter — chainable rules (Field × Operator × Value) -->
+  <div class="ae-fgrid row4">
+    <div class="ae-fcard ae-mfilter">
+      <div class="ae-mfilter-head">
+        <label class="ae-flbl">Multi-Filter</label>
+        <div class="ae-mfilter-actions">
+          <button class="ae-fbtn primary" id="aeMfApply" type="button">Apply</button>
+          <button class="ae-fbtn"         id="aeMfClear" type="button">Clear</button>
+        </div>
+      </div>
+      <div id="aeMfRows"></div>
+      <button class="ae-mfilter-add" id="aeMfAdd" type="button">+ Add Rule</button>
+    </div>
+  </div>
+
+  <!-- Hidden custom-range inputs (kept for backwards compat with the JS;
+       use Date Range = Custom to show them) -->
+  <input type="hidden" id="aeDateFrom">
+  <input type="hidden" id="aeDateTo">
+
+  <!-- Category KPI cards — clickable to filter the table -->
+  <div class="kpi-row" id="aeCats">
+    <div class="kpi" data-cat="Incremental Winner" data-cls="incr">
+      <div class="k-lbl">Incremental Winner</div><div class="k-val mono" id="aeKp-iw">—</div>
+      <div class="k-sub">spend <b id="aeKp-iw-sp">—</b></div>
+    </div>
+    <div class="kpi" data-cat="Winner" data-cls="winner">
+      <div class="k-lbl">Winner</div><div class="k-val mono" id="aeKp-w">—</div>
+      <div class="k-sub">spend <b id="aeKp-w-sp">—</b></div>
+    </div>
+    <div class="kpi" data-cat="Priority" data-cls="priority">
+      <div class="k-lbl">Priority</div><div class="k-val mono" id="aeKp-pr">—</div>
+      <div class="k-sub">spend <b id="aeKp-pr-sp">—</b></div>
+    </div>
+    <div class="kpi" data-cat="Analyze 1" data-cls="analyze1">
+      <div class="k-lbl">Analyze 1</div><div class="k-val mono" id="aeKp-a1">—</div>
+      <div class="k-sub">spend <b id="aeKp-a1-sp">—</b></div>
+    </div>
+    <div class="kpi" data-cat="Analyze 2" data-cls="analyze2">
+      <div class="k-lbl">Analyze 2</div><div class="k-val mono" id="aeKp-a2">—</div>
+      <div class="k-sub">spend <b id="aeKp-a2-sp">—</b></div>
+    </div>
+    <div class="kpi" data-cat="Discarded" data-cls="discarded">
+      <div class="k-lbl">Discarded</div><div class="k-val mono" id="aeKp-d">—</div>
+      <div class="k-sub">spend <b id="aeKp-d-sp">—</b></div>
+    </div>
+  </div>
+
+  <!-- Cross-check panel (collapsed by default) -->
+  <div id="aeCrossPanel" style="display:none">
+    <div class="funnel-card" style="margin-bottom:12px;background:var(--accent-warm-tint);border-color:var(--warning-border)">
+      <div class="funnel-hdr">
+        <h3>⇄ Cross-check — counts in this dashboard vs ae_table_view ground truth</h3>
+        <button class="btn ghost" id="aeCrossClose" style="padding:4px 10px;font-size:11px">close ✕</button>
+      </div>
+      <div id="aeCrossBody" style="font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;padding:6px"></div>
+    </div>
+  </div>
+
+  <!-- Show / hide Discarded toggle (the old dashboard hid Discarded by default) -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin:8px 2px 6px">
+    <label style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--text-secondary);cursor:pointer">
+      <input type="checkbox" id="aeShowDiscarded"> Show Discarded ads
+    </label>
+    <span id="aeFooter" style="font-size:11px;color:var(--text-tertiary)">—</span>
+  </div>
+
+  <!-- Table card — pagination strip on top, then scrollable table -->
+  <div class="ae-tbl-card">
+
+    <!-- Pagination strip (TOP of the table) -->
+    <div class="ae-pager">
+      <span id="aeRowInfo" class="mono">0 rows</span>
+      <span class="ae-pager-sep">|</span>
+      <label for="aePageSize" style="font-size:11px;color:var(--text-secondary)">Show</label>
+      <select class="fg-select" id="aePageSize" style="padding:5px 8px;width:80px">
+        <option>25</option>
+        <option>50</option>
+        <option selected>100</option>
+        <option>250</option>
+        <option>500</option>
+        <option>1000</option>
+      </select>
+      <div class="ae-pager-right">
+        <button class="btn ghost" id="aePrevPage" type="button" style="padding:5px 10px;font-size:11px">‹ Prev</button>
+        <span id="aePageInfo" class="mono" style="min-width:120px;text-align:center">Page 1 / 1</span>
+        <button class="btn ghost" id="aeNextPage" type="button" style="padding:5px 10px;font-size:11px">Next ›</button>
+      </div>
+    </div>
+
+    <div class="ae-tbl-wrap">
+      <table class="tbl ae-tbl" id="aeMain">
+        <thead>
+          <tr>
+            <th data-nosort="1" class="col-thumb">Preview</th>
+            <th data-sort="campaign_name" class="col-camp">Campaign</th>
+            <th data-sort="adset_id">Ad Set ID</th>
+            <th data-sort="ad_id">Ad ID</th>
+            <th data-sort="ad_name" class="col-adname">Ad Name</th>
+            <th data-nosort="1">Attribution</th>
+            <th data-sort="account_name">Account</th>
+            <th data-sort="ad_created">Created</th>
+            <th data-sort="first_seen_date">First Seen</th>
+            <th data-sort="date_target_imp_achieved">F1 Hit Date</th>
+            <th data-sort="date_of_result">Result Date</th>
+            <th class="num" data-sort="days_to_result">Days Result</th>
+            <th class="num" data-sort="days_to_target_f1">Days F1</th>
+            <th data-sort="category">Category</th>
+            <th data-sort="f1_pass">F1</th>
+            <th data-sort="f2_pass">F2</th>
+            <th data-sort="f3_pass">F3</th>
+            <th data-sort="f4_pass">F4</th>
+            <th data-sort="ad_status">Ad Status</th>
+            <th class="num" data-sort="impressions">Impressions</th>
+            <th class="num" data-sort="reach">Reach</th>
+            <th class="num" data-sort="frequency">Freq</th>
+            <th class="num" data-sort="amount_spent">Spend</th>
+            <th class="num" data-sort="cpc_link">CPC Link</th>
+            <th class="num" data-sort="ctr_pct">CTR %</th>
+            <th class="num" data-sort="link_clicks_raw">Link Clicks</th>
+            <th class="num" data-sort="purchases">Purchases</th>
+            <th class="num" data-sort="conv_value">Conv Value</th>
+            <th class="num" data-sort="roas_ma">ROAS</th>
+            <th class="num" data-sort="shopify_orders">Shop Orders</th>
+            <th class="num" data-sort="shopify_sales">Shop Sales</th>
+            <th class="num" data-sort="cost_per_ftewv">Cost/FTEWV</th>
+            <th class="num" data-sort="ftewv_count">FTEWV</th>
+            <th class="num" data-sort="cost_per_ncp">Cost/NCP</th>
+            <th class="num" data-sort="ncp_count">NCP</th>
+            <th class="num" data-sort="profit_efficiency">Profit Eff</th>
+            <th class="num" data-sort="blended_eff">Blended Eff</th>
+            <th data-sort="preview_link">Preview</th>
+            <th data-sort="ad_link">Ad Link</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div><!-- /view-ae -->
+
+<!-- ─── VIEW: INVENTORY (Shopify products) ─────────────────────────── -->
+<div class="view" id="view-inventory" style="display:none">
+  <div class="page-hdr">
+    <div>
+      <h1 class="heading">Inventory</h1>
+      <div class="sub">all Shopify products · active &amp; draft</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <input class="fg-input" id="invSearch" type="text" placeholder="search title, SKU, vendor" style="width:280px">
+      <button class="btn ghost" id="invRefresh">↻ Refresh</button>
+      <button class="btn" id="invExport">Export CSV</button>
+    </div>
+  </div>
+
+  <!-- Status filter pills -->
+  <div class="filter-top" style="align-items:center">
+    <div class="preset-row" id="invStatusRow">
+      <button class="preset active" data-s="">All</button>
+      <button class="preset" data-s="ACTIVE">Active</button>
+      <button class="preset" data-s="DRAFT">Draft</button>
+      <button class="preset" data-s="ARCHIVED">Archived</button>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;font-size:12px;color:var(--text-secondary)">
+      <label style="display:flex;gap:6px;align-items:center;cursor:pointer">
+        <input type="checkbox" id="invExcludeOOS"> Exclude out-of-stock
+      </label>
+      <label style="display:flex;gap:6px;align-items:center;cursor:pointer">
+        <input type="checkbox" id="invExcludeNoImg"> Exclude no image
+      </label>
+    </div>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="kpi-row" id="invKpis">
+    <div class="kpi"><div class="k-lbl">Total products</div><div class="k-val mono" id="invKpTotal">—</div><div class="k-sub">all statuses</div></div>
+    <div class="kpi"><div class="k-lbl">Active</div><div class="k-val mono" id="invKpActive">—</div><div class="k-sub">published</div></div>
+    <div class="kpi"><div class="k-lbl">Draft</div><div class="k-val mono" id="invKpDraft">—</div><div class="k-sub">unpublished</div></div>
+    <div class="kpi"><div class="k-lbl">Archived</div><div class="k-val mono" id="invKpArch">—</div><div class="k-sub">hidden</div></div>
+    <div class="kpi"><div class="k-lbl">Total variants</div><div class="k-val mono" id="invKpVar">—</div><div class="k-sub">SKUs</div></div>
+    <div class="kpi"><div class="k-lbl">Out of stock</div><div class="k-val mono" id="invKpOOS">—</div><div class="k-sub">variants with 0</div></div>
+  </div>
+
+  <!-- Product table -->
+  <div class="funnel-card" style="padding:0;overflow:auto;max-height:calc(100vh - 360px)">
+    <table class="tbl inv-tbl" id="invTbl" style="margin:0">
+      <thead><tr>
+        <th style="width:64px">Image</th>
+        <th>Title</th>
+        <th>Status</th>
+        <th>Vendor</th>
+        <th>Type</th>
+        <th class="num">Variants</th>
+        <th class="num">Total inventory</th>
+        <th class="num">Price range (₹)</th>
+        <th>Created</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div style="margin-top:8px;font-size:12px;color:var(--text-tertiary)" id="invFooter">
+    Configure Shopify access via URL params:
+    <code style="background:#fff;padding:2px 6px;border-radius:4px;border:1px solid var(--border-warm)">?shopDomain=&lt;shop&gt;.myshopify.com&amp;shopifyToken=&lt;admin_token&gt;</code>
+  </div>
+</div><!-- /view-inventory -->
+
+</main>
+
+<!-- ═════════════════ MODAL — Category definitions ═════════════════ -->
+<div id="defModal" role="dialog" aria-hidden="true"
+     style="position:fixed;inset:0;background:rgba(44,36,32,0.55);backdrop-filter:blur(4px);
+            z-index:110;display:none;align-items:center;justify-content:center;padding:24px">
+  <div class="modal-card" style="max-width:820px">
+    <div class="mc-hdr">
+      <div>
+        <div class="ttl">Category Definitions — 4-Filter Logic</div>
+        <div class="sub">F1 Impressions · F2 ROAS · F3 Cost/NCP · F4 Cost/FTEWV</div>
+      </div>
+      <button class="mc-close" id="defClose">✕</button>
+    </div>
+    <div class="mc-body">
+
+      <!-- Thresholds -->
+      <div class="def-section-lbl">Evaluation thresholds</div>
+      <div class="def-thresh">
+        <div class="def-th"><div class="ttl">F1 — Min Impressions</div>
+          <div class="val mono">50,000</div>
+          <div class="hint">Must pass before evaluation is considered valid.</div></div>
+        <div class="def-th"><div class="ttl">F2 — Min ROAS</div>
+          <div class="val mono">3.2 ×</div>
+          <div class="hint">Conv. Value ÷ Spend over the date range.</div></div>
+        <div class="def-th"><div class="ttl">F3 — Cost / NCP</div>
+          <div class="val mono">≤ ₹ 525</div>
+          <div class="hint">Σ Spend ÷ Σ NCP count over the date range.</div></div>
+        <div class="def-th"><div class="ttl">F4 — Cost / FTEWV</div>
+          <div class="val mono">≤ ₹ 25</div>
+          <div class="hint">First-time engaged-view-purchase cost.</div></div>
+      </div>
+
+      <!-- Algorithm -->
+      <div class="def-section-lbl" style="margin-top:22px">Categorisation algorithm</div>
+      <p class="def-prose">
+        Each unique ad is evaluated against a four-filter matrix. <b>F1 is mandatory</b>
+        for any Winner-class bucket. <b>Incremental Winner</b> passes all four. <b>Winner</b>
+        clears F1–F3 (F4 not required). Ads that pass only F1 + F4 land in <b>Priority</b>
+        (P0 iteration target). Ads passing F1 alone fall to <b>Analyze 1</b>; ads passing
+        F2 (but not F1 — still building impressions) go to <b>Analyze 2</b>. Everything
+        else is <b>Discarded</b>.
+      </p>
+
+      <table class="tbl def-cats">
+        <thead><tr><th>Category</th><th>Condition</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="badge incr">Incremental Winner</span></td>
+            <td class="mono">F1 ✓ AND F2 ✓ AND F3 ✓ AND F4 ✓</td>
+            <td>Scale aggressively. Top-tier proven creative.</td>
+          </tr>
+          <tr>
+            <td><span class="badge win">Winner</span></td>
+            <td class="mono">F1 ✓ AND F2 ✓ AND F3 ✓</td>
+            <td>Scale. F4 close-second; iterate on cost-per-FTEWV.</td>
+          </tr>
+          <tr>
+            <td><span class="badge pri">Priority</span></td>
+            <td class="mono">F1 ✓ AND F4 ✓</td>
+            <td>Impressions met + cheap FTEWV. P0 iteration target.</td>
+          </tr>
+          <tr>
+            <td><span class="badge a1">Analyze 1</span></td>
+            <td class="mono">F1 ✓ only</td>
+            <td>Hit impressions, but ROAS / Cost-NCP / Cost-FTEWV all miss.</td>
+          </tr>
+          <tr>
+            <td><span class="badge a2">Analyze 2</span></td>
+            <td class="mono">F2 ✓ (F1 not yet)</td>
+            <td>Strong ROAS signal but still building impressions.</td>
+          </tr>
+          <tr>
+            <td><span class="badge disc">Discarded</span></td>
+            <td class="mono">else (no filter passes)</td>
+            <td>Cut spend or rework creative — no signal.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="def-prose" style="margin-top:18px;color:var(--text-secondary);font-size:11.5px">
+        Thresholds are set in <code>refresh_summary_table.py</code>. To tune them, edit the
+        constants in the script and rerun the full update; the funnel flags <code>f1_pass</code> –
+        <code>f4_pass</code> on each ad in <code>ae_table_view</code> get recomputed on every refresh.
+      </p>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════════ MODAL — Bucket detail (Product / Creative focus) ═════════════════ -->
+<div id="bucketModal" role="dialog" aria-hidden="true"
+     style="position:fixed;inset:0;background:rgba(44,36,32,0.55);backdrop-filter:blur(4px);
+            z-index:108;display:none;align-items:center;justify-content:center;padding:24px">
+  <div class="modal-card" style="max-width:1240px">
+    <div class="mc-hdr">
+      <div>
+        <div class="ttl" id="bucketTitle">Focus bucket</div>
+        <div class="sub" id="bucketSub">—</div>
+      </div>
+      <button class="mc-close" id="bucketClose">✕</button>
+    </div>
+    <div class="mc-toolbar">
+      <span class="fb-lbl">Sort by</span>
+      <div class="chip-toggle" id="bucketSortToggle">
+        <div class="chip active" data-s="spend">Spend</div>
+        <div class="chip" data-s="roas">ROAS</div>
+        <div class="chip" data-s="ftewv">FTEWV</div>
+        <div class="chip" data-s="created">Newest</div>
+      </div>
+      <span class="fb-lbl" style="margin-left:14px">Limit</span>
+      <div class="chip-toggle" id="bucketLimitToggle">
+        <div class="chip active" data-n="15">Top 15</div>
+        <div class="chip" data-n="50">50</div>
+        <div class="chip" data-n="0">All</div>
+      </div>
+    </div>
+    <div class="mc-body">
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-bottom:18px">
+        <div class="chart-card" style="min-height:260px">
+          <div class="ch-hdr"><h4>Creatives added per week</h4>
+            <div class="ch-val mono" id="bucketTrendCount">—</div></div>
+          <canvas id="bucketTrendChart"></canvas>
+        </div>
+        <div class="chart-card" style="min-height:260px">
+          <div class="ch-hdr"><h4>Spend distribution</h4>
+            <div class="ch-val mono" id="bucketSpendTotal">—</div></div>
+          <canvas id="bucketSpendChart"></canvas>
+        </div>
+      </div>
+      <table class="tbl" id="bucketTbl">
+        <thead><tr>
+          <th>Ad name</th><th>Created</th><th>Spend</th><th>ROAS</th>
+          <th>FTEWV</th><th>NCP</th><th>Shop. orders</th><th>Status</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════════ MODAL (Winners popup) ═════════════════ -->
+<div id="modal" role="dialog" aria-hidden="true">
+  <div class="modal-card">
+    <div class="mc-hdr">
+      <div>
+        <div class="ttl"><span id="modalTitle">Top performing in category</span></div>
+        <div class="sub" id="modalSub">spend + ROAS for filter</div>
+      </div>
+      <button class="mc-close" id="modalClose">✕</button>
+    </div>
+    <div class="mc-toolbar">
+      <span class="fb-lbl">Show top</span>
+      <div class="chip-toggle" id="topNToggle">
+        <div class="chip" data-n="10">10</div>
+        <div class="chip active" data-n="20">20</div>
+        <div class="chip" data-n="50">50</div>
+      </div>
+      <span class="fb-lbl" style="margin-left:14px">Metrics</span>
+      <div class="chip-toggle" id="metricToggle">
+        <div class="chip active" data-m="spend">Spend</div>
+        <div class="chip active" data-m="roas">ROAS</div>
+        <div class="chip" data-m="ftewv">FTEWV</div>
+        <div class="chip" data-m="ncp">NCP</div>
+      </div>
+    </div>
+    <div class="mc-body">
+      <canvas id="modalChart" style="max-height:340px"></canvas>
+      <table class="tbl" id="modalTbl" style="margin-top:18px">
+        <thead><tr>
+          <th></th><th>Ad</th><th>Spend</th><th>ROAS</th><th>FTEWV</th><th>NCP</th><th>Shopify orders</th><th>Status</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════════ DRAWER (ad detail with preview) ═════════════════ -->
+<aside id="drawer" aria-hidden="true">
+  <div class="dr-hdr">
+    <div>
+      <div class="ttl" id="drTtl">Ad detail</div>
+      <div class="sub" id="drSub">click any row in the modal</div>
+    </div>
+    <button class="mc-close" id="drClose">✕</button>
+  </div>
+  <div class="dr-body">
+    <div class="dr-metrics" id="drMetrics"></div>
+    <div class="dr-preview">
+      <div class="ph">Preview <a id="drPreviewLink" href="#" target="_blank" style="float:right">Open ↗</a></div>
+      <iframe id="drIframe" class="dr-iframe" sandbox="allow-same-origin allow-scripts"></iframe>
+    </div>
+  </div>
+</aside>
+
+<script>
+/* ============================================================
+   v2 — data + interactions
+   ============================================================ */
+const params      = new URLSearchParams(window.location.search);
+const SUPABASE_URL  = params.get('supabaseUrl')  || '';
+const SUPABASE_ANON = params.get('supabaseAnon') || '';
+const dbStat = document.getElementById('dbStat');
+
+const fmtInt = n => (n==null||isNaN(n)) ? '—' : Math.round(+n).toLocaleString('en-IN');
+const fmtRs  = n => (n==null||isNaN(n)) ? '—' : '₹' + fmtInt(n);
+const fmtRoas= n => (n==null||isNaN(n)) ? '—' : (+n).toFixed(2)+'x';
+
+let allAds      = [];   // ae_table_view rows → drives Ads Analyse + Lifecycle
+let primaryAds  = [];   // primary_table aggregated per ad → drives Creative Testing
+                        // (matches the old dashboard exactly, including its
+                        // "primary_table only" date coverage)
+let thumbsByAdId = {};  // {ad_id: thumbnail_url}  — populated from ad_thumbnails
+                        // table (Meta Graph API fetched server-side)
+let state = {acct:'', status:'', campaign:'', content:'', tier:'',
+             dateFrom:'', dateTo:'', search:'', searchMode:'contains'};
+
+function detectCtype(name){
+  const n = (name||'').toUpperCase();
+  if(n.includes('IFAD'))  return 'IFAD';
+  if(n.includes('GAD'))   return 'Graphic AD';
+  if(n.includes('VRP')||n.includes('NNC')||n.includes('VIDEO')||n.includes('IGP')||n.includes('NO-ID')||/^VID-AD/.test(n)) return 'VID';
+  if(n.includes('STATIC')||n.includes('_ST_')||n.includes('+ST+')) return 'STATIC';
+  return 'VID';
+}
+
+async function fetchAds(){
+  if (!SUPABASE_URL || !SUPABASE_ANON){
+    dbStat.textContent = 'Missing ?supabaseUrl & ?supabaseAnon';
+    return [];
+  }
+  dbStat.innerHTML = 'Loading <span class="spinner"></span>';
+  const cols = [
+    'account_name','campaign_name','adset_id','adset_name','ad_id','ad_name','ad_created',
+    'first_seen_date','reporting_starts','reporting_ends','date_target_imp_achieved',
+    'date_of_result','days_to_result','days_to_target_f1',
+    'ad_status','category','f1_pass','f2_pass','f3_pass','f4_pass',
+    'impressions','reach','frequency','ltv_frequency','amount_spent','cost_per_1000',
+    'cpc_link','ctr_pct','link_clicks_raw','roas_ma','ftewv_count',
+    'cost_per_ftewv','cost_per_ncp','ncp_count','conv_value','purchases',
+    'profit_efficiency','blended_eff','preview_link','ad_link',
+    'shopify_orders','shopify_sales','shopify_top_tier','shopify_roas'
+  ].join(',');
+  const headers = {'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON};
+  let out=[], offset=0, BATCH=1000;
+  while(true){
+    const url=SUPABASE_URL+'/rest/v1/ae_table_view?select='+cols+
+              '&order=amount_spent.desc.nullslast&limit='+BATCH+'&offset='+offset;
+    const r=await fetch(url,{headers});
+    if(!r.ok){dbStat.textContent='Error: '+r.status; break}
+    const j=await r.json();
+    out=out.concat(j);
+    if(j.length<BATCH) break;
+    offset+=BATCH;
+    if(offset>=20000) break;
+  }
+  dbStat.innerHTML='Loaded <span class="mono">'+fmtInt(out.length)+'</span> ads';
+  return out;
+}
+
+/* Pull the ad_thumbnails table once and index by ad_id. Cheap (~15k rows,
+   one URL each) — let the dashboard render a small <img> per row. */
+async function fetchThumbnails(){
+  if (!SUPABASE_URL || !SUPABASE_ANON) return {};
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                   Prefer:'count=none'};
+  const out = {};
+  let offset = 0, BATCH = 1000;
+  while (true){
+    const url = SUPABASE_URL+'/rest/v1/ad_thumbnails?select=ad_id,thumbnail_url'+
+                '&thumbnail_url=not.is.null&limit='+BATCH+'&offset='+offset;
+    const r = await fetch(url,{headers});
+    if (!r.ok) break;
+    const j = await r.json();
+    if (!Array.isArray(j) || !j.length) break;
+    for (const row of j) if (row.ad_id && row.thumbnail_url) out[row.ad_id] = row.thumbnail_url;
+    if (j.length < BATCH) break;
+    offset += BATCH;
+  }
+  return out;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   PRIMARY TABLE — same path the OLD dashboard uses for Creative
+   Testing.  Fetches raw daily rows from `primary_table`, aggregates
+   per ad_id client-side, derives ROAS / cost-per-NCP / cost-per-FTEWV,
+   then applies the exact same F1-F4 thresholds the OLD dashboard
+   applied (50000 / 3.2 / 525 / 12).  Returns per-ad rows shaped like
+   ae_table_view rows so the existing Creative Testing renderers
+   (renderKpis, renderFunnel, renderFocusStrips, etc.) work unchanged.
+   ───────────────────────────────────────────────────────────────── */
+const CT_ACTIVE_STATUSES = new Set([
+  'ACTIVE','WITH_ISSUES','PENDING_REVIEW','PREAPPROVED','IN_PROCESS',
+  'PENDING_BILLING_INFO','CAMPAIGN_PAUSED','ADSET_PAUSED'
+]);
+function _ctCategory(impr, roas, cpncp, cpft, t){
+  const f1 = impr  >= t.f1;
+  const f2 = roas  >= t.f2;
+  const f3 = cpncp > 0 && cpncp <= t.f3;
+  const f4 = cpft  > 0 && cpft  <= t.f4;
+  let cat;
+  if      (f1 && f2 && f3 && f4) cat = 'Incremental Winner';
+  else if (f1 && f2 && f3)       cat = 'Winner';
+  else if (f1 && f4)             cat = 'Priority';
+  else if (f1)                   cat = 'Analyze 1';
+  else if (f2)                   cat = 'Analyze 2';
+  else                           cat = 'Discarded';
+  return {f1_pass:f1, f2_pass:f2, f3_pass:f3, f4_pass:f4, category:cat};
+}
+async function fetchPrimaryAggregated(dateFrom, dateTo){
+  if (!SUPABASE_URL || !SUPABASE_ANON){
+    dbStat.textContent = 'Missing ?supabaseUrl & ?supabaseAnon';
+    return [];
+  }
+  // Old dashboard aggregates daily rows in the SELECTED date range, not the
+  // ad's lifetime. Push the same date filter to the SQL query so categories,
+  // spend and KPIs reflect the window (default = last 30 days incl. today).
+  const dateFilter =
+    (dateFrom ? '&date=gte.'+dateFrom : '') +
+    (dateTo   ? '&date=lte.'+dateTo   : '');
+  const label = (dateFrom || dateTo) ? 'primary_table '+(dateFrom||'…')+'→'+(dateTo||'…')
+                                     : 'primary_table';
+  dbStat.innerHTML = 'Loading '+label+' <span class="spinner"></span>';
+  const cols = [
+    'account_name','date','ad_name','ad_id','adset_id','adset_name','campaign_name','ad_status',
+    'impressions','amount_spent_inr','reach','outbound_clicks','conversion_value','purchases',
+    'ad_created_date','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp',
+    'preview_link','ad_link'
+  ].join(',');
+  const headers = {apikey:SUPABASE_ANON,Authorization:'Bearer '+SUPABASE_ANON,Prefer:'count=none'};
+  const BATCH = 1000;
+  const map = Object.create(null);
+  let total = 0;
+  for (const acctName of ['Raho Saadaa','Third Ad Account - SD','Fourth Ad Account - SD']){
+    let offset = 0;
+    while (true){
+      const url = SUPABASE_URL+'/rest/v1/primary_table?account_name=eq.'+
+        encodeURIComponent(acctName)+'&select='+cols+
+        dateFilter+
+        '&order=date.desc&limit='+BATCH+'&offset='+offset;
+      const r = await fetch(url,{headers});
+      if (!r.ok){ dbStat.textContent = 'primary_table HTTP '+r.status; break; }
+      const chunk = await r.json();
+      if (!Array.isArray(chunk) || !chunk.length) break;
+      for (const row of chunk){
+        const key = row.ad_id || row.ad_name;
+        if (!key) continue;
+        let m = map[key];
+        if (!m){
+          m = map[key] = {
+            ad_id:row.ad_id||'', ad_name:row.ad_name||'',
+            account_name:row.account_name||'', campaign_name:row.campaign_name||'',
+            adset_id:row.adset_id||'', adset_name:row.adset_name||'',
+            ad_status:row.ad_status||'', ad_created:row.ad_created_date||null,
+            preview_link:row.preview_link||'', ad_link:row.ad_link||'',
+            _impr:0, _spend:0, _conv:0, _purch:0, _reach:0,
+            _ftewv:0, _ncp:0, _outClicks:0,
+            _cpft_sheet:[], _cpncp_sheet:[]
+          };
+        }
+        // Most-active status wins (matches old dashboard line 1620-1622)
+        const st = (row.ad_status||'').toUpperCase();
+        if (row.ad_status && (!m.ad_status || st === 'ACTIVE')) m.ad_status = row.ad_status;
+        // Most-recent created date stays (rows are date.desc-ordered)
+        if (row.ad_created_date && !m.ad_created) m.ad_created = row.ad_created_date;
+        if (row.preview_link && !m.preview_link) m.preview_link = row.preview_link;
+        if (row.ad_link      && !m.ad_link)      m.ad_link      = row.ad_link;
+        // Sums
+        const imp = +row.impressions || 0;
+        if (imp > 0) m._impr += imp;
+        m._spend  += +row.amount_spent_inr  || 0;
+        m._conv   += +row.conversion_value  || 0;
+        m._purch  += +row.purchases         || 0;
+        m._reach  += +row.reach             || 0;
+        m._ftewv  += +row.ftewv_count       || 0;
+        m._ncp    += +row.ncp_count         || 0;
+        m._outClicks += +row.outbound_clicks|| 0;
+        const cpft = +row.cost_per_ftewv;
+        const cpncp = +row.cost_per_ncp;
+        if (cpft  && isFinite(cpft))  m._cpft_sheet.push(cpft);
+        if (cpncp && isFinite(cpncp)) m._cpncp_sheet.push(cpncp);
+      }
+      total += chunk.length;
+      if (chunk.length < BATCH) break;
+      offset += BATCH;
+    }
+  }
+  // Derive per-ad metrics and apply F1-F4 with current threshold inputs
+  const t = (typeof aeReadThresholds === 'function')
+            ? aeReadThresholds()
+            : {f1:50000, f2:3.2, f3:525, f4:12};
+  const out = [];
+  for (const k in map){
+    const m = map[k];
+    // OLD dashboard drops ads with zero impressions UNLESS their status is "alive"
+    if (m._impr <= 0 && !CT_ACTIVE_STATUSES.has((m.ad_status||'').toUpperCase())) continue;
+    const roas  = m._spend > 0 ? m._conv  / m._spend : 0;
+    const cpft  = m._ftewv > 0 ? m._spend / m._ftewv
+                  : (m._cpft_sheet.length ? m._cpft_sheet.reduce((a,b)=>a+b,0)/m._cpft_sheet.length : 0);
+    const cpncp = m._ncp   > 0 ? m._spend / m._ncp
+                  : (m._cpncp_sheet.length ? m._cpncp_sheet.reduce((a,b)=>a+b,0)/m._cpncp_sheet.length : 0);
+    const cat = _ctCategory(m._impr, roas, cpncp, cpft, t);
+    out.push({
+      ad_id:m.ad_id, ad_name:m.ad_name, account_name:m.account_name,
+      campaign_name:m.campaign_name, adset_id:m.adset_id, adset_name:m.adset_name,
+      ad_status:m.ad_status, ad_created:m.ad_created,
+      preview_link:m.preview_link, ad_link:m.ad_link,
+      impressions:m._impr, reach:m._reach,
+      frequency: m._reach > 0 ? m._impr / m._reach : 0,
+      amount_spent:m._spend, conv_value:m._conv, purchases:m._purch,
+      ftewv_count:m._ftewv, ncp_count:m._ncp,
+      roas_ma:roas, cost_per_ftewv:cpft, cost_per_ncp:cpncp,
+      ...cat
+    });
+  }
+  dbStat.innerHTML = 'Loaded <span class="mono">'+fmtInt(out.length)+'</span> ads (primary_table)';
+  return out;
+}
+/* Re-applies categories to primaryAds using the current threshold inputs.
+   Mirrors aeApplyCurrentThresholds() but for the primary-table-derived set. */
+function ctApplyCurrentThresholds(){
+  const t = (typeof aeReadThresholds === 'function')
+            ? aeReadThresholds()
+            : {f1:50000, f2:3.2, f3:525, f4:12};
+  for (const r of primaryAds){
+    const cat = _ctCategory(+r.impressions || 0, +r.roas_ma || 0,
+                            +r.cost_per_ncp || 0, +r.cost_per_ftewv || 0, t);
+    r.f1_pass = cat.f1_pass; r.f2_pass = cat.f2_pass;
+    r.f3_pass = cat.f3_pass; r.f4_pass = cat.f4_pass;
+    r.category = cat.category;
+  }
+}
+
+function filtered(rows){
+  let r = rows.slice();
+  if (state.acct)     r = r.filter(x => (x.account_name||'') === state.acct);
+  if (state.status)   r = r.filter(x => (x.ad_status||'').toUpperCase() === state.status);
+  if (state.campaign) r = r.filter(x => (x.campaign_name||'') === state.campaign);
+  if (state.tier)     r = r.filter(x => (x.category||'') === state.tier);
+  if (state.content)  r = r.filter(x => detectCtype(x.ad_name) === state.content);
+  // state.dateFrom/dateTo are intentionally NOT applied client-side here
+  // anymore — Creative Testing's primary_table fetch already filters daily
+  // rows by `date` at the SQL layer, so ANY ad with activity in the window
+  // is included regardless of when it was originally created. (Old
+  // dashboard behaved the same: an ad created in 2023 still running today
+  // appears in the "Last 30d" view.)
+  if (state.search) {
+    const q = state.search.toLowerCase().trim();
+    const hay = x => ((x.ad_name||'')+' '+(x.campaign_name||'')+' '+(x.adset_name||'')+' '+(x.ad_id||'')).toLowerCase();
+    if (state.searchMode === 'contains')   r = r.filter(x =>  hay(x).includes(q));
+    else                                   r = r.filter(x => !hay(x).includes(q));
+  }
+  return r;
+}
+
+/* ── Date presets ──────────────────────────────────────────────────── */
+function applyDatePreset(p){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const iso = d => d.toISOString().slice(0,10);
+  const fromInp = document.getElementById('fDateFrom');
+  const toInp   = document.getElementById('fDateTo');
+  let from=null, to=null;
+  if (p === 'lifetime')      { from = ''; to = ''; }
+  else if (p === 'custom')   { /* leave whatever's in the inputs */ from = fromInp.value; to = toInp.value; }
+  else {
+    const t = new Date(today);
+    if (p === 'last7')      { from = new Date(t); from.setDate(t.getDate()-6); to = t; }
+    else if (p === 'last30'){ from = new Date(t); from.setDate(t.getDate()-29); to = t; }
+    else if (p === 'last90'){ from = new Date(t); from.setDate(t.getDate()-89); to = t; }
+    else if (p === 'thisMonth'){ from = new Date(t.getFullYear(),t.getMonth(),1); to = t; }
+    else if (p === 'lastMonth'){
+      from = new Date(t.getFullYear(),t.getMonth()-1,1);
+      to   = new Date(t.getFullYear(),t.getMonth(),0);
+    }
+    from = iso(from); to = iso(to);
+  }
+  fromInp.value = from || '';
+  toInp.value   = to   || '';
+  state.dateFrom = fromInp.value;
+  state.dateTo   = toInp.value;
+}
+
+function populateCampaignDropdown(rows){
+  const sel = document.getElementById('fCampaign');
+  if (!sel) return;
+  const seen = new Set();
+  const opts = ['<option value="">All campaigns</option>'];
+  for (const r of rows){
+    const c = r.campaign_name || '';
+    if (c && !seen.has(c)) { seen.add(c); opts.push('<option>'+c.replace(/</g,'&lt;')+'</option>'); }
+  }
+  sel.innerHTML = opts.join('');
+}
+
+function renderKpis(rows){
+  const map = {'Winner':'winner','Incremental Winner':'incr','Priority':'pri',
+               'Analyze 1':'a1','Analyze 2':'a2','Discarded':'dis'};
+  const buckets = Object.fromEntries(Object.keys(map).map(k=>[k,{n:0,sp:0}]));
+  for (const r of rows){
+    const c = r.category || 'Discarded';
+    if (!buckets[c]) continue;
+    buckets[c].n += 1;
+    buckets[c].sp += (+r.amount_spent || 0);
+  }
+  for (const [c, suf] of Object.entries(map)){
+    document.getElementById('kp-'+suf).textContent = fmtInt(buckets[c]?.n);
+    document.getElementById('kp-'+suf+'-sp').textContent = fmtRs(buckets[c]?.sp);
+  }
+}
+
+function classifyProduct(adName){
+  const s = (adName||'').toLowerCase();
+  if (s.includes('clp')) return 'Collection page';
+  if (s.includes('pdp') || s.includes('product') || s.includes('vrp')) return 'Product page';
+  if (s.includes('ctp') || s.includes('custom')) return 'Custom page';
+  return 'Other';
+}
+function classifyCreative(adName){
+  const s = adName || '';
+  if (/(^|[^A-Za-z])VID([^A-Za-z]|$)/.test(s)) return 'VID';
+  if (/IFAD/i.test(s)) return 'IFAD';
+  if (/GAD/i.test(s))  return 'GAD';
+  if (/UGC/i.test(s))  return 'UGC';
+  if (/ADB/i.test(s))  return 'ADB';
+  if (/BST/i.test(s))  return 'BST';
+  if (/BR_/i.test(s))  return 'BR';
+  return 'OTHER';
+}
+function renderFocusStrips(rows){
+  const p = {'Collection page':0,'Product page':0,'Custom page':0,'Other':0};
+  const c = {IFAD:0,GAD:0,VID:0,UGC:0,ADB:0,BR:0,BST:0,OTHER:0};
+  for (const r of rows){
+    p[classifyProduct(r.ad_name)] += 1;
+    c[classifyCreative(r.ad_name)] += 1;
+  }
+  const prodKeys = ['Collection page','Product page','Custom page','Other'];
+  document.querySelectorAll('#prodStrip .focus-pill').forEach((el, i) => {
+    const k = prodKeys[i];
+    el.querySelector('b').textContent = fmtInt(p[k] || 0);
+    el.dataset.btype = 'product'; el.dataset.bval = k;
+    el.classList.toggle('disabled', (p[k]||0) === 0);
+  });
+  const creativeKeys = ['IFAD','GAD','VID','UGC','ADB','BR','BST','OTHER'];
+  const creativeLabels = ['IFAD','GAD','VID','UGC','ADB','BR','BST','Other'];
+  document.querySelectorAll('#creativeStrip .focus-pill').forEach((el, i) => {
+    const k = creativeKeys[i];
+    el.querySelector('b').textContent = fmtInt(c[k] || 0);
+    el.dataset.btype = 'creative'; el.dataset.bval = k;
+    el.dataset.blabel = creativeLabels[i];
+    el.classList.toggle('disabled', (c[k]||0) === 0);
+  });
+  return {p,c};
+}
+
+/* ── Charts (Chart.js) — Saadaa palette ────────────────────────────── */
+Chart.defaults.color = '#494640';
+Chart.defaults.borderColor = '#E7E2D2';
+Chart.defaults.font.family = "'Inter',sans-serif";
+let charts = {prod:null, trend:null, creative:null, modal:null};
+
+const SAADAA_PALETTE = [
+  '#F0C61E', // accent-yellow
+  '#C9A882', // accent-sand
+  '#3B6FD4', // info / indigo
+  '#7B4FBF', // purple
+  '#B54F7A', // pink
+  '#3D9E6B', // success-mid
+  '#D9922A', // warning-mid
+  '#9A9384'  // tertiary
+];
+
+function donutChart(canvas, labels, data, colors){
+  return new Chart(canvas.getContext('2d'), {
+    type:'doughnut',
+    data:{labels, datasets:[{data, backgroundColor:colors, borderColor:'#FFFFFF', borderWidth:2}]},
+    options:{responsive:true, maintainAspectRatio:false, cutout:'68%',
+      plugins:{legend:{display:true,position:'right',labels:{boxWidth:10,font:{size:11},color:'#494640'}}}}
+  });
+}
+function renderProdChart(p){
+  if (charts.prod) charts.prod.destroy();
+  const colors = [SAADAA_PALETTE[0], SAADAA_PALETTE[1], SAADAA_PALETTE[2], SAADAA_PALETTE[7]];
+  const data = [p['Collection page'],p['Product page'],p['Custom page'],p['Other']];
+  charts.prod = donutChart(document.getElementById('chProd'),
+                           ['Collection','Product','Custom','Other'], data, colors);
+  document.getElementById('prodTotalCnt').textContent = fmtInt(data.reduce((a,b)=>a+b,0));
+}
+function renderCreativeChart(c){
+  if (charts.creative) charts.creative.destroy();
+  const data = ['IFAD','GAD','VID','UGC','ADB','BR','BST','OTHER'].map(k=>c[k]||0);
+  charts.creative = donutChart(document.getElementById('chCreative'),
+                               ['IFAD','GAD','VID','UGC','ADB','BR','BST','Other'],
+                               data, SAADAA_PALETTE);
+  document.getElementById('creativeTotalCnt').textContent = fmtInt(data.reduce((a,b)=>a+b,0));
+}
+function renderTrendChart(rows){
+  const buckets = {};
+  for (const r of rows){
+    if (!r.ad_created) continue;
+    const d = new Date(r.ad_created); if (isNaN(d.getTime())) continue;
+    const monday = new Date(d); monday.setDate(d.getDate() - d.getDay());
+    const key = monday.toISOString().slice(0,10);
+    buckets[key] = (buckets[key]||0) + 1;
+  }
+  const labels = Object.keys(buckets).sort();
+  const data = labels.map(k=>buckets[k]);
+  if (charts.trend) charts.trend.destroy();
+  charts.trend = new Chart(document.getElementById('chTrend').getContext('2d'), {
+    type:'line',
+    data:{labels, datasets:[{label:'New creatives', data,
+      borderColor:'#F0C61E', backgroundColor:'rgba(240,198,30,0.12)',
+      fill:true, tension:.35, pointRadius:2, pointBackgroundColor:'#F0C61E'}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{y:{grid:{color:'#EFEAE0'}, ticks:{color:'#6E695E'}},
+              x:{grid:{display:false}, ticks:{color:'#6E695E', maxTicksLimit:8}}}}
+  });
+  document.getElementById('chTrendCount').textContent = fmtInt(data.reduce((a,b)=>a+b,0));
+}
+
+/* ── Modal (Winners popup) ─────────────────────────────────────────── */
+let modalState = {category:null, topN:20, metrics:{spend:true, roas:true, ftewv:false, ncp:false}};
+function openModal(category){
+  modalState.category = category;
+  document.getElementById('modalTitle').textContent = 'Top performing — '+category;
+  document.getElementById('modalSub').textContent  = 'spend + ROAS for "'+category+'"';
+  document.getElementById('modal').classList.add('show');
+  renderModal();
+}
+function closeModal(){document.getElementById('modal').classList.remove('show')}
+document.getElementById('modalClose').onclick = closeModal;
+document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); });
+
+document.getElementById('topNToggle').addEventListener('click', e=>{
+  const c = e.target.closest('.chip'); if(!c) return;
+  document.querySelectorAll('#topNToggle .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active'); modalState.topN = +c.dataset.n; renderModal();
+});
+document.getElementById('metricToggle').addEventListener('click', e=>{
+  const c = e.target.closest('.chip'); if(!c) return;
+  c.classList.toggle('active');
+  modalState.metrics[c.dataset.m] = c.classList.contains('active');
+  renderModal();
+});
+
+function renderModal(){
+  const rows = filtered(primaryAds).filter(r => (r.category||'')===modalState.category);
+  rows.sort((a,b)=>(b.amount_spent||0)-(a.amount_spent||0));
+  const top = rows.slice(0, modalState.topN);
+
+  if (charts.modal) charts.modal.destroy();
+  const ctx = document.getElementById('modalChart').getContext('2d');
+  const ds = [];
+  if (modalState.metrics.spend) ds.push({label:'Spend (₹)', backgroundColor:'#F0C61E', data:top.map(r=>+r.amount_spent||0), yAxisID:'y'});
+  if (modalState.metrics.roas)  ds.push({label:'ROAS',      backgroundColor:'#3B6FD4', data:top.map(r=>+r.roas_ma||0),     yAxisID:'y1'});
+  if (modalState.metrics.ftewv) ds.push({label:'FTEWV',     backgroundColor:'#7B4FBF', data:top.map(r=>+r.ftewv_count||0), yAxisID:'y'});
+  if (modalState.metrics.ncp)   ds.push({label:'NCP',       backgroundColor:'#D9922A', data:top.map(r=>+r.ncp_count||0),   yAxisID:'y'});
+  charts.modal = new Chart(ctx,{
+    type:'bar',
+    data:{labels: top.map((r,i)=>'#'+(i+1)), datasets:ds},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{boxWidth:12,font:{size:11},color:'#494640'}},
+               tooltip:{callbacks:{title:(items)=>{
+                 const idx = items[0].dataIndex; return (top[idx]?.ad_name || '').slice(0,80);
+               }}}},
+      scales:{
+        y :{position:'left',  grid:{color:'#EFEAE0'}, ticks:{callback:v=>fmtInt(v), color:'#6E695E'}},
+        y1:{position:'right', grid:{display:false},   ticks:{callback:v=>v.toFixed(1)+'x', color:'#6E695E'}},
+        x :{grid:{display:false}, ticks:{maxRotation:0, autoSkip:false, color:'#6E695E'}}
+      }
+    }
+  });
+
+  const tb = document.querySelector('#modalTbl tbody'); tb.innerHTML='';
+  if (!top.length){
+    tb.innerHTML = '<tr><td colspan="8" class="empty">No ads in this category for current filter</td></tr>';
+    return;
+  }
+  for (const r of top){
+    const tr = document.createElement('tr'); tr.style.cursor='pointer';
+    tr.onclick = ()=>openDrawer(r);
+    const name = (r.ad_name||'—').replace(/"/g,'&quot;');
+    tr.innerHTML =
+      '<td><div class="thumb"></div></td>'+
+      '<td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+name+'">'+name+'</td>'+
+      '<td class="mono">'+fmtRs(r.amount_spent)+'</td>'+
+      '<td class="mono">'+fmtRoas(r.roas_ma)+'</td>'+
+      '<td class="mono">'+fmtInt(r.ftewv_count)+'</td>'+
+      '<td class="mono">'+fmtInt(r.ncp_count)+'</td>'+
+      '<td class="mono">'+fmtInt(r.shopify_orders)+'</td>'+
+      '<td><span class="badge '+badgeCls(r.category)+'">'+(r.category||'—')+'</span></td>';
+    tb.appendChild(tr);
+  }
+}
+function badgeCls(c){
+  return ({'Winner':'win','Incremental Winner':'incr','Priority':'pri',
+           'Analyze 1':'a1','Analyze 2':'a2','Discarded':'disc'})[c] || '';
+}
+
+/* ── Bucket modal (Product / Creative focus drill-down) ───────────── */
+let bucketState = {type:null, val:null, label:null, sort:'spend', limit:15};
+charts.bucketTrend = null; charts.bucketSpend = null;
+
+function bucketRows(){
+  const rows = filtered(primaryAds);
+  if (bucketState.type === 'product')
+    return rows.filter(r => classifyProduct(r.ad_name) === bucketState.val);
+  if (bucketState.type === 'creative')
+    return rows.filter(r => classifyCreative(r.ad_name) === bucketState.val);
+  return [];
+}
+
+function openBucketModal(btype, bval, blabel){
+  bucketState.type = btype;
+  bucketState.val  = bval;
+  bucketState.label = blabel || bval;
+  const t = (btype==='product') ? 'Product in Focus' : 'Creative Focus';
+  document.getElementById('bucketTitle').textContent = t + ' — ' + bucketState.label;
+  const total = bucketRows().length;
+  document.getElementById('bucketSub').textContent = fmtInt(total)+' ads in current filter';
+  document.getElementById('bucketModal').style.display = 'flex';
+  document.getElementById('bucketModal').setAttribute('aria-hidden','false');
+  renderBucket();
+}
+function closeBucketModal(){
+  document.getElementById('bucketModal').style.display = 'none';
+  document.getElementById('bucketModal').setAttribute('aria-hidden','true');
+}
+
+document.getElementById('bucketClose').onclick = closeBucketModal;
+document.getElementById('bucketModal').addEventListener('click', e=>{
+  if (e.target.id === 'bucketModal') closeBucketModal();
+});
+document.getElementById('bucketSortToggle').addEventListener('click', e=>{
+  const c = e.target.closest('.chip'); if(!c) return;
+  document.querySelectorAll('#bucketSortToggle .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active'); bucketState.sort = c.dataset.s; renderBucket();
+});
+document.getElementById('bucketLimitToggle').addEventListener('click', e=>{
+  const c = e.target.closest('.chip'); if(!c) return;
+  document.querySelectorAll('#bucketLimitToggle .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active'); bucketState.limit = +c.dataset.n; renderBucket();
+});
+
+function renderBucket(){
+  const all = bucketRows();
+  // Trend (line) — creatives added per week
+  const buckets = {};
+  for (const r of all){
+    if (!r.ad_created) continue;
+    const d = new Date(r.ad_created); if (isNaN(d.getTime())) continue;
+    const m = new Date(d); m.setDate(d.getDate() - d.getDay());
+    const k = m.toISOString().slice(0,10);
+    buckets[k] = (buckets[k]||0)+1;
+  }
+  const tLabels = Object.keys(buckets).sort();
+  const tData   = tLabels.map(k=>buckets[k]);
+  if (charts.bucketTrend) charts.bucketTrend.destroy();
+  charts.bucketTrend = new Chart(document.getElementById('bucketTrendChart').getContext('2d'),{
+    type:'line',
+    data:{labels:tLabels, datasets:[{label:'New creatives', data:tData,
+      borderColor:'#F0C61E', backgroundColor:'rgba(240,198,30,0.14)',
+      fill:true, tension:.35, pointRadius:2, pointBackgroundColor:'#F0C61E'}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{y:{grid:{color:'#EFEAE0'}, ticks:{color:'#6E695E'}},
+              x:{grid:{display:false}, ticks:{color:'#6E695E', maxTicksLimit:8}}}}
+  });
+  document.getElementById('bucketTrendCount').textContent = fmtInt(tData.reduce((a,b)=>a+b,0));
+
+  // Sort + slice
+  const sorted = all.slice().sort((a,b)=>{
+    if (bucketState.sort === 'spend')   return (+b.amount_spent||0) - (+a.amount_spent||0);
+    if (bucketState.sort === 'roas')    return (+b.roas_ma||0)      - (+a.roas_ma||0);
+    if (bucketState.sort === 'ftewv')   return (+b.ftewv_count||0)  - (+a.ftewv_count||0);
+    if (bucketState.sort === 'created') return new Date(b.ad_created||0) - new Date(a.ad_created||0);
+    return 0;
+  });
+  const top = (bucketState.limit > 0) ? sorted.slice(0, bucketState.limit) : sorted;
+
+  // Spend bar (top N by spend)
+  const barTop = sorted.slice(0, 15);
+  if (charts.bucketSpend) charts.bucketSpend.destroy();
+  charts.bucketSpend = new Chart(document.getElementById('bucketSpendChart').getContext('2d'),{
+    type:'bar',
+    data:{labels: barTop.map((r,i)=>'#'+(i+1)),
+      datasets:[
+        {label:'Spend (₹)', backgroundColor:'#F0C61E',
+         data: barTop.map(r=>+r.amount_spent||0), yAxisID:'y'},
+        {label:'ROAS', backgroundColor:'#3B6FD4',
+         data: barTop.map(r=>+r.roas_ma||0), yAxisID:'y1'}
+      ]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{boxWidth:12,font:{size:11},color:'#494640'}},
+        tooltip:{callbacks:{title:(items)=>(barTop[items[0].dataIndex]?.ad_name||'').slice(0,80)}}},
+      scales:{
+        y :{position:'left',  grid:{color:'#EFEAE0'}, ticks:{callback:v=>fmtInt(v),color:'#6E695E'}},
+        y1:{position:'right', grid:{display:false},   ticks:{callback:v=>v.toFixed(1)+'x',color:'#6E695E'}},
+        x :{grid:{display:false}, ticks:{color:'#6E695E', maxRotation:0}}
+      }}
+  });
+  const sumSpend = all.reduce((a,b)=>a+(+b.amount_spent||0),0);
+  document.getElementById('bucketSpendTotal').textContent = '₹'+fmtInt(sumSpend);
+
+  // Table
+  const tb = document.querySelector('#bucketTbl tbody'); tb.innerHTML='';
+  if (!top.length){
+    tb.innerHTML = '<tr><td colspan="8" class="empty">No ads in this bucket for current filter.</td></tr>';
+    return;
+  }
+  for (const r of top){
+    const tr = document.createElement('tr'); tr.style.cursor='pointer';
+    tr.onclick = ()=>openDrawer(r);
+    const name = (r.ad_name||'—').replace(/"/g,'&quot;');
+    const created = r.ad_created ? new Date(r.ad_created).toISOString().slice(0,10) : '—';
+    tr.innerHTML =
+      '<td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+name+'">'+name+'</td>'+
+      '<td class="mono" style="color:var(--text-secondary)">'+created+'</td>'+
+      '<td class="mono">'+fmtRs(r.amount_spent)+'</td>'+
+      '<td class="mono">'+fmtRoas(r.roas_ma)+'</td>'+
+      '<td class="mono">'+fmtInt(r.ftewv_count)+'</td>'+
+      '<td class="mono">'+fmtInt(r.ncp_count)+'</td>'+
+      '<td class="mono">'+fmtInt(r.shopify_orders)+'</td>'+
+      '<td><span class="badge '+badgeCls(r.category)+'">'+(r.category||'—')+'</span></td>';
+    tb.appendChild(tr);
+  }
+}
+
+/* Click handlers on Product + Creative focus pills */
+function bindFocusStrip(stripId){
+  document.getElementById(stripId).addEventListener('click', e=>{
+    const pill = e.target.closest('.focus-pill'); if(!pill) return;
+    if (pill.classList.contains('disabled')) return;
+    openBucketModal(pill.dataset.btype, pill.dataset.bval, pill.dataset.blabel);
+  });
+}
+bindFocusStrip('prodStrip');
+bindFocusStrip('creativeStrip');
+
+/* ── Drawer (preview + metrics) ────────────────────────────────────── */
+function openDrawer(r){
+  document.getElementById('drTtl').textContent = r.ad_name || 'Untitled ad';
+  document.getElementById('drSub').textContent = (r.account_name||'')+' · '+(r.adset_name||'')+' · '+(r.ad_id||'');
+  const m = document.getElementById('drMetrics');
+  const cells = [
+    ['Spend', fmtRs(r.amount_spent)], ['ROAS', fmtRoas(r.roas_ma)],
+    ['FTEWV', fmtInt(r.ftewv_count)], ['NCP', fmtInt(r.ncp_count)],
+    ['Conv value', fmtRs(r.conv_value)], ['Shopify orders', fmtInt(r.shopify_orders)],
+    ['Shopify sales', fmtRs(r.shopify_sales)], ['Shopify ROAS', fmtRoas(r.shopify_roas)],
+  ];
+  m.innerHTML = cells.map(([l,v])=>'<div class="dr-metric"><div class="lbl">'+l+'</div><div class="val mono">'+v+'</div></div>').join('');
+  const ifr = document.getElementById('drIframe');
+  const link = r.preview_link || '';
+  ifr.src = link || 'about:blank';
+  document.getElementById('drPreviewLink').href = link || '#';
+  document.getElementById('drPreviewLink').style.display = link ? 'inline' : 'none';
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drIframe').src = 'about:blank';
+}
+document.getElementById('drClose').onclick = closeDrawer;
+
+/* ── Funnel breakdown (Creative Type × Category) ───────────────────── */
+const CTYPE_ICONS = { 'IFAD':'🎬', 'Graphic AD':'🖼️', 'VID':'📹', 'STATIC':'📷' };
+const FUNNEL_SUB  = ['Incremental Winner','Winner','Priority','Analyze 1','Analyze 2','Discarded'];
+const FUNNEL_SUB_SHORT = ['Inc. Winner','Winner','Priority','Analyze 1','Analyze 2','Discarded'];
+const FUNNEL_COL_CLS  = ['col-incr','col-win','col-pri','col-a1','col-a2','col-disc'];
+function renderFunnel(rows){
+  const body = document.getElementById('funnelBody'); if (!body) return;
+  const ctypes = ['IFAD','Graphic AD','VID','STATIC'];
+  const counts = {};
+  for (const ct of ctypes) counts[ct] = {total:0, f4:0, ...Object.fromEntries(FUNNEL_SUB.map(s=>[s,0]))};
+  for (const r of rows){
+    const ct = detectCtype(r.ad_name);
+    if (!counts[ct]) continue;
+    const cat = r.category || 'Discarded';
+    counts[ct].total += 1;
+    if (FUNNEL_SUB.includes(cat)) counts[ct][cat] += 1;
+    if (r.f4_pass) counts[ct].f4 += 1;
+  }
+  const active = ctypes.filter(ct => counts[ct].total > 0);
+  if (!active.length){
+    body.innerHTML = '<div class="empty">No ads match the current filter.</div>';
+    document.getElementById('funnelTotal').textContent = '—';
+    return;
+  }
+  const maxPerCat = {};
+  for (const s of FUNNEL_SUB) maxPerCat[s] = Math.max(1, ...active.map(ct=>counts[ct][s]));
+  const maxF4 = Math.max(1, ...active.map(ct=>counts[ct].f4));
+  const cols  = '180px 70px repeat(6,1fr) 130px';
+  let html = '';
+  // Master row
+  html += `<div class="fk-row fk-master" style="grid-template-columns:${cols}">
+    <div style="grid-column:span 2"></div>
+    <div class="fk-master-cell win"  style="grid-column:span 2">Winner</div>
+    <div class="fk-master-cell pri"  style="grid-column:span 1">Priority</div>
+    <div class="fk-master-cell anl"  style="grid-column:span 2">Analyze</div>
+    <div class="fk-master-cell dis"  style="grid-column:span 1">Discarded</div>
+    <div class="fk-master-cell f4">F4 Quality</div>
+  </div>`;
+  // Sub-header row
+  html += `<div class="fk-row fk-sub" style="grid-template-columns:${cols}">
+    <div class="fk-sub-cell first">Creative Type</div>
+    <div class="fk-sub-cell">Total</div>
+    ${FUNNEL_SUB_SHORT.map(s=>`<div class="fk-sub-cell">${s}</div>`).join('')}
+    <div class="fk-sub-cell" style="border-left:2px solid var(--border-primary)">F4 ✓</div>
+  </div>`;
+  // Data rows
+  for (const ct of active){
+    const row = counts[ct];
+    html += `<div class="fk-row fk-data" style="grid-template-columns:${cols}">
+      <div class="fk-ctype"><span class="icon">${CTYPE_ICONS[ct]||'📌'}</span>
+        <div><div class="nm">${ct}</div><div class="ttl">${row.total} ads</div></div></div>
+      <div class="fk-total"><div class="n">${row.total}</div></div>
+      ${FUNNEL_SUB.map((s,i)=>{
+        const n = row[s]||0; const pct = row.total ? Math.round(n/row.total*100) : 0;
+        const barPct = (n/maxPerCat[s]*100).toFixed(1);
+        return `<div class="fk-cell ${FUNNEL_COL_CLS[i]}">
+          <div><span class="n">${n}</span><span class="p">${pct}%</span></div>
+          <div class="bar"><div class="bar-fill" style="width:${barPct}%"></div></div>
+        </div>`;
+      }).join('')}
+      <div class="fk-cell col-f4 f4">
+        <div><span class="n">${row.f4}</span><span class="p">${row.total?Math.round(row.f4/row.total*100):0}%</span></div>
+        <div class="bar"><div class="bar-fill" style="width:${(row.f4/maxF4*100).toFixed(1)}%"></div></div>
+      </div>
+    </div>`;
+  }
+  // Grand total row
+  const grand = {total:0, f4:0, ...Object.fromEntries(FUNNEL_SUB.map(s=>[s,0]))};
+  for (const ct of active){
+    grand.total += counts[ct].total; grand.f4 += counts[ct].f4;
+    for (const s of FUNNEL_SUB) grand[s] += counts[ct][s];
+  }
+  html += `<div class="fk-row fk-grand fk-data" style="grid-template-columns:${cols}">
+    <div class="fk-ctype"><div><div class="nm">Grand Total</div></div></div>
+    <div class="fk-total"><div class="n">${grand.total}</div></div>
+    ${FUNNEL_SUB.map((s,i)=>{
+      const n=grand[s]; const pct = grand.total?Math.round(n/grand.total*100):0;
+      return `<div class="fk-cell ${FUNNEL_COL_CLS[i]}"><div><span class="n">${n}</span><span class="p">${pct}%</span></div></div>`;
+    }).join('')}
+    <div class="fk-cell col-f4 f4"><div><span class="n">${grand.f4}</span><span class="p">${grand.total?Math.round(grand.f4/grand.total*100):0}%</span></div></div>
+  </div>`;
+  body.innerHTML = html;
+  document.getElementById('funnelTotal').textContent = fmtInt(grand.total) + ' ads';
+}
+
+/* ── Wire-up ───────────────────────────────────────────────────────── */
+function rerender(){
+  const rows = filtered(primaryAds);
+  renderKpis(rows);
+  renderFunnel(rows);
+  const {p,c} = renderFocusStrips(rows);
+  renderProdChart(p);
+  renderCreativeChart(c);
+  renderTrendChart(rows);
+}
+
+document.getElementById('kpiRow').addEventListener('click', e=>{
+  const k = e.target.closest('.kpi'); if(!k) return;
+  openModal(k.dataset.filter);
+});
+function bindFilter(id, key, isDate){
+  const el = document.getElementById(id); if(!el) return;
+  el.addEventListener('change', ()=>{
+    state[key] = el.value;
+    if (isDate){
+      // mark preset as "Custom"
+      document.querySelectorAll('#presetRow .preset').forEach(x=>x.classList.remove('active'));
+      const custom = document.querySelector('#presetRow .preset[data-p="custom"]');
+      if (custom) custom.classList.add('active');
+    }
+    rerender();
+  });
+}
+bindFilter('fAccount','acct');
+bindFilter('fStatus','status');
+bindFilter('fCampaign','campaign');
+bindFilter('fContent','content');
+bindFilter('fTier','tier');
+bindFilter('fDateFrom','dateFrom',true);
+bindFilter('fDateTo','dateTo',true);
+
+/* Date preset chips — change the date window AND re-fetch primary_table
+   so Creative Testing aggregates only the daily rows in the new window
+   (matches the OLD dashboard's behaviour). */
+async function refreshPrimaryForRange(){
+  primaryAds = await fetchPrimaryAggregated(state.dateFrom || '', state.dateTo || '');
+  populateCampaignDropdown(primaryAds);
+  rerender();
+}
+document.getElementById('presetRow').addEventListener('click', async e=>{
+  const b = e.target.closest('.preset'); if(!b) return;
+  document.querySelectorAll('#presetRow .preset').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  applyDatePreset(b.dataset.p);
+  await refreshPrimaryForRange();
+});
+// Manual date-input edits should also re-fetch
+['fDateFrom','fDateTo'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    // debounce in case both inputs change in quick succession
+    clearTimeout(window._ctDateDb);
+    window._ctDateDb = setTimeout(refreshPrimaryForRange, 220);
+  });
+});
+
+/* Search box */
+const searchInp   = document.getElementById('searchInput');
+const searchMode  = document.getElementById('searchMode');
+const searchClear = document.getElementById('searchClear');
+let searchDebounce = null;
+function applySearch(){
+  state.search = searchInp.value;
+  searchClear.classList.toggle('show', !!state.search);
+  rerender();
+}
+searchInp.addEventListener('input', ()=>{
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(applySearch, 150);
+});
+searchMode.addEventListener('click', ()=>{
+  if (state.searchMode === 'contains'){
+    state.searchMode = 'doesnt';
+    searchMode.textContent = "doesn't contain";
+    searchMode.classList.add('neg');
+  } else {
+    state.searchMode = 'contains';
+    searchMode.textContent = 'contains';
+    searchMode.classList.remove('neg');
+  }
+  if (state.search) rerender();
+});
+searchClear.addEventListener('click', ()=>{
+  searchInp.value = ''; applySearch();
+});
+/* Definitions modal */
+function openDefModal(){
+  document.getElementById('defModal').style.display='flex';
+  document.getElementById('defModal').setAttribute('aria-hidden','false');
+}
+function closeDefModal(){
+  document.getElementById('defModal').style.display='none';
+  document.getElementById('defModal').setAttribute('aria-hidden','true');
+}
+document.getElementById('btnDef').onclick = openDefModal;
+document.getElementById('defClose').onclick = closeDefModal;
+document.getElementById('defModal').addEventListener('click', e=>{
+  if (e.target.id === 'defModal') closeDefModal();
+});
+document.addEventListener('keydown', e=>{
+  if (e.key === 'Escape') { closeDefModal(); closeBucketModal(); closeModal(); closeDrawer(); }
+});
+
+document.getElementById('btnRefresh').onclick = async ()=>{
+  // Creative Testing reads primary_table for the current date window
+  // (default = last 30d). Ads Analyse reads ae_table_view (lifetime).
+  [primaryAds, allAds, thumbsByAdId] = await Promise.all([
+    fetchPrimaryAggregated(state.dateFrom || '', state.dateTo || ''),
+    fetchAds(),
+    fetchThumbnails()
+  ]);
+  aeApplyCurrentThresholds();
+  rerender();
+};
+document.getElementById('btnExport').onclick = ()=>{
+  const rows = filtered(primaryAds);
+  const cols = ['ad_id','ad_name','account_name','category','amount_spent','roas_ma',
+                'ftewv_count','ncp_count','shopify_orders','shopify_sales','shopify_top_tier'];
+  const lines = [cols.join(',')];
+  for (const r of rows) lines.push(cols.map(c=>JSON.stringify(r[c]??'')).join(','));
+  const blob = new Blob([lines.join('\n')],{type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'creative_testing_v2_'+(new Date().toISOString().slice(0,10))+'.csv';
+  a.click();
+};
+
+/* ────────────────────────────────────────────────────────────────────
+   VIEW SWITCHER — sidebar nav between Testing / Lifecycle / AE / Inventory
+   ──────────────────────────────────────────────────────────────────── */
+const VIEW_LOADED = {testing:true, lifecycle:false, ae:false, inventory:false};
+document.querySelectorAll('.sb-item').forEach(it => {
+  it.addEventListener('click', () => {
+    const v = it.dataset.view;
+    document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
+    it.classList.add('active');
+    document.querySelectorAll('.view').forEach(vv => vv.style.display = 'none');
+    const target = document.getElementById('view-' + v);
+    if (target) { target.style.display = 'block'; }
+    // Lazy-load per-view data
+    if (v === 'lifecycle' && allAds.length) renderLifecycle();
+    if (v === 'ae'        && allAds.length) renderAE();
+    if (v === 'inventory' && !VIEW_LOADED.inventory) { loadInventory(); VIEW_LOADED.inventory = true; }
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────
+   CREATIVE LIFECYCLE — Frequency Buckets + 14-Day Buffer Resolver
+   Mirrors the logic in index.html's fatiguePanel.
+   ──────────────────────────────────────────────────────────────────── */
+
+// Effective frequency per ad: prefer ltv_frequency (Meta dedup'd), else
+// fall back to impressions/reach. Anything > 3 is excluded (matches index.html).
+function effFreq(a){
+  const ltv = +a.ltv_frequency || 0;
+  if (ltv > 0) return ltv;
+  const imp = +a.impressions || 0, reach = +a.reach || 0;
+  return reach > 0 ? imp / reach : 0;
+}
+
+let freqActiveBucket = null;
+let lifeBufferStatus = '';
+let lifeBufferSearch = '';
+let lifeSection      = 'freq';   // 'freq' (frequency distribution) | 'buffer' (14-day)
+
+function renderLifecycle(){
+  /* ── Frequency buckets ────────────────────────────────────────────── */
+  const eligible = allAds.filter(a => {
+    const f = effFreq(a);
+    return f > 0 && f <= 3;
+  });
+  const buckets = {
+    low : eligible.filter(a => effFreq(a) <  2),
+    mid : eligible.filter(a => { const f = effFreq(a); return f >= 2 && f < 2.5; }),
+    high: eligible.filter(a => { const f = effFreq(a); return f >= 2.5 && f <= 3; }),
+  };
+  function sumF(rows, k){ return rows.reduce((s,r) => s + (+r[k] || 0), 0); }
+
+  ['low','mid','high'].forEach(k => {
+    const rows = buckets[k];
+    const cap = k === 'low' ? 'Low' : k === 'mid' ? 'Mid' : 'High';
+    document.getElementById('freq'+cap+'Count').textContent = fmtInt(rows.length);
+    document.getElementById('freq'+cap+'Spend').textContent = fmtRs(sumF(rows, 'amount_spent'));
+    document.getElementById('freq'+cap+'Reach').textContent = fmtInt(sumF(rows, 'reach'));
+  });
+  document.getElementById('lifeFreqTot').textContent = fmtInt(eligible.length) + ' ads in scope';
+
+  // Render drill table for active bucket if any
+  if (freqActiveBucket) {
+    document.getElementById('freqDrill').style.display = 'block';
+    const rows = buckets[freqActiveBucket].slice()
+      .sort((a,b) => (+b.amount_spent || 0) - (+a.amount_spent || 0))
+      .slice(0, 100);
+    document.getElementById('freqDrillBody').innerHTML = rows.map(r => {
+      const stCls = (r.ad_status||'').toUpperCase() === 'ACTIVE' ? 's-active'
+                  : (r.ad_status||'').toUpperCase().includes('PAUSED') ? 's-draft' : 's-archived';
+      return '<tr>'+
+        '<td style="max-width:300px"><div style="font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
+          (r.ad_name||'—')+'</div></td>'+
+        '<td><span class="status-pill '+stCls+'">'+(r.ad_status||'—')+'</span></td>'+
+        '<td style="font-family:JetBrains Mono;font-size:11px">'+(r.ad_created||'—')+'</td>'+
+        '<td class="num">'+effFreq(r).toFixed(2)+'×</td>'+
+        '<td class="num">'+fmtInt(r.reach)+'</td>'+
+        '<td class="num">'+fmtInt(r.impressions)+'</td>'+
+        '<td class="num">'+fmtRs(r.amount_spent)+'</td>'+
+        '<td class="num">'+fmtRoas(r.roas_ma)+'</td>'+
+        '<td>'+(r.category||'—')+'</td>'+
+      '</tr>';
+    }).join('');
+  } else {
+    document.getElementById('freqDrill').style.display = 'none';
+  }
+
+  /* ── 14-Day buffer ────────────────────────────────────────────────── */
+  const today = new Date(); today.setHours(0,0,0,0);
+  let bufRows = allAds.filter(a => {
+    if (!a.ad_created) return false;
+    const days = Math.floor((today - new Date(a.ad_created)) / 86400000);
+    return days >= 14;
+  });
+
+  // Status filter pills
+  if (lifeBufferStatus) bufRows = bufRows.filter(r => r.category === lifeBufferStatus);
+  if (lifeBufferSearch) {
+    const q = lifeBufferSearch.toLowerCase().trim();
+    bufRows = bufRows.filter(r => ((r.ad_name||'')+' '+(r.campaign_name||'')+' '+(r.ad_id||'')).toLowerCase().includes(q));
+  }
+  bufRows.sort((a,b) => (+b.amount_spent || 0) - (+a.amount_spent || 0));
+
+  const tierClass = c => ({
+    'Winner':'winner','Incremental Winner':'incwinner','Priority':'priority',
+    'Analyze 1':'analyze1','Analyze 2':'analyze2','Discarded':'discarded'
+  })[c] || 'discarded';
+  const passCell = v => v ? '<span class="pass-yes">✓</span>' : '<span class="pass-no">✗</span>';
+
+  document.getElementById('lifeBufferBody').innerHTML = bufRows.slice(0, 500).map(r => {
+    const days = Math.floor((today - new Date(r.ad_created)) / 86400000);
+    const stCls = (r.ad_status||'').toUpperCase() === 'ACTIVE' ? 's-active'
+                : (r.ad_status||'').toUpperCase().includes('PAUSED') ? 's-draft' : 's-archived';
+    return '<tr>'+
+      '<td style="max-width:280px"><div style="font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
+        (r.ad_name||'—')+'</div>'+
+        '<div style="font-size:10px;color:var(--text-tertiary)">'+(r.campaign_name||'')+'</div></td>'+
+      '<td><span class="status-pill '+stCls+'">'+(r.ad_status||'—')+'</span></td>'+
+      '<td style="font-family:JetBrains Mono;font-size:11px">'+(r.ad_created||'—')+'</td>'+
+      '<td class="num">'+days+'d</td>'+
+      '<td><span class="tier-badge '+tierClass(r.category)+'">'+(r.category||'—')+'</span></td>'+
+      '<td style="text-align:center">'+passCell(r.f1_pass)+'</td>'+
+      '<td style="text-align:center">'+passCell(r.f2_pass)+'</td>'+
+      '<td style="text-align:center">'+passCell(r.f3_pass)+'</td>'+
+      '<td style="text-align:center">'+passCell(r.f4_pass)+'</td>'+
+      '<td class="num">'+fmtRs(r.amount_spent)+'</td>'+
+      '<td class="num">'+fmtRoas(r.roas_ma)+'</td>'+
+      '<td class="num">'+fmtInt(r.ftewv_count)+'</td>'+
+      '<td class="num">'+fmtInt(r.ncp_count)+'</td>'+
+    '</tr>';
+  }).join('');
+  document.getElementById('lifeBufferTot').textContent = fmtInt(bufRows.length) + ' ads (showing top 500)';
+}
+
+// Section toggle (Frequency / Buffer)
+document.getElementById('lifeSectionToggle').addEventListener('click', e => {
+  const btn = e.target.closest('.lt-btn'); if (!btn) return;
+  document.querySelectorAll('#lifeSectionToggle .lt-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  lifeSection = btn.dataset.sec;
+  document.getElementById('lifeFreqSection'  ).style.display = lifeSection === 'freq'   ? 'block' : 'none';
+  document.getElementById('lifeBufferSection').style.display = lifeSection === 'buffer' ? 'block' : 'none';
+});
+
+// Wire up bucket click + 14-day buffer filters
+document.getElementById('lifeFreqBuckets').addEventListener('click', e => {
+  const card = e.target.closest('.freq-bucket'); if (!card) return;
+  const k = card.dataset.b;
+  if (freqActiveBucket === k) { freqActiveBucket = null; card.classList.remove('active'); }
+  else {
+    freqActiveBucket = k;
+    document.querySelectorAll('.freq-bucket').forEach(b => b.classList.remove('active'));
+    card.classList.add('active');
+  }
+  renderLifecycle();
+});
+document.getElementById('lifeBufferStatusRow').addEventListener('click', e => {
+  const btn = e.target.closest('.preset'); if (!btn) return;
+  document.querySelectorAll('#lifeBufferStatusRow .preset').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  lifeBufferStatus = btn.dataset.s;
+  renderLifecycle();
+});
+let lifeSearchDb = null;
+document.getElementById('lifeBufferSearch').addEventListener('input', e => {
+  clearTimeout(lifeSearchDb);
+  lifeSearchDb = setTimeout(() => { lifeBufferSearch = e.target.value; renderLifecycle(); }, 200);
+});
+document.getElementById('lifeRefresh').onclick = async () => {
+  allAds = await fetchAds(); renderLifecycle();
+};
+document.getElementById('lifeExport').onclick = () => {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const rows = allAds.filter(a => {
+    if (!a.ad_created) return false;
+    return Math.floor((today - new Date(a.ad_created)) / 86400000) >= 14;
+  });
+  const cols = ['ad_id','ad_name','ad_created','ad_status','category',
+                'f1_pass','f2_pass','f3_pass','f4_pass',
+                'impressions','reach','frequency','ltv_frequency',
+                'amount_spent','roas_ma','ftewv_count','ncp_count'];
+  const lines = [cols.join(',')];
+  rows.forEach(r => lines.push(cols.map(c => JSON.stringify(r[c] ?? '')).join(',')));
+  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'lifecycle_14day_buffer_' + (new Date().toISOString().slice(0,10)) + '.csv'; a.click();
+};
+
+/* ────────────────────────────────────────────────────────────────────
+   ADS ANALYSE — native v2 redesign, same ae_table_view logic as the old AE
+   Computes f1/f2/f3/f4 client-side from current threshold inputs.
+   Recategorises into Winner / Inc.Winner / Priority / Analyze1/2 / Discarded
+   using the same rules as refresh_ae_table.py:
+       f1 (Min Imp) AND f2 AND f3 AND f4  → Incremental Winner
+       f1 AND f2 AND f3                    → Winner
+       f1 AND f4                           → Priority
+       f1                                  → Analyze 1
+       f2                                  → Analyze 2
+       else                                → Discarded
+   ──────────────────────────────────────────────────────────────────── */
+let aeSelectedCat = '';
+let aeSortKey  = 'amount_spent';
+let aeSortDir  = 'desc';
+let aePage     = 0;             // 0-based page index for the AE table
+let aeRules    = [];            // [{field, op, value}, …] for multi-filter
+let aeDailyOpenKey = '';        // cache-key of the currently-open daily-row
+const aeDailyCache = {};        // {cacheKey:{state, rows, totals, error}}
+
+/* ─────────────────────────────────────────────────────────────
+   DAILY ATTRIBUTION — per-ad daily breakdown from primary_table
+   (mirrors the behaviour from ads_analyse_static.html)
+   ───────────────────────────────────────────────────────────── */
+function aeDailyRange(){
+  const from = document.getElementById('aeDateFrom').value || '';
+  const to   = document.getElementById('aeDateTo').value   || '';
+  if (!from && !to) return {from:'', to:'', selFrom:'', selTo:'', capped:false,
+                            label:'all available primary_table dates'};
+  let f = from ? new Date(from+'T00:00:00') : null;
+  let t = to   ? new Date(to+'T00:00:00')   : null;
+  if (f && !t) t = new Date(f);
+  if (t && !f) f = new Date(t);
+  if (f > t){ const x = f; f = t; t = x; }
+  const isoLocal = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+
+                        '-'+String(d.getDate()).padStart(2,'0');
+  const selFrom = isoLocal(f), selTo = isoLocal(t);
+  const days = Math.floor((t - f)/86400000) + 1;
+  if (days >= 30){
+    const capF = new Date(t); capF.setDate(t.getDate() - 29);
+    return {from:isoLocal(capF), to:selTo, selFrom, selTo, capped:true,
+            label:'last 30 days of selected range: '+isoLocal(capF)+' to '+selTo+
+                  ' (selected '+selFrom+' to '+selTo+')'};
+  }
+  return {from:selFrom, to:selTo, selFrom, selTo, capped:false,
+          label:'selected range: '+selFrom+' to '+selTo};
+}
+function aeDailyCacheKey(adId){
+  const r = aeDailyRange();
+  return [adId||'', r.from||'', r.to||'', r.capped?'last30':'selected'].join('|');
+}
+async function aeFetchDaily(adId){
+  if (!SUPABASE_URL || !SUPABASE_ANON) throw new Error('Supabase credentials missing');
+  const cols = [
+    'date','account_name','campaign_name','adset_id','adset_name','ad_id','ad_name',
+    'ad_status','ad_created_date','impressions','reach','amount_spent_inr',
+    'purchase_roas','outbound_clicks','inline_link_clicks','purchases',
+    'conversion_value','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp',
+    'preview_link','ad_link'
+  ].join(',');
+  const range = aeDailyRange();
+  const headers = {apikey:SUPABASE_ANON,Authorization:'Bearer '+SUPABASE_ANON,Prefer:'count=none'};
+  let offset = 0, BATCH = 1000, out = [];
+  while (true){
+    let url = SUPABASE_URL+'/rest/v1/primary_table?select='+cols+
+              '&ad_id=eq.'+encodeURIComponent(adId)+
+              '&order=date.desc&limit='+BATCH+'&offset='+offset;
+    if (range.from) url += '&date=gte.'+range.from;
+    if (range.to)   url += '&date=lte.'+range.to;
+    const r = await fetch(url,{headers});
+    if (!r.ok){
+      const txt = await r.text().catch(()=> '');
+      throw new Error('primary_table HTTP '+r.status+(txt?': '+txt.slice(0,160):''));
+    }
+    const chunk = await r.json();
+    if (!Array.isArray(chunk) || !chunk.length) break;
+    out = out.concat(chunk);
+    offset += chunk.length;
+    if (chunk.length < BATCH) break;
+  }
+  return out;
+}
+function _aeNum(v){
+  if (v === null || v === undefined || v === '') return 0;
+  const n = typeof v === 'number' ? v : Number(String(v).replace(/[,₹Rs%\s]/g,''));
+  return isFinite(n) ? n : 0;
+}
+function _aeMaybe(v){
+  if (v === null || v === undefined || v === '') return NaN;
+  const n = _aeNum(v); return isFinite(n) ? n : NaN;
+}
+function _aePush(arr, v){ const n = _aeMaybe(v); if (isFinite(n)) arr.push(n); }
+function _aeAvg(a){ return a.length ? a.reduce((s,x)=>s+x,0)/a.length : 0; }
+function _aeDiv(a,b){ return b ? a/b : 0; }
+function aeBuildDaily(raw){
+  const by = new Map();
+  raw.forEach(r => {
+    const d = (r.date||'').slice(0,10);
+    if (!d) return;
+    if (!by.has(d)) by.set(d, {date:d, status:'', spend:0, impressions:0, reach:0,
+      linkClicks:0, purchases:0, convValue:0, ftewv:0, ncp:0,
+      _cf:[], _cn:[], _ro:[]});
+    const x = by.get(d);
+    if (r.ad_status) x.status = String(r.ad_status);
+    x.spend       += _aeNum(r.amount_spent_inr);
+    x.impressions += _aeNum(r.impressions);
+    x.reach       += _aeNum(r.reach);
+    x.linkClicks  += _aeNum(r.inline_link_clicks) || _aeNum(r.outbound_clicks);
+    x.purchases   += _aeNum(r.purchases);
+    x.convValue   += _aeNum(r.conversion_value);
+    x.ftewv       += _aeNum(r.ftewv_count);
+    x.ncp         += _aeNum(r.ncp_count);
+    _aePush(x._cf, r.cost_per_ftewv);
+    _aePush(x._cn, r.cost_per_ncp);
+    _aePush(x._ro, r.purchase_roas);
+  });
+  return Array.from(by.values()).map(r => {
+    const freq      = _aeDiv(r.impressions, r.reach);
+    const ctr       = _aeDiv(r.linkClicks, r.impressions) * 100;
+    const roas      = r.convValue > 0 ? _aeDiv(r.convValue, r.spend) : _aeAvg(r._ro);
+    const costFt    = r.ftewv > 0 ? _aeDiv(r.spend, r.ftewv) : _aeAvg(r._cf);
+    const costNcp   = r.ncp   > 0 ? _aeDiv(r.spend, r.ncp)   : _aeAvg(r._cn);
+    return Object.assign(r, {freq, ctr, roas, costFt, costNcp});
+  }).sort((a,b) => b.date.localeCompare(a.date));
+}
+function aeDailyTotals(rows){
+  const t = rows.reduce((a,d) => {
+    a.spend       += d.spend;
+    a.impressions += d.impressions;
+    a.reach       += d.reach;
+    a.linkClicks  += d.linkClicks;
+    a.purchases   += d.purchases;
+    a.convValue   += d.convValue;
+    a.ftewv       += d.ftewv;
+    a.ncp         += d.ncp;
+    return a;
+  }, {spend:0, impressions:0, reach:0, linkClicks:0, purchases:0,
+      convValue:0, ftewv:0, ncp:0});
+  t.freq    = _aeDiv(t.impressions, t.reach);
+  t.ctr     = _aeDiv(t.linkClicks, t.impressions) * 100;
+  t.roas    = t.convValue > 0 ? _aeDiv(t.convValue, t.spend) : 0;
+  t.costFt  = t.ftewv > 0 ? _aeDiv(t.spend, t.ftewv) : 0;
+  t.costNcp = t.ncp   > 0 ? _aeDiv(t.spend, t.ncp)   : 0;
+  return t;
+}
+async function aeToggleDaily(adId, cacheKey){
+  if (!adId) return;
+  if (aeDailyOpenKey === cacheKey){ aeDailyOpenKey = ''; renderAE(); return; }
+  aeDailyOpenKey = cacheKey;
+  if (!aeDailyCache[cacheKey]){
+    aeDailyCache[cacheKey] = {state:'loading', rows:[], totals:null, error:''};
+    renderAE();
+    try{
+      const raw  = await aeFetchDaily(adId);
+      const rows = aeBuildDaily(raw);
+      aeDailyCache[cacheKey] = {state:'ready', rows, totals:aeDailyTotals(rows), error:''};
+    }catch(e){
+      aeDailyCache[cacheKey] = {state:'error', rows:[], totals:null,
+                                error:(e && e.message) ? e.message : String(e)};
+    }
+  }
+  renderAE();
+}
+function aeDailyTotalsFor(adId){
+  const ck = aeDailyCacheKey(adId);
+  const s  = aeDailyCache[ck];
+  if (!s || s.state !== 'ready' || !s.totals) return null;
+  return s.totals;
+}
+function aeRenderDailyRowHTML(r, colspan){
+  const ck = aeDailyCacheKey(r.ad_id);
+  const s  = aeDailyCache[ck] || {state:'loading', rows:[], error:''};
+  const range = aeDailyRange();
+  let inner = '';
+  if (s.state === 'loading'){
+    inner = '<div class="ae-daily-note">Loading daily attribution from primary_table…</div>';
+  } else if (s.state === 'error'){
+    inner = '<div class="ae-daily-note" style="color:var(--error-text)">Failed to load: '+
+            (s.error||'unknown error')+'</div>';
+  } else if (!s.rows.length){
+    inner = '<div class="ae-daily-note">No primary_table daily rows found for this ad and date range.</div>';
+  } else {
+    const t = s.totals;
+    const cell = v => '<td class="num">'+v+'</td>';
+    inner =
+      '<div class="ae-daily-table-wrap"><table class="ae-daily-table">'+
+        '<thead><tr>'+
+          '<th>Date</th><th class="num">Spend</th><th class="num">Impr.</th>'+
+          '<th class="num">Reach</th><th class="num">Freq.</th>'+
+          '<th class="num">Link Clicks</th><th class="num">CTR</th>'+
+          '<th class="num">Purchases</th><th class="num">Conv Value</th>'+
+          '<th class="num">ROAS</th><th class="num">FTEWV</th>'+
+          '<th class="num">Cost/FTEWV</th><th class="num">NCP</th>'+
+          '<th class="num">Cost/NCP</th><th>Status</th>'+
+        '</tr></thead>'+
+        '<tbody>'+ s.rows.map(d => {
+          const st = (d.status||'').toUpperCase() === 'ACTIVE' ? 'active' : '';
+          return '<tr>'+
+            '<td>'+d.date+'</td>'+
+            cell(fmtRs(d.spend))+ cell(fmtInt(d.impressions))+ cell(fmtInt(d.reach))+
+            cell((d.freq||0).toFixed(2))+ cell(fmtInt(d.linkClicks))+
+            cell((d.ctr||0).toFixed(2)+'%')+ cell((d.purchases||0).toFixed(2))+
+            cell(fmtRs(d.convValue))+ cell((d.roas||0).toFixed(2))+
+            cell(fmtInt(d.ftewv))+ cell(fmtRs(d.costFt))+
+            cell(fmtInt(d.ncp))+   cell(fmtRs(d.costNcp))+
+            '<td><span class="ae-status '+st+'">'+(d.status||'—')+'</span></td>'+
+          '</tr>';
+        }).join('') +'</tbody>'+
+        '<tfoot><tr>'+
+          '<td>Totals</td>'+
+          cell(fmtRs(t.spend))+ cell(fmtInt(t.impressions))+ cell(fmtInt(t.reach))+
+          cell((t.freq||0).toFixed(2))+ cell(fmtInt(t.linkClicks))+
+          cell((t.ctr||0).toFixed(2)+'%')+ cell((t.purchases||0).toFixed(2))+
+          cell(fmtRs(t.convValue))+ cell((t.roas||0).toFixed(2))+
+          cell(fmtInt(t.ftewv))+ cell(fmtRs(t.costFt))+
+          cell(fmtInt(t.ncp))+   cell(fmtRs(t.costNcp))+
+          '<td></td>'+
+        '</tr></tfoot></table></div>';
+  }
+  return '<tr class="ae-daily-row"><td colspan="'+colspan+'">'+
+    '<div class="ae-daily-panel">'+
+      '<div class="ae-daily-head">'+
+        '<div>'+
+          '<div class="ae-daily-title">Daily Attribution Breakdown</div>'+
+          '<div class="ae-daily-sub">'+(r.ad_name||'—')+' · ad_id '+(r.ad_id||'—')+
+            ' · '+range.label+'</div>'+
+        '</div>'+
+        '<button class="btn ghost" type="button" data-ae-daily-close="1" style="padding:5px 12px;font-size:11px">Close</button>'+
+      '</div>'+ inner +
+    '</div></td></tr>';
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MULTI-FILTER — chainable rules (Field × Operator × Value)
+   ───────────────────────────────────────────────────────────── */
+const AE_MF_FIELDS = [
+  {key:'name_combined', label:'Name (Ad/Camp)'},
+  {key:'ad_name',       label:'Ad Name'},
+  {key:'campaign_name', label:'Campaign'},
+  {key:'adset_id',      label:'Adset ID'},
+  {key:'ad_id',         label:'Ad ID'},
+  {key:'category',      label:'Category'},
+  {key:'ad_status',     label:'Status'},
+  {key:'account_name',  label:'Account'},
+];
+const AE_MF_OPS = [
+  {key:'contains_all',  label:'contains all of',  ph:'Keywords separated by space'},
+  {key:'contains_any',  label:'contains any of',  ph:'Any of these keywords'},
+  {key:'equals',        label:'equals',           ph:'Exact match (case-insensitive)'},
+  {key:'not_contains',  label:'does not contain', ph:'Exclude these keywords'},
+];
+function aeMfFieldValue(row, key){
+  if (key === 'name_combined') return ((row.ad_name||'') + ' ' + (row.campaign_name||'')).trim();
+  return row[key] || '';
+}
+function aeMfMatch(row, rule){
+  const raw = String(rule.value || '').trim();
+  if (!raw) return true;                              // empty value = ignore rule
+  const v = String(aeMfFieldValue(row, rule.field)).toLowerCase();
+  const toks = raw.toLowerCase().split(/\s+/).filter(Boolean);
+  if (rule.op === 'contains_all')  return toks.every(t => v.includes(t));
+  if (rule.op === 'contains_any')  return toks.some (t => v.includes(t));
+  if (rule.op === 'equals')        return v === toks.join(' ');
+  if (rule.op === 'not_contains')  return !toks.some(t => v.includes(t));
+  return true;
+}
+function aeMfRender(){
+  const host = document.getElementById('aeMfRows');
+  if (!aeRules.length) aeRules.push({field:'name_combined', op:'contains_all', value:''});
+  host.innerHTML = aeRules.map((r, i) => {
+    const opPh = (AE_MF_OPS.find(o => o.key === r.op) || AE_MF_OPS[0]).ph;
+    const fieldOpts = AE_MF_FIELDS.map(f =>
+      `<option value="${f.key}"${f.key===r.field?' selected':''}>${f.label}</option>`).join('');
+    const opOpts = AE_MF_OPS.map(o =>
+      `<option value="${o.key}"${o.key===r.op?' selected':''}>${o.label}</option>`).join('');
+    const val = (r.value || '').replace(/"/g, '&quot;');
+    return `<div class="ae-mfilter-row" data-i="${i}">
+      <select class="ae-finput rule-field">${fieldOpts}</select>
+      <select class="ae-finput rule-op">${opOpts}</select>
+      <input  class="ae-finput rule-value" type="text" placeholder="${opPh}" value="${val}">
+      <button class="ae-rule-del" type="button" title="Remove this rule">&times;</button>
+    </div>`;
+  }).join('');
+  host.querySelectorAll('.ae-mfilter-row').forEach(div => {
+    const i = +div.dataset.i;
+    div.querySelector('.rule-field').addEventListener('change', e => { aeRules[i].field = e.target.value; });
+    div.querySelector('.rule-op'   ).addEventListener('change', e => {
+      aeRules[i].op = e.target.value;
+      const ph = (AE_MF_OPS.find(o => o.key === e.target.value) || AE_MF_OPS[0]).ph;
+      div.querySelector('.rule-value').placeholder = ph;
+    });
+    div.querySelector('.rule-value').addEventListener('input',  e => { aeRules[i].value = e.target.value; });
+    div.querySelector('.ae-rule-del').addEventListener('click', () => {
+      aeRules.splice(i, 1);
+      if (!aeRules.length) aeRules.push({field:'name_combined', op:'contains_all', value:''});
+      aeMfRender(); aePage = 0; renderAE();
+    });
+  });
+}
+
+/* ────────────────────────────────────────────────────────────
+   Date Range Picker (DRP) — full popup, ported from
+   ads_analyse_static.html. Writes to #aeDateFrom / #aeDateTo
+   (the existing hidden inputs the AE filter logic reads).
+   ──────────────────────────────────────────────────────────── */
+const DRP_MONTHS = ['January','February','March','April','May','June',
+                    'July','August','September','October','November','December'];
+const DRP_DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+const drpState = {
+  open:false,
+  viewYear: new Date().getFullYear(),
+  viewMonth: new Date().getMonth() - 1,
+  from:null, to:null, hov:null,
+  preset:'lifetime',
+  selecting:false,
+};
+if (drpState.viewMonth < 0){ drpState.viewMonth = 11; drpState.viewYear -= 1; }
+const drpEl = (id) => document.getElementById(id);
+
+function drpFmtLocal(d){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function drpParseLocal(s){
+  const p = String(s||'').split('-').map(Number);
+  return new Date(p[0], p[1]-1, p[2], 0, 0, 0, 0);
+}
+function drpDisplay(d){
+  if (!d) return '--/--/----';
+  return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+}
+function drpSetPresetActive(key){
+  document.querySelectorAll('#ae-drp-presets .drp-preset').forEach(n => {
+    n.classList.toggle('active', n.dataset.key === key);
+  });
+}
+function drpPositionPanel(){
+  const btn = drpEl('ae-drp-btn'), panel = drpEl('ae-drp-panel');
+  if (!btn || !panel) return;
+  const r = btn.getBoundingClientRect();
+  const panelW = panel.offsetWidth || 680;
+  const panelH = panel.offsetHeight || 380;
+  let top = r.bottom + 6;
+  let left = r.right - panelW;
+  if (top + panelH > window.innerHeight - 8) top = Math.max(8, r.top - panelH - 6);
+  if (left < 8) left = 8;
+  if (left + panelW > window.innerWidth - 8) left = window.innerWidth - panelW - 8;
+  panel.style.top  = top  + 'px';
+  panel.style.left = left + 'px';
+}
+function drpOpen(){
+  drpState.open = true;
+  drpEl('ae-drp-panel').classList.add('open');
+  drpEl('ae-drp-panel').setAttribute('aria-hidden','false');
+  drpEl('ae-drp-btn').classList.add('open');
+  drpRender();
+  drpPositionPanel();
+  setTimeout(drpPositionPanel, 0);
+}
+function drpClose(){
+  drpState.open = false;
+  drpEl('ae-drp-panel').classList.remove('open');
+  drpEl('ae-drp-panel').setAttribute('aria-hidden','true');
+  drpEl('ae-drp-btn').classList.remove('open');
+}
+function drpToggle(){ drpState.open ? drpClose() : drpOpen(); }
+function drpNavMonth(dir){
+  drpState.viewMonth += dir;
+  if (drpState.viewMonth > 11){ drpState.viewMonth = 0;  drpState.viewYear += 1; }
+  if (drpState.viewMonth <  0){ drpState.viewMonth = 11; drpState.viewYear -= 1; }
+  drpRender();
+  drpPositionPanel();
+}
+function drpCalHTML(year, month){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  let rFrom = drpState.from;
+  let rTo   = drpState.selecting && drpState.hov ? drpState.hov : drpState.to;
+  if (rFrom && rTo && rFrom > rTo){ const t = rFrom; rFrom = rTo; rTo = t; }
+  let html = '<div class="drp-grid">';
+  DRP_DAYS.forEach(d => { html += '<div class="drp-dow">' + d + '</div>'; });
+  for (let i = 0; i < firstDay; i++){
+    html += '<div class="drp-day other-month">' + (daysInPrevMonth - firstDay + 1 + i) + '</div>';
+  }
+  for (let d = 1; d <= daysInMonth; d++){
+    const dt = new Date(year, month, d); dt.setHours(0,0,0,0);
+    const iso = drpFmtLocal(dt);
+    const isFuture = dt > today;
+    let cls = 'drp-day';
+    if (dt.getTime() === today.getTime())            cls += ' today';
+    if (rFrom && dt.getTime() === rFrom.getTime())   cls += ' range-start';
+    if (rTo   && dt.getTime() === rTo.getTime())     cls += ' range-end';
+    if (rFrom && rTo && dt > rFrom && dt < rTo)      cls += ' in-range';
+    if (isFuture)                                    cls += ' disabled';
+    html += '<div class="' + cls + '" data-date="' + iso + '">' + d + '</div>';
+  }
+  const total = firstDay + daysInMonth;
+  const remainder = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (let d = 1; d <= remainder; d++) html += '<div class="drp-day other-month">' + d + '</div>';
+  return html + '</div>';
+}
+function drpRender(){
+  let rMonth = drpState.viewMonth + 1;
+  let rYear  = drpState.viewYear;
+  if (rMonth > 11){ rMonth = 0; rYear += 1; }
+  drpEl('ae-drp-month-l').textContent = DRP_MONTHS[drpState.viewMonth] + ' ' + drpState.viewYear;
+  drpEl('ae-drp-month-r').textContent = DRP_MONTHS[rMonth]            + ' ' + rYear;
+  drpEl('ae-drp-cal-l').innerHTML = drpCalHTML(drpState.viewYear, drpState.viewMonth);
+  drpEl('ae-drp-cal-r').innerHTML = drpCalHTML(rYear, rMonth);
+  const end = drpState.selecting && drpState.hov ? drpState.hov : drpState.to;
+  let a = drpState.from, b = end;
+  if (a && b && a > b){ const t = a; a = b; b = t; }
+  drpEl('ae-drp-footer-range').textContent = drpDisplay(a) + ' - ' + drpDisplay(b);
+  drpSetPresetActive(drpState.preset);
+}
+function drpDayClick(node){
+  if (!node || node.classList.contains('other-month') || node.classList.contains('disabled')) return;
+  const dt = drpParseLocal(node.dataset.date);
+  if (!drpState.selecting){
+    drpState.from = dt; drpState.to = null; drpState.hov = null;
+    drpState.selecting = true; drpState.preset = 'custom';
+  } else {
+    drpState.to = dt; drpState.hov = null; drpState.selecting = false;
+    if (drpState.from > drpState.to){ const t = drpState.from; drpState.from = drpState.to; drpState.to = t; }
+  }
+  drpRender();
+}
+function drpDayHover(node){
+  if (!drpState.selecting || !node || node.classList.contains('other-month') || node.classList.contains('disabled')) return;
+  drpState.hov = drpParseLocal(node.dataset.date);
+  drpRender();
+}
+function drpPreset(key){
+  const now = new Date(); now.setHours(0,0,0,0);
+  let from = null, to = null;
+  if      (key === 'today')      { from = new Date(now); to = new Date(now); }
+  else if (key === 'yesterday')  { from = new Date(now); from.setDate(now.getDate()-1); to = new Date(from); }
+  else if (key === 'last7')      { from = new Date(now); from.setDate(now.getDate()-6);  to = new Date(now); }
+  else if (key === 'last30')     { from = new Date(now); from.setDate(now.getDate()-29); to = new Date(now); }
+  else if (key === 'last90')     { from = new Date(now); from.setDate(now.getDate()-89); to = new Date(now); }
+  else if (key === 'thisMonth')  { from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now); }
+  else if (key === 'lastMonth')  { from = new Date(now.getFullYear(), now.getMonth()-1, 1);
+                                   to   = new Date(now.getFullYear(), now.getMonth(),    0); }
+  else if (key === 'lifetime')   { from = null; to = null; }
+  else if (key === 'custom')     {
+    drpState.from = null; drpState.to = null; drpState.hov = null;
+    drpState.selecting = false; drpState.preset = 'custom';
+    drpRender(); return;
+  }
+  drpState.from = from; drpState.to = to; drpState.hov = null;
+  drpState.selecting = false; drpState.preset = key;
+  if (from){ drpState.viewYear = from.getFullYear(); drpState.viewMonth = from.getMonth(); }
+  else { const n = new Date(); drpState.viewYear = n.getFullYear(); drpState.viewMonth = n.getMonth() - 1;
+         if (drpState.viewMonth < 0){ drpState.viewMonth = 11; drpState.viewYear -= 1; } }
+  drpRender();
+  drpPositionPanel();
+}
+function drpUpdateButton(){
+  const lbl = drpEl('ae-drp-label');
+  const map = {today:'Today', yesterday:'Yesterday', last7:'Last 7 Days', last30:'Last 30 Days',
+               thisMonth:'This Month', lastMonth:'Last Month', last90:'Last 90 Days', lifetime:'All time'};
+  if (drpState.preset === 'lifetime' || (!drpState.from && !drpState.to)){
+    lbl.textContent = 'All time'; lbl.classList.remove('active');
+  } else if (drpState.preset !== 'custom'){
+    lbl.textContent = map[drpState.preset] || drpState.preset; lbl.classList.add('active');
+  } else {
+    const a = drpState.from, b = drpState.to || drpState.from;
+    lbl.textContent = drpDisplay(a) + (a && b && a.getTime() !== b.getTime() ? ' - ' + drpDisplay(b) : '');
+    lbl.classList.add('active');
+  }
+}
+function drpApply(){
+  const fromInp = drpEl('aeDateFrom'), toInp = drpEl('aeDateTo');
+  if (drpState.preset === 'lifetime' || (!drpState.from && !drpState.to)){
+    fromInp.value = ''; toInp.value = '';
+  } else {
+    let from = drpState.from, to = drpState.to || drpState.from;
+    if (from > to){ const t = from; from = to; to = t; }
+    fromInp.value = drpFmtLocal(from); toInp.value = drpFmtLocal(to);
+  }
+  drpUpdateButton();
+  drpClose();
+  aePage = 0; renderAE();
+}
+function drpClearDateRange(){
+  drpEl('aeDateFrom').value = '';
+  drpEl('aeDateTo').value   = '';
+  drpState.from = null; drpState.to = null; drpState.hov = null;
+  drpState.selecting = false; drpState.preset = 'lifetime';
+  drpUpdateButton();
+  drpRender();
+  aePage = 0; renderAE();
+}
+function initDateRangePicker(){
+  drpEl('ae-drp-btn'   ).addEventListener('click',  e => { e.stopPropagation(); drpToggle(); });
+  drpEl('ae-drp-prev'  ).addEventListener('click',  e => { e.stopPropagation(); drpNavMonth(-1); });
+  drpEl('ae-drp-next'  ).addEventListener('click',  e => { e.stopPropagation(); drpNavMonth( 1); });
+  drpEl('ae-drp-cancel').addEventListener('click',  e => { e.stopPropagation(); drpClose(); });
+  drpEl('ae-drp-apply' ).addEventListener('click',  e => { e.stopPropagation(); drpApply(); });
+  document.querySelectorAll('#ae-drp-presets .drp-preset').forEach(node => {
+    node.addEventListener('click', e => { e.stopPropagation(); drpPreset(node.dataset.key); });
+  });
+  ['ae-drp-cal-l','ae-drp-cal-r'].forEach(id => {
+    drpEl(id).addEventListener('click',     e => { e.stopPropagation(); drpDayClick(e.target.closest('.drp-day')); });
+    drpEl(id).addEventListener('mouseover', e => { drpDayHover(e.target.closest('.drp-day')); });
+  });
+  document.addEventListener('click', e => {
+    const wrap = drpEl('ae-drp-wrap');
+    if (drpState.open && wrap && !wrap.contains(e.target)) drpClose();
+  });
+  window.addEventListener('resize', () => { if (drpState.open) drpPositionPanel(); });
+  drpRender();
+  drpUpdateButton();
+}
+
+/* Group ad rows by ad_name or campaign — sum numeric fields, keep most-recent ad meta */
+function aeGroupBy(rows, key){
+  if (key === 'ad') return rows;
+  const groupKey = (key === 'ad_name') ? 'ad_name' : 'campaign_name';
+  const groups = {};
+  for (const r of rows){
+    const k = (r[groupKey] || '').trim();
+    if (!k) continue;
+    if (!groups[k]) groups[k] = {
+      ...r, _members:1, _adIds:new Set([r.ad_id]),
+      impressions:0, reach:0, amount_spent:0,
+      ftewv_count:0, ncp_count:0, conv_value:0, purchases:0,
+      shopify_orders:0, shopify_sales:0,
+    };
+    const g = groups[k];
+    g._members += 1; if (r.ad_id) g._adIds.add(r.ad_id);
+    g.impressions    += (+r.impressions    || 0);
+    g.reach          += (+r.reach          || 0);
+    g.amount_spent   += (+r.amount_spent   || 0);
+    g.ftewv_count    += (+r.ftewv_count    || 0);
+    g.ncp_count      += (+r.ncp_count      || 0);
+    g.conv_value     += (+r.conv_value     || 0);
+    g.purchases      += (+r.purchases      || 0);
+    g.shopify_orders += (+r.shopify_orders || 0);
+    g.shopify_sales  += (+r.shopify_sales  || 0);
+    // Take most-recent created date for the group
+    if (r.ad_created && (!g.ad_created || r.ad_created > g.ad_created)) g.ad_created = r.ad_created;
+  }
+  // Derive frequency, ROAS, cost-per metrics from the aggregated sums
+  return Object.values(groups).map(g => {
+    const cnt = g._adIds.size;
+    return {
+      ...g,
+      ad_name: key === 'ad_name' ? g.ad_name + (cnt > 1 ? '  (×' + cnt + ' ad_ids)' : '') : '[Campaign]',
+      campaign_name: g.campaign_name || '',
+      ad_id: cnt === 1 ? [...g._adIds][0] : (cnt + ' ad_ids'),
+      frequency: g.reach > 0 ? g.impressions / g.reach : 0,
+      roas_ma: g.amount_spent > 0 ? g.conv_value / g.amount_spent : 0,
+      cost_per_ftewv: g.ftewv_count > 0 ? g.amount_spent / g.ftewv_count : 0,
+      cost_per_ncp:   g.ncp_count   > 0 ? g.amount_spent / g.ncp_count   : 0,
+      shopify_roas:   g.amount_spent > 0 ? g.shopify_sales / g.amount_spent : 0,
+    };
+  });
+}
+
+/* Canonical thresholds. F4=12 is the new working standard (was 25 in old refresh).
+   Changes via the Ads Analyse view propagate through aeApplyCurrentThresholds(). */
+const AE_DEFAULTS = {f1:50000, f2:3.2, f3:525, f4:12};
+
+function aeReadThresholds(){
+  return {
+    f1: +(document.getElementById('aeF1')?.value || AE_DEFAULTS.f1),
+    f2: +(document.getElementById('aeF2')?.value || AE_DEFAULTS.f2),
+    f3: +(document.getElementById('aeF3')?.value || AE_DEFAULTS.f3),
+    f4: +(document.getElementById('aeF4')?.value || AE_DEFAULTS.f4),
+  };
+}
+
+function aeCategorise(r, t){
+  const p1 = (+r.impressions || 0) >= t.f1;
+  const p2 = (+r.roas_ma     || 0) >= t.f2;
+  const p3 = (+r.cost_per_ncp   || 0) > 0 && (+r.cost_per_ncp   || Infinity) <= t.f3;
+  const p4 = (+r.cost_per_ftewv || 0) > 0 && (+r.cost_per_ftewv || Infinity) <= t.f4;
+  let cat;
+  if      (p1 && p2 && p3 && p4) cat = 'Incremental Winner';
+  else if (p1 && p2 && p3)       cat = 'Winner';
+  else if (p1 && p4)             cat = 'Priority';
+  else if (p1)                   cat = 'Analyze 1';
+  else if (p2)                   cat = 'Analyze 2';
+  else                           cat = 'Discarded';
+  return {p1, p2, p3, p4, category: cat};
+}
+
+/* Mutate allAds in place — every row's .category is overwritten with the
+   freshly-computed value. This makes Creative Testing's KPIs use the same
+   thresholds as Ads Analyse. The original DB-baked category is preserved
+   under .db_category for the cross-check tool. */
+function aeApplyCurrentThresholds(){
+  const t = aeReadThresholds();
+  for (const r of allAds){
+    if (r.db_category === undefined) r.db_category = r.category;   // snapshot once
+    const {p1,p2,p3,p4,category} = aeCategorise(r, t);
+    r.f1_pass = p1; r.f2_pass = p2; r.f3_pass = p3; r.f4_pass = p4;
+    r.category = category;
+  }
+}
+
+function aeRecategorise(rows){
+  const t = aeReadThresholds();
+  return rows.map(r => ({...r, ...aeCategorise(r, t)}));
+}
+
+function aeFiltered(){
+  const acct       = document.getElementById('aeAcct').value;
+  const showDisc   = document.getElementById('aeShowDiscarded').checked;
+  const status     = document.getElementById('aeStatus').value;
+  const groupBy    = document.getElementById('aeGroupBy').value;
+  const dateField  = document.getElementById('aeDateField').value || 'ad_created';
+  const dFromStr   = document.getElementById('aeDateFrom').value;
+  const dToStr     = document.getElementById('aeDateTo').value;
+  const dFrom = dFromStr ? new Date(dFromStr + 'T00:00:00') : null;
+  const dTo   = dToStr   ? new Date(dToStr   + 'T23:59:59') : null;
+
+  let rows = aeRecategorise(allAds);
+  if (acct)   rows = rows.filter(r => (r.account_name || '') === acct);
+  if (status) rows = rows.filter(r => (r.ad_status || '').toUpperCase() === status);
+  // Hide Discarded by default — matches old dashboard's implicit filter.
+  if (!showDisc && !aeSelectedCat) rows = rows.filter(r => r.category !== 'Discarded');
+  if (aeSelectedCat) rows = rows.filter(r => r.category === aeSelectedCat);
+  // Date-range filter on selected date field
+  if (dFrom || dTo){
+    rows = rows.filter(r => {
+      const v = r[dateField]; if (!v) return false;
+      const d = new Date(v);  if (isNaN(d)) return false;
+      if (dFrom && d < dFrom) return false;
+      if (dTo   && d > dTo  ) return false;
+      return true;
+    });
+  }
+  // Multi-Filter rules — every rule with a non-empty value must pass (AND)
+  const activeRules = aeRules.filter(r => (r.value || '').trim());
+  if (activeRules.length){
+    rows = rows.filter(r => activeRules.every(rule => aeMfMatch(r, rule)));
+  }
+  // Optional Group By
+  rows = aeGroupBy(rows, groupBy);
+  // sort
+  rows.sort((a, b) => {
+    let av = a[aeSortKey], bv = b[aeSortKey];
+    if (aeSortKey === 'ad_created') { av = new Date(av || 0); bv = new Date(bv || 0); }
+    else if (typeof av === 'string' || typeof bv === 'string'){
+      av = (av || '').toString(); bv = (bv || '').toString();
+      return aeSortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    } else {
+      av = +av || 0; bv = +bv || 0;
+    }
+    return aeSortDir === 'asc' ? (av - bv) : (bv - av);
+  });
+  return rows;
+}
+
+const CAT_CLASS = {
+  'Incremental Winner':'cat-iw',
+  'Winner':'cat-winner',
+  'Priority':'cat-priority',
+  'Analyze 1':'cat-a1',
+  'Analyze 2':'cat-a2',
+  'Discarded':'cat-disc',
+};
+
+function renderAE(){
+  if (!allAds.length) return;
+  const rows = aeFiltered();
+
+  // KPIs from the FULL categorised data (not search-filtered, so the cards
+  // show stable counts you can click into)
+  const cats = aeRecategorise(allAds);
+  const acct = document.getElementById('aeAcct').value;
+  const catsAcct = acct ? cats.filter(r => (r.account_name || '') === acct) : cats;
+  const totalsByCat = {};
+  catsAcct.forEach(r => {
+    const k = r.category;
+    if (!totalsByCat[k]) totalsByCat[k] = {n:0, sp:0};
+    totalsByCat[k].n  += 1;
+    totalsByCat[k].sp += (+r.amount_spent || 0);
+  });
+  const setKPI = (id, name) => {
+    const x = totalsByCat[name] || {n:0, sp:0};
+    document.getElementById('aeKp-' + id     ).textContent = fmtInt(x.n);
+    document.getElementById('aeKp-' + id + '-sp').textContent = fmtRs(x.sp);
+  };
+  setKPI('iw', 'Incremental Winner');
+  setKPI('w',  'Winner');
+  setKPI('pr', 'Priority');
+  setKPI('a1', 'Analyze 1');
+  setKPI('a2', 'Analyze 2');
+  setKPI('d',  'Discarded');
+
+  // Reflect selected card visually
+  document.querySelectorAll('#aeCats .kpi').forEach(card => {
+    card.classList.toggle('cat-selected', card.dataset.cat === aeSelectedCat);
+  });
+
+  // Pagination
+  const pageSize = +document.getElementById('aePageSize').value || 100;
+  const totalRows = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  if (aePage >= totalPages) aePage = totalPages - 1;
+  if (aePage < 0) aePage = 0;
+  const offset = aePage * pageSize;
+  const slice = rows.slice(offset, offset + pageSize);
+
+  const tbody = document.querySelector('#aeMain tbody');
+  const COLSPAN = document.querySelectorAll('#aeMain thead th').length;
+  const dCell = v => '<td class="id-cell">' + (v ? String(v).slice(0,10) : '—') + '</td>';
+  const fCell = v => {
+    const truthy = v === true || v === 'Y' || v === 'y' || v === 1 || v === '1' || v === 'true';
+    return '<td><span class="ae-flag '+(truthy?'y':'n')+'">'+(truthy?'Y':'N')+'</span></td>';
+  };
+  const numCell = (txt) => '<td class="num">' + txt + '</td>';
+  const linkCell = (href, label) => href
+    ? '<td><a class="ae-link" href="'+href+'" target="_blank" rel="noopener">'+label+'</a></td>'
+    : '<td class="id-cell">—</td>';
+  const fmtPct = v => (v == null || v === '') ? '—' : (+v).toFixed(2) + '%';
+  const fmtNum2 = v => (v == null || v === '') ? '—' : (+v).toFixed(2);
+  const fmtNum3 = v => (v == null || v === '') ? '—' : (+v).toFixed(3);
+  tbody.innerHTML = slice.map(r => {
+    const cls = CAT_CLASS[r.category] || 'cat-disc';
+    const status = (r.ad_status||'').toUpperCase();
+    const statusCls = status === 'ACTIVE' ? 'active' : '';
+    // Daily attribution: button + (optionally) override metric cells with daily totals
+    const ck = aeDailyCacheKey(r.ad_id);
+    const dailyState = aeDailyCache[ck];
+    const isOpen = aeDailyOpenKey === ck;
+    const dTot   = aeDailyTotalsFor(r.ad_id);
+    const dailyBtn = r.ad_id
+      ? '<button class="ae-attrib-btn '+(isOpen?'open':'')+'" type="button" data-ae-daily-ad="'+r.ad_id+'" data-ae-daily-ck="'+ck+'">'+
+          (dailyState && dailyState.state === 'loading' && isOpen ? 'Loading…' : isOpen ? 'Hide daily' : 'Daily')+
+        '</button>'
+      : '<button class="ae-attrib-btn" type="button" disabled title="Ad-level only">—</button>';
+    // When daily totals exist for this ad, override the metric cells with daily-derived values
+    const impVal     = dTot ? fmtInt(dTot.impressions)        : fmtInt(r.impressions);
+    const reachVal   = dTot ? fmtInt(dTot.reach)              : fmtInt(r.reach);
+    const freqVal    = dTot ? (dTot.freq||0).toFixed(2)       : fmtNum2(r.frequency);
+    const spendVal   = dTot ? fmtRs(dTot.spend)               : fmtRs(r.amount_spent);
+    const cpcVal     = dTot ? fmtRs(dTot.linkClicks ? dTot.spend/dTot.linkClicks : 0) : fmtRs(r.cpc_link);
+    const ctrVal     = dTot ? (dTot.ctr||0).toFixed(2)+'%'    : fmtPct(r.ctr_pct);
+    const linkClkVal = dTot ? fmtInt(dTot.linkClicks)         : fmtInt(r.link_clicks_raw);
+    const purchVal   = dTot ? (dTot.purchases||0).toFixed(2)  : fmtInt(r.purchases);
+    const convVal    = dTot ? fmtRs(dTot.convValue)           : fmtRs(r.conv_value);
+    const roasVal    = dTot ? (dTot.roas||0).toFixed(2)       : fmtRoas(r.roas_ma);
+    const ftVal      = dTot ? fmtInt(dTot.ftewv)              : fmtInt(r.ftewv_count);
+    const cFtVal     = dTot ? fmtRs(dTot.costFt)              : fmtRs(r.cost_per_ftewv);
+    const ncpVal     = dTot ? fmtInt(dTot.ncp)                : fmtInt(r.ncp_count);
+    const cNcpVal    = dTot ? fmtRs(dTot.costNcp)             : fmtRs(r.cost_per_ncp);
+    // Thumbnail cell — Meta Graph creative.thumbnail_url, clickable to open drawer
+    const thumbUrl = r.ad_id ? thumbsByAdId[r.ad_id] : '';
+    const thumbCell = thumbUrl
+      ? '<td class="thumb-cell"><img class="ae-thumb" src="'+thumbUrl+'" loading="lazy" alt="" data-ae-thumb-ad="'+r.ad_id+'" title="Click to preview"></td>'
+      : '<td class="thumb-cell"><div class="ae-thumb-placeholder" title="No thumbnail">—</div></td>';
+    const main = '<tr>'+
+      thumbCell+
+      '<td class="camp-cell" title="'+(r.campaign_name||'')+'">'+(r.campaign_name||'—')+'</td>'+
+      '<td class="id-cell">'+(r.adset_id||'—')+'</td>'+
+      '<td class="id-cell">'+(r.ad_id||'—')+'</td>'+
+      '<td class="ad-cell" title="'+(r.ad_name||'')+'"><span style="font-weight:600;color:var(--text-primary)">'+(r.ad_name||'—')+'</span></td>'+
+      '<td>'+dailyBtn+'</td>'+
+      '<td>'+(r.account_name||'—')+'</td>'+
+      dCell(r.ad_created)+
+      dCell(r.first_seen_date)+
+      dCell(r.date_target_imp_achieved)+
+      dCell(r.date_of_result)+
+      numCell(r.days_to_result == null ? '—' : fmtInt(r.days_to_result))+
+      numCell(r.days_to_target_f1 == null ? '—' : fmtInt(r.days_to_target_f1))+
+      '<td><span class="cat-badge '+cls+'">'+(r.category||'—')+'</span></td>'+
+      fCell(r.f1_pass)+
+      fCell(r.f2_pass)+
+      fCell(r.f3_pass)+
+      fCell(r.f4_pass)+
+      '<td><span class="ae-status '+statusCls+'">'+(r.ad_status||'—')+'</span></td>'+
+      numCell(impVal)+
+      numCell(reachVal)+
+      numCell(freqVal)+
+      numCell(spendVal)+
+      numCell(cpcVal)+
+      numCell(ctrVal)+
+      numCell(linkClkVal)+
+      numCell(purchVal)+
+      numCell(convVal)+
+      numCell(roasVal)+
+      numCell(fmtInt(r.shopify_orders))+
+      numCell(fmtRs(r.shopify_sales))+
+      numCell(cFtVal)+
+      numCell(ftVal)+
+      numCell(cNcpVal)+
+      numCell(ncpVal)+
+      numCell(fmtRs(r.profit_efficiency))+
+      numCell(fmtNum3(r.blended_eff))+
+      linkCell(r.preview_link, '▸ Preview')+
+      linkCell(r.ad_link,      '▸ Open')+
+    '</tr>';
+    // Append the expanded daily-row directly below the parent if open
+    return isOpen ? (main + aeRenderDailyRowHTML(r, COLSPAN)) : main;
+  }).join('');
+  // Wire daily-attribution button clicks (re-wired on every render)
+  tbody.querySelectorAll('[data-ae-daily-ad]').forEach(btn => {
+    btn.addEventListener('click', () => aeToggleDaily(btn.dataset.aeDailyAd, btn.dataset.aeDailyCk));
+  });
+  tbody.querySelectorAll('[data-ae-daily-close]').forEach(btn => {
+    btn.addEventListener('click', () => { aeDailyOpenKey = ''; renderAE(); });
+  });
+  // Thumbnail click → open the preview drawer for that ad
+  tbody.querySelectorAll('[data-ae-thumb-ad]').forEach(img => {
+    img.addEventListener('click', () => {
+      const ad = allAds.find(x => x.ad_id === img.dataset.aeThumbAd);
+      if (ad && typeof openDrawer === 'function') openDrawer(ad);
+    });
+  });
+
+  // Header sort indicators
+  document.querySelectorAll('#aeMain thead th').forEach(th => {
+    th.classList.remove('sort-asc','sort-desc');
+    if (th.dataset.sort === aeSortKey) th.classList.add(aeSortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+  });
+
+  const showDisc = document.getElementById('aeShowDiscarded').checked;
+  const hiddenNote = (!showDisc && !aeSelectedCat) ? ' · Discarded hidden' : '';
+  document.getElementById('aeFooter').textContent =
+    'Showing ' + fmtInt(slice.length) + ' of ' + fmtInt(totalRows) + ' filtered ' +
+    '(' + fmtInt(allAds.length) + ' total in ae_table_view' + hiddenNote + ')';
+
+  // Pagination footer
+  document.getElementById('aeRowInfo').textContent   = fmtInt(totalRows) + ' rows';
+  document.getElementById('aePageInfo').textContent  = 'Page ' + (aePage + 1) + ' / ' + totalPages;
+  document.getElementById('aePrevPage').disabled     = aePage === 0;
+  document.getElementById('aeNextPage').disabled     = aePage >= totalPages - 1;
+}
+
+/* Cross-check: counts here vs ground-truth in ae_table_view category column.
+   Both should be identical when default thresholds are used (50000/3.2/525/25),
+   because the DB column is computed with those same constants. If the user
+   tweaks thresholds in the UI the new categorisation diverges from the DB. */
+async function aeCrosscheck(){
+  const body = document.getElementById('aeCrossBody');
+  body.textContent = 'computing …';
+  // Counts in current UI (recategorised with current thresholds)
+  const ui = aeRecategorise(allAds);
+  const uiCt = {};
+  ui.forEach(r => uiCt[r.category] = (uiCt[r.category]||0) + 1);
+  // Counts straight from ae_table_view.category column (DB ground truth,
+  // snapshotted in .db_category before we overwrote .category)
+  const dbCt = {};
+  allAds.forEach(r => {
+    const c = r.db_category || r.category;
+    dbCt[c] = (dbCt[c]||0) + 1;
+  });
+  const cats = ['Incremental Winner','Winner','Priority','Analyze 1','Analyze 2','Discarded'];
+  let html = '';
+  const pad = (s, n) => (s + ' '.repeat(Math.max(0, n - s.length)));
+  html += pad('Category', 24) + pad('UI (your thresholds)', 24) + pad('DB (ae_table_view)', 24) + 'Δ\n';
+  html += '─'.repeat(80) + '\n';
+  let okAll = true;
+  cats.forEach(c => {
+    const u = uiCt[c] || 0;
+    const d = dbCt[c] || 0;
+    const delta = u - d;
+    if (delta !== 0) okAll = false;
+    html += pad(c, 24) +
+            pad(u.toLocaleString(), 24) +
+            pad(d.toLocaleString(), 24) +
+            (delta === 0 ? '✓' : ('Δ ' + (delta > 0 ? '+' : '') + delta.toLocaleString())) + '\n';
+  });
+  html += '─'.repeat(80) + '\n';
+  html += pad('TOTAL', 24) + pad(ui.length.toLocaleString(), 24) + pad(allAds.length.toLocaleString(), 24) + '✓\n\n';
+  const t = aeReadThresholds();
+  html += okAll
+    ? `✅  UI matches DB exactly — your thresholds (${t.f1}/${t.f2}/${t.f3}/${t.f4}) match the DB-computed values.`
+    : `⚠  UI thresholds (${t.f1}/${t.f2}/${t.f3}/${t.f4}) differ from the DB-baked ones (50000/3.2/525/25).\n` +
+      '   The deltas above are the expected category shifts. The DB column is computed by refresh_ae_table.py;\n' +
+      '   rerun it with the new constants if you want the DB to match.';
+  body.textContent = html;
+}
+
+/* Wiring */
+['aeF1','aeF2','aeF3','aeF4'].forEach(id =>
+  document.getElementById(id).addEventListener('input', () =>
+    clearTimeout(window._aeDb) || (window._aeDb = setTimeout(() => {
+      // recompute categories on every row, then refresh both views.
+      // Creative Testing uses primaryAds (primary_table); Ads Analyse uses
+      // allAds (ae_table_view) — re-categorise BOTH so they stay in sync
+      // with the threshold inputs.
+      aeApplyCurrentThresholds();
+      ctApplyCurrentThresholds();
+      renderAE();
+      if (typeof rerender === 'function') rerender();   // refreshes Creative Testing KPIs
+    }, 250))));
+['aeAcct','aeShowDiscarded','aeStatus','aeGroupBy','aeDateField'].forEach(id =>
+  document.getElementById(id).addEventListener('change', () => { aePage = 0; renderAE(); }));
+['aeDateFrom','aeDateTo','aePageSize'].forEach(id =>
+  document.getElementById(id).addEventListener('change', () => { aePage = 0; renderAE(); }));
+// Category dropdown drives the same filter as clicking a KPI card.
+document.getElementById('aeCategory').addEventListener('change', e => {
+  aeSelectedCat = e.target.value || '';
+  aePage = 0; renderAE();
+});
+
+// Clear buttons
+document.getElementById('aeClearDates').onclick = () => drpClearDateRange();
+document.getElementById('aeClearFilters').onclick = () => {
+  document.getElementById('aeAcct').value      = '';
+  document.getElementById('aeStatus').value    = '';
+  document.getElementById('aeGroupBy').value   = 'ad';
+  document.getElementById('aeDateField').value = 'ad_created';
+  document.getElementById('aeCategory').value  = '';
+  drpClearDateRange();   // also clears aeDateFrom/aeDateTo + button label
+  document.getElementById('aeShowDiscarded').checked = false;
+  aeSelectedCat = '';
+  aeRules = [];
+  aeMfRender();
+  aePage = 0; renderAE();
+};
+
+// Pagination buttons
+document.getElementById('aePrevPage').onclick = () => { if (aePage > 0) { aePage--; renderAE(); } };
+document.getElementById('aeNextPage').onclick = () => { aePage++; renderAE(); };
+
+// Multi-Filter buttons
+document.getElementById('aeMfAdd').onclick = () => {
+  aeRules.push({field:'name_combined', op:'contains_all', value:''});
+  aeMfRender();
+};
+document.getElementById('aeMfApply').onclick = () => { aePage = 0; renderAE(); };
+document.getElementById('aeMfClear').onclick = () => {
+  aeRules = [];
+  aeMfRender();
+  aePage = 0; renderAE();
+};
+
+// Render the initial empty rule on page load
+aeMfRender();
+// Init the date-range picker once the DOM is wired
+initDateRangePicker();
+document.getElementById('aeCats').addEventListener('click', e => {
+  const card = e.target.closest('.kpi'); if (!card) return;
+  const c = card.dataset.cat;
+  aeSelectedCat = (aeSelectedCat === c) ? '' : c;
+  // Mirror to the dropdown so the user sees the same state in both places
+  const dd = document.getElementById('aeCategory');
+  if (dd) dd.value = aeSelectedCat;
+  aePage = 0;
+  renderAE();
+});
+document.querySelectorAll('#aeMain thead th').forEach(th => {
+  th.addEventListener('click', () => {
+    const k = th.dataset.sort;
+    if (aeSortKey === k) aeSortDir = (aeSortDir === 'asc') ? 'desc' : 'asc';
+    else { aeSortKey = k; aeSortDir = 'desc'; }
+    renderAE();
+  });
+});
+document.getElementById('aeBtnRefresh').onclick = async () => {
+  // Refresh both sources + thumbnails. Creative Testing uses the current
+  // date window (default last 30d); Ads Analyse uses the lifetime view.
+  [primaryAds, allAds, thumbsByAdId] = await Promise.all([
+    fetchPrimaryAggregated(state.dateFrom || '', state.dateTo || ''),
+    fetchAds(),
+    fetchThumbnails()
+  ]);
+  aeApplyCurrentThresholds();
+  rerender();
+  renderAE();
+};
+document.getElementById('aeBtnExport').onclick = () => {
+  const rows = aeFiltered();
+  const cols = ['ad_id','ad_name','account_name','campaign_name','adset_id','adset_name',
+                'ad_created','ad_status','category',
+                'impressions','reach','frequency','amount_spent','roas_ma',
+                'ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp',
+                'shopify_orders','shopify_sales','shopify_roas'];
+  const lines = [cols.join(',')];
+  rows.forEach(r => lines.push(cols.map(c => JSON.stringify(r[c] ?? '')).join(',')));
+  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'ads_analyse_' + (new Date().toISOString().slice(0,10)) + '.csv';
+  a.click();
+};
+document.getElementById('aeBtnCrosscheck').onclick = () => {
+  const p = document.getElementById('aeCrossPanel');
+  if (p.style.display === 'none') { p.style.display = 'block'; aeCrosscheck(); }
+  else                            { p.style.display = 'none'; }
+};
+document.getElementById('aeCrossClose').onclick = () => {
+  document.getElementById('aeCrossPanel').style.display = 'none';
+};
+
+/* ────────────────────────────────────────────────────────────────────
+   INVENTORY — Shopify products via Admin GraphQL
+   Credentials via URL params:
+     ?shopDomain=<shop>.myshopify.com&shopifyToken=<admin_token>
+     [&shopifyApiVer=2025-10]
+   ──────────────────────────────────────────────────────────────────── */
+const SHOPIFY_DOMAIN  = params.get('shopDomain') || '';
+const SHOPIFY_TOKEN   = params.get('shopifyToken') || '';
+const SHOPIFY_API_VER = params.get('shopifyApiVer') || '2025-10';
+let invProducts = [];
+let invState = {status:'', search:'', excludeOOS:false, excludeNoImg:false};
+
+const INV_QUERY = `
+  query InvPage($after: String) {
+    products(first: 100, after: $after) {
+      edges {
+        cursor
+        node {
+          id
+          title
+          handle
+          status
+          vendor
+          productType
+          createdAt
+          totalInventory
+          variantsCount { count }
+          featuredImage { url(transform: {maxWidth: 96, maxHeight: 96}) }
+          priceRangeV2 { minVariantPrice { amount } maxVariantPrice { amount } }
+        }
+      }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+`;
+
+async function shopifyGraphQL(query, variables){
+  const url = 'https://' + SHOPIFY_DOMAIN + '/admin/api/' + SHOPIFY_API_VER + '/graphql.json';
+  const r = await fetch(url, {
+    method:'POST',
+    headers:{'X-Shopify-Access-Token': SHOPIFY_TOKEN, 'Content-Type':'application/json'},
+    body: JSON.stringify({query, variables})
+  });
+  if (!r.ok) throw new Error('Shopify HTTP ' + r.status);
+  const j = await r.json();
+  if (j.errors) throw new Error(JSON.stringify(j.errors).slice(0, 200));
+  return j.data;
+}
+
+async function loadInventory(){
+  const footer = document.getElementById('invFooter');
+  if (!SHOPIFY_DOMAIN || !SHOPIFY_TOKEN){
+    footer.innerHTML = '⚠️ <b>Missing Shopify credentials.</b> Append to URL: ' +
+      '<code style="background:#fff;padding:2px 6px;border-radius:4px;border:1px solid var(--border-warm)">' +
+      '?shopDomain=&lt;your-shop&gt;.myshopify.com&amp;shopifyToken=&lt;admin_api_token&gt;</code>';
+    return;
+  }
+  footer.innerHTML = 'Loading products from Shopify <span class="spinner"></span>';
+  invProducts = [];
+  let cursor = null, page = 0;
+  try {
+    while (true){
+      const d = await shopifyGraphQL(INV_QUERY, {after: cursor});
+      const edges = d.products.edges;
+      edges.forEach(e => invProducts.push(e.node));
+      page += 1;
+      footer.innerHTML = 'Loading… page ' + page + ' · ' + invProducts.length + ' products fetched <span class="spinner"></span>';
+      if (!d.products.pageInfo.hasNextPage) break;
+      cursor = d.products.pageInfo.endCursor;
+    }
+  } catch (err){
+    footer.innerHTML = '❌ Shopify fetch failed: ' + String(err.message || err);
+    return;
+  }
+  footer.textContent = 'Loaded ' + invProducts.length.toLocaleString() + ' products  ·  ' +
+    'last refresh ' + new Date().toLocaleString();
+  renderInventoryKpis();
+  renderInventoryTable();
+}
+
+function renderInventoryKpis(){
+  const tot   = invProducts.length;
+  const act   = invProducts.filter(p => (p.status||'').toUpperCase() === 'ACTIVE').length;
+  const draft = invProducts.filter(p => (p.status||'').toUpperCase() === 'DRAFT').length;
+  const arch  = invProducts.filter(p => (p.status||'').toUpperCase() === 'ARCHIVED').length;
+  const variants = invProducts.reduce((s,p) => s + (p.variantsCount?.count || 0), 0);
+  const oos   = invProducts.filter(p => (p.totalInventory || 0) <= 0).length;
+  document.getElementById('invKpTotal' ).textContent = fmtInt(tot);
+  document.getElementById('invKpActive').textContent = fmtInt(act);
+  document.getElementById('invKpDraft' ).textContent = fmtInt(draft);
+  document.getElementById('invKpArch'  ).textContent = fmtInt(arch);
+  document.getElementById('invKpVar'   ).textContent = fmtInt(variants);
+  document.getElementById('invKpOOS'   ).textContent = fmtInt(oos);
+}
+
+function invFiltered(){
+  let rows = invProducts.slice();
+  if (invState.status) rows = rows.filter(p => (p.status||'').toUpperCase() === invState.status);
+  if (invState.excludeOOS) rows = rows.filter(p => (p.totalInventory || 0) > 0);
+  if (invState.excludeNoImg) rows = rows.filter(p => p.featuredImage?.url);
+  if (invState.search){
+    const q = invState.search.toLowerCase().trim();
+    rows = rows.filter(p => ((p.title||'')+' '+(p.handle||'')+' '+(p.vendor||'')+' '+(p.productType||'')).toLowerCase().includes(q));
+  }
+  return rows;
+}
+
+function renderInventoryTable(){
+  const rows = invFiltered();
+  const tbody = document.querySelector('#invTbl tbody');
+  tbody.innerHTML = rows.map(p => {
+    const st = (p.status || '').toUpperCase();
+    const cls = st === 'ACTIVE' ? 's-active' : st === 'DRAFT' ? 's-draft' : 's-archived';
+    const img = p.featuredImage?.url
+      ? '<img class="thumb" loading="lazy" src="' + p.featuredImage.url + '">'
+      : '<div class="thumb-ph">no img</div>';
+    const minP = +p.priceRangeV2?.minVariantPrice?.amount || 0;
+    const maxP = +p.priceRangeV2?.maxVariantPrice?.amount || 0;
+    const priceTxt = minP === maxP ? fmtRs(minP) : fmtRs(minP) + ' – ' + fmtRs(maxP);
+    return '<tr>'+
+      '<td>'+img+'</td>'+
+      '<td class="title-cell">'+
+        '<div class="title">'+ (p.title || '—') +'</div>'+
+        '<div class="handle">'+ (p.handle || '') +'</div>'+
+      '</td>'+
+      '<td><span class="status-pill '+cls+'">'+st+'</span></td>'+
+      '<td>'+(p.vendor || '—')+'</td>'+
+      '<td>'+(p.productType || '—')+'</td>'+
+      '<td class="num">'+fmtInt(p.variantsCount?.count)+'</td>'+
+      '<td class="num">'+fmtInt(p.totalInventory)+'</td>'+
+      '<td class="num">'+priceTxt+'</td>'+
+      '<td style="font-family:JetBrains Mono;font-size:11px">'+(p.createdAt ? p.createdAt.slice(0,10) : '—')+'</td>'+
+    '</tr>';
+  }).join('');
+  const tot = invProducts.length;
+  if (rows.length !== tot){
+    document.getElementById('invFooter').textContent =
+      'Showing ' + rows.length.toLocaleString() + ' of ' + tot.toLocaleString() + ' products';
+  }
+}
+
+document.getElementById('invStatusRow').addEventListener('click', e => {
+  const btn = e.target.closest('.preset'); if (!btn) return;
+  document.querySelectorAll('#invStatusRow .preset').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  invState.status = btn.dataset.s;
+  renderInventoryTable();
+});
+let invSearchDb = null;
+document.getElementById('invSearch').addEventListener('input', e => {
+  clearTimeout(invSearchDb);
+  invSearchDb = setTimeout(() => { invState.search = e.target.value; renderInventoryTable(); }, 200);
+});
+document.getElementById('invExcludeOOS' ).addEventListener('change', e => { invState.excludeOOS  = e.target.checked; renderInventoryTable(); });
+document.getElementById('invExcludeNoImg').addEventListener('change', e => { invState.excludeNoImg = e.target.checked; renderInventoryTable(); });
+document.getElementById('invRefresh').onclick = () => { VIEW_LOADED.inventory = false; loadInventory(); VIEW_LOADED.inventory = true; };
+document.getElementById('invExport').onclick = () => {
+  const rows = invFiltered();
+  if (!rows.length) return;
+  const cols = ['id','title','handle','status','vendor','productType','totalInventory','createdAt'];
+  const lines = [cols.join(',')];
+  rows.forEach(p => lines.push(cols.map(c => JSON.stringify(p[c] ?? '')).join(',')));
+  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'inventory_' + (new Date().toISOString().slice(0,10)) + '.csv'; a.click();
+};
+
+(async ()=>{
+  // Default Creative Testing date window = last 30 days INCLUDING today,
+  // matching the OLD dashboard's behaviour. Set the dates first so
+  // fetchPrimaryAggregated() filters at the SQL layer.
+  applyDatePreset('last30');
+
+  // Two independent data sources:
+  //   primaryAds → primary_table aggregated client-side over the date
+  //                window (default = last 30 days). Matches OLD dashboard.
+  //   allAds    → ae_table_view (drives Ads Analyse + Lifecycle).
+  [primaryAds, allAds, thumbsByAdId] = await Promise.all([
+    fetchPrimaryAggregated(state.dateFrom || '', state.dateTo || ''),
+    fetchAds(),
+    fetchThumbnails()
+  ]);
+  // Refresh ae_table_view rows' category with the current working thresholds
+  // (the DB column may have been baked with an older F4 value).
+  aeApplyCurrentThresholds();
+  // Campaign filter dropdown is shared by Creative Testing — populate from
+  // the primary-derived set so its options match the visible KPI counts.
+  populateCampaignDropdown(primaryAds);
+  rerender();
+})();
+</script>
+</body>
+</html>
