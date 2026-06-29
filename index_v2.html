@@ -174,6 +174,26 @@
   .fg-input:hover,.fg-select:hover{border-color:var(--border-mid)}
   .fg-input:focus,.fg-select:focus{outline:none;border-color:var(--accent-yellow);
     box-shadow:0 0 0 3px rgba(240,198,30,.18)}
+  /* Date inputs — lightly tinted background so they read as interactive date pickers */
+  .fg-input[type="date"]{background:var(--accent-warm-tint);
+    border-color:var(--accent-yellow);cursor:pointer;font-weight:600}
+  .fg-input[type="date"]:hover{background:#FCE9B9;border-color:var(--accent-yellow-hover)}
+  .fg-input[type="date"]::-webkit-calendar-picker-indicator{cursor:pointer;
+    filter:invert(.3) sepia(1) saturate(5) hue-rotate(-10deg)}
+  /* Custom preset chip — a softer highlight so users see it as a switch to a manual range */
+  .preset[data-p="custom"]{background:#FFF5DC;border-color:var(--accent-yellow);
+    color:var(--text-primary);font-weight:600}
+  .preset[data-p="custom"]:hover{background:#FCE9B9}
+  .preset[data-p="custom"].active{background:var(--accent-yellow);
+    border-color:var(--accent-yellow-hover)}
+  /* Creative Testing threshold row + multi-filter (mirrors AE) */
+  .ct-thresh-row{background:var(--bg-surface);border:1px solid var(--border-primary);
+    border-radius:12px;padding:12px 14px;margin-bottom:10px;display:grid;
+    grid-template-columns:repeat(4, minmax(120px,1fr)) 130px;gap:10px;align-items:end}
+  .ct-fcard{display:flex;flex-direction:column;gap:5px}
+  .ct-fcard.ct-actions{justify-content:end}
+  .ct-mfilter{background:var(--bg-surface);border:1px solid var(--border-primary);
+    border-radius:12px;padding:12px 14px;margin-bottom:14px}
   .fg-actions{display:flex;align-items:flex-end;gap:8px}
   .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;
     border-radius:8px;background:var(--accent-yellow);color:#1B1A17;
@@ -345,6 +365,10 @@
   .def-th .val{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;
     color:var(--text-primary);line-height:1}
   .def-th .hint{font-size:10.5px;color:var(--text-tertiary);margin-top:8px;line-height:1.5}
+  .def-tick{display:inline-flex;align-items:center;justify-content:center;
+    width:16px;height:16px;border-radius:50%;background:var(--success-bg);
+    color:var(--success-text);font-size:10px;font-weight:800;margin-left:6px;
+    vertical-align:middle;line-height:1}
   .def-prose{font-size:13px;color:var(--text-mid);line-height:1.65;margin:6px 0 14px}
   .def-prose b{color:var(--text-primary);font-weight:700}
   table.tbl.def-cats td{vertical-align:middle}
@@ -986,6 +1010,43 @@
     </div>
   </div>
 
+  <!-- Editable F1-F4 thresholds + Multi-Filter -->
+  <div class="ct-thresh-row">
+    <div class="ct-fcard">
+      <label class="fg-lbl" for="ctF1">F1 — Impressions</label>
+      <input class="fg-input mono" id="ctF1" type="number" value="50000" step="1000">
+    </div>
+    <div class="ct-fcard">
+      <label class="fg-lbl" for="ctF2">F2 — ROAS</label>
+      <input class="fg-input mono" id="ctF2" type="number" value="3.2" step="0.1">
+    </div>
+    <div class="ct-fcard">
+      <label class="fg-lbl" for="ctF3">F3 — Cost/NCP</label>
+      <input class="fg-input mono" id="ctF3" type="number" value="525" step="1">
+    </div>
+    <div class="ct-fcard">
+      <label class="fg-lbl" for="ctF4">F4 — Cost/FTEWV</label>
+      <input class="fg-input mono" id="ctF4" type="number" value="12" step="1">
+    </div>
+    <div class="ct-fcard ct-actions">
+      <label class="fg-lbl">Reset</label>
+      <button class="ae-fbtn" id="ctResetThresh" type="button">Defaults</button>
+    </div>
+  </div>
+
+  <!-- Multi-Filter — same chainable rules engine as Ads Analyse -->
+  <div class="ct-mfilter">
+    <div class="ae-mfilter-head">
+      <label class="fg-lbl">Multi-Filter</label>
+      <div class="ae-mfilter-actions">
+        <button class="ae-fbtn primary" id="ctMfApply" type="button">Apply</button>
+        <button class="ae-fbtn"         id="ctMfClear" type="button">Clear</button>
+      </div>
+    </div>
+    <div id="ctMfRows"></div>
+    <button class="ae-mfilter-add" id="ctMfAdd" type="button">+ Add Rule</button>
+  </div>
+
   <!-- KPI funnel cards -->
   <div class="kpi-row" id="kpiRow">
     <div class="kpi" data-cat="winner"    data-filter="Winner">
@@ -1576,8 +1637,8 @@
         <div class="def-th"><div class="ttl">F3 — Cost / NCP</div>
           <div class="val mono">≤ ₹ 525</div>
           <div class="hint">Σ Spend ÷ Σ NCP count over the date range.</div></div>
-        <div class="def-th"><div class="ttl">F4 — Cost / FTEWV</div>
-          <div class="val mono">≤ ₹ 25</div>
+        <div class="def-th"><div class="ttl">F4 — Cost / FTEWV  <span class="def-tick" title="Quality check — passes when Cost/FTEWV is within the bound">✓</span></div>
+          <div class="val mono">≤ ₹ 12</div>
           <div class="hint">First-time engaged-view-purchase cost.</div></div>
       </div>
 
@@ -1680,6 +1741,7 @@
       </div>
       <table class="tbl" id="bucketTbl">
         <thead><tr>
+          <th style="width:52px">Preview</th>
           <th>Ad name</th><th>Created</th><th>Spend</th><th>ROAS</th>
           <th>FTEWV</th><th>NCP</th><th>Shop. orders</th><th>Status</th>
         </tr></thead>
@@ -2004,6 +2066,10 @@ function filtered(rows){
     const hay = x => ((x.ad_name||'')+' '+(x.campaign_name||'')+' '+(x.adset_name||'')+' '+(x.ad_id||'')).toLowerCase();
     if (state.searchMode === 'contains')   r = r.filter(x =>  hay(x).includes(q));
     else                                   r = r.filter(x => !hay(x).includes(q));
+  }
+  // Creative Testing multi-filter (chainable Field × Op × Value, AND-merged)
+  if (Array.isArray(ctRules) && ctRules.length){
+    r = r.filter(ctMfMatchAll);
   }
   return r;
 }
@@ -2359,7 +2425,7 @@ function renderBucket(){
   // Table
   const tb = document.querySelector('#bucketTbl tbody'); tb.innerHTML='';
   if (!top.length){
-    tb.innerHTML = '<tr><td colspan="8" class="empty">No ads in this bucket for current filter.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="9" class="empty">No ads in this bucket for current filter.</td></tr>';
     return;
   }
   for (const r of top){
@@ -2367,7 +2433,12 @@ function renderBucket(){
     tr.onclick = ()=>openDrawer(r);
     const name = (r.ad_name||'—').replace(/"/g,'&quot;');
     const created = r.ad_created ? new Date(r.ad_created).toISOString().slice(0,10) : '—';
+    const thumbUrl = r.ad_id ? thumbsByAdId[r.ad_id] : '';
+    const thumbCell = thumbUrl
+      ? '<td class="thumb-cell"><img class="ae-thumb" src="'+thumbUrl+'" loading="lazy" alt=""></td>'
+      : '<td class="thumb-cell"><div class="ae-thumb-placeholder" title="No thumbnail">—</div></td>';
     tr.innerHTML =
+      thumbCell+
       '<td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+name+'">'+name+'</td>'+
       '<td class="mono" style="color:var(--text-secondary)">'+created+'</td>'+
       '<td class="mono">'+fmtRs(r.amount_spent)+'</td>'+
@@ -2874,6 +2945,7 @@ let aeSortKey  = 'amount_spent';
 let aeSortDir  = 'desc';
 let aePage     = 0;             // 0-based page index for the AE table
 let aeRules    = [];            // [{field, op, value}, …] for multi-filter
+let ctRules    = [];            // Creative Testing multi-filter — same engine
 let aeDailyOpenKey = '';        // cache-key of the currently-open daily-row
 const aeDailyCache = {};        // {cacheKey:{state, rows, totals, error}}
 
@@ -3155,6 +3227,66 @@ function aeMfRender(){
       aeMfRender(); aePage = 0; renderAE();
     });
   });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Creative Testing — Multi-Filter (same engine as AE) + F1-F4 thresholds
+   ───────────────────────────────────────────────────────────── */
+function ctMfRender(){
+  const host = document.getElementById('ctMfRows');
+  if (!host) return;
+  if (!ctRules.length) ctRules.push({field:'name_combined', op:'contains_all', value:''});
+  host.innerHTML = ctRules.map((r, i) => {
+    const opPh = (AE_MF_OPS.find(o => o.key === r.op) || AE_MF_OPS[0]).ph;
+    const fieldOpts = AE_MF_FIELDS.map(f =>
+      `<option value="${f.key}"${f.key===r.field?' selected':''}>${f.label}</option>`).join('');
+    const opOpts = AE_MF_OPS.map(o =>
+      `<option value="${o.key}"${o.key===r.op?' selected':''}>${o.label}</option>`).join('');
+    const val = (r.value || '').replace(/"/g, '&quot;');
+    return `<div class="ae-mfilter-row" data-i="${i}">
+      <select class="fg-select rule-field">${fieldOpts}</select>
+      <select class="fg-select rule-op">${opOpts}</select>
+      <input  class="fg-input  rule-value" type="text" placeholder="${opPh}" value="${val}">
+      <button class="ae-rule-del" type="button" title="Remove this rule">&times;</button>
+    </div>`;
+  }).join('');
+  host.querySelectorAll('.ae-mfilter-row').forEach(div => {
+    const i = +div.dataset.i;
+    div.querySelector('.rule-field').addEventListener('change', e => { ctRules[i].field = e.target.value; });
+    div.querySelector('.rule-op'   ).addEventListener('change', e => {
+      ctRules[i].op = e.target.value;
+      const ph = (AE_MF_OPS.find(o => o.key === e.target.value) || AE_MF_OPS[0]).ph;
+      div.querySelector('.rule-value').placeholder = ph;
+    });
+    div.querySelector('.rule-value').addEventListener('input',  e => { ctRules[i].value = e.target.value; });
+    div.querySelector('.ae-rule-del').addEventListener('click', () => {
+      ctRules.splice(i, 1);
+      if (!ctRules.length) ctRules.push({field:'name_combined', op:'contains_all', value:''});
+      ctMfRender(); rerender();
+    });
+  });
+}
+function ctMfMatchAll(row){
+  for (const rule of ctRules){
+    if (!aeMfMatch(row, rule)) return false;
+  }
+  return true;
+}
+/* Push CT thresholds into the AE inputs too, so categorisation stays in
+   sync across the two views. */
+function ctSyncThresholdsToAE(){
+  const ids = [['ctF1','aeF1'],['ctF2','aeF2'],['ctF3','aeF3'],['ctF4','aeF4']];
+  for (const [from, to] of ids){
+    const a = document.getElementById(from), b = document.getElementById(to);
+    if (a && b && b.value !== a.value) b.value = a.value;
+  }
+}
+function ctApplyThresholdInputs(){
+  ctSyncThresholdsToAE();
+  ctApplyCurrentThresholds();   // re-bucket primaryAds
+  aeApplyCurrentThresholds();   // re-bucket allAds (ae_table_view)
+  rerender();
+  if (typeof renderAE === 'function') renderAE();
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -3743,12 +3875,45 @@ async function aeCrosscheck(){
       // recompute categories on every row, then refresh both views.
       // Creative Testing uses primaryAds (primary_table); Ads Analyse uses
       // allAds (ae_table_view) — re-categorise BOTH so they stay in sync
-      // with the threshold inputs.
+      // with the threshold inputs. Also mirror values to the CT inputs.
+      const ids = [['aeF1','ctF1'],['aeF2','ctF2'],['aeF3','ctF3'],['aeF4','ctF4']];
+      for (const [from, to] of ids){
+        const a = document.getElementById(from), b = document.getElementById(to);
+        if (a && b && b.value !== a.value) b.value = a.value;
+      }
       aeApplyCurrentThresholds();
       ctApplyCurrentThresholds();
       renderAE();
       if (typeof rerender === 'function') rerender();   // refreshes Creative Testing KPIs
     }, 250))));
+// Creative Testing thresholds + multi-filter wiring
+['ctF1','ctF2','ctF3','ctF4'].forEach(id => {
+  const el = document.getElementById(id); if (!el) return;
+  el.addEventListener('input', () =>
+    clearTimeout(window._ctDb) || (window._ctDb = setTimeout(ctApplyThresholdInputs, 250)));
+});
+const _ctResetBtn = document.getElementById('ctResetThresh');
+if (_ctResetBtn) _ctResetBtn.addEventListener('click', () => {
+  const defaults = {ctF1:50000, ctF2:3.2, ctF3:525, ctF4:12};
+  for (const [id, v] of Object.entries(defaults)){
+    const el = document.getElementById(id); if (el) el.value = v;
+  }
+  ctApplyThresholdInputs();
+});
+const _ctMfApply = document.getElementById('ctMfApply');
+if (_ctMfApply) _ctMfApply.addEventListener('click', () => rerender());
+const _ctMfClear = document.getElementById('ctMfClear');
+if (_ctMfClear) _ctMfClear.addEventListener('click', () => {
+  ctRules = [{field:'name_combined', op:'contains_all', value:''}];
+  ctMfRender(); rerender();
+});
+const _ctMfAdd = document.getElementById('ctMfAdd');
+if (_ctMfAdd) _ctMfAdd.addEventListener('click', () => {
+  ctRules.push({field:'name_combined', op:'contains_all', value:''});
+  ctMfRender();
+});
+// Render the empty CT multi-filter row on initial load
+ctMfRender();
 ['aeAcct','aeShowDiscarded','aeStatus','aeGroupBy','aeDateField'].forEach(id =>
   document.getElementById(id).addEventListener('change', () => { aePage = 0; renderAE(); }));
 ['aeDateFrom','aeDateTo','aePageSize'].forEach(id =>
