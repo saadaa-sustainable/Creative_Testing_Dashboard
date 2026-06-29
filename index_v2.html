@@ -186,18 +186,18 @@
   .preset[data-p="custom"]:hover{background:#FCE9B9}
   .preset[data-p="custom"].active{background:var(--accent-yellow);
     border-color:var(--accent-yellow-hover)}
-  /* Creative Testing — Created Date filter row */
-  .ct-created-row{background:var(--bg-surface);border:1px solid var(--border-primary);
-    border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;
-    gap:12px;align-items:center;flex-wrap:wrap}
-  .ct-created-row .ct-created-lbl{min-width:90px}
-  .ct-created-fields{display:flex;gap:6px;align-items:center}
-  .ct-created-fields .fg-input{min-height:36px;padding:7px 10px}
-  .ct-created-sep{color:var(--text-tertiary);font-weight:700}
+  /* Creative Testing — Created Date filter (inline in filter-grid row 2,
+     fills the blank space next to Account). Spans 3 grid columns. */
+  .fg-field.fg-created{grid-column:span 3;min-width:0}
+  .fg-created-row{display:flex;gap:6px;align-items:center}
+  .fg-created-row .fg-input{flex:1 1 0;min-width:0;padding:9px 10px}
+  .fg-created-row .ae-fbtn{padding:8px 14px;font-size:11px;white-space:nowrap}
+  .ct-created-sep{color:var(--text-tertiary);font-weight:700;padding:0 2px}
   .ct-created-chip{display:inline-flex;align-items:center;gap:6px;
     background:var(--info-bg);border:1px solid var(--info-mid);
-    border-radius:100px;padding:4px 12px;font-size:11px;font-weight:600;
-    color:var(--info-text);font-family:'JetBrains Mono',monospace}
+    border-radius:100px;padding:2px 9px;font-size:10px;font-weight:700;
+    color:var(--info-text);font-family:'JetBrains Mono',monospace;
+    text-transform:none;letter-spacing:.3px;margin-left:6px}
   /* Creative Testing threshold row + multi-filter (mirrors AE) */
   .ct-thresh-row{background:var(--bg-surface);border:1px solid var(--border-primary);
     border-radius:12px;padding:12px 14px;margin-bottom:10px;display:grid;
@@ -1038,19 +1038,18 @@
         <option value="Fourth Ad Account - SD">Fourth Account</option>
       </select>
     </div>
-  </div>
-
-  <!-- Created Date filter — filters ads by ad_created (when the creative
-       was first launched), independent from the activity date range above. -->
-  <div class="ct-created-row">
-    <span class="fg-lbl ct-created-lbl">Created Date</span>
-    <div class="ct-created-fields">
-      <input class="fg-input" id="fCreatedFrom" type="date" placeholder="from">
-      <span class="ct-created-sep">→</span>
-      <input class="fg-input" id="fCreatedTo"   type="date" placeholder="to">
+    <!-- Created Date filter — fits into the blank row-2 space of the grid.
+         Filters ads by ad_created (when first launched), independent of the
+         activity date range above. -->
+    <div class="fg-field fg-created">
+      <label class="fg-lbl">Created Date <span id="fCreatedChip" class="ct-created-chip" style="display:none"></span></label>
+      <div class="fg-created-row">
+        <input class="fg-input" id="fCreatedFrom" type="date">
+        <span class="ct-created-sep">→</span>
+        <input class="fg-input" id="fCreatedTo"   type="date">
+        <button class="ae-fbtn" id="fCreatedClear" type="button">Clear</button>
+      </div>
     </div>
-    <button class="ae-fbtn" id="fCreatedClear" type="button">Clear</button>
-    <span id="fCreatedChip" class="ct-created-chip" style="display:none"></span>
   </div>
 
   <!-- Editable F1-F4 thresholds + Multi-Filter -->
