@@ -956,11 +956,20 @@
       <button class="preset" data-p="lastMonth">Last Month</button>
       <button class="preset" data-p="custom">Custom</button>
     </div>
-    <div class="search-box">
-      <button class="search-mode" id="searchMode" type="button" title="Toggle contains / doesn't contain">contains</button>
-      <input class="search-input" id="searchInput" type="text" placeholder="Search ad name, campaign, adset…">
-      <button class="search-clear" id="searchClear" type="button" title="Clear">✕</button>
+  </div>
+
+  <!-- Multi-Filter — replaces the old simple search bar.
+       Same chainable rules engine as Ads Analyse (Field x Op x Value, AND). -->
+  <div class="ct-mfilter">
+    <div class="ae-mfilter-head">
+      <label class="fg-lbl">Multi-Filter</label>
+      <div class="ae-mfilter-actions">
+        <button class="ae-fbtn primary" id="ctMfApply" type="button">Apply</button>
+        <button class="ae-fbtn"         id="ctMfClear" type="button">Clear</button>
+      </div>
     </div>
+    <div id="ctMfRows"></div>
+    <button class="ae-mfilter-add" id="ctMfAdd" type="button">+ Add Rule</button>
   </div>
 
   <!-- Filter grid -->
@@ -1041,19 +1050,6 @@
       <label class="fg-lbl">Reset</label>
       <button class="ae-fbtn" id="ctResetThresh" type="button">Defaults</button>
     </div>
-  </div>
-
-  <!-- Multi-Filter — same chainable rules engine as Ads Analyse -->
-  <div class="ct-mfilter">
-    <div class="ae-mfilter-head">
-      <label class="fg-lbl">Multi-Filter</label>
-      <div class="ae-mfilter-actions">
-        <button class="ae-fbtn primary" id="ctMfApply" type="button">Apply</button>
-        <button class="ae-fbtn"         id="ctMfClear" type="button">Clear</button>
-      </div>
-    </div>
-    <div id="ctMfRows"></div>
-    <button class="ae-mfilter-add" id="ctMfAdd" type="button">+ Add Rule</button>
   </div>
 
   <!-- KPI funnel cards -->
@@ -2077,13 +2073,8 @@ function filtered(rows){
   // is included regardless of when it was originally created. (Old
   // dashboard behaved the same: an ad created in 2023 still running today
   // appears in the "Last 30d" view.)
-  if (state.search) {
-    const q = state.search.toLowerCase().trim();
-    const hay = x => ((x.ad_name||'')+' '+(x.campaign_name||'')+' '+(x.adset_name||'')+' '+(x.ad_id||'')).toLowerCase();
-    if (state.searchMode === 'contains')   r = r.filter(x =>  hay(x).includes(q));
-    else                                   r = r.filter(x => !hay(x).includes(q));
-  }
-  // Creative Testing multi-filter (chainable Field × Op × Value, AND-merged)
+  // Multi-Filter replaces the old simple search bar — chainable Field x Op x
+  // Value rules, AND-merged. Empty rules pass-through.
   if (Array.isArray(ctRules) && ctRules.length){
     r = r.filter(ctMfMatchAll);
   }
@@ -2692,35 +2683,9 @@ document.getElementById('presetRow').addEventListener('click', async e=>{
   });
 });
 
-/* Search box */
-const searchInp   = document.getElementById('searchInput');
-const searchMode  = document.getElementById('searchMode');
-const searchClear = document.getElementById('searchClear');
-let searchDebounce = null;
-function applySearch(){
-  state.search = searchInp.value;
-  searchClear.classList.toggle('show', !!state.search);
-  rerender();
-}
-searchInp.addEventListener('input', ()=>{
-  clearTimeout(searchDebounce);
-  searchDebounce = setTimeout(applySearch, 150);
-});
-searchMode.addEventListener('click', ()=>{
-  if (state.searchMode === 'contains'){
-    state.searchMode = 'doesnt';
-    searchMode.textContent = "doesn't contain";
-    searchMode.classList.add('neg');
-  } else {
-    state.searchMode = 'contains';
-    searchMode.textContent = 'contains';
-    searchMode.classList.remove('neg');
-  }
-  if (state.search) rerender();
-});
-searchClear.addEventListener('click', ()=>{
-  searchInp.value = ''; applySearch();
-});
+/* (Old single-input search bar removed — replaced by the Multi-Filter
+   row above the preset chips. ctRules/ctMfRender drive filtering now.) */
+
 /* Definitions modal */
 function openDefModal(){
   document.getElementById('defModal').style.display='flex';
