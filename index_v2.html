@@ -186,6 +186,18 @@
   .preset[data-p="custom"]:hover{background:#FCE9B9}
   .preset[data-p="custom"].active{background:var(--accent-yellow);
     border-color:var(--accent-yellow-hover)}
+  /* Creative Testing — Created Date filter row */
+  .ct-created-row{background:var(--bg-surface);border:1px solid var(--border-primary);
+    border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;
+    gap:12px;align-items:center;flex-wrap:wrap}
+  .ct-created-row .ct-created-lbl{min-width:90px}
+  .ct-created-fields{display:flex;gap:6px;align-items:center}
+  .ct-created-fields .fg-input{min-height:36px;padding:7px 10px}
+  .ct-created-sep{color:var(--text-tertiary);font-weight:700}
+  .ct-created-chip{display:inline-flex;align-items:center;gap:6px;
+    background:var(--info-bg);border:1px solid var(--info-mid);
+    border-radius:100px;padding:4px 12px;font-size:11px;font-weight:600;
+    color:var(--info-text);font-family:'JetBrains Mono',monospace}
   /* Creative Testing threshold row + multi-filter (mirrors AE) */
   .ct-thresh-row{background:var(--bg-surface);border:1px solid var(--border-primary);
     border-radius:12px;padding:12px 14px;margin-bottom:10px;display:grid;
@@ -1028,6 +1040,19 @@
     </div>
   </div>
 
+  <!-- Created Date filter — filters ads by ad_created (when the creative
+       was first launched), independent from the activity date range above. -->
+  <div class="ct-created-row">
+    <span class="fg-lbl ct-created-lbl">Created Date</span>
+    <div class="ct-created-fields">
+      <input class="fg-input" id="fCreatedFrom" type="date" placeholder="from">
+      <span class="ct-created-sep">→</span>
+      <input class="fg-input" id="fCreatedTo"   type="date" placeholder="to">
+    </div>
+    <button class="ae-fbtn" id="fCreatedClear" type="button">Clear</button>
+    <span id="fCreatedChip" class="ct-created-chip" style="display:none"></span>
+  </div>
+
   <!-- Editable F1-F4 thresholds + Multi-Filter -->
   <div class="ct-thresh-row">
     <div class="ct-fcard">
@@ -1835,7 +1860,9 @@ let primaryAds  = [];   // primary_table aggregated per ad → drives Creative T
 let thumbsByAdId = {};  // {ad_id: thumbnail_url}  — populated from ad_thumbnails
                         // table (Meta Graph API fetched server-side)
 let state = {acct:'', status:'', campaign:'', content:'', tier:'',
-             dateFrom:'', dateTo:'', search:'', searchMode:'contains'};
+             dateFrom:'', dateTo:'',
+             createdFrom:'', createdTo:'',   // ad_created filter (old-dashboard parity)
+             search:'', searchMode:'contains'};
 
 function detectCtype(name){
   const n = (name||'').toUpperCase();
@@ -2073,6 +2100,19 @@ function filtered(rows){
   // is included regardless of when it was originally created. (Old
   // dashboard behaved the same: an ad created in 2023 still running today
   // appears in the "Last 30d" view.)
+  // Created Date filter — narrows to ads whose ad_created falls in the
+  // chosen window (matches the old dashboard's "Created Date" row).
+  if (state.createdFrom || state.createdTo){
+    const cf = state.createdFrom ? new Date(state.createdFrom+'T00:00:00') : null;
+    const ct = state.createdTo   ? new Date(state.createdTo  +'T23:59:59') : null;
+    r = r.filter(x => {
+      if (!x.ad_created) return false;
+      const d = new Date(x.ad_created);
+      if (cf && d < cf) return false;
+      if (ct && d > ct) return false;
+      return true;
+    });
+  }
   // Multi-Filter replaces the old simple search bar — chainable Field x Op x
   // Value rules, AND-merged. Empty rules pass-through.
   if (Array.isArray(ctRules) && ctRules.length){
@@ -2681,6 +2721,35 @@ document.getElementById('presetRow').addEventListener('click', async e=>{
     clearTimeout(window._ctDateDb);
     window._ctDateDb = setTimeout(refreshPrimaryForRange, 220);
   });
+});
+
+/* Created Date filter — purely client-side (filters primaryAds by ad_created).
+   No re-fetch needed; same data, different in-memory slice. */
+function _ctCreatedChipText(){
+  const a = state.createdFrom, b = state.createdTo;
+  if (!a && !b) return '';
+  if (a && b)   return a === b ? a : (a + ' - ' + b);
+  return a ? ('from ' + a) : ('until ' + b);
+}
+function _ctCreatedSync(){
+  const chip = document.getElementById('fCreatedChip');
+  const txt  = _ctCreatedChipText();
+  if (txt){ chip.textContent = txt; chip.style.display = 'inline-flex'; }
+  else    { chip.style.display = 'none'; }
+  rerender();
+}
+['fCreatedFrom','fCreatedTo'].forEach(id => {
+  document.getElementById(id).addEventListener('change', e => {
+    if (id === 'fCreatedFrom') state.createdFrom = e.target.value;
+    else                       state.createdTo   = e.target.value;
+    _ctCreatedSync();
+  });
+});
+document.getElementById('fCreatedClear').addEventListener('click', () => {
+  document.getElementById('fCreatedFrom').value = '';
+  document.getElementById('fCreatedTo').value   = '';
+  state.createdFrom = ''; state.createdTo = '';
+  _ctCreatedSync();
 });
 
 /* (Old single-input search bar removed — replaced by the Multi-Filter
