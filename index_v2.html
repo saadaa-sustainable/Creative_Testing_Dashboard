@@ -370,6 +370,28 @@
 
   /* ── Chart row ───────────────────────────────────────────────────── */
   .chart-row{display:grid;grid-template-columns:1fr 1.8fr 1fr;gap:12px;margin-bottom:14px}
+  /* Landing-Page Focus panel — table of (product code × URL × count × spend) */
+  .lp-tbl{width:100%;border-collapse:separate;border-spacing:0;margin-top:6px}
+  .lp-tbl thead th{font-family:'Space Grotesk',sans-serif;font-size:10px;
+    font-weight:700;letter-spacing:0.6px;text-transform:uppercase;
+    color:var(--text-secondary);padding:9px 12px;text-align:left;
+    border-bottom:1px solid var(--border-warm);background:var(--bg-page-alt)}
+  .lp-tbl thead th.num{text-align:right}
+  .lp-tbl tbody tr{cursor:pointer;transition:background-color .12s}
+  .lp-tbl tbody tr:nth-child(even) td{background:var(--bg-page-alt)}
+  .lp-tbl tbody tr:hover td{background:var(--accent-warm-tint)}
+  .lp-tbl td{padding:8px 12px;font-size:12px;color:var(--text-mid);
+    border-bottom:1px solid #F0EDE6;background:var(--bg-white);vertical-align:middle}
+  .lp-tbl td.num{font-family:'JetBrains Mono',monospace;text-align:right;
+    color:var(--text-primary);font-weight:600}
+  .lp-tbl .lp-code{display:inline-block;font-family:'JetBrains Mono',monospace;
+    font-size:11px;font-weight:800;color:var(--accent-yellow-hover);
+    background:var(--accent-warm-tint);border:1px solid var(--accent-yellow);
+    border-radius:5px;padding:2px 8px;letter-spacing:0.4px;min-width:42px;
+    text-align:center}
+  .lp-tbl .lp-link{color:var(--text-primary);text-decoration:none;font-weight:500;
+    word-break:break-all;font-size:11.5px}
+  .lp-tbl .lp-link:hover{color:var(--accent-yellow-hover);text-decoration:underline}
   .chart-card{background:var(--bg-white);border:1px solid var(--border-primary);border-radius:12px;
     padding:16px 18px;min-height:280px}
   .chart-card .ch-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
@@ -1246,6 +1268,16 @@
       </div>
       <canvas id="chCreative"></canvas>
     </div>
+  </div>
+
+  <!-- Landing Page Focus — what URL each ad redirects users to.
+       Groups primaryAds by ad_link, sorted by ad count (then spend). -->
+  <div class="panel" style="margin-top:0">
+    <h3>Product / Landing-Page Focus
+      <span class="h-sub">where each ad sends the click · click a row to drill into the ads</span>
+      <span class="mono" style="font-size:11px;color:var(--text-tertiary);float:right" id="lpFocusTotal">—</span>
+    </h3>
+    <div id="landingPageFocus"></div>
   </div>
 
 </div><!-- /view-testing -->
@@ -2488,6 +2520,11 @@ function bucketRows(){
       return true;   // both empty = grand-total click
     });
   }
+  if (bucketState.type === 'landing'){
+    // Landing-Page Focus row click — filter to ads pointing at this URL.
+    const url = bucketState.landingUrl || bucketState.val;
+    return rows.filter(r => (r.ad_link || '') === url);
+  }
   return [];
 }
 
@@ -2810,6 +2847,79 @@ function renderFunnel(rows){
 }
 
 /* ── Wire-up ───────────────────────────────────────────────────────── */
+/* Pull the first uppercase product-code-ish token from an ad name. */
+const _LP_CODE_RE = /[A-Z][A-Z0-9_]{1,7}/;
+function lpExtractCode(adName){
+  if (!adName) return '—';
+  // Skip leading layout prefixes that aren't product codes
+  const stripped = String(adName)
+    .replace(/^(CLP|CTP|PDP)[-_+\s]+/i, '')
+    .replace(/^(P\d+)[-_+\s]+/i, '');
+  const m = stripped.match(_LP_CODE_RE);
+  return m ? m[0].toUpperCase() : '—';
+}
+/* Friendly slug from URL: last meaningful path segment */
+function lpUrlSlug(url){
+  try{
+    const u = new URL(url);
+    const parts = u.pathname.split('/').filter(Boolean);
+    return parts[parts.length - 1] || u.hostname;
+  }catch(e){ return url; }
+}
+function renderLandingPageFocus(rows){
+  const host = document.getElementById('landingPageFocus');
+  if (!host) return;
+  const byUrl = {};
+  for (const r of rows){
+    const url = (r.ad_link || '').trim();
+    if (!url) continue;
+    if (!byUrl[url]) byUrl[url] = {url, count:0, codes:{}, spend:0};
+    const b = byUrl[url];
+    b.count += 1;
+    b.spend += (+r.amount_spent || 0);
+    const code = lpExtractCode(r.ad_name);
+    b.codes[code] = (b.codes[code] || 0) + 1;
+  }
+  const list = Object.values(byUrl).map(b => {
+    const top = Object.entries(b.codes).sort((a,b) => b[1] - a[1])[0];
+    return {...b, code: top ? top[0] : lpUrlSlug(b.url)};
+  }).sort((a,b) => b.count - a.count || b.spend - a.spend);
+  const total = list.reduce((s,b) => s + b.count, 0);
+  document.getElementById('lpFocusTotal').textContent =
+    fmtInt(list.length) + ' landing pages · ' + fmtInt(total) + ' ads';
+  if (!list.length){
+    host.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--text-tertiary);font-size:12.5px">No ads have a landing-page URL in the current filter.</div>';
+    return;
+  }
+  const top = list.slice(0, 40);   // cap visible rows
+  host.innerHTML = '<table class="lp-tbl">'+
+    '<thead><tr>'+
+      '<th style="width:90px">Product</th>'+
+      '<th>Landing Page</th>'+
+      '<th class="num" style="width:110px">Spend</th>'+
+      '<th class="num" style="width:80px">Ads</th>'+
+    '</tr></thead>'+
+    '<tbody>'+
+      top.map(b => '<tr data-lp-url="'+b.url.replace(/"/g,'&quot;')+'">'+
+        '<td><span class="lp-code" title="most common product token across ads at this URL">'+b.code+'</span></td>'+
+        '<td><a class="lp-link" href="'+b.url+'" target="_blank" rel="noopener">'+b.url+'</a></td>'+
+        '<td class="num">'+fmtRs(b.spend)+'</td>'+
+        '<td class="num">'+fmtInt(b.count)+'</td>'+
+      '</tr>').join('')+
+    '</tbody></table>';
+  // Row click → bucket modal filtered to that URL (ignore clicks on the link itself)
+  host.querySelectorAll('tr[data-lp-url]').forEach(tr => {
+    tr.addEventListener('click', e => {
+      if (e.target.closest('a')) return;
+      openLandingPageBucket(tr.dataset.lpUrl);
+    });
+  });
+}
+function openLandingPageBucket(url){
+  bucketState.landingUrl = url;
+  const slug = lpUrlSlug(url);
+  openBucketModal('landing', url, slug);
+}
 function rerender(){
   const rows = filtered(primaryAds);
   renderKpis(rows);
@@ -2818,6 +2928,7 @@ function rerender(){
   renderProdChart(p);
   renderCreativeChart(c);
   renderTrendChart(rows);
+  renderLandingPageFocus(rows);
 }
 
 document.getElementById('kpiRow').addEventListener('click', e=>{
