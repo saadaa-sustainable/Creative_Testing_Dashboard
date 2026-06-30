@@ -317,6 +317,11 @@
   .fk-cell.col-a2    .bar-fill{background:var(--accent-pink)}
   .fk-cell.col-disc  .bar-fill{background:var(--error-mid)}
   .fk-cell.col-f4    .bar-fill{background:var(--warning-mid)}
+  /* Clickable funnel cells — hover lifts to signal interactivity */
+  .fk-clickable{cursor:pointer;transition:background-color .12s, box-shadow .12s}
+  .fk-clickable:hover{background:var(--accent-warm-tint);
+    box-shadow:inset 0 0 0 1px var(--accent-yellow)}
+  .fk-clickable:hover .n{color:var(--accent-yellow-hover)}
   .fk-ctype{padding:14px 18px;display:flex;align-items:center;gap:10px;
     background:var(--bg-white);border-left:none}
   .fk-ctype .icon{font-size:18px}
@@ -2462,7 +2467,8 @@ function badgeCls(c){
 }
 
 /* ── Bucket modal (Product / Creative focus drill-down) ───────────── */
-let bucketState = {type:null, val:null, label:null, sort:'spend', limit:15};
+let bucketState = {type:null, val:null, label:null, sort:'spend', limit:15,
+                   funnelCtype:'', funnelCat:''};
 charts.bucketTrend = null; charts.bucketSpend = null;
 
 function bucketRows(){
@@ -2471,6 +2477,17 @@ function bucketRows(){
     return rows.filter(r => classifyProduct(r.ad_name) === bucketState.val);
   if (bucketState.type === 'creative')
     return rows.filter(r => classifyCreative(r.ad_name) === bucketState.val);
+  if (bucketState.type === 'funnel'){
+    // Funnel cell click — filter by (creative type × category). Empty
+    // funnelCtype means "all creative types". funnelCat '__F4__' means
+    // "F4-passing ads of this ctype".
+    return rows.filter(r => {
+      if (bucketState.funnelCtype && detectCtype(r.ad_name) !== bucketState.funnelCtype) return false;
+      if (bucketState.funnelCat === '__F4__') return !!r.f4_pass;
+      if (bucketState.funnelCat) return (r.category || 'Discarded') === bucketState.funnelCat;
+      return true;   // both empty = grand-total click
+    });
+  }
   return [];
 }
 
@@ -2478,13 +2495,31 @@ function openBucketModal(btype, bval, blabel){
   bucketState.type = btype;
   bucketState.val  = bval;
   bucketState.label = blabel || bval;
-  const t = (btype==='product') ? 'Product in Focus' : 'Creative Focus';
-  document.getElementById('bucketTitle').textContent = t + ' — ' + bucketState.label;
+  let header;
+  if (btype === 'product')      header = 'Product in Focus';
+  else if (btype === 'creative') header = 'Creative Focus';
+  else if (btype === 'funnel')   header = 'Funnel cell';
+  else                            header = 'Bucket';
+  document.getElementById('bucketTitle').textContent = header + ' — ' + bucketState.label;
   const total = bucketRows().length;
   document.getElementById('bucketSub').textContent = fmtInt(total)+' ads in current filter';
   document.getElementById('bucketModal').style.display = 'flex';
   document.getElementById('bucketModal').setAttribute('aria-hidden','false');
   renderBucket();
+}
+function openFunnelCell(ctype, cat){
+  bucketState.funnelCtype = ctype || '';
+  bucketState.funnelCat   = cat   || '';
+  // Build a friendly label: "IFAD × Winner", "All × Winner", "IFAD × F4 pass", "Grand total".
+  let lbl;
+  if (cat === '__F4__'){
+    lbl = (ctype || 'All') + ' × F4 pass';
+  } else if (!ctype && !cat){
+    lbl = 'Grand total';
+  } else {
+    lbl = (ctype || 'All') + ' × ' + (cat || 'all categories');
+  }
+  openBucketModal('funnel', cat || ctype || 'all', lbl);
 }
 function closeBucketModal(){
   document.getElementById('bucketModal').style.display = 'none';
@@ -2605,6 +2640,19 @@ function bindFocusStrip(stripId){
 bindFocusStrip('prodStrip');
 bindFocusStrip('creativeStrip');
 
+/* Creative Type Funnel cells — click any cell to open the bucket modal
+   pre-filtered by that (creative_type × category) intersection. */
+document.getElementById('funnelBody').addEventListener('click', e => {
+  const cell = e.target.closest('.fk-clickable');
+  if (!cell) return;
+  const ctype = cell.dataset.fnlCt || '';
+  const cat   = cell.dataset.fnlCat || '';
+  // Only open if the cell actually has ads in it
+  const n = parseInt((cell.querySelector('.n') || {}).textContent || '0', 10);
+  if (!n) return;
+  openFunnelCell(ctype, cat);
+});
+
 /* Chart info-button toggles — show a small popover with what each chart shows */
 document.querySelectorAll('.ch-info').forEach(btn => {
   btn.addEventListener('click', e => {
@@ -2715,28 +2763,33 @@ function renderFunnel(rows){
     ${FUNNEL_SUB_SHORT.map(s=>`<div class="fk-sub-cell">${s}</div>`).join('')}
     <div class="fk-sub-cell" style="border-left:2px solid var(--border-primary)">F4 ✓</div>
   </div>`;
-  // Data rows
+  // Data rows — every metric cell is clickable, opens the bucket modal
+  // pre-filtered by (creative type × category).
   for (const ct of active){
     const row = counts[ct];
+    // The Total cell drops the category filter; the F4 cell sets a special
+    // "f4" pseudo-category that bucketRows knows about.
     html += `<div class="fk-row fk-data" style="grid-template-columns:${cols}">
       <div class="fk-ctype"><span class="icon">${CTYPE_ICONS[ct]||'📌'}</span>
         <div><div class="nm">${ct}</div><div class="ttl">${row.total} ads</div></div></div>
-      <div class="fk-total"><div class="n">${row.total}</div></div>
+      <div class="fk-total fk-clickable" data-fnl-ct="${ct}" data-fnl-cat="" title="View all ${row.total} ${ct} ads"><div class="n">${row.total}</div></div>
       ${FUNNEL_SUB.map((s,i)=>{
         const n = row[s]||0; const pct = row.total ? Math.round(n/row.total*100) : 0;
         const barPct = (n/maxPerCat[s]*100).toFixed(1);
-        return `<div class="fk-cell ${FUNNEL_COL_CLS[i]}">
+        const clickable = n > 0 ? 'fk-clickable' : '';
+        const title = n > 0 ? `View ${n} ${ct} × ${s}` : '';
+        return `<div class="fk-cell ${FUNNEL_COL_CLS[i]} ${clickable}" data-fnl-ct="${ct}" data-fnl-cat="${s}" title="${title}">
           <div><span class="n">${n}</span><span class="p">${pct}%</span></div>
           <div class="bar"><div class="bar-fill" style="width:${barPct}%"></div></div>
         </div>`;
       }).join('')}
-      <div class="fk-cell col-f4 f4">
+      <div class="fk-cell col-f4 f4 ${row.f4>0?'fk-clickable':''}" data-fnl-ct="${ct}" data-fnl-cat="__F4__" title="${row.f4>0?'View '+row.f4+' '+ct+' ads passing F4':''}">
         <div><span class="n">${row.f4}</span><span class="p">${row.total?Math.round(row.f4/row.total*100):0}%</span></div>
         <div class="bar"><div class="bar-fill" style="width:${(row.f4/maxF4*100).toFixed(1)}%"></div></div>
       </div>
     </div>`;
   }
-  // Grand total row
+  // Grand total row — also clickable; ctype="" means "all creative types"
   const grand = {total:0, f4:0, ...Object.fromEntries(FUNNEL_SUB.map(s=>[s,0]))};
   for (const ct of active){
     grand.total += counts[ct].total; grand.f4 += counts[ct].f4;
@@ -2744,12 +2797,13 @@ function renderFunnel(rows){
   }
   html += `<div class="fk-row fk-grand fk-data" style="grid-template-columns:${cols}">
     <div class="fk-ctype"><div><div class="nm">Grand Total</div></div></div>
-    <div class="fk-total"><div class="n">${grand.total}</div></div>
+    <div class="fk-total fk-clickable" data-fnl-ct="" data-fnl-cat=""><div class="n">${grand.total}</div></div>
     ${FUNNEL_SUB.map((s,i)=>{
       const n=grand[s]; const pct = grand.total?Math.round(n/grand.total*100):0;
-      return `<div class="fk-cell ${FUNNEL_COL_CLS[i]}"><div><span class="n">${n}</span><span class="p">${pct}%</span></div></div>`;
+      const clickable = n > 0 ? 'fk-clickable' : '';
+      return `<div class="fk-cell ${FUNNEL_COL_CLS[i]} ${clickable}" data-fnl-ct="" data-fnl-cat="${s}"><div><span class="n">${n}</span><span class="p">${pct}%</span></div></div>`;
     }).join('')}
-    <div class="fk-cell col-f4 f4"><div><span class="n">${grand.f4}</span><span class="p">${grand.total?Math.round(grand.f4/grand.total*100):0}%</span></div></div>
+    <div class="fk-cell col-f4 f4 ${grand.f4>0?'fk-clickable':''}" data-fnl-ct="" data-fnl-cat="__F4__"><div><span class="n">${grand.f4}</span><span class="p">${grand.total?Math.round(grand.f4/grand.total*100):0}%</span></div></div>
   </div>`;
   body.innerHTML = html;
   document.getElementById('funnelTotal').textContent = fmtInt(grand.total) + ' ads';
