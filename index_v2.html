@@ -924,6 +924,8 @@
     display:flex;align-items:center;justify-content:center;
     font-size:10px;color:var(--text-tertiary)}
   .ae-tbl thead th.col-thumb{width:52px;min-width:52px;max-width:52px;font-size:9.5px !important}
+  .ae-tbl thead th.col-link{font-size:9.5px !important;color:var(--text-secondary);
+    font-weight:700;letter-spacing:0.7px;text-transform:uppercase}
   .ae-tbl td.thumb-cell{padding:6px 8px;width:52px}
   .cat-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;
     font-weight:700;letter-spacing:0.4px;text-transform:uppercase}
@@ -1702,8 +1704,8 @@
             <th class="num" data-sort="ltv_reach">LTV Reach</th>
             <th class="num" data-sort="ltv_frequency">LTV Freq</th>
             <th class="num" data-sort="engagement_count">Engagement</th>
-            <th data-sort="preview_link">Preview</th>
-            <th data-sort="ad_link">Ad Link</th>
+            <th class="col-link" data-sort="preview_link">Preview</th>
+            <th class="col-link" data-sort="ad_link">Ad Link</th>
           </tr>
         </thead>
         <tbody></tbody>
