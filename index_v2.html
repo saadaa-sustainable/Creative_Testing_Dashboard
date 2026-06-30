@@ -875,7 +875,7 @@
   .ae-tbl-wrap{overflow:auto;flex:1 1 auto;min-height:0}
   /* AE table — wide layout with horizontal scroll, sticky header */
   .ae-tbl{width:100%;table-layout:auto;border-collapse:separate;border-spacing:0;
-    min-width:2400px}
+    min-width:3800px}
   .ae-tbl thead th{position:sticky;top:0;background:var(--bg-page-alt);z-index:2;
     font-size:9.5px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;
     color:var(--text-secondary);padding:9px 10px;cursor:pointer;user-select:none;
@@ -1662,11 +1662,19 @@
             <th data-sort="ad_status">Ad Status</th>
             <th class="num" data-sort="impressions">Impressions</th>
             <th class="num" data-sort="reach">Reach</th>
+            <th class="num" data-sort="reach_weight_pct">Reach Weight %</th>
             <th class="num" data-sort="frequency">Freq</th>
             <th class="num" data-sort="amount_spent">Spend</th>
+            <th class="num" data-sort="cost_per_1000">Cost/1k</th>
             <th class="num" data-sort="cpc_link">CPC Link</th>
             <th class="num" data-sort="ctr_pct">CTR %</th>
             <th class="num" data-sort="link_clicks_raw">Link Clicks</th>
+            <th class="num" data-sort="atc_count">ATC</th>
+            <th class="num" data-sort="atc_lc_pct">ATC/LC %</th>
+            <th class="num" data-sort="ci_count">CI</th>
+            <th class="num" data-sort="ci_atc_pct">CI/ATC %</th>
+            <th class="num" data-sort="checkout_compl_pct">Checkout %</th>
+            <th class="num" data-sort="cr_link_clicks_pct">CR/LC %</th>
             <th class="num" data-sort="purchases">Purchases</th>
             <th class="num" data-sort="conv_value">Conv Value</th>
             <th class="num" data-sort="roas_ma">ROAS</th>
@@ -1674,10 +1682,23 @@
             <th class="num" data-sort="shopify_sales">Shop Sales</th>
             <th class="num" data-sort="cost_per_ftewv">Cost/FTEWV</th>
             <th class="num" data-sort="ftewv_count">FTEWV</th>
+            <th class="num" data-sort="pct_reach_ftewv">% Reach FTEWV</th>
             <th class="num" data-sort="cost_per_ncp">Cost/NCP</th>
             <th class="num" data-sort="ncp_count">NCP</th>
             <th class="num" data-sort="profit_efficiency">Profit Eff</th>
+            <th class="num" data-sort="contrib_margin_pct">Contrib Margin %</th>
             <th class="num" data-sort="blended_eff">Blended Eff</th>
+            <th class="num" data-sort="delivery_eff">Delivery Eff</th>
+            <th class="num" data-sort="sales_spend_eff">Sales/Spend Eff</th>
+            <th class="num" data-sort="cpr_eff">CPR Eff</th>
+            <th class="num" data-sort="ftv_contrib_eff">FTV Contrib Eff</th>
+            <th class="num" data-sort="ftev_volume">FTEV Volume</th>
+            <th class="num" data-sort="ncp_cost_eff">NCP Cost Eff</th>
+            <th class="num" data-sort="roas_eff">ROAS Eff</th>
+            <th class="num" data-sort="profit_vol_eff">Profit Vol Eff</th>
+            <th class="num" data-sort="ltv_reach">LTV Reach</th>
+            <th class="num" data-sort="ltv_frequency">LTV Freq</th>
+            <th class="num" data-sort="engagement_count">Engagement</th>
             <th data-sort="preview_link">Preview</th>
             <th data-sort="ad_link">Ad Link</th>
           </tr>
@@ -2002,10 +2023,17 @@ async function fetchAds(){
     'first_seen_date','reporting_starts','reporting_ends','date_target_imp_achieved',
     'date_of_result','days_to_result','days_to_target_f1',
     'ad_status','category','f1_pass','f2_pass','f3_pass','f4_pass',
-    'impressions','reach','frequency','ltv_frequency','amount_spent','cost_per_1000',
-    'cpc_link','ctr_pct','link_clicks_raw','roas_ma','ftewv_count',
+    'impressions','reach','reach_weight_pct','frequency','ltv_reach','ltv_frequency',
+    'amount_spent','cost_per_1000',
+    'cpc_link','ctr_pct','link_clicks_raw',
+    'checkout_compl_pct','cr_link_clicks_pct','atc_lc_pct','atc_count',
+    'ci_atc_pct','ci_count',
+    'roas_ma','ftewv_count','pct_reach_ftewv',
     'cost_per_ftewv','cost_per_ncp','ncp_count','conv_value','purchases',
-    'profit_efficiency','blended_eff','preview_link','ad_link',
+    'profit_efficiency','contrib_margin_pct','delivery_eff','sales_spend_eff',
+    'blended_eff','cpr_eff','ftv_contrib_eff','ftev_volume',
+    'ncp_cost_eff','roas_eff','profit_vol_eff','engagement_count',
+    'preview_link','ad_link',
     'shopify_orders','shopify_sales','shopify_top_tier','shopify_roas'
   ].join(',');
   const headers = {'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON};
@@ -4398,11 +4426,19 @@ function renderAE(){
       '<td><span class="ae-status '+statusCls+'">'+(r.ad_status||'—')+'</span></td>'+
       numCell(impVal)+
       numCell(reachVal)+
+      numCell(fmtNum2(r.reach_weight_pct))+
       numCell(freqVal)+
       numCell(spendVal)+
+      numCell(fmtRs(r.cost_per_1000))+
       numCell(cpcVal)+
       numCell(ctrVal)+
       numCell(linkClkVal)+
+      numCell(fmtInt(r.atc_count))+
+      numCell(fmtPct(r.atc_lc_pct))+
+      numCell(fmtInt(r.ci_count))+
+      numCell(fmtPct(r.ci_atc_pct))+
+      numCell(fmtPct(r.checkout_compl_pct))+
+      numCell(fmtPct(r.cr_link_clicks_pct))+
       numCell(purchVal)+
       numCell(convVal)+
       numCell(roasVal)+
@@ -4410,10 +4446,23 @@ function renderAE(){
       numCell(fmtRs(r.shopify_sales))+
       numCell(cFtVal)+
       numCell(ftVal)+
+      numCell(fmtNum2(r.pct_reach_ftewv))+
       numCell(cNcpVal)+
       numCell(ncpVal)+
       numCell(fmtRs(r.profit_efficiency))+
+      numCell(fmtPct(r.contrib_margin_pct))+
       numCell(fmtNum3(r.blended_eff))+
+      numCell(fmtNum3(r.delivery_eff))+
+      numCell(fmtNum3(r.sales_spend_eff))+
+      numCell(fmtNum3(r.cpr_eff))+
+      numCell(fmtNum3(r.ftv_contrib_eff))+
+      numCell(fmtNum3(r.ftev_volume))+
+      numCell(fmtNum3(r.ncp_cost_eff))+
+      numCell(fmtNum3(r.roas_eff))+
+      numCell(fmtNum3(r.profit_vol_eff))+
+      numCell(fmtInt(r.ltv_reach))+
+      numCell(fmtNum2(r.ltv_frequency))+
+      numCell(fmtInt(r.engagement_count))+
       linkCell(r.preview_link, '▸ Preview')+
       linkCell(r.ad_link,      '▸ Open')+
     '</tr>';
