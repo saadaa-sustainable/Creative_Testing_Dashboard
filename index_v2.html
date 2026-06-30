@@ -877,15 +877,18 @@
   .ae-tbl{width:100%;table-layout:auto;border-collapse:separate;border-spacing:0;
     min-width:3800px}
   .ae-tbl thead th{position:sticky;top:0;background:var(--bg-page-alt);z-index:2;
-    font-size:9.5px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;
+    font-size:9.5px !important;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;
     color:var(--text-secondary);padding:9px 10px;cursor:pointer;user-select:none;
-    border-bottom:1px solid var(--border-warm);white-space:nowrap;text-align:left}
-  .ae-tbl thead th.num{text-align:right}
+    border-bottom:1px solid var(--border-warm);white-space:nowrap;text-align:left;
+    line-height:1.2}
+  .ae-tbl thead th.num{text-align:right;font-size:9.5px !important}
   .ae-tbl thead th:hover{color:var(--accent-yellow-hover);background:var(--accent-warm-tint)}
   .ae-tbl thead th.sort-asc::after  { content:' ↑';color:var(--accent-yellow) }
   .ae-tbl thead th.sort-desc::after { content:' ↓';color:var(--accent-yellow) }
-  .ae-tbl thead th.col-adname{min-width:240px;max-width:320px}
-  .ae-tbl thead th.col-camp{min-width:180px;max-width:260px}
+  /* Column-specific min/max widths — font-size locked to the base rule
+     above so no header (short or long label) renders at a different size. */
+  .ae-tbl thead th.col-adname{min-width:240px;max-width:320px;font-size:9.5px !important}
+  .ae-tbl thead th.col-camp{min-width:180px;max-width:260px;font-size:9.5px !important}
   .ae-tbl tbody tr:nth-child(even) td{background:var(--bg-page-alt)}
   .ae-tbl tbody tr:hover td{background:var(--accent-warm-tint)}
   .ae-tbl td{padding:8px 10px;font-size:11.5px;color:var(--text-mid);
@@ -920,7 +923,7 @@
     background:var(--bg-page-alt);border:1px dashed var(--border-warm);
     display:flex;align-items:center;justify-content:center;
     font-size:10px;color:var(--text-tertiary)}
-  .ae-tbl thead th.col-thumb{width:52px;min-width:52px;max-width:52px}
+  .ae-tbl thead th.col-thumb{width:52px;min-width:52px;max-width:52px;font-size:9.5px !important}
   .ae-tbl td.thumb-cell{padding:6px 8px;width:52px}
   .cat-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;
     font-weight:700;letter-spacing:0.4px;text-transform:uppercase}
