@@ -2081,6 +2081,72 @@ function _ctCategory(impr, roas, cpncp, cpft, t){
   else                           cat = 'Discarded';
   return {f1_pass:f1, f2_pass:f2, f3_pass:f3, f4_pass:f4, category:cat};
 }
+/* Fast-path: pre-computed per-ad rollup from results_table. The pipeline's
+   results_sync.py writes this row once per accounts_group with everything
+   already aggregated, so the dashboard can render in 1 HTTP fetch instead
+   of paging primary_table. Returns null when no usable cache exists or its
+   window doesn't match the requested one. */
+async function fetchPrimaryFromCache(dateFrom, dateTo){
+  if (!SUPABASE_URL || !SUPABASE_ANON) return null;
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                   Prefer:'count=none'};
+  dbStat.innerHTML = 'Loading cached results_table <span class="spinner"></span>';
+  const url = SUPABASE_URL +
+    '/rest/v1/results_table?account_name=eq.All%20Accounts' +
+    '&select=ads_json,data_date_from,data_date_to,computed_at' +
+    '&order=computed_at.desc&limit=1';
+  const r = await fetch(url, {headers});
+  if (!r.ok) return null;
+  const j = await r.json();
+  if (!Array.isArray(j) || !j.length) return null;
+  const row = j[0];
+  // Cache window must match (or be a 1-day superset of) the requested window
+  // for us to trust it.
+  if (dateFrom && row.data_date_from !== dateFrom) return null;
+  if (dateTo   && row.data_date_to   !== dateTo  ) return null;
+  const ads = row.ads_json || [];
+  // Map compact cache keys → the same row shape fetchPrimaryAggregated emits
+  const t = (typeof aeReadThresholds === 'function')
+            ? aeReadThresholds()
+            : {f1:50000, f2:3.2, f3:525, f4:12};
+  const out = [];
+  for (const a of ads){
+    const impr  = +a.impr  || 0;
+    const spend = +a.spend || 0;
+    const conv  = +a.convV || 0;
+    const reach = +a.reach || 0;
+    const ftewv = +a.ftewv || 0;
+    const ncp   = +a.ncp   || 0;
+    const roas  = spend > 0 ? conv / spend : 0;
+    const cpft  = (+a.cpf || 0) || (ftewv > 0 ? spend / ftewv : 0);
+    const cpncp = (+a.cpn || 0) || (ncp   > 0 ? spend / ncp   : 0);
+    const cat = _ctCategory(impr, roas, cpncp, cpft, t);
+    out.push({
+      ad_id:        a.adId || '',
+      ad_name:      a.adName || '',
+      account_name: a.acct || '',
+      campaign_name:a.campName || '',
+      adset_id:     '',       // not in cache; ok for KPI/funnel uses
+      adset_name:   '',
+      ad_status:    a.adStatus || '',
+      ad_created:   a.adCreated || null,
+      preview_link: a.preview || '',
+      ad_link:      a.adLink || '',
+      impressions:  impr, reach: reach,
+      frequency:    reach > 0 ? impr / reach : 0,
+      amount_spent: spend, conv_value: conv,
+      purchases:    0,        // not in cache; rarely used in CT view
+      ftewv_count:  ftewv, ncp_count: ncp,
+      roas_ma:      roas, cost_per_ftewv: cpft, cost_per_ncp: cpncp,
+      ...cat
+    });
+  }
+  dbStat.innerHTML = 'Loaded <span class="mono">'+fmtInt(out.length)+
+                     '</span> ads (results_table cache · ' +
+                     row.data_date_from + ' → ' + row.data_date_to + ')';
+  return out;
+}
+
 async function fetchPrimaryAggregated(dateFrom, dateTo){
   if (!SUPABASE_URL || !SUPABASE_ANON){
     dbStat.textContent = 'Missing ?supabaseUrl & ?supabaseAnon';
@@ -4749,18 +4815,30 @@ document.getElementById('invExport').onclick = () => {
 (async ()=>{
   // Default Creative Testing date window = last 30 days INCLUDING today,
   // matching the OLD dashboard's behaviour. Set the dates first so
-  // fetchPrimaryAggregated() filters at the SQL layer.
+  // fetchPrimaryAggregated() / cache lookup uses the right window.
   applyDatePreset('last30');
 
-  // Two independent data sources:
-  //   primaryAds → primary_table aggregated client-side over the date
-  //                window (default = last 30 days). Matches OLD dashboard.
-  //   allAds    → ae_table_view (drives Ads Analyse + Lifecycle).
-  [primaryAds, allAds, thumbsByAdId] = await Promise.all([
-    fetchPrimaryAggregated(state.dateFrom || '', state.dateTo || ''),
-    fetchAds(),
-    fetchThumbnails()
+  // Try the pre-computed cache (results_table.ads_json) first — one HTTP
+  // fetch of a single JSONB blob instead of paging 260k+ rows from
+  // primary_table. The cache is refreshed by results_sync.py in the
+  // backend pipeline; if its window doesn't match the requested one
+  // (e.g. user has already clicked a different preset before this code
+  // runs) we fall back to the live aggregator.
+  const cachedPromise = fetchPrimaryFromCache(state.dateFrom || '', state.dateTo || '')
+    .catch(() => null);
+
+  // Kick off ae_table_view + thumbnails in parallel either way
+  const [cached, freshAllAds, freshThumbs] = await Promise.all([
+    cachedPromise, fetchAds(), fetchThumbnails()
   ]);
+  allAds = freshAllAds; thumbsByAdId = freshThumbs;
+
+  if (cached && cached.length){
+    primaryAds = cached;            // fast path — already aggregated server-side
+  } else {
+    // Slow path: live aggregation from primary_table
+    primaryAds = await fetchPrimaryAggregated(state.dateFrom || '', state.dateTo || '');
+  }
   // Refresh ae_table_view rows' category with the current working thresholds
   // (the DB column may have been baked with an older F4 value).
   aeApplyCurrentThresholds();
