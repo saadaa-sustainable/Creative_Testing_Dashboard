@@ -926,6 +926,38 @@
   .ae-tbl thead th.col-thumb{width:52px;min-width:52px;max-width:52px;font-size:9.5px !important}
   .ae-tbl thead th.col-link{font-size:9.5px !important;color:var(--text-secondary);
     font-weight:700;letter-spacing:0.7px;text-transform:uppercase}
+  /* Ad Intelligence — filter grid + pager + table wrap */
+  .ai-fgrid{background:var(--bg-surface);border:1px solid var(--border-primary);
+    border-radius:12px;padding:12px 14px;margin-bottom:10px;display:grid;
+    grid-template-columns:repeat(4,minmax(160px,1fr));gap:10px 14px}
+  .ai-pager{display:flex;align-items:center;gap:10px;padding:9px 14px;
+    background:var(--bg-white);border:1px solid var(--border-warm);
+    border-radius:9px;margin-bottom:8px;font-size:12px;color:var(--text-mid);
+    flex-wrap:wrap}
+  .ai-tbl-wrap{background:var(--bg-white);border:1px solid var(--border-warm);
+    border-radius:10px;overflow:auto;height:calc(100vh - 380px);min-height:480px}
+  /* Tier badges inside the AI table */
+  .ai-tier{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;
+    font-weight:800;letter-spacing:0.3px;border-radius:5px;padding:2px 8px;min-width:46px;
+    text-align:center}
+  .ai-tier.t1 {background:#E0F0E5;color:#2E7755}
+  .ai-tier.t2 {background:var(--success-bg);color:var(--success-text)}
+  .ai-tier.t3 {background:var(--info-bg);color:var(--info-text)}
+  .ai-tier.t4 {background:var(--warning-bg);color:var(--warning-text)}
+  .ai-tier.none{background:var(--bg-muted);color:var(--text-tertiary)}
+  /* Status pill mirrors AE table */
+  .ai-status{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;
+    font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.4px;
+    background:var(--bg-muted);color:var(--text-tertiary)}
+  .ai-status.active{background:var(--success-bg);color:var(--success-text)}
+  /* Match AE table styling on the AI table */
+  #aiTbl{min-width:1700px}
+  #aiTbl td{padding:7px 9px;font-size:11.5px;color:var(--text-mid);
+    border-bottom:1px solid #F0EDE6;white-space:nowrap;background:var(--bg-white);
+    vertical-align:middle}
+  #aiTbl td.num{font-family:'JetBrains Mono',monospace;text-align:right;font-size:11px}
+  #aiTbl tbody tr:nth-child(even) td{background:var(--bg-page-alt)}
+  #aiTbl tbody tr:hover td{background:var(--accent-warm-tint)}
   .ae-tbl td.thumb-cell{padding:6px 8px;width:52px}
   .cat-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;
     font-weight:700;letter-spacing:0.4px;text-transform:uppercase}
@@ -999,6 +1031,7 @@
   <div class="sb-item" data-view="lifecycle">Creative Lifecycle</div>
   <div class="sb-section">Analysis</div>
   <div class="sb-item" data-view="ae">Ads Analyse</div>
+  <div class="sb-item" data-view="adintel">Ad Intelligence</div>
   <div class="sb-section">Catalog</div>
   <div class="sb-item" data-view="inventory">Inventory</div>
   <div class="sb-bottom"><span class="mono" id="dbStat">Idle</span></div>
@@ -1713,6 +1746,181 @@
     </div>
   </div>
 </div><!-- /view-ae -->
+
+<!-- ─── VIEW: AD INTELLIGENCE (UTM matching, stepwise) ────────────── -->
+<div class="view" id="view-adintel" style="display:none">
+  <div class="page-hdr">
+    <div>
+      <h1 class="heading">Ad Intelligence</h1>
+      <div class="sub">step-wise UTM matches from <code>shopify_ad_attribution</code> · 690k orders since 2025-01-01</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <!-- Date Range picker — third DRP instance, scoped to ai-drp-* -->
+      <div id="ai-drp-wrap" class="drp-wrap">
+        <button id="ai-drp-btn" class="drp-btn" type="button" style="width:auto;min-width:220px">
+          <span id="ai-drp-label" class="drp-label">Last 30 Days</span>
+          <span class="drp-caret">▾</span>
+        </button>
+        <div id="ai-drp-panel" class="drp-panel" aria-hidden="true">
+          <div class="drp-shell">
+            <div id="ai-drp-presets" class="drp-presets">
+              <div class="drp-preset" data-key="today">Today</div>
+              <div class="drp-preset" data-key="yesterday">Yesterday</div>
+              <div class="drp-preset" data-key="last7">Last 7 Days</div>
+              <div class="drp-preset" data-key="last15">Last 15 Days</div>
+              <div class="drp-preset active" data-key="last30">Last 30 Days</div>
+              <div class="drp-preset" data-key="thisMonth">This Month</div>
+              <div class="drp-preset" data-key="lastMonth">Last Month</div>
+              <div class="drp-preset" data-key="last90">Last 90 Days</div>
+              <div class="drp-preset" data-key="custom">Custom Range</div>
+            </div>
+            <div class="drp-main">
+              <div class="drp-monthbar">
+                <button id="ai-drp-prev" class="drp-nav" type="button">‹</button>
+                <div id="ai-drp-month-l" class="drp-month"></div>
+                <div id="ai-drp-month-r" class="drp-month"></div>
+                <button id="ai-drp-next" class="drp-nav" type="button">›</button>
+              </div>
+              <div class="drp-cals">
+                <div id="ai-drp-cal-l" class="drp-cal"></div>
+                <div id="ai-drp-cal-r" class="drp-cal"></div>
+              </div>
+              <div class="drp-footer">
+                <div id="ai-drp-footer-range" class="drp-range-text">--/--/---- - --/--/----</div>
+                <div class="drp-footer-actions">
+                  <button id="ai-drp-cancel" class="ae-fbtn" type="button">Cancel</button>
+                  <button id="ai-drp-apply"  class="ae-fbtn primary" type="button">Apply</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <input type="hidden" id="aiDateFrom">
+      <input type="hidden" id="aiDateTo">
+      <button class="btn ghost" id="aiRefresh">↻ Refresh</button>
+      <button class="btn" id="aiExport">Export CSV</button>
+    </div>
+  </div>
+
+  <!-- KPI cards: one per matched_tier -->
+  <div class="kpi-row" id="aiTierCards" style="grid-template-columns:repeat(7,1fr)">
+    <div class="kpi" data-tier="T1"><div class="k-lbl">T1 ad_id</div>
+      <div class="k-val mono" id="aiKp-T1">—</div>
+      <div class="k-sub">sales <b id="aiKp-T1-sp">—</b></div></div>
+    <div class="kpi" data-tier="T2"><div class="k-lbl">T2 ad_name</div>
+      <div class="k-val mono" id="aiKp-T2">—</div>
+      <div class="k-sub">sales <b id="aiKp-T2-sp">—</b></div></div>
+    <div class="kpi" data-tier="T3.1"><div class="k-lbl">T3.1 adset+name</div>
+      <div class="k-val mono" id="aiKp-T31">—</div>
+      <div class="k-sub">sales <b id="aiKp-T31-sp">—</b></div></div>
+    <div class="kpi" data-tier="T3.2"><div class="k-lbl">T3.2 sep-normalised</div>
+      <div class="k-val mono" id="aiKp-T32">—</div>
+      <div class="k-sub">sales <b id="aiKp-T32-sp">—</b></div></div>
+    <div class="kpi" data-tier="T3.3"><div class="k-lbl">T3.3 multi-attr</div>
+      <div class="k-val mono" id="aiKp-T33">—</div>
+      <div class="k-sub">sales <b id="aiKp-T33-sp">—</b></div></div>
+    <div class="kpi" data-tier="T4"><div class="k-lbl">T4 campaign</div>
+      <div class="k-val mono" id="aiKp-T4">—</div>
+      <div class="k-sub">sales <b id="aiKp-T4-sp">—</b></div></div>
+    <div class="kpi" data-tier="__none__"><div class="k-lbl">Unmatched</div>
+      <div class="k-val mono" id="aiKp-none">—</div>
+      <div class="k-sub">sales <b id="aiKp-none-sp">—</b></div></div>
+  </div>
+
+  <!-- Filter grid -->
+  <div class="ai-fgrid">
+    <div class="fg-field">
+      <label class="fg-lbl">utm_source</label>
+      <select class="fg-select" id="aiUtmSource"><option value="">All</option></select>
+    </div>
+    <div class="fg-field">
+      <label class="fg-lbl">utm_medium</label>
+      <select class="fg-select" id="aiUtmMedium"><option value="">All</option></select>
+    </div>
+    <div class="fg-field">
+      <label class="fg-lbl">matched_tier</label>
+      <select class="fg-select" id="aiTierSel">
+        <option value="">All</option>
+        <option value="T1">T1 ad_id</option>
+        <option value="T2">T2 ad_name</option>
+        <option value="T3.1">T3.1 adset+name</option>
+        <option value="T3.2">T3.2 sep-normalised</option>
+        <option value="T3.3">T3.3 multi-attr</option>
+        <option value="T4">T4 campaign</option>
+        <option value="__matched__">Any match</option>
+        <option value="__none__">Unmatched only</option>
+      </select>
+    </div>
+    <div class="fg-field">
+      <label class="fg-lbl">Ad status</label>
+      <select class="fg-select" id="aiAdStatus">
+        <option value="">All ads</option>
+        <option value="ACTIVE">Active ads only</option>
+        <option value="INACTIVE">Inactive ads only</option>
+      </select>
+    </div>
+    <div class="fg-field">
+      <label class="fg-lbl">utm_campaign</label>
+      <input class="fg-input" id="aiUtmCampaign" placeholder="contains…">
+    </div>
+    <div class="fg-field">
+      <label class="fg-lbl">utm_content</label>
+      <input class="fg-input" id="aiUtmContent" placeholder="contains…">
+    </div>
+    <div class="fg-field">
+      <label class="fg-lbl">utm_term</label>
+      <input class="fg-input" id="aiUtmTerm" placeholder="contains…">
+    </div>
+    <div class="fg-field">
+      <label class="fg-lbl">matched_value</label>
+      <input class="fg-input" id="aiMatchedValue" placeholder="contains…">
+    </div>
+  </div>
+
+  <!-- Status + pagination bar -->
+  <div class="ai-pager">
+    <span id="aiStatus" class="mono">Idle</span>
+    <span class="ae-pager-sep">|</span>
+    <span id="aiRowInfo" class="mono">0 rows</span>
+    <span class="ae-pager-sep">|</span>
+    <label for="aiPageSize" style="font-size:11px;color:var(--text-secondary)">Show</label>
+    <select class="fg-select" id="aiPageSize" style="padding:5px 8px;width:80px">
+      <option>50</option><option selected>100</option>
+      <option>250</option><option>500</option><option>1000</option>
+    </select>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <button class="btn ghost" id="aiPrevPage" type="button" style="padding:5px 10px;font-size:11px">‹ Prev</button>
+      <span id="aiPageInfo" class="mono" style="min-width:120px;text-align:center">Page 1 / 1</span>
+      <button class="btn ghost" id="aiNextPage" type="button" style="padding:5px 10px;font-size:11px">Next ›</button>
+    </div>
+  </div>
+
+  <!-- Main UTM table -->
+  <div class="ai-tbl-wrap">
+    <table class="tbl ae-tbl" id="aiTbl">
+      <thead>
+        <tr>
+          <th data-aisort="order_created_at">Order Date</th>
+          <th data-aisort="order_id">Order ID</th>
+          <th class="num" data-aisort="total_price">Total ₹</th>
+          <th data-aisort="matched_tier">Tier</th>
+          <th data-aisort="utm_source">utm_source</th>
+          <th data-aisort="utm_medium">utm_medium</th>
+          <th data-aisort="utm_campaign">utm_campaign</th>
+          <th data-aisort="utm_content">utm_content</th>
+          <th data-aisort="utm_term">utm_term</th>
+          <th data-aisort="matched_value">matched_value</th>
+          <th data-aisort="ad_id">Ad ID</th>
+          <th data-aisort="ad_name">Ad Name</th>
+          <th data-aisort="campaign_name">Campaign</th>
+          <th data-aisort="ad_status">Ad Status</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div><!-- /view-adintel -->
 
 <!-- ─── VIEW: INVENTORY (Shopify products) ─────────────────────────── -->
 <div class="view" id="view-inventory" style="display:none">
@@ -3177,7 +3385,7 @@ document.getElementById('btnExport').onclick = ()=>{
 /* ────────────────────────────────────────────────────────────────────
    VIEW SWITCHER — sidebar nav between Testing / Lifecycle / AE / Inventory
    ──────────────────────────────────────────────────────────────────── */
-const VIEW_LOADED = {testing:true, lifecycle:false, ae:false, inventory:false};
+const VIEW_LOADED = {testing:true, lifecycle:false, ae:false, adintel:false, inventory:false};
 document.querySelectorAll('.sb-item').forEach(it => {
   it.addEventListener('click', () => {
     const v = it.dataset.view;
@@ -3189,6 +3397,11 @@ document.querySelectorAll('.sb-item').forEach(it => {
     // Lazy-load per-view data
     if (v === 'lifecycle' && allAds.length) renderLifecycle();
     if (v === 'ae'        && allAds.length) renderAE();
+    if (v === 'adintel'   && !VIEW_LOADED.adintel) {
+      initAdIntel();
+      aiReloadOrders();   // first time: fetch the default last-30-day window
+      VIEW_LOADED.adintel = true;
+    }
     if (v === 'inventory' && !VIEW_LOADED.inventory) { loadInventory(); VIEW_LOADED.inventory = true; }
   });
 });
@@ -4146,6 +4359,441 @@ function initLifecycleDRP(){
   window.addEventListener('resize', () => { if (lifeDrpState.open) lifeDrpPositionPanel(); });
   lifeDrpRender();
   lifeDrpUpdateButton();
+}
+
+/* ────────────────────────────────────────────────────────────
+   Ad Intelligence Date Range Picker — third DRP instance.
+   Default preset: last30. Writes to #aiDateFrom / #aiDateTo and
+   calls aiReloadOrders() on Apply.
+   ──────────────────────────────────────────────────────────── */
+const aiDrpState = {
+  open:false,
+  viewYear: new Date().getFullYear(),
+  viewMonth: new Date().getMonth() - 1,
+  from:null, to:null, hov:null,
+  preset:'last30',
+  selecting:false,
+};
+if (aiDrpState.viewMonth < 0){ aiDrpState.viewMonth = 11; aiDrpState.viewYear -= 1; }
+const aiDrpEl = (id) => document.getElementById(id);
+function aiDrpSetPresetActive(key){
+  document.querySelectorAll('#ai-drp-presets .drp-preset').forEach(n => {
+    n.classList.toggle('active', n.dataset.key === key);
+  });
+}
+function aiDrpPositionPanel(){
+  const btn = aiDrpEl('ai-drp-btn'), panel = aiDrpEl('ai-drp-panel');
+  if (!btn || !panel) return;
+  const r = btn.getBoundingClientRect();
+  const panelW = panel.offsetWidth || 680;
+  const panelH = panel.offsetHeight || 380;
+  let top = r.bottom + 6, left = r.right - panelW;
+  if (top + panelH > window.innerHeight - 8) top = Math.max(8, r.top - panelH - 6);
+  if (left < 8) left = 8;
+  if (left + panelW > window.innerWidth - 8) left = window.innerWidth - panelW - 8;
+  panel.style.top = top + 'px'; panel.style.left = left + 'px';
+}
+function aiDrpOpen(){
+  aiDrpState.open = true;
+  aiDrpEl('ai-drp-panel').classList.add('open');
+  aiDrpEl('ai-drp-panel').setAttribute('aria-hidden','false');
+  aiDrpEl('ai-drp-btn').classList.add('open');
+  aiDrpRender(); aiDrpPositionPanel(); setTimeout(aiDrpPositionPanel, 0);
+}
+function aiDrpClose(){
+  aiDrpState.open = false;
+  aiDrpEl('ai-drp-panel').classList.remove('open');
+  aiDrpEl('ai-drp-panel').setAttribute('aria-hidden','true');
+  aiDrpEl('ai-drp-btn').classList.remove('open');
+}
+function aiDrpToggle(){ aiDrpState.open ? aiDrpClose() : aiDrpOpen(); }
+function aiDrpNavMonth(dir){
+  aiDrpState.viewMonth += dir;
+  if (aiDrpState.viewMonth > 11){ aiDrpState.viewMonth = 0;  aiDrpState.viewYear += 1; }
+  if (aiDrpState.viewMonth <  0){ aiDrpState.viewMonth = 11; aiDrpState.viewYear -= 1; }
+  aiDrpRender(); aiDrpPositionPanel();
+}
+function aiDrpCalHTML(year, month){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  let rFrom = aiDrpState.from;
+  let rTo   = aiDrpState.selecting && aiDrpState.hov ? aiDrpState.hov : aiDrpState.to;
+  if (rFrom && rTo && rFrom > rTo){ const t = rFrom; rFrom = rTo; rTo = t; }
+  let html = '<div class="drp-grid">';
+  DRP_DAYS.forEach(d => { html += '<div class="drp-dow">' + d + '</div>'; });
+  for (let i = 0; i < firstDay; i++)
+    html += '<div class="drp-day other-month">' + (daysInPrevMonth - firstDay + 1 + i) + '</div>';
+  for (let d = 1; d <= daysInMonth; d++){
+    const dt = new Date(year, month, d); dt.setHours(0,0,0,0);
+    const iso = drpFmtLocal(dt);
+    const isFuture = dt > today;
+    let cls = 'drp-day';
+    if (dt.getTime() === today.getTime())            cls += ' today';
+    if (rFrom && dt.getTime() === rFrom.getTime())   cls += ' range-start';
+    if (rTo   && dt.getTime() === rTo.getTime())     cls += ' range-end';
+    if (rFrom && rTo && dt > rFrom && dt < rTo)      cls += ' in-range';
+    if (isFuture)                                    cls += ' disabled';
+    html += '<div class="' + cls + '" data-date="' + iso + '">' + d + '</div>';
+  }
+  const total = firstDay + daysInMonth;
+  const remainder = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (let d = 1; d <= remainder; d++) html += '<div class="drp-day other-month">' + d + '</div>';
+  return html + '</div>';
+}
+function aiDrpRender(){
+  let rMonth = aiDrpState.viewMonth + 1, rYear = aiDrpState.viewYear;
+  if (rMonth > 11){ rMonth = 0; rYear += 1; }
+  aiDrpEl('ai-drp-month-l').textContent = DRP_MONTHS[aiDrpState.viewMonth] + ' ' + aiDrpState.viewYear;
+  aiDrpEl('ai-drp-month-r').textContent = DRP_MONTHS[rMonth]              + ' ' + rYear;
+  aiDrpEl('ai-drp-cal-l').innerHTML = aiDrpCalHTML(aiDrpState.viewYear, aiDrpState.viewMonth);
+  aiDrpEl('ai-drp-cal-r').innerHTML = aiDrpCalHTML(rYear, rMonth);
+  const end = aiDrpState.selecting && aiDrpState.hov ? aiDrpState.hov : aiDrpState.to;
+  let a = aiDrpState.from, b = end;
+  if (a && b && a > b){ const t = a; a = b; b = t; }
+  aiDrpEl('ai-drp-footer-range').textContent = drpDisplay(a) + ' - ' + drpDisplay(b);
+  aiDrpSetPresetActive(aiDrpState.preset);
+}
+function aiDrpDayClick(node){
+  if (!node || node.classList.contains('other-month') || node.classList.contains('disabled')) return;
+  const dt = drpParseLocal(node.dataset.date);
+  if (!aiDrpState.selecting){
+    aiDrpState.from = dt; aiDrpState.to = null; aiDrpState.hov = null;
+    aiDrpState.selecting = true; aiDrpState.preset = 'custom';
+  } else {
+    aiDrpState.to = dt; aiDrpState.hov = null; aiDrpState.selecting = false;
+    if (aiDrpState.from > aiDrpState.to){ const t = aiDrpState.from; aiDrpState.from = aiDrpState.to; aiDrpState.to = t; }
+  }
+  aiDrpRender();
+}
+function aiDrpDayHover(node){
+  if (!aiDrpState.selecting || !node || node.classList.contains('other-month') || node.classList.contains('disabled')) return;
+  aiDrpState.hov = drpParseLocal(node.dataset.date);
+  aiDrpRender();
+}
+function aiDrpPreset(key){
+  const now = new Date(); now.setHours(0,0,0,0);
+  let from = null, to = null;
+  if      (key === 'today')      { from = new Date(now); to = new Date(now); }
+  else if (key === 'yesterday')  { from = new Date(now); from.setDate(now.getDate()-1); to = new Date(from); }
+  else if (key === 'last7')      { from = new Date(now); from.setDate(now.getDate()-6);  to = new Date(now); }
+  else if (key === 'last15')     { from = new Date(now); from.setDate(now.getDate()-14); to = new Date(now); }
+  else if (key === 'last30')     { from = new Date(now); from.setDate(now.getDate()-29); to = new Date(now); }
+  else if (key === 'last90')     { from = new Date(now); from.setDate(now.getDate()-89); to = new Date(now); }
+  else if (key === 'thisMonth')  { from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now); }
+  else if (key === 'lastMonth')  { from = new Date(now.getFullYear(), now.getMonth()-1, 1);
+                                   to   = new Date(now.getFullYear(), now.getMonth(),    0); }
+  else if (key === 'custom')     {
+    aiDrpState.from = null; aiDrpState.to = null; aiDrpState.hov = null;
+    aiDrpState.selecting = false; aiDrpState.preset = 'custom';
+    aiDrpRender(); return;
+  }
+  aiDrpState.from = from; aiDrpState.to = to; aiDrpState.hov = null;
+  aiDrpState.selecting = false; aiDrpState.preset = key;
+  if (from){ aiDrpState.viewYear = from.getFullYear(); aiDrpState.viewMonth = from.getMonth(); }
+  aiDrpRender(); aiDrpPositionPanel();
+}
+function aiDrpUpdateButton(){
+  const lbl = aiDrpEl('ai-drp-label');
+  const map = {today:'Today', yesterday:'Yesterday', last7:'Last 7 Days', last15:'Last 15 Days',
+               last30:'Last 30 Days', thisMonth:'This Month', lastMonth:'Last Month',
+               last90:'Last 90 Days', custom:'Custom'};
+  if (aiDrpState.preset !== 'custom'){
+    lbl.textContent = map[aiDrpState.preset] || aiDrpState.preset; lbl.classList.add('active');
+  } else {
+    const a = aiDrpState.from, b = aiDrpState.to || aiDrpState.from;
+    lbl.textContent = drpDisplay(a) + (a && b && a.getTime() !== b.getTime() ? ' - ' + drpDisplay(b) : '');
+    lbl.classList.add('active');
+  }
+}
+function aiDrpApply(){
+  const fromInp = aiDrpEl('aiDateFrom'), toInp = aiDrpEl('aiDateTo');
+  if (!aiDrpState.from && !aiDrpState.to){ fromInp.value = ''; toInp.value = ''; }
+  else {
+    let from = aiDrpState.from, to = aiDrpState.to || aiDrpState.from;
+    if (from > to){ const t = from; from = to; to = t; }
+    fromInp.value = drpFmtLocal(from); toInp.value = drpFmtLocal(to);
+  }
+  aiDrpUpdateButton(); aiDrpClose();
+  aiReloadOrders();
+}
+function initAiDRP(){
+  aiDrpEl('ai-drp-btn'   ).addEventListener('click',  e => { e.stopPropagation(); aiDrpToggle(); });
+  aiDrpEl('ai-drp-prev'  ).addEventListener('click',  e => { e.stopPropagation(); aiDrpNavMonth(-1); });
+  aiDrpEl('ai-drp-next'  ).addEventListener('click',  e => { e.stopPropagation(); aiDrpNavMonth( 1); });
+  aiDrpEl('ai-drp-cancel').addEventListener('click',  e => { e.stopPropagation(); aiDrpClose(); });
+  aiDrpEl('ai-drp-apply' ).addEventListener('click',  e => { e.stopPropagation(); aiDrpApply(); });
+  document.querySelectorAll('#ai-drp-presets .drp-preset').forEach(node => {
+    node.addEventListener('click', e => { e.stopPropagation(); aiDrpPreset(node.dataset.key); });
+  });
+  ['ai-drp-cal-l','ai-drp-cal-r'].forEach(id => {
+    aiDrpEl(id).addEventListener('click',     e => { e.stopPropagation(); aiDrpDayClick(e.target.closest('.drp-day')); });
+    aiDrpEl(id).addEventListener('mouseover', e => { aiDrpDayHover(e.target.closest('.drp-day')); });
+  });
+  document.addEventListener('click', e => {
+    const wrap = aiDrpEl('ai-drp-wrap');
+    if (aiDrpState.open && wrap && !wrap.contains(e.target)) aiDrpClose();
+  });
+  window.addEventListener('resize', () => { if (aiDrpState.open) aiDrpPositionPanel(); });
+  // Seed the default last-30 window into the hidden inputs
+  aiDrpPreset('last30'); aiDrpApply();
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Ad Intelligence — fetch + render
+   ───────────────────────────────────────────────────────────── */
+let aiOrders   = [];      // raw rows from shopify_ad_attribution
+let aiAdStatusMap = {};   // ad_id → status, populated from allAds when avail
+let aiPage     = 0;
+let aiSortKey  = 'order_created_at';
+let aiSortDir  = 'desc';
+let aiLoaded   = false;   // dataset present?
+let aiLoading  = false;
+
+async function aiFetchOrders(fromIso, toIso, perfBudgetMs){
+  if (!SUPABASE_URL || !SUPABASE_ANON) return [];
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON, Prefer:'count=none'};
+  const cols = ['order_id','order_created_at','total_price',
+                'utm_source','utm_medium','utm_campaign','utm_content','utm_term',
+                'matched_tier','matched_value','has_match',
+                'ad_id','ad_name','campaign_name','adset_id'].join(',');
+  const BATCH = 1000;
+  let offset = 0, out = [], pages = 0;
+  const t0 = performance.now();
+  while (true){
+    let url = SUPABASE_URL+'/rest/v1/shopify_ad_attribution?select='+cols+
+              '&order=order_created_at.desc&limit='+BATCH+'&offset='+offset;
+    if (fromIso) url += '&order_created_at=gte.'+fromIso+'T00:00:00';
+    if (toIso)   url += '&order_created_at=lte.'+toIso  +'T23:59:59';
+    const r = await fetch(url, {headers});
+    if (!r.ok){ break; }
+    const chunk = await r.json();
+    if (!Array.isArray(chunk) || !chunk.length) break;
+    out = out.concat(chunk);
+    pages += 1;
+    document.getElementById('aiStatus').textContent =
+      'Loaded ' + fmtInt(out.length) + ' rows · ' + ((performance.now()-t0)/1000).toFixed(1) + 's';
+    if (chunk.length < BATCH) break;
+    offset += BATCH;
+    // Adaptive abort: if we're past the perf budget, stop early and warn
+    if (perfBudgetMs && (performance.now() - t0) > perfBudgetMs) {
+      document.getElementById('aiStatus').textContent =
+        'Aborted at ' + fmtInt(out.length) + ' rows — slow fetch';
+      return null;
+    }
+  }
+  return out;
+}
+
+async function aiReloadOrders(){
+  if (aiLoading) return;
+  aiLoading = true;
+  // Refresh ad-status map from allAds (live) — used by Active/Inactive filter
+  aiAdStatusMap = {};
+  for (const a of allAds){ if (a.ad_id) aiAdStatusMap[a.ad_id] = (a.ad_status || '').toUpperCase(); }
+  const fromIso = document.getElementById('aiDateFrom').value || '';
+  const toIso   = document.getElementById('aiDateTo').value   || '';
+  document.getElementById('aiStatus').textContent = 'Loading shopify_ad_attribution …';
+  // First attempt: requested window, soft budget 180 s
+  const t0 = performance.now();
+  let rows = await aiFetchOrders(fromIso, toIso, 180_000);
+  if (rows === null){
+    // Aborted as too slow — fall back to last 15 days
+    const today = new Date(); today.setHours(0,0,0,0);
+    const d15 = new Date(today); d15.setDate(today.getDate()-14);
+    const iso = d => d.toISOString().slice(0,10);
+    const newFrom = iso(d15), newTo = iso(today);
+    document.getElementById('aiDateFrom').value = newFrom;
+    document.getElementById('aiDateTo').value   = newTo;
+    aiDrpState.from = d15; aiDrpState.to = today; aiDrpState.preset = 'last15';
+    aiDrpUpdateButton();
+    document.getElementById('aiStatus').textContent = 'Window too wide — retrying with Last 15 Days';
+    rows = await aiFetchOrders(newFrom, newTo, null) || [];
+  }
+  aiOrders = rows || [];
+  aiLoaded = true; aiLoading = false;
+  document.getElementById('aiStatus').textContent =
+    'Loaded ' + fmtInt(aiOrders.length) + ' rows in ' + ((performance.now()-t0)/1000).toFixed(1) + 's';
+  // Populate filter dropdowns from data
+  aiPopulateFilters();
+  aiPage = 0;
+  aiRenderKpis();
+  aiRenderTable();
+}
+
+function aiPopulateFilters(){
+  const src = new Set(), med = new Set();
+  for (const r of aiOrders){
+    if (r.utm_source) src.add(r.utm_source);
+    if (r.utm_medium) med.add(r.utm_medium);
+  }
+  const fill = (id, set) => {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All</option>' +
+      Array.from(set).sort().map(v => `<option value="${v}">${v}</option>`).join('');
+    if (Array.from(set).includes(cur)) sel.value = cur;
+  };
+  fill('aiUtmSource', src);
+  fill('aiUtmMedium', med);
+}
+
+function aiFiltered(){
+  const tier   = document.getElementById('aiTierSel').value;
+  const src    = document.getElementById('aiUtmSource').value;
+  const med    = document.getElementById('aiUtmMedium').value;
+  const adSt   = document.getElementById('aiAdStatus').value;
+  const cam    = (document.getElementById('aiUtmCampaign').value || '').trim().toLowerCase();
+  const cnt    = (document.getElementById('aiUtmContent' ).value || '').trim().toLowerCase();
+  const trm    = (document.getElementById('aiUtmTerm'    ).value || '').trim().toLowerCase();
+  const mv     = (document.getElementById('aiMatchedValue').value|| '').trim().toLowerCase();
+  let rows = aiOrders;
+  if (tier === '__matched__')  rows = rows.filter(r => r.has_match);
+  else if (tier === '__none__') rows = rows.filter(r => !r.has_match);
+  else if (tier)                 rows = rows.filter(r => r.matched_tier === tier);
+  if (src) rows = rows.filter(r => r.utm_source === src);
+  if (med) rows = rows.filter(r => r.utm_medium === med);
+  if (cam) rows = rows.filter(r => (r.utm_campaign || '').toLowerCase().includes(cam));
+  if (cnt) rows = rows.filter(r => (r.utm_content  || '').toLowerCase().includes(cnt));
+  if (trm) rows = rows.filter(r => (r.utm_term     || '').toLowerCase().includes(trm));
+  if (mv)  rows = rows.filter(r => (r.matched_value || '').toLowerCase().includes(mv));
+  if (adSt){
+    rows = rows.filter(r => {
+      if (!r.ad_id) return adSt === 'INACTIVE';
+      const st = aiAdStatusMap[r.ad_id] || 'INACTIVE';
+      return adSt === 'ACTIVE' ? st === 'ACTIVE' : st !== 'ACTIVE';
+    });
+  }
+  // Sort
+  rows = rows.slice().sort((a,b) => {
+    const av = a[aiSortKey], bv = b[aiSortKey];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === 'number' && typeof bv === 'number')
+      return aiSortDir === 'asc' ? av - bv : bv - av;
+    return aiSortDir === 'asc'
+      ? String(av).localeCompare(String(bv))
+      : String(bv).localeCompare(String(av));
+  });
+  return rows;
+}
+
+function aiTierClass(t){
+  if (!t) return 'none';
+  if (t.startsWith('T1')) return 't1';
+  if (t.startsWith('T2')) return 't2';
+  if (t.startsWith('T3')) return 't3';
+  if (t.startsWith('T4')) return 't4';
+  return 'none';
+}
+
+function aiRenderKpis(){
+  const buckets = {T1:0,T2:0,'T3.1':0,'T3.2':0,'T3.3':0,T4:0,__none__:0};
+  const sales   = {T1:0,T2:0,'T3.1':0,'T3.2':0,'T3.3':0,T4:0,__none__:0};
+  for (const r of aiOrders){
+    const k = r.has_match ? (r.matched_tier || '__none__') : '__none__';
+    if (!(k in buckets)){ buckets[k] = 0; sales[k] = 0; }
+    buckets[k] += 1;
+    sales[k]   += (+r.total_price || 0);
+  }
+  const set = (id, k) => {
+    document.getElementById('aiKp-'+id     ).textContent = fmtInt(buckets[k] || 0);
+    document.getElementById('aiKp-'+id+'-sp').textContent = fmtRs(sales[k] || 0);
+  };
+  set('T1','T1'); set('T2','T2');
+  set('T31','T3.1'); set('T32','T3.2'); set('T33','T3.3');
+  set('T4','T4');   set('none','__none__');
+}
+
+function aiRenderTable(){
+  const rows = aiFiltered();
+  const pageSize = +document.getElementById('aiPageSize').value || 100;
+  const totalRows = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  if (aiPage >= totalPages) aiPage = totalPages - 1;
+  if (aiPage < 0) aiPage = 0;
+  const offset = aiPage * pageSize;
+  const slice = rows.slice(offset, offset + pageSize);
+  const tb = document.querySelector('#aiTbl tbody');
+  if (!slice.length){
+    tb.innerHTML = '<tr><td colspan="14" style="padding:30px;text-align:center;color:var(--text-tertiary)">No rows match the current filter.</td></tr>';
+  } else {
+    tb.innerHTML = slice.map(r => {
+      const tier = r.has_match ? (r.matched_tier || '—') : '—';
+      const tc   = aiTierClass(r.has_match ? r.matched_tier : '');
+      const date = (r.order_created_at || '').slice(0,16).replace('T',' ');
+      const st   = r.ad_id ? (aiAdStatusMap[r.ad_id] || 'UNKNOWN') : '—';
+      const stCls= st === 'ACTIVE' ? 'active' : '';
+      return '<tr>'+
+        '<td class="id-cell">'+date+'</td>'+
+        '<td class="id-cell">'+(r.order_id || '—').replace('gid://shopify/Order/','')+'</td>'+
+        '<td class="num">'+fmtRs(r.total_price)+'</td>'+
+        '<td><span class="ai-tier '+tc+'">'+tier+'</span></td>'+
+        '<td>'+(r.utm_source  || '—')+'</td>'+
+        '<td>'+(r.utm_medium  || '—')+'</td>'+
+        '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis" title="'+(r.utm_campaign||'').replace(/"/g,'&quot;')+'">'+(r.utm_campaign || '—')+'</td>'+
+        '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis" title="'+(r.utm_content ||'').replace(/"/g,'&quot;')+'">'+(r.utm_content  || '—')+'</td>'+
+        '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+(r.utm_term    ||'').replace(/"/g,'&quot;')+'">'+(r.utm_term     || '—')+'</td>'+
+        '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+(r.matched_value||'').replace(/"/g,'&quot;')+'">'+(r.matched_value|| '—')+'</td>'+
+        '<td class="id-cell">'+(r.ad_id || '—')+'</td>'+
+        '<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis" title="'+(r.ad_name    ||'').replace(/"/g,'&quot;')+'">'+(r.ad_name    || '—')+'</td>'+
+        '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis" title="'+(r.campaign_name||'').replace(/"/g,'&quot;')+'">'+(r.campaign_name|| '—')+'</td>'+
+        '<td><span class="ai-status '+stCls+'">'+st+'</span></td>'+
+      '</tr>';
+    }).join('');
+  }
+  document.getElementById('aiRowInfo').textContent  = fmtInt(totalRows) + ' rows';
+  document.getElementById('aiPageInfo').textContent = 'Page ' + (aiPage + 1) + ' / ' + totalPages;
+  document.getElementById('aiPrevPage').disabled    = aiPage === 0;
+  document.getElementById('aiNextPage').disabled    = aiPage >= totalPages - 1;
+}
+
+function initAdIntel(){
+  initAiDRP();
+  // Filter wiring — every change re-renders (no re-fetch unless date changes)
+  ['aiTierSel','aiUtmSource','aiUtmMedium','aiAdStatus'].forEach(id =>
+    document.getElementById(id).addEventListener('change', () => { aiPage = 0; aiRenderTable(); }));
+  ['aiUtmCampaign','aiUtmContent','aiUtmTerm','aiMatchedValue'].forEach(id =>
+    document.getElementById(id).addEventListener('input', () => {
+      clearTimeout(window._aiDb);
+      window._aiDb = setTimeout(() => { aiPage = 0; aiRenderTable(); }, 220);
+    }));
+  document.getElementById('aiPageSize').addEventListener('change', () => { aiPage = 0; aiRenderTable(); });
+  document.getElementById('aiPrevPage').addEventListener('click', () => { if (aiPage > 0){ aiPage--; aiRenderTable(); } });
+  document.getElementById('aiNextPage').addEventListener('click', () => { aiPage++; aiRenderTable(); });
+  // Header sort
+  document.querySelectorAll('#aiTbl thead th').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const k = th.dataset.aisort; if (!k) return;
+      if (aiSortKey === k) aiSortDir = aiSortDir === 'asc' ? 'desc' : 'asc';
+      else { aiSortKey = k; aiSortDir = 'desc'; }
+      aiRenderTable();
+    });
+  });
+  // Refresh / Export
+  document.getElementById('aiRefresh').onclick = () => { aiLoaded = false; aiReloadOrders(); };
+  document.getElementById('aiExport').onclick = () => {
+    const rows = aiFiltered();
+    const cols = ['order_created_at','order_id','total_price','matched_tier',
+                  'utm_source','utm_medium','utm_campaign','utm_content','utm_term',
+                  'matched_value','ad_id','ad_name','campaign_name'];
+    const csv = [cols.join(',')];
+    for (const r of rows) csv.push(cols.map(c => JSON.stringify(r[c] ?? '')).join(','));
+    const blob = new Blob([csv.join('\n')], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ad_intelligence_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+  };
+  // KPI cards click → filter to that tier
+  document.getElementById('aiTierCards').addEventListener('click', e => {
+    const card = e.target.closest('.kpi'); if (!card) return;
+    document.getElementById('aiTierSel').value = card.dataset.tier;
+    aiPage = 0; aiRenderTable();
+  });
 }
 
 /* Group ad rows by ad_name or campaign — sum numeric fields, keep most-recent ad meta */
