@@ -4039,13 +4039,34 @@ function renderAE(){
   if (!allAds.length) return;
   const rows = aeFiltered();
 
-  // KPIs from the FULL categorised data (not search-filtered, so the cards
-  // show stable counts you can click into)
-  const cats = aeRecategorise(allAds);
-  const acct = document.getElementById('aeAcct').value;
-  const catsAcct = acct ? cats.filter(r => (r.account_name || '') === acct) : cats;
+  // KPIs honour the date range + account + status + multi-filter (but NOT
+  // category / discarded toggle — so clicking a card still shows the count
+  // for every category at once).
+  const acct       = document.getElementById('aeAcct').value;
+  const status     = document.getElementById('aeStatus').value;
+  const dateField  = document.getElementById('aeDateField').value || 'ad_created';
+  const dFromStr   = document.getElementById('aeDateFrom').value;
+  const dToStr     = document.getElementById('aeDateTo').value;
+  const dFrom = dFromStr ? new Date(dFromStr + 'T00:00:00') : null;
+  const dTo   = dToStr   ? new Date(dToStr   + 'T23:59:59') : null;
+  let cats = aeRecategorise(allAds);
+  if (acct)   cats = cats.filter(r => (r.account_name || '') === acct);
+  if (status) cats = cats.filter(r => (r.ad_status || '').toUpperCase() === status);
+  if (dFrom || dTo){
+    cats = cats.filter(r => {
+      const v = r[dateField]; if (!v) return false;
+      const d = new Date(v);  if (isNaN(d)) return false;
+      if (dFrom && d < dFrom) return false;
+      if (dTo   && d > dTo  ) return false;
+      return true;
+    });
+  }
+  const activeRules = aeRules.filter(rl => (rl.value || '').trim());
+  if (activeRules.length){
+    cats = cats.filter(r => activeRules.every(rule => aeMfMatch(r, rule)));
+  }
   const totalsByCat = {};
-  catsAcct.forEach(r => {
+  cats.forEach(r => {
     const k = r.category;
     if (!totalsByCat[k]) totalsByCat[k] = {n:0, sp:0};
     totalsByCat[k].n  += 1;
