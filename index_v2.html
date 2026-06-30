@@ -1803,26 +1803,31 @@
     </div>
   </div>
 
-  <!-- KPI cards: one per matched_tier -->
-  <div class="kpi-row" id="aiTierCards" style="grid-template-columns:repeat(7,1fr)">
-    <div class="kpi" data-tier="T1"><div class="k-lbl">T1 ad_id</div>
-      <div class="k-val mono" id="aiKp-T1">—</div>
-      <div class="k-sub">sales <b id="aiKp-T1-sp">—</b></div></div>
-    <div class="kpi" data-tier="T2"><div class="k-lbl">T2 ad_name</div>
-      <div class="k-val mono" id="aiKp-T2">—</div>
-      <div class="k-sub">sales <b id="aiKp-T2-sp">—</b></div></div>
-    <div class="kpi" data-tier="T3.1"><div class="k-lbl">T3.1 adset+name</div>
-      <div class="k-val mono" id="aiKp-T31">—</div>
-      <div class="k-sub">sales <b id="aiKp-T31-sp">—</b></div></div>
-    <div class="kpi" data-tier="T3.2"><div class="k-lbl">T3.2 sep-normalised</div>
-      <div class="k-val mono" id="aiKp-T32">—</div>
-      <div class="k-sub">sales <b id="aiKp-T32-sp">—</b></div></div>
-    <div class="kpi" data-tier="T3.3"><div class="k-lbl">T3.3 multi-attr</div>
-      <div class="k-val mono" id="aiKp-T33">—</div>
-      <div class="k-sub">sales <b id="aiKp-T33-sp">—</b></div></div>
-    <div class="kpi" data-tier="T4"><div class="k-lbl">T4 campaign</div>
-      <div class="k-val mono" id="aiKp-T4">—</div>
-      <div class="k-sub">sales <b id="aiKp-T4-sp">—</b></div></div>
+  <!-- KPI cards — one per Step in the 5-step rule cascade.
+       Step 1 utm_content == ad_id
+       Step 2 utm_content == ad_name
+       Step 3 adset + ad_name contains utm_content
+       Step 4 adset + separator-normalised contains
+       Step 5 adset + multi-attribute score >= 1
+       (legacy tier values T1_ad_id, T2_ad_name, T3 are folded into the
+        equivalent step; T0_template lives in the Unmatched bucket
+        because it doesn't carry a Meta ad reference). -->
+  <div class="kpi-row" id="aiTierCards" style="grid-template-columns:repeat(6,1fr)">
+    <div class="kpi" data-tier="Step 1"><div class="k-lbl">Step 1 · utm = ad_id</div>
+      <div class="k-val mono" id="aiKp-S1">—</div>
+      <div class="k-sub">sales <b id="aiKp-S1-sp">—</b></div></div>
+    <div class="kpi" data-tier="Step 2"><div class="k-lbl">Step 2 · utm = ad_name</div>
+      <div class="k-val mono" id="aiKp-S2">—</div>
+      <div class="k-sub">sales <b id="aiKp-S2-sp">—</b></div></div>
+    <div class="kpi" data-tier="Step 3"><div class="k-lbl">Step 3 · adset+name⊇utm</div>
+      <div class="k-val mono" id="aiKp-S3">—</div>
+      <div class="k-sub">sales <b id="aiKp-S3-sp">—</b></div></div>
+    <div class="kpi" data-tier="Step 4"><div class="k-lbl">Step 4 · sep-normalised</div>
+      <div class="k-val mono" id="aiKp-S4">—</div>
+      <div class="k-sub">sales <b id="aiKp-S4-sp">—</b></div></div>
+    <div class="kpi" data-tier="Step 5"><div class="k-lbl">Step 5 · multi-attribute</div>
+      <div class="k-val mono" id="aiKp-S5">—</div>
+      <div class="k-sub">sales <b id="aiKp-S5-sp">—</b></div></div>
     <div class="kpi" data-tier="__none__"><div class="k-lbl">Unmatched</div>
       <div class="k-val mono" id="aiKp-none">—</div>
       <div class="k-sub">sales <b id="aiKp-none-sp">—</b></div></div>
@@ -1842,13 +1847,12 @@
       <label class="fg-lbl">matched_tier</label>
       <select class="fg-select" id="aiTierSel">
         <option value="">All</option>
-        <option value="T1">T1 ad_id</option>
-        <option value="T2">T2 ad_name</option>
-        <option value="T3.1">T3.1 adset+name</option>
-        <option value="T3.2">T3.2 sep-normalised</option>
-        <option value="T3.3">T3.3 multi-attr</option>
-        <option value="T4">T4 campaign</option>
-        <option value="__matched__">Any match</option>
+        <option value="Step 1">Step 1 · utm = ad_id</option>
+        <option value="Step 2">Step 2 · utm = ad_name</option>
+        <option value="Step 3">Step 3 · adset+name⊇utm</option>
+        <option value="Step 4">Step 4 · sep-normalised</option>
+        <option value="Step 5">Step 5 · multi-attribute</option>
+        <option value="__matched__">Any match (Step 1-5)</option>
         <option value="__none__">Unmatched only</option>
       </select>
     </div>
@@ -4649,9 +4653,9 @@ function aiFiltered(){
   const trm    = (document.getElementById('aiUtmTerm'    ).value || '').trim().toLowerCase();
   const mv     = (document.getElementById('aiMatchedValue').value|| '').trim().toLowerCase();
   let rows = aiOrders;
-  if (tier === '__matched__')  rows = rows.filter(r => r.has_match);
-  else if (tier === '__none__') rows = rows.filter(r => !r.has_match);
-  else if (tier)                 rows = rows.filter(r => r.matched_tier === tier);
+  if (tier === '__matched__')   rows = rows.filter(r => aiStep(r) !== '__none__');
+  else if (tier === '__none__') rows = rows.filter(r => aiStep(r) === '__none__');
+  else if (tier)                rows = rows.filter(r => aiStep(r) === tier);
   if (src) rows = rows.filter(r => r.utm_source === src);
   if (med) rows = rows.filter(r => r.utm_medium === med);
   if (cam) rows = rows.filter(r => (r.utm_campaign || '').toLowerCase().includes(cam));
@@ -4680,21 +4684,37 @@ function aiFiltered(){
   return rows;
 }
 
+/* Normalise legacy tier labels into the canonical Step 1-5 names.
+   The DB still contains a few thousand rows from earlier runs that used
+   T1_ad_id, T2_ad_name, T3, T0_template — fold them into the equivalent
+   modern step so the KPIs are accurate. */
+function aiStep(row){
+  if (!row.has_match) return '__none__';
+  const t = (row.matched_tier || '').trim();
+  if (!t) return '__none__';
+  if (t === 'Step 1' || t === 'T1_ad_id')   return 'Step 1';
+  if (t === 'Step 2' || t === 'T2_ad_name') return 'Step 2';
+  if (t === 'Step 3' || t === 'T3')         return 'Step 3';
+  if (t === 'Step 4')                       return 'Step 4';
+  if (t === 'Step 5')                       return 'Step 5';
+  // Unknown / template-only labels — treat as unmatched for KPI bucketing
+  return '__none__';
+}
 function aiTierClass(t){
-  if (!t) return 'none';
-  if (t.startsWith('T1')) return 't1';
-  if (t.startsWith('T2')) return 't2';
-  if (t.startsWith('T3')) return 't3';
-  if (t.startsWith('T4')) return 't4';
+  if (!t || t === '__none__') return 'none';
+  if (t === 'Step 1') return 't1';
+  if (t === 'Step 2') return 't2';
+  if (t === 'Step 3') return 't3';
+  if (t === 'Step 4') return 't3';
+  if (t === 'Step 5') return 't4';
   return 'none';
 }
 
 function aiRenderKpis(){
-  const buckets = {T1:0,T2:0,'T3.1':0,'T3.2':0,'T3.3':0,T4:0,__none__:0};
-  const sales   = {T1:0,T2:0,'T3.1':0,'T3.2':0,'T3.3':0,T4:0,__none__:0};
+  const buckets = {'Step 1':0,'Step 2':0,'Step 3':0,'Step 4':0,'Step 5':0,'__none__':0};
+  const sales   = {'Step 1':0,'Step 2':0,'Step 3':0,'Step 4':0,'Step 5':0,'__none__':0};
   for (const r of aiOrders){
-    const k = r.has_match ? (r.matched_tier || '__none__') : '__none__';
-    if (!(k in buckets)){ buckets[k] = 0; sales[k] = 0; }
+    const k = aiStep(r);
     buckets[k] += 1;
     sales[k]   += (+r.total_price || 0);
   }
@@ -4702,9 +4722,8 @@ function aiRenderKpis(){
     document.getElementById('aiKp-'+id     ).textContent = fmtInt(buckets[k] || 0);
     document.getElementById('aiKp-'+id+'-sp').textContent = fmtRs(sales[k] || 0);
   };
-  set('T1','T1'); set('T2','T2');
-  set('T31','T3.1'); set('T32','T3.2'); set('T33','T3.3');
-  set('T4','T4');   set('none','__none__');
+  set('S1','Step 1'); set('S2','Step 2'); set('S3','Step 3');
+  set('S4','Step 4'); set('S5','Step 5'); set('none','__none__');
 }
 
 function aiRenderTable(){
@@ -4721,8 +4740,9 @@ function aiRenderTable(){
     tb.innerHTML = '<tr><td colspan="14" style="padding:30px;text-align:center;color:var(--text-tertiary)">No rows match the current filter.</td></tr>';
   } else {
     tb.innerHTML = slice.map(r => {
-      const tier = r.has_match ? (r.matched_tier || '—') : '—';
-      const tc   = aiTierClass(r.has_match ? r.matched_tier : '');
+      const step = aiStep(r);
+      const tier = step === '__none__' ? '—' : step;
+      const tc   = aiTierClass(step);
       const date = (r.order_created_at || '').slice(0,16).replace('T',' ');
       const st   = r.ad_id ? (aiAdStatusMap[r.ad_id] || 'UNKNOWN') : '—';
       const stCls= st === 'ACTIVE' ? 'active' : '';
