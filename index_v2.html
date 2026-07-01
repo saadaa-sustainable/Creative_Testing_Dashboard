@@ -4955,11 +4955,28 @@ function initAdIntel(){
   document.getElementById('aiRefresh').onclick = () => { aiLoaded = false; aiReloadOrders(); };
   document.getElementById('aiExport').onclick = () => {
     const rows = aiFiltered();
+    // Column order for the CSV. matched_tier is written as the CANONICAL
+    // Step N label (via aiStep) so legacy DB values (T1_ad_id, T2_ad_name,
+    // T3, T0_template) come out normalised — matching what the UI shows.
+    // We also emit a separate raw_matched_tier column so power users can
+    // still see the underlying DB value if they need it for debugging.
     const cols = ['order_created_at','order_id','total_price','matched_tier',
+                  'raw_matched_tier',
                   'utm_source','utm_medium','utm_campaign','utm_content','utm_term',
-                  'matched_value','ad_id','ad_name','campaign_name'];
+                  'matched_value','ad_id','ad_name','campaign_name','ad_status'];
     const csv = [cols.join(',')];
-    for (const r of rows) csv.push(cols.map(c => JSON.stringify(r[c] ?? '')).join(','));
+    for (const r of rows){
+      const step = aiStep(r);
+      const stepLabel = step === '__none__' ? 'Unmatched' : step;
+      const status = r.ad_id ? (aiAdStatusMap[r.ad_id] || 'UNKNOWN') : '';
+      const rowOut = {
+        ...r,
+        matched_tier:     stepLabel,          // Step 1 / Step 2 / … / Unmatched
+        raw_matched_tier: r.matched_tier || '',
+        ad_status:        status,
+      };
+      csv.push(cols.map(c => JSON.stringify(rowOut[c] ?? '')).join(','));
+    }
     const blob = new Blob([csv.join('\n')], {type:'text/csv'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
