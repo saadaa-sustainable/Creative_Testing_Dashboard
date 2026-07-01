@@ -1626,6 +1626,7 @@
         <option value="ad_created">Ad Created</option>
         <option value="first_seen_date">First Seen</option>
         <option value="date_of_result">Date of Result</option>
+        <option value="reporting_ends">Reporting End</option>
       </select>
     </div>
     <div class="ae-fcard">
@@ -1806,6 +1807,8 @@
             <th data-sort="ad_status">Ad Status</th>
             <th class="num" data-sort="impressions">Impressions</th>
             <th class="num" data-sort="reach">Reach</th>
+            <th class="num" data-sort="incremental_reach" title="Latest daily reach − previous daily reach (from primary_table/backfill_table)">Incr. Reach</th>
+            <th class="num" data-sort="cost_per_incremental_reach" title="Latest daily spend ÷ incremental reach">Cost/Incr Reach</th>
             <th class="num" data-sort="reach_weight_pct">Reach Weight %</th>
             <th class="num" data-sort="frequency">Freq</th>
             <th class="num" data-sort="amount_spent">Spend</th>
@@ -2445,6 +2448,35 @@ async function fetchAds(){
    (used in the drawer preview where upscaling a small thumb shows blur). */
 const thumbUrlOf  = e => (e ? e.t : '') || '';
 const previewUrlOf = e => (e ? (e.i || e.t) : '') || '';
+/* Per-ad incremental reach snapshot from public.ae_reach_recent.
+   Formula (computed in the view): incremental_reach = latest_daily_reach -
+   previous_daily_reach; cost_per_incremental_reach = latest_daily_spend /
+   incremental_reach. Merged into allAds by ad_id at load time. */
+async function fetchReachRecent(){
+  if (!SUPABASE_URL || !SUPABASE_ANON) return {};
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                   Prefer:'count=none'};
+  const out = {};
+  let offset = 0, BATCH = 1000;
+  const cols = 'ad_id,latest_date,latest_reach,previous_reach,'+
+               'incremental_reach,cost_per_incremental_reach';
+  while (true){
+    const url = SUPABASE_URL+'/rest/v1/ae_reach_recent?select='+cols+
+                '&limit='+BATCH+'&offset='+offset;
+    const r = await fetch(url,{headers});
+    if (!r.ok) break;
+    const j = await r.json();
+    if (!Array.isArray(j) || !j.length) break;
+    for (const row of j){
+      if (row.ad_id) out[row.ad_id] = row;
+    }
+    if (j.length < BATCH) break;
+    offset += BATCH;
+  }
+  return out;
+}
+let reachRecentByAdId = {};
+
 async function fetchThumbnails(){
   if (!SUPABASE_URL || !SUPABASE_ANON) return {};
   const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
@@ -3535,11 +3567,21 @@ document.addEventListener('keydown', e=>{
 document.getElementById('btnRefresh').onclick = async ()=>{
   // Creative Testing reads primary_table for the current date window
   // (default = last 30d). Ads Analyse reads ae_table_view (lifetime).
-  [primaryAds, allAds, thumbsByAdId] = await Promise.all([
+  let freshReach;
+  [primaryAds, allAds, thumbsByAdId, freshReach] = await Promise.all([
     fetchPrimaryAggregated(state.dateFrom || '', state.dateTo || ''),
     fetchAds(),
-    fetchThumbnails()
+    fetchThumbnails(),
+    fetchReachRecent()
   ]);
+  reachRecentByAdId = freshReach;
+  for (const r of allAds){
+    const rr = reachRecentByAdId[r.ad_id];
+    if (rr){
+      r.incremental_reach          = rr.incremental_reach;
+      r.cost_per_incremental_reach = rr.cost_per_incremental_reach;
+    }
+  }
   aeApplyCurrentThresholds();
   rerender();
 };
@@ -5651,6 +5693,8 @@ function renderAE(){
       '<td><span class="ae-status '+statusCls+'">'+(r.ad_status||'—')+'</span></td>'+
       numCell(impVal)+
       numCell(reachVal)+
+      numCell(r.incremental_reach == null ? '—' : fmtInt(r.incremental_reach))+
+      numCell(r.cost_per_incremental_reach == null ? '—' : fmtRs(r.cost_per_incremental_reach))+
       numCell(fmtNum2(r.reach_weight_pct))+
       numCell(freqVal)+
       numCell(spendVal)+
@@ -5885,13 +5929,23 @@ document.querySelectorAll('#aeMain thead th').forEach(th => {
   });
 });
 document.getElementById('aeBtnRefresh').onclick = async () => {
-  // Refresh both sources + thumbnails. Creative Testing uses the current
-  // date window (default last 30d); Ads Analyse uses the lifetime view.
-  [primaryAds, allAds, thumbsByAdId] = await Promise.all([
+  // Refresh both sources + thumbnails + reach-recent. Creative Testing uses
+  // the current date window (default last 30d); Ads Analyse uses lifetime.
+  let freshReach;
+  [primaryAds, allAds, thumbsByAdId, freshReach] = await Promise.all([
     fetchPrimaryAggregated(state.dateFrom || '', state.dateTo || ''),
     fetchAds(),
-    fetchThumbnails()
+    fetchThumbnails(),
+    fetchReachRecent()
   ]);
+  reachRecentByAdId = freshReach;
+  for (const r of allAds){
+    const rr = reachRecentByAdId[r.ad_id];
+    if (rr){
+      r.incremental_reach          = rr.incremental_reach;
+      r.cost_per_incremental_reach = rr.cost_per_incremental_reach;
+    }
+  }
   aeApplyCurrentThresholds();
   rerender();
   renderAE();
@@ -6101,11 +6155,21 @@ document.getElementById('invExport').onclick = () => {
   const cachedPromise = fetchPrimaryFromCache(state.dateFrom || '', state.dateTo || '')
     .catch(() => null);
 
-  // Kick off ae_table_view + thumbnails in parallel either way
-  const [cached, freshAllAds, freshThumbs] = await Promise.all([
-    cachedPromise, fetchAds(), fetchThumbnails()
+  // Kick off ae_table_view + thumbnails + reach-recent in parallel either way
+  const [cached, freshAllAds, freshThumbs, freshReach] = await Promise.all([
+    cachedPromise, fetchAds(), fetchThumbnails(), fetchReachRecent()
   ]);
   allAds = freshAllAds; thumbsByAdId = freshThumbs;
+  reachRecentByAdId = freshReach;
+  // Merge the reach-recent snapshot into each ae row by ad_id so renderAE
+  // can display incremental_reach / cost_per_incremental_reach inline.
+  for (const r of allAds){
+    const rr = reachRecentByAdId[r.ad_id];
+    if (rr){
+      r.incremental_reach          = rr.incremental_reach;
+      r.cost_per_incremental_reach = rr.cost_per_incremental_reach;
+    }
+  }
 
   if (cached && cached.length){
     primaryAds = cached;            // fast path — already aggregated server-side
