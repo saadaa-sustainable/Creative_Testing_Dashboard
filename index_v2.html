@@ -1078,13 +1078,33 @@
   .freq-buckets{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
   .freq-buckets-5{grid-template-columns:repeat(5,1fr)}
   .freq-buckets-6{grid-template-columns:repeat(6,1fr);gap:10px}
-  .freq-status-row{display:flex;gap:6px;margin:10px 0 12px 0;flex-wrap:wrap}
+  .freq-filter-bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;
+    margin:10px 0 12px 0}
+  .freq-status-row{display:flex;gap:6px;flex-wrap:wrap}
   .freq-status-row .preset{padding:5px 12px;font-size:11px;border:1px solid var(--border);
     background:var(--surface-2);border-radius:6px;color:var(--text-secondary);
     cursor:pointer;font-family:'Space Grotesk',sans-serif;letter-spacing:.02em}
   .freq-status-row .preset:hover{border-color:var(--accent);color:var(--text-primary)}
   .freq-status-row .preset.active{background:var(--accent);border-color:var(--accent);
     color:#000;font-weight:600}
+  .freq-search-wrap{flex:1;min-width:280px;display:flex;align-items:center;gap:10px}
+  .freq-search{flex:1;padding:7px 12px;font-size:11.5px;border:1px solid var(--border);
+    border-radius:6px;background:var(--bg-white);color:var(--text-primary);
+    font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
+  .freq-search:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(240,198,30,.15)}
+  .freq-search::placeholder{color:var(--text-tertiary)}
+  .freq-search-hint{font-size:10.5px;color:var(--text-tertiary);white-space:nowrap;
+    font-family:'JetBrains Mono',monospace}
+  /* Drill table — fixed column widths so long ad names don't crush the crossings */
+  .freq-drill-tbl{table-layout:fixed;width:100%;min-width:1400px}
+  .freq-drill-tbl th:nth-child(1),.freq-drill-tbl td:nth-child(1){width:230px}
+  .freq-drill-tbl th:nth-child(2),.freq-drill-tbl td:nth-child(2){width:80px}
+  .freq-drill-tbl th:nth-child(3),.freq-drill-tbl td:nth-child(3){width:70px}
+  .freq-drill-tbl th:nth-child(4),.freq-drill-tbl td:nth-child(4){width:92px}
+  .freq-drill-tbl th:nth-child(n+5):nth-child(-n+9),
+  .freq-drill-tbl td:nth-child(n+5):nth-child(-n+9){width:130px}
+  .freq-drill-tbl th:nth-child(10),.freq-drill-tbl td:nth-child(10){width:100px}
+  .freq-drill-tbl th:nth-child(11),.freq-drill-tbl td:nth-child(11){width:100px}
   /* Lifetime-totals strip above the buckets */
   .freq-totals{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
     margin:6px 0 14px}
@@ -1105,8 +1125,9 @@
     padding:9px 10px;border-bottom:1px solid var(--border-warm);
     background:var(--bg-page-alt)}
   .freq-drill-tbl th.num{text-align:right}
-  .freq-drill-tbl td{padding:8px 10px;font-size:11.5px;color:var(--text-mid);
-    border-bottom:1px solid #F0EDE6;vertical-align:top;background:var(--bg-white)}
+  .freq-drill-tbl td{padding:7px 9px;font-size:11.5px;color:var(--text-mid);
+    border-bottom:1px solid #F0EDE6;vertical-align:top;background:var(--bg-white);
+    overflow:hidden}
   .freq-drill-tbl tr:nth-child(even) td{background:var(--bg-page-alt)}
   .freq-drill-tbl td.num{font-family:'JetBrains Mono',monospace;text-align:right;
     color:var(--text-primary);font-weight:600}
@@ -1528,12 +1549,19 @@
       </h3>
       <span class="mono" style="font-size:11px;color:var(--text-tertiary)" id="lifeFreqTot">—</span>
     </div>
-    <!-- Status filter — applies to totals, bucket counts, and drill -->
-    <div class="freq-status-row" id="lifeFreqStatusRow">
-      <button class="preset active" data-s="">All statuses</button>
-      <button class="preset"        data-s="ACTIVE">Active</button>
-      <button class="preset"        data-s="PAUSED">Paused</button>
-      <button class="preset"        data-s="ARCHIVED">Archived / Other</button>
+    <!-- Status filter + multi-token search — apply to totals, bucket counts, and drill -->
+    <div class="freq-filter-bar">
+      <div class="freq-status-row" id="lifeFreqStatusRow">
+        <button class="preset active" data-s="">All statuses</button>
+        <button class="preset"        data-s="ACTIVE">Active</button>
+        <button class="preset"        data-s="PAUSED">Paused</button>
+        <button class="preset"        data-s="ARCHIVED">Archived / Other</button>
+      </div>
+      <div class="freq-search-wrap">
+        <input type="search" id="lifeFreqSearch" class="freq-search"
+               placeholder="Search ad name, campaign, ad id, account, category… (space-separate for AND)" />
+        <span class="freq-search-hint" id="lifeFreqSearchHint"></span>
+      </div>
     </div>
     <!-- Lifetime totals across ALL ads (unbucketed) -->
     <div class="freq-totals" id="freqTotals">
@@ -3756,6 +3784,7 @@ function effFreq(a){
 
 let freqActiveBucket = null;
 let freqStatusFilter = '';       // '', 'ACTIVE', 'PAUSED', 'ARCHIVED' — applies to Frequency section
+let freqSearch       = '';       // free-text multi-token AND-search for the Frequency section
 let lifeBufferStatus = '';
 let lifeBufferSearch = '';
 let lifeSection      = 'freq';   // 'freq' (frequency distribution) | 'buffer' (14-day)
@@ -3793,9 +3822,22 @@ function renderLifecycle(){
      to KPIs, bucket counts, AND the drill so the numbers stay coherent
      with what the user sees. The 14-day buffer below still reads
      lifeRowsAll so it isn't gated by this chip. */
-  const lifeRows = freqStatusFilter
+  let lifeRows = freqStatusFilter
     ? lifeRowsAll.filter(r => freqStatusOf(r) === freqStatusFilter)
     : lifeRowsAll;
+  /* Multi-token AND search over name / campaign / ad_id / account / category */
+  const tokens = (freqSearch || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length){
+    lifeRows = lifeRows.filter(r => {
+      const hay = ((r.ad_name||'')+' '+(r.campaign_name||'')+' '+(r.ad_id||'')+' '+
+                   (r.account_name||'')+' '+(r.category||'')+' '+(r.adset_name||'')).toLowerCase();
+      return tokens.every(t => hay.includes(t));
+    });
+  }
+  const hintEl = document.getElementById('lifeFreqSearchHint');
+  if (hintEl) hintEl.textContent = tokens.length
+    ? fmtInt(lifeRows.length) + ' / ' + fmtInt(lifeRowsAll.length) + ' matched'
+    : '';
 
   /* ── Lifetime totals across ALL ads in scope (post-status filter) ── */
   const totalSpend = lifeRows.reduce((s,r) => s + (+r.amount_spent  || 0), 0);
@@ -3950,6 +3992,11 @@ document.getElementById('lifeFreqStatusRow').addEventListener('click', e => {
   btn.classList.add('active');
   freqStatusFilter = btn.dataset.s || '';
   renderLifecycle();
+});
+let freqSearchDb = null;
+document.getElementById('lifeFreqSearch').addEventListener('input', e => {
+  clearTimeout(freqSearchDb);
+  freqSearchDb = setTimeout(() => { freqSearch = e.target.value; renderLifecycle(); }, 180);
 });
 document.getElementById('lifeBufferStatusRow').addEventListener('click', e => {
   const btn = e.target.closest('.preset'); if (!btn) return;
