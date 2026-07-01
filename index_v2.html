@@ -5958,17 +5958,18 @@ document.getElementById('aeCategory').addEventListener('change', e => {
 
 // Clear buttons
 document.getElementById('aeClearDates').onclick = () => drpClearDateRange();
-document.getElementById('aeClearFilters').onclick = () => {
+document.getElementById('aeClearFilters').onclick = async () => {
   document.getElementById('aeAcct').value      = '';
   document.getElementById('aeStatus').value    = '';
   document.getElementById('aeGroupBy').value   = 'ad';
-  document.getElementById('aeDateField').value = 'ad_created';
+  document.getElementById('aeDateField').value = '__delivery__';  // new default
   document.getElementById('aeCategory').value  = '';
-  drpClearDateRange();   // also clears aeDateFrom/aeDateTo + button label
+  await drpClearDateRange();   // also clears aeDateFrom/aeDateTo + button label
   document.getElementById('aeShowDiscarded').checked = false;
   aeSelectedCat = '';
   aeRules = [];
   aeMfRender();
+  await aeRebuildDeliverySet();
   aePage = 0; renderAE();
 };
 
