@@ -958,6 +958,55 @@
   #aiTbl td.num{font-family:'JetBrains Mono',monospace;text-align:right;font-size:11px}
   #aiTbl tbody tr:nth-child(even) td{background:var(--bg-page-alt)}
   #aiTbl tbody tr:hover td{background:var(--accent-warm-tint)}
+  /* Multi-select popover — used for utm_source (and reusable for other
+     dimensions where multi-value filtering is useful). */
+  .ms-wrap{position:relative}
+  .ms-btn{width:100%;min-height:40px;background:var(--bg-white);
+    border:1px solid var(--border-primary);border-radius:7px;
+    padding:8px 11px;font-size:13px;color:var(--text-primary);
+    font-family:'Inter',sans-serif;cursor:pointer;text-align:left;
+    display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .ms-btn:hover{border-color:var(--border-mid)}
+  .ms-btn.open{border-color:var(--accent-yellow);
+    box-shadow:0 0 0 3px rgba(240,198,30,.18)}
+  .ms-btn .ms-lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;color:var(--text-primary)}
+  .ms-btn .ms-lbl.placeholder{color:var(--text-tertiary)}
+  .ms-btn .ms-caret{color:var(--text-secondary);font-size:11px;flex-shrink:0}
+  .ms-panel{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
+    z-index:60;background:var(--bg-white);border:1px solid var(--border-warm);
+    border-radius:8px;box-shadow:0 10px 28px rgba(28,25,22,0.14);
+    padding:8px;max-height:340px;overflow:hidden;flex-direction:column}
+  .ms-panel.open{display:flex}
+  .ms-tools{display:flex;gap:6px;margin-bottom:6px}
+  .ms-search{flex:1;min-width:0;padding:7px 9px;font-size:12px;
+    border:1px solid var(--border-warm);border-radius:6px;
+    background:var(--bg-page-alt);color:var(--text-primary);outline:none;
+    font-family:'Inter',sans-serif}
+  .ms-search:focus{border-color:var(--accent-yellow);
+    box-shadow:0 0 0 3px rgba(240,198,30,.18);background:var(--bg-white)}
+  .ms-mini{background:var(--bg-page-alt);border:1px solid var(--border-warm);
+    border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;
+    color:var(--text-secondary);cursor:pointer;
+    font-family:'Space Grotesk',sans-serif}
+  .ms-mini:hover{background:var(--accent-warm-tint);
+    border-color:var(--accent-yellow);color:var(--text-primary)}
+  .ms-list{flex:1;overflow-y:auto;padding:2px}
+  .ms-item{display:flex;align-items:center;gap:9px;padding:6px 8px;
+    border-radius:5px;cursor:pointer;font-size:12.5px;color:var(--text-primary);
+    user-select:none}
+  .ms-item:hover{background:var(--accent-warm-tint)}
+  .ms-item input[type=checkbox]{margin:0;accent-color:var(--accent-yellow)}
+  .ms-item .ms-item-name{flex:1;min-width:0;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .ms-item .ms-item-count{font-family:'JetBrains Mono',monospace;font-size:11px;
+    color:var(--text-tertiary);font-weight:600}
+  .ms-count-lbl{font-family:'JetBrains Mono',monospace;font-size:10px;
+    font-weight:700;color:var(--accent-yellow-hover);
+    background:var(--accent-warm-tint);border:1px solid var(--accent-yellow);
+    border-radius:4px;padding:1px 6px;margin-left:6px;letter-spacing:0.3px;
+    text-transform:none;display:none}
+  .ms-count-lbl.visible{display:inline-block}
   .ae-tbl td.thumb-cell{padding:6px 8px;width:52px}
   .cat-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;
     font-weight:700;letter-spacing:0.4px;text-transform:uppercase}
@@ -1836,8 +1885,21 @@
   <!-- Filter grid -->
   <div class="ai-fgrid">
     <div class="fg-field">
-      <label class="fg-lbl">utm_source</label>
-      <select class="fg-select" id="aiUtmSource"><option value="">All</option></select>
+      <label class="fg-lbl">utm_source <span class="ms-count-lbl" id="aiSrcCount"></span></label>
+      <div class="ms-wrap" id="aiUtmSourceMs">
+        <button type="button" class="ms-btn" id="aiUtmSourceBtn">
+          <span class="ms-lbl" id="aiUtmSourceLbl">All sources</span>
+          <span class="ms-caret">▾</span>
+        </button>
+        <div class="ms-panel" id="aiUtmSourcePanel" aria-hidden="true">
+          <div class="ms-tools">
+            <input class="ms-search" id="aiUtmSourceSearch" placeholder="filter…">
+            <button type="button" class="ms-mini" data-ms-op="all">All</button>
+            <button type="button" class="ms-mini" data-ms-op="none">None</button>
+          </div>
+          <div class="ms-list" id="aiUtmSourceList"></div>
+        </div>
+      </div>
     </div>
     <div class="fg-field">
       <label class="fg-lbl">utm_medium</label>
@@ -4626,26 +4688,79 @@ async function aiReloadOrders(){
   aiRenderTable();
 }
 
+// Selected utm_source values (multi-select). Empty Set = "all sources".
+const aiUtmSourceSel = new Set();
+
 function aiPopulateFilters(){
-  const src = new Set(), med = new Set();
+  const srcCounts = new Map(), med = new Set();
   for (const r of aiOrders){
-    if (r.utm_source) src.add(r.utm_source);
+    if (r.utm_source){
+      srcCounts.set(r.utm_source, (srcCounts.get(r.utm_source) || 0) + 1);
+    }
     if (r.utm_medium) med.add(r.utm_medium);
   }
-  const fill = (id, set) => {
-    const sel = document.getElementById(id);
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">All</option>' +
-      Array.from(set).sort().map(v => `<option value="${v}">${v}</option>`).join('');
-    if (Array.from(set).includes(cur)) sel.value = cur;
-  };
-  fill('aiUtmSource', src);
-  fill('aiUtmMedium', med);
+  // utm_medium — still a single-select
+  const medSel = document.getElementById('aiUtmMedium');
+  const curMed = medSel.value;
+  medSel.innerHTML = '<option value="">All</option>' +
+    Array.from(med).sort().map(v => `<option value="${v}">${v}</option>`).join('');
+  if (Array.from(med).includes(curMed)) medSel.value = curMed;
+  // utm_source — multi-select
+  aiRenderSourceMs(srcCounts);
+}
+
+// Render the utm_source multi-select list from a Map<source, count>
+function aiRenderSourceMs(srcCounts){
+  const list = document.getElementById('aiUtmSourceList');
+  const search = (document.getElementById('aiUtmSourceSearch').value || '').toLowerCase();
+  // Sort by count desc, then name
+  const items = Array.from(srcCounts.entries())
+    .filter(([n]) => !search || n.toLowerCase().includes(search))
+    .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  list.innerHTML = items.map(([name, count]) => {
+    const checked = aiUtmSourceSel.has(name) ? 'checked' : '';
+    const safe = String(name).replace(/"/g, '&quot;');
+    return '<label class="ms-item">'+
+      '<input type="checkbox" data-ms-val="'+safe+'" '+checked+'>'+
+      '<span class="ms-item-name" title="'+safe+'">'+name+'</span>'+
+      '<span class="ms-item-count">'+fmtInt(count)+'</span>'+
+    '</label>';
+  }).join('') || '<div style="padding:16px;text-align:center;color:var(--text-tertiary);font-size:12px">No matches</div>';
+  // Wire per-checkbox change
+  list.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', e => {
+      const v = e.target.dataset.msVal;
+      if (e.target.checked) aiUtmSourceSel.add(v);
+      else                  aiUtmSourceSel.delete(v);
+      aiUpdateSourceLabel(srcCounts);
+      aiPage = 0; aiRenderTable();
+    });
+  });
+  aiUpdateSourceLabel(srcCounts);
+}
+
+function aiUpdateSourceLabel(srcCounts){
+  const lbl = document.getElementById('aiUtmSourceLbl');
+  const chip = document.getElementById('aiSrcCount');
+  const total = srcCounts ? srcCounts.size : 0;
+  const n = aiUtmSourceSel.size;
+  if (n === 0){
+    lbl.textContent = 'All sources' + (total ? ' (' + total + ')' : '');
+    lbl.classList.add('placeholder');
+    chip.textContent = ''; chip.classList.remove('visible');
+  } else if (n === 1){
+    lbl.textContent = Array.from(aiUtmSourceSel)[0];
+    lbl.classList.remove('placeholder');
+    chip.textContent = '1 selected'; chip.classList.add('visible');
+  } else {
+    lbl.textContent = n + ' sources selected';
+    lbl.classList.remove('placeholder');
+    chip.textContent = n + ' selected'; chip.classList.add('visible');
+  }
 }
 
 function aiFiltered(){
   const tier   = document.getElementById('aiTierSel').value;
-  const src    = document.getElementById('aiUtmSource').value;
   const med    = document.getElementById('aiUtmMedium').value;
   const adSt   = document.getElementById('aiAdStatus').value;
   const cam    = (document.getElementById('aiUtmCampaign').value || '').trim().toLowerCase();
@@ -4656,7 +4771,8 @@ function aiFiltered(){
   if (tier === '__matched__')   rows = rows.filter(r => aiStep(r) !== '__none__');
   else if (tier === '__none__') rows = rows.filter(r => aiStep(r) === '__none__');
   else if (tier)                rows = rows.filter(r => aiStep(r) === tier);
-  if (src) rows = rows.filter(r => r.utm_source === src);
+  // Multi-select utm_source — empty Set means "all"
+  if (aiUtmSourceSel.size) rows = rows.filter(r => aiUtmSourceSel.has(r.utm_source || ''));
   if (med) rows = rows.filter(r => r.utm_medium === med);
   if (cam) rows = rows.filter(r => (r.utm_campaign || '').toLowerCase().includes(cam));
   if (cnt) rows = rows.filter(r => (r.utm_content  || '').toLowerCase().includes(cnt));
@@ -4773,8 +4889,50 @@ function aiRenderTable(){
 function initAdIntel(){
   initAiDRP();
   // Filter wiring — every change re-renders (no re-fetch unless date changes)
-  ['aiTierSel','aiUtmSource','aiUtmMedium','aiAdStatus'].forEach(id =>
+  ['aiTierSel','aiUtmMedium','aiAdStatus'].forEach(id =>
     document.getElementById(id).addEventListener('change', () => { aiPage = 0; aiRenderTable(); }));
+  // utm_source multi-select popover
+  const msBtn  = document.getElementById('aiUtmSourceBtn');
+  const msPanel= document.getElementById('aiUtmSourcePanel');
+  const msWrap = document.getElementById('aiUtmSourceMs');
+  msBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const isOpen = msPanel.classList.contains('open');
+    msPanel.classList.toggle('open', !isOpen);
+    msBtn.classList.toggle('open', !isOpen);
+    msPanel.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
+    if (!isOpen) setTimeout(() => document.getElementById('aiUtmSourceSearch').focus(), 20);
+  });
+  document.addEventListener('click', e => {
+    if (msPanel.classList.contains('open') && !msWrap.contains(e.target)){
+      msPanel.classList.remove('open'); msBtn.classList.remove('open');
+      msPanel.setAttribute('aria-hidden','true');
+    }
+  });
+  document.getElementById('aiUtmSourceSearch').addEventListener('input', () => {
+    // Re-render the list with the current search term (counts recomputed from aiOrders)
+    const counts = new Map();
+    for (const r of aiOrders){ if (r.utm_source) counts.set(r.utm_source, (counts.get(r.utm_source)||0)+1); }
+    aiRenderSourceMs(counts);
+  });
+  document.querySelectorAll('#aiUtmSourcePanel .ms-mini').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const op = e.target.dataset.msOp;
+      const counts = new Map();
+      for (const r of aiOrders){ if (r.utm_source) counts.set(r.utm_source, (counts.get(r.utm_source)||0)+1); }
+      if (op === 'all'){
+        // "All" = select every source currently visible after search
+        const searchQ = (document.getElementById('aiUtmSourceSearch').value || '').toLowerCase();
+        for (const [name] of counts){
+          if (!searchQ || name.toLowerCase().includes(searchQ)) aiUtmSourceSel.add(name);
+        }
+      } else if (op === 'none'){
+        aiUtmSourceSel.clear();
+      }
+      aiRenderSourceMs(counts);
+      aiPage = 0; aiRenderTable();
+    });
+  });
   ['aiUtmCampaign','aiUtmContent','aiUtmTerm','aiMatchedValue'].forEach(id =>
     document.getElementById(id).addEventListener('input', () => {
       clearTimeout(window._aiDb);
