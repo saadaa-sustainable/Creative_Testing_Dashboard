@@ -4994,7 +4994,12 @@ const _AI_RETENTION_RE = /^(kwik[\w\-]*|wa|sagepilot(?:[-_]?ai)?|email|rcs)$/i;
    worth zero rupees is still marketing-attributable — the free-swap
    should only claim rows that carry no other signal. */
 function aiSourceKey(r){
-  const s = (r.utm_source || '').trim();
+  // Normalise to lower-case so case-variants ("META" / "Meta" / "meta")
+  // collapse into a single bucket in the KPI count, drilldown table,
+  // multi-select filter and export. Otherwise the drilldown shows
+  // three visually-identical "meta" rows and manual summation misses
+  // whichever variants the user skims past.
+  const s = (r.utm_source || '').trim().toLowerCase();
   if (s) return s;
   const c = (r.utm_content || '').trim();
   if (c) return _AI_HEADLESS;
@@ -5078,10 +5083,11 @@ function aiRenderChannelDrill(channel){
     totalOrders += 1;
     totalSales  += +r.total_price || 0;
   }
+  // Keys are already lower-cased by aiSourceKey() so we just pass through
   const displayOf = k => k === '' ? '(blank)'
                        : k === _AI_HEADLESS ? 'headless_retention'
                        : k === _AI_EXCHANGE ? 'exchange'
-                       : String(k).toLowerCase();
+                       : String(k);
   const list = Array.from(groups.values())
     .sort((a,b) => b.orders - a.orders);
   sub.textContent = fmtInt(totalOrders) + ' orders · ' + fmtRs(totalSales) +
