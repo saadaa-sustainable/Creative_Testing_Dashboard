@@ -4823,15 +4823,16 @@ function aiRenderSourceMs(srcCounts){
   const list = document.getElementById('aiUtmSourceList');
   const search = (document.getElementById('aiUtmSourceSearch').value || '').toLowerCase();
   // Sort by count desc, then name
-  // Friendly labels for the two synthetic keys
+  // Friendly labels for the synthetic keys
   const displayOf = key => key === '' ? '(blank)'
                         : key === _AI_HEADLESS ? 'headless_retention'
+                        : key === _AI_EXCHANGE ? 'exchange'
                         : key;
-  // Sort: '(blank)' first, then 'headless_retention', then by count desc
+  // Sort synthetic keys to the top: (blank), headless_retention, exchange
   const items = Array.from(srcCounts.entries())
     .filter(([n]) => !search || displayOf(n).toLowerCase().includes(search))
     .sort((a,b) => {
-      const rank = k => k === '' ? 0 : k === _AI_HEADLESS ? 1 : 2;
+      const rank = k => k === '' ? 0 : k === _AI_HEADLESS ? 1 : k === _AI_EXCHANGE ? 2 : 3;
       const ra = rank(a[0]), rb = rank(b[0]);
       if (ra !== rb) return ra - rb;
       return b[1] - a[1] || String(a[0]).localeCompare(String(b[0]));
@@ -4842,8 +4843,9 @@ function aiRenderSourceMs(srcCounts){
     const safe = String(name).replace(/"/g, '&quot;');
     const safeDisp = displayName.replace(/"/g, '&quot;');
     let style = '';
-    if (name === '')             style = ' style="font-style:italic;color:var(--text-tertiary)"';
-    else if (name === _AI_HEADLESS) style = ' style="font-style:italic;color:#8B5CF6"';   // Retention purple
+    if (name === '')                 style = ' style="font-style:italic;color:var(--text-tertiary)"';
+    else if (name === _AI_HEADLESS)  style = ' style="font-style:italic;color:#8B5CF6"';        // Retention purple
+    else if (name === _AI_EXCHANGE)  style = ' style="font-style:italic;color:var(--warning-mid,#D9922A)"'; // Exchange amber
     return '<label class="ms-item">'+
       '<input type="checkbox" data-ms-val="'+safe+'" '+checked+'>'+
       '<span class="ms-item-name" title="'+safeDisp+'"'+style+'>'+displayName+'</span>'+
@@ -4963,24 +4965,34 @@ function aiTierClass(t){
                  missing).
    Other      — everything else (direct, chatgpt.com, robylon,
                  fealtyx, nector, truly-blank orders, etc.). */
-const _AI_HEADLESS = '__headless_retention__';   // synthetic source key
+const _AI_HEADLESS = '__headless_retention__';   // synthetic source keys
+const _AI_EXCHANGE = '__exchange__';
 const _AI_META_RE      = /^(meta[\w\-]*|facebook|fb|instagram|ig|igshopping)$/i;
 const _AI_GOOGLE_RE    = /^(google[\w\-]*|gads|adwords)$/i;
 const _AI_RETENTION_RE = /^(kwik[\w\-]*|wa|sagepilot(?:[-_]?ai)?|email|rcs)$/i;
 
 /* Row → synthetic source key used by the filter, drilldown and multi-select.
       utm_source populated                 -> the raw source string
-      utm_source blank + utm_content set   -> '__headless_retention__'
-      utm_source blank + no utm_content    -> ''                    */
+      utm_source blank + utm_content set   -> __headless_retention__  (Retention)
+      utm_source blank + total_price == 0  -> __exchange__            (Other)
+      utm_source blank + everything else   -> ''                      (Other)
+   Priority for the two synthetic keys is: headless_retention wins over
+   exchange, because a headless retention click that happened to be
+   worth zero rupees is still marketing-attributable — the free-swap
+   should only claim rows that carry no other signal. */
 function aiSourceKey(r){
   const s = (r.utm_source || '').trim();
   if (s) return s;
   const c = (r.utm_content || '').trim();
-  return c ? _AI_HEADLESS : '';
+  if (c) return _AI_HEADLESS;
+  const price = +r.total_price;
+  if (isFinite(price) && price === 0) return _AI_EXCHANGE;
+  return '';
 }
 function aiChannel(srcKey){
   const s = (srcKey || '').trim();
   if (s === _AI_HEADLESS)       return 'retention';
+  if (s === _AI_EXCHANGE)       return 'other';
   if (!s)                       return 'other';
   if (_AI_META_RE.test(s))      return 'meta';
   if (_AI_GOOGLE_RE.test(s))    return 'google';
@@ -5043,6 +5055,7 @@ function aiRenderChannelDrill(channel){
   }
   const displayOf = k => k === '' ? '(blank)'
                        : k === _AI_HEADLESS ? 'headless_retention'
+                       : k === _AI_EXCHANGE ? 'exchange'
                        : String(k).toLowerCase();
   const list = Array.from(groups.values())
     .sort((a,b) => b.orders - a.orders);
@@ -5068,7 +5081,10 @@ function aiRenderChannelDrill(channel){
       const aov  = g.orders > 0 ? g.sales / g.orders : 0;
       const safe = String(g.key).replace(/"/g,'&quot;');
       const disp = displayOf(g.key);
-      const italic = (g.key === '' || g.key === _AI_HEADLESS) ? ' style="font-style:italic"' : '';
+      let italic = '';
+      if (g.key === '')             italic = ' style="font-style:italic;color:var(--text-tertiary)"';
+      else if (g.key === _AI_HEADLESS) italic = ' style="font-style:italic;color:#8B5CF6"';
+      else if (g.key === _AI_EXCHANGE) italic = ' style="font-style:italic;color:var(--warning-mid,#D9922A)"';
       return '<tr data-drill-src="'+safe+'">'+
         '<td><span class="src-name"'+italic+'>'+disp+'</span></td>'+
         '<td class="num">'+fmtInt(g.orders)+'</td>'+
