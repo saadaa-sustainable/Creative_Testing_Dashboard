@@ -4796,7 +4796,7 @@ const aiUtmSourceSel = new Set();
 function aiBuildSourceCounts(){
   const m = new Map();
   for (const r of aiOrders){
-    const key = (r.utm_source && String(r.utm_source).trim()) ? r.utm_source : '';
+    const key = aiSourceKey(r);
     m.set(key, (m.get(key) || 0) + 1);
   }
   return m;
@@ -4823,23 +4823,30 @@ function aiRenderSourceMs(srcCounts){
   const list = document.getElementById('aiUtmSourceList');
   const search = (document.getElementById('aiUtmSourceSearch').value || '').toLowerCase();
   // Sort by count desc, then name
-  // Sort: blank sentinel first (so users can spot it), then by count desc
+  // Friendly labels for the two synthetic keys
+  const displayOf = key => key === '' ? '(blank)'
+                        : key === _AI_HEADLESS ? 'headless_retention'
+                        : key;
+  // Sort: '(blank)' first, then 'headless_retention', then by count desc
   const items = Array.from(srcCounts.entries())
-    .filter(([n]) => !search || (n === '' ? '(blank)'.includes(search) : n.toLowerCase().includes(search)))
+    .filter(([n]) => !search || displayOf(n).toLowerCase().includes(search))
     .sort((a,b) => {
-      if (a[0] === '' && b[0] !== '') return -1;
-      if (b[0] === '' && a[0] !== '') return  1;
-      return b[1] - a[1] || a[0].localeCompare(b[0]);
+      const rank = k => k === '' ? 0 : k === _AI_HEADLESS ? 1 : 2;
+      const ra = rank(a[0]), rb = rank(b[0]);
+      if (ra !== rb) return ra - rb;
+      return b[1] - a[1] || String(a[0]).localeCompare(String(b[0]));
     });
   list.innerHTML = items.map(([name, count]) => {
     const checked = aiUtmSourceSel.has(name) ? 'checked' : '';
-    const displayName = name === '' ? '(blank)' : name;
+    const displayName = displayOf(name);
     const safe = String(name).replace(/"/g, '&quot;');
     const safeDisp = displayName.replace(/"/g, '&quot;');
-    const italic = name === '' ? ' style="font-style:italic;color:var(--text-tertiary)"' : '';
+    let style = '';
+    if (name === '')             style = ' style="font-style:italic;color:var(--text-tertiary)"';
+    else if (name === _AI_HEADLESS) style = ' style="font-style:italic;color:#8B5CF6"';   // Retention purple
     return '<label class="ms-item">'+
       '<input type="checkbox" data-ms-val="'+safe+'" '+checked+'>'+
-      '<span class="ms-item-name" title="'+safeDisp+'"'+italic+'>'+displayName+'</span>'+
+      '<span class="ms-item-name" title="'+safeDisp+'"'+style+'>'+displayName+'</span>'+
       '<span class="ms-item-count">'+fmtInt(count)+'</span>'+
     '</label>';
   }).join('') || '<div style="padding:16px;text-align:center;color:var(--text-tertiary);font-size:12px">No matches</div>';
@@ -4889,7 +4896,7 @@ function aiFiltered(){
   else if (tier === '__none__') rows = rows.filter(r => aiStep(r) === '__none__');
   else if (tier)                rows = rows.filter(r => aiStep(r) === tier);
   // Multi-select utm_source — empty Set means "all"
-  if (aiUtmSourceSel.size) rows = rows.filter(r => aiUtmSourceSel.has(r.utm_source || ''));
+  if (aiUtmSourceSel.size) rows = rows.filter(r => aiUtmSourceSel.has(aiSourceKey(r)));
   if (med) rows = rows.filter(r => r.utm_medium === med);
   if (cam) rows = rows.filter(r => (r.utm_campaign || '').toLowerCase().includes(cam));
   if (cnt) rows = rows.filter(r => (r.utm_content  || '').toLowerCase().includes(cnt));
@@ -4943,21 +4950,38 @@ function aiTierClass(t){
   return 'none';
 }
 
-/* Classify a raw utm_source into one of the four channels.
+/* Classify a raw utm_source (or synthetic key) into one of the four channels.
    Meta       — any source starting with "meta" (meta, meta_ads,
                  meta-featuredofferings, metald_1, meta-sitelink, …),
                  plus facebook / fb / instagram / ig / igshopping.
    Google     — google / gads / google_ads / adwords / any "google*".
    Retention  — kwikengage/kwikchat/kwikchatbot/any kwik*, plus
-                 wa, sagepilot(-ai), email, rcs.
-   Other      — everything else (direct, blank, chatgpt.com, robylon,
-                 fealtyx, nector, etc.). */
+                 wa, sagepilot(-ai), email, rcs. Also catches the
+                 synthetic key HEADLESS_RETENTION (blank utm_source
+                 but a non-blank utm_content — an order that carries
+                 a retention marker even though the source tag is
+                 missing).
+   Other      — everything else (direct, chatgpt.com, robylon,
+                 fealtyx, nector, truly-blank orders, etc.). */
+const _AI_HEADLESS = '__headless_retention__';   // synthetic source key
 const _AI_META_RE      = /^(meta[\w\-]*|facebook|fb|instagram|ig|igshopping)$/i;
 const _AI_GOOGLE_RE    = /^(google[\w\-]*|gads|adwords)$/i;
 const _AI_RETENTION_RE = /^(kwik[\w\-]*|wa|sagepilot(?:[-_]?ai)?|email|rcs)$/i;
-function aiChannel(utm){
-  const s = (utm || '').trim();
-  if (!s) return 'other';                       // blank / NULL utm_source
+
+/* Row → synthetic source key used by the filter, drilldown and multi-select.
+      utm_source populated                 -> the raw source string
+      utm_source blank + utm_content set   -> '__headless_retention__'
+      utm_source blank + no utm_content    -> ''                    */
+function aiSourceKey(r){
+  const s = (r.utm_source || '').trim();
+  if (s) return s;
+  const c = (r.utm_content || '').trim();
+  return c ? _AI_HEADLESS : '';
+}
+function aiChannel(srcKey){
+  const s = (srcKey || '').trim();
+  if (s === _AI_HEADLESS)       return 'retention';
+  if (!s)                       return 'other';
   if (_AI_META_RE.test(s))      return 'meta';
   if (_AI_GOOGLE_RE.test(s))    return 'google';
   if (_AI_RETENTION_RE.test(s)) return 'retention';
@@ -4971,8 +4995,8 @@ function aiRenderChannels(){
   const chs = {all:{n:0,sp:0}, meta:{n:0,sp:0}, google:{n:0,sp:0},
                retention:{n:0,sp:0}, other:{n:0,sp:0}};
   for (const r of aiOrders){
-    const c = aiChannel(r.utm_source);
-    const sp = +r.total_price || 0;
+    const c = aiChannel(aiSourceKey(r));   // uses row-level key so
+    const sp = +r.total_price || 0;         // headless_retention counts under Retention
     chs.all.n += 1;      chs.all.sp += sp;
     chs[c].n  += 1;      chs[c].sp  += sp;
   }
@@ -5001,20 +5025,25 @@ function aiRenderChannelDrill(channel){
                  other:'Other', all:'All channels'};
   panel.style.display = 'block';
   ttl.textContent = nice[channel] + ' · utm_source breakdown';
-  // Group rows in this channel by lowercased utm_source
+  // Group rows in this channel by the row-level source key so the two
+  // synthetic sources ('' -> "(blank)" and __headless_retention__ ->
+  // "headless_retention") appear as first-class entries in the table.
   const groups = new Map();
   let totalOrders = 0, totalSales = 0;
   for (const r of aiOrders){
-    const c = aiChannel(r.utm_source);
+    const key = aiSourceKey(r);
+    const c   = aiChannel(key);
     if (channel !== 'all' && c !== channel) continue;
-    const key = (r.utm_source || '(blank)').toLowerCase();
-    if (!groups.has(key)) groups.set(key, {src:key, orders:0, sales:0});
+    if (!groups.has(key)) groups.set(key, {key:key, orders:0, sales:0});
     const g = groups.get(key);
     g.orders += 1;
     g.sales  += +r.total_price || 0;
     totalOrders += 1;
     totalSales  += +r.total_price || 0;
   }
+  const displayOf = k => k === '' ? '(blank)'
+                       : k === _AI_HEADLESS ? 'headless_retention'
+                       : String(k).toLowerCase();
   const list = Array.from(groups.values())
     .sort((a,b) => b.orders - a.orders);
   sub.textContent = fmtInt(totalOrders) + ' orders · ' + fmtRs(totalSales) +
@@ -5037,9 +5066,11 @@ function aiRenderChannelDrill(channel){
       const pct  = totalOrders ? (g.orders / totalOrders * 100) : 0;
       const bw   = maxOrders   ? (g.orders / maxOrders  * 100) : 0;
       const aov  = g.orders > 0 ? g.sales / g.orders : 0;
-      const safe = String(g.src).replace(/"/g,'&quot;');
+      const safe = String(g.key).replace(/"/g,'&quot;');
+      const disp = displayOf(g.key);
+      const italic = (g.key === '' || g.key === _AI_HEADLESS) ? ' style="font-style:italic"' : '';
       return '<tr data-drill-src="'+safe+'">'+
-        '<td><span class="src-name">'+g.src+'</span></td>'+
+        '<td><span class="src-name"'+italic+'>'+disp+'</span></td>'+
         '<td class="num">'+fmtInt(g.orders)+'</td>'+
         '<td class="num">'+fmtRs(g.sales)+'</td>'+
         '<td class="num">'+fmtRs(aov)+'</td>'+
@@ -5052,12 +5083,11 @@ function aiRenderChannelDrill(channel){
   // Row click → set utm_source filter to just this value and close the drill
   body.querySelectorAll('tr[data-drill-src]').forEach(tr => {
     tr.addEventListener('click', () => {
-      const src = tr.dataset.drillSrc;
+      // data-drill-src carries the exact synthetic key already, so we
+      // can just add it to the Set — no translation needed.
+      const key = tr.dataset.drillSrc;
       aiUtmSourceSel.clear();
-      // "(blank)" is our display token for null/empty utm_source — pass
-      // the empty-string sentinel into the Set so the filter matches
-      // rows where r.utm_source is blank.
-      aiUtmSourceSel.add(src === '(blank)' ? '' : src);
+      aiUtmSourceSel.add(key);
       aiRenderSourceMs(aiBuildSourceCounts());
       aiPage = 0; aiRenderTable();
     });
@@ -5241,15 +5271,17 @@ function initAdIntel(){
       aiUtmSourceSel.clear();
       aiCloseChannelDrill();
     } else {
-      // Set filter to every utm_source that maps to this channel.
-      // '' (empty string) is the canonical sentinel for null/blank rows —
-      // those land under "other" per aiChannel() and are pushed into the
-      // Set so blank orders survive an Other-channel filter.
+      // Set filter to every source key that maps to this channel.
+      //   ''                       -> truly-blank rows (under Other)
+      //   '__headless_retention__' -> blank source + non-blank content
+      //                               (under Retention)
+      // Both sentinels get added when their channel is clicked so
+      // those orders survive the filter.
       aiUtmSourceSel.clear();
       if (channel !== 'all'){
         for (const r of aiOrders){
-          const s = (r.utm_source || '').trim();
-          if (aiChannel(s) === channel) aiUtmSourceSel.add(s);
+          const key = aiSourceKey(r);
+          if (aiChannel(key) === channel) aiUtmSourceSel.add(key);
         }
       }
       aiRenderChannelDrill(channel);
