@@ -1623,6 +1623,7 @@
     <div class="ae-fcard">
       <label class="ae-flbl" for="aeDateField">Date Field</label>
       <select class="ae-finput" id="aeDateField">
+        <option value="__delivery__" selected>Delivery Date</option>
         <option value="ad_created">Ad Created</option>
         <option value="first_seen_date">First Seen</option>
         <option value="date_of_result">Date of Result</option>
@@ -3825,6 +3826,54 @@ let aeSortKey  = 'amount_spent';
 let aeSortDir  = 'desc';
 let aePage     = 0;             // 0-based page index for the AE table
 let aeRules    = [];            // [{field, op, value}, …] for multi-filter
+// Set<ad_id> of ads that delivered inside the current date window.
+// null = not fetched yet / no active window; empty Set = fetched, no matches.
+let aeDeliverySet = null;
+// Cache: window key ("from|to") → Set<ad_id> so repeated ranges are instant.
+const _aeDeliveryCache = new Map();
+async function aeRebuildDeliverySet(){
+  const from = document.getElementById('aeDateFrom').value || '';
+  const to   = document.getElementById('aeDateTo').value   || '';
+  const field = document.getElementById('aeDateField').value;
+  // Only meaningful in delivery mode with an active window
+  if (field !== '__delivery__' || (!from && !to)){
+    aeDeliverySet = null;
+    return;
+  }
+  const key = from + '|' + to;
+  if (_aeDeliveryCache.has(key)){
+    aeDeliverySet = _aeDeliveryCache.get(key);
+    return;
+  }
+  aeDeliverySet = null;   // clear stale result while we fetch
+  if (!SUPABASE_URL || !SUPABASE_ANON) return;
+  const dbStatEl = document.getElementById('dbStat');
+  if (dbStatEl) dbStatEl.innerHTML = 'Loading delivery ads <span class="spinner"></span>';
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON, Prefer:'count=none'};
+  const ids = new Set();
+  const BATCH = 1000;
+  for (const table of ['primary_table','backfill_table']){
+    let offset = 0;
+    while (true){
+      let url = SUPABASE_URL+'/rest/v1/'+table+'?select=ad_id'+
+                '&ad_id=not.is.null&impressions=gt.0'+
+                '&limit='+BATCH+'&offset='+offset;
+      if (from) url += '&date=gte.'+from;
+      if (to)   url += '&date=lte.'+to;
+      const r = await fetch(url, {headers});
+      if (!r.ok) break;
+      const j = await r.json();
+      if (!Array.isArray(j) || !j.length) break;
+      for (const row of j) if (row.ad_id) ids.add(row.ad_id);
+      if (j.length < BATCH) break;
+      offset += BATCH;
+    }
+  }
+  _aeDeliveryCache.set(key, ids);
+  aeDeliverySet = ids;
+  if (dbStatEl) dbStatEl.innerHTML = 'Delivered in window: <span class="mono">'+
+    fmtInt(ids.size)+'</span> ads';
+}
 let ctRules    = [];            // Creative Testing multi-filter — same engine
 let aeDailyOpenKey = '';        // cache-key of the currently-open daily-row
 const aeDailyCache = {};        // {cacheKey:{state, rows, totals, error}}
@@ -4341,7 +4390,7 @@ function drpUpdateButton(){
     lbl.classList.add('active');
   }
 }
-function drpApply(){
+async function drpApply(){
   const fromInp = drpEl('aeDateFrom'), toInp = drpEl('aeDateTo');
   if (drpState.preset === 'lifetime' || (!drpState.from && !drpState.to)){
     fromInp.value = ''; toInp.value = '';
@@ -4352,15 +4401,17 @@ function drpApply(){
   }
   drpUpdateButton();
   drpClose();
+  await aeRebuildDeliverySet();
   aePage = 0; renderAE();
 }
-function drpClearDateRange(){
+async function drpClearDateRange(){
   drpEl('aeDateFrom').value = '';
   drpEl('aeDateTo').value   = '';
   drpState.from = null; drpState.to = null; drpState.hov = null;
   drpState.selecting = false; drpState.preset = 'lifetime';
   drpUpdateButton();
   drpRender();
+  await aeRebuildDeliverySet();
   aePage = 0; renderAE();
 }
 function initDateRangePicker(){
@@ -5507,7 +5558,7 @@ function aeFiltered(){
   const showDisc   = document.getElementById('aeShowDiscarded').checked;
   const status     = document.getElementById('aeStatus').value;
   const groupBy    = document.getElementById('aeGroupBy').value;
-  const dateField  = document.getElementById('aeDateField').value || 'ad_created';
+  const dateField  = document.getElementById('aeDateField').value || '__delivery__';
   const dFromStr   = document.getElementById('aeDateFrom').value;
   const dToStr     = document.getElementById('aeDateTo').value;
   const dFrom = dFromStr ? new Date(dFromStr + 'T00:00:00') : null;
@@ -5519,15 +5570,27 @@ function aeFiltered(){
   // Hide Discarded by default — matches old dashboard's implicit filter.
   if (!showDisc && !aeSelectedCat) rows = rows.filter(r => r.category !== 'Discarded');
   if (aeSelectedCat) rows = rows.filter(r => r.category === aeSelectedCat);
-  // Date-range filter on selected date field
+  // Date-range filter
   if (dFrom || dTo){
-    rows = rows.filter(r => {
-      const v = r[dateField]; if (!v) return false;
-      const d = new Date(v);  if (isNaN(d)) return false;
-      if (dFrom && d < dFrom) return false;
-      if (dTo   && d > dTo  ) return false;
-      return true;
-    });
+    if (dateField === '__delivery__'){
+      // Match "ad delivered in this window" — an ad_id is included iff it
+      // had at least one impressioned daily row in primary_table or
+      // backfill_table inside the window. The Set is pre-fetched on
+      // every date-range change; while it's loading we pass through so
+      // the user isn't looking at an empty table.
+      if (aeDeliverySet){
+        rows = rows.filter(r => aeDeliverySet.has(r.ad_id));
+      }
+    } else {
+      // Legacy per-field filter (Ad Created / First Seen / etc.)
+      rows = rows.filter(r => {
+        const v = r[dateField]; if (!v) return false;
+        const d = new Date(v);  if (isNaN(d)) return false;
+        if (dFrom && d < dFrom) return false;
+        if (dTo   && d > dTo  ) return false;
+        return true;
+      });
+    }
   }
   // Multi-Filter rules — every rule with a non-empty value must pass (AND)
   const activeRules = aeRules.filter(r => (r.value || '').trim());
@@ -5569,7 +5632,7 @@ function renderAE(){
   // for every category at once).
   const acct       = document.getElementById('aeAcct').value;
   const status     = document.getElementById('aeStatus').value;
-  const dateField  = document.getElementById('aeDateField').value || 'ad_created';
+  const dateField  = document.getElementById('aeDateField').value || '__delivery__';
   const dFromStr   = document.getElementById('aeDateFrom').value;
   const dToStr     = document.getElementById('aeDateTo').value;
   const dFrom = dFromStr ? new Date(dFromStr + 'T00:00:00') : null;
@@ -5578,13 +5641,19 @@ function renderAE(){
   if (acct)   cats = cats.filter(r => (r.account_name || '') === acct);
   if (status) cats = cats.filter(r => (r.ad_status || '').toUpperCase() === status);
   if (dFrom || dTo){
-    cats = cats.filter(r => {
-      const v = r[dateField]; if (!v) return false;
-      const d = new Date(v);  if (isNaN(d)) return false;
-      if (dFrom && d < dFrom) return false;
-      if (dTo   && d > dTo  ) return false;
-      return true;
-    });
+    if (dateField === '__delivery__'){
+      if (aeDeliverySet){
+        cats = cats.filter(r => aeDeliverySet.has(r.ad_id));
+      }
+    } else {
+      cats = cats.filter(r => {
+        const v = r[dateField]; if (!v) return false;
+        const d = new Date(v);  if (isNaN(d)) return false;
+        if (dFrom && d < dFrom) return false;
+        if (dTo   && d > dTo  ) return false;
+        return true;
+      });
+    }
   }
   const activeRules = aeRules.filter(rl => (rl.value || '').trim());
   if (activeRules.length){
@@ -5863,10 +5932,24 @@ if (_ctMfAdd) _ctMfAdd.addEventListener('click', () => {
 });
 // Render the empty CT multi-filter row on initial load
 ctMfRender();
-['aeAcct','aeShowDiscarded','aeStatus','aeGroupBy','aeDateField'].forEach(id =>
+['aeAcct','aeShowDiscarded','aeStatus','aeGroupBy'].forEach(id =>
   document.getElementById(id).addEventListener('change', () => { aePage = 0; renderAE(); }));
-['aeDateFrom','aeDateTo','aePageSize'].forEach(id =>
-  document.getElementById(id).addEventListener('change', () => { aePage = 0; renderAE(); }));
+// aeDateField change → possibly rebuild the delivery Set (only meaningful
+// when switching to __delivery__ with an active window)
+document.getElementById('aeDateField').addEventListener('change', async () => {
+  await aeRebuildDeliverySet();
+  aePage = 0; renderAE();
+});
+document.getElementById('aePageSize').addEventListener('change', () => { aePage = 0; renderAE(); });
+// Manual date-input edits rebuild the delivery Set too (debounced)
+['aeDateFrom','aeDateTo'].forEach(id =>
+  document.getElementById(id).addEventListener('change', async () => {
+    clearTimeout(window._aeDeliveryDb);
+    window._aeDeliveryDb = setTimeout(async () => {
+      await aeRebuildDeliverySet();
+      aePage = 0; renderAE();
+    }, 220);
+  }));
 // Category dropdown drives the same filter as clicking a KPI card.
 document.getElementById('aeCategory').addEventListener('change', e => {
   aeSelectedCat = e.target.value || '';
