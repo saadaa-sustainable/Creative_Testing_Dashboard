@@ -5204,15 +5204,45 @@ function initAdIntel(){
     document.getElementById('aiTierSel').value = card.dataset.tier;
     aiPage = 0; aiRenderTable();
   });
-  // Channel KPI cards → open the utm_source breakdown drilldown.
-  // Clicking the same card again closes it (toggle).
+  // Channel KPI cards → apply the channel as a utm_source filter (pushes
+  // every source that classifies into that channel into the multi-select)
+  // AND open the drilldown below.  Clicking the same card again closes
+  // the drilldown and clears the filter (toggle).
   document.getElementById('aiChannelRow').addEventListener('click', e => {
     const card = e.target.closest('.kpi'); if (!card) return;
     const channel = card.dataset.channel;
-    if (aiOpenChannel === channel) aiCloseChannelDrill();
-    else                            aiRenderChannelDrill(channel);
+    if (aiOpenChannel === channel){
+      // Same card clicked again → clear the filter + close drilldown
+      aiUtmSourceSel.clear();
+      aiCloseChannelDrill();
+    } else {
+      // Set filter to every utm_source that maps to this channel
+      aiUtmSourceSel.clear();
+      if (channel !== 'all'){
+        for (const r of aiOrders){
+          const s = r.utm_source;
+          if (s && aiChannel(s) === channel) aiUtmSourceSel.add(s);
+        }
+      }
+      aiRenderChannelDrill(channel);
+    }
+    // Repaint the utm_source multi-select popover so the checkboxes and
+    // label reflect the new selection
+    const counts = new Map();
+    for (const r of aiOrders){ if (r.utm_source) counts.set(r.utm_source, (counts.get(r.utm_source)||0)+1); }
+    aiRenderSourceMs(counts);
+    aiPage = 0;
+    aiRenderTable();
   });
-  document.getElementById('aiChannelDrillClose').addEventListener('click', aiCloseChannelDrill);
+  document.getElementById('aiChannelDrillClose').addEventListener('click', () => {
+    aiUtmSourceSel.clear();
+    aiCloseChannelDrill();
+    const counts = new Map();
+    for (const r of aiOrders){ if (r.utm_source) counts.set(r.utm_source, (counts.get(r.utm_source)||0)+1); }
+    aiRenderSourceMs(counts);
+    aiPage = 0;
+    aiRenderTable();
+  });
 }
 
 /* Group ad rows by ad_name or campaign — sum numeric fields, keep most-recent ad meta */
