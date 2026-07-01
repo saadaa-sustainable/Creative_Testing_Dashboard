@@ -1076,6 +1076,32 @@
 
   /* ── Lifecycle: frequency buckets ──────────────────────────────── */
   .freq-buckets{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .freq-buckets-5{grid-template-columns:repeat(5,1fr)}
+  /* Lifetime-totals strip above the buckets */
+  .freq-totals{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
+    margin:6px 0 14px}
+  .ft-tile{background:var(--bg-page-alt);border:1px solid var(--border-warm);
+    border-radius:9px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+  .ft-tile .lbl{font-size:10px;font-weight:700;color:var(--text-secondary);
+    text-transform:uppercase;letter-spacing:.6px;font-family:'Space Grotesk',sans-serif}
+  .ft-tile b{font-size:18px;font-weight:700;color:var(--text-primary);
+    font-family:'Space Grotesk',sans-serif;letter-spacing:-.3px}
+  /* Compact per-crossing cell used in the drill table */
+  .fx-cell{font-size:10.5px;line-height:1.35;color:var(--text-tertiary);
+    font-family:'JetBrains Mono',monospace;white-space:nowrap}
+  .fx-cell .fx-date{display:block;color:var(--text-primary);font-weight:800;font-size:11px}
+  .fx-cell .fx-metric{color:var(--text-mid)}
+  .fx-cell.fx-empty{color:var(--text-tertiary);font-style:italic;opacity:.6}
+  .freq-drill-tbl th{font-size:9.5px;font-weight:700;letter-spacing:.5px;
+    text-transform:uppercase;color:var(--text-secondary);text-align:left;
+    padding:9px 10px;border-bottom:1px solid var(--border-warm);
+    background:var(--bg-page-alt)}
+  .freq-drill-tbl th.num{text-align:right}
+  .freq-drill-tbl td{padding:8px 10px;font-size:11.5px;color:var(--text-mid);
+    border-bottom:1px solid #F0EDE6;vertical-align:top;background:var(--bg-white)}
+  .freq-drill-tbl tr:nth-child(even) td{background:var(--bg-page-alt)}
+  .freq-drill-tbl td.num{font-family:'JetBrains Mono',monospace;text-align:right;
+    color:var(--text-primary);font-weight:600}
   .freq-bucket{position:relative;background:var(--bg-white);border:1px solid var(--border-primary);
     border-radius:12px;padding:22px 20px 18px;cursor:pointer;transition:all 0.2s}
   .freq-bucket:hover{transform:translateY(-2px);border-color:var(--border-mid);
@@ -1489,43 +1515,75 @@
   <!-- Frequency buckets ─────────────────────────────────────────────── -->
   <div class="funnel-card" id="lifeFreqSection" style="margin-bottom:18px">
     <div class="funnel-hdr">
-      <h3>Frequency buckets <span class="h-sub">Σ impressions ÷ max single-day reach (ads with freq &gt; 3 excluded)</span></h3>
+      <h3>Frequency lifecycle
+        <span class="h-sub">buckets by max cumulative frequency; click a bucket to see each ad's crossing dates + metrics on that day</span>
+      </h3>
       <span class="mono" style="font-size:11px;color:var(--text-tertiary)" id="lifeFreqTot">—</span>
     </div>
-    <div class="freq-buckets" id="lifeFreqBuckets">
-      <div class="freq-bucket" data-b="low"  data-min="0"   data-max="2">
-        <div class="fb-tag"><span class="dot" style="background:var(--success-mid)"></span>Low frequency</div>
-        <div class="fb-range">0.0 — 2.0×</div>
-        <div class="fb-count mono" id="freqLowCount">—</div>
-        <div class="fb-metric"><span>Total spend</span><b class="mono" id="freqLowSpend">—</b></div>
-        <div class="fb-metric"><span>Total reach</span><b class="mono" id="freqLowReach">—</b></div>
+    <!-- Lifetime totals across ALL ads (unbucketed) -->
+    <div class="freq-totals" id="freqTotals">
+      <div class="ft-tile"><span class="lbl">Total ads</span><b class="mono" id="freqTotAds">—</b></div>
+      <div class="ft-tile"><span class="lbl">Total lifetime spend</span><b class="mono" id="freqTotSpend">—</b></div>
+      <div class="ft-tile"><span class="lbl">Total lifetime reach</span><b class="mono" id="freqTotReach">—</b></div>
+      <div class="ft-tile"><span class="lbl">Total lifetime impressions</span><b class="mono" id="freqTotImpr">—</b></div>
+    </div>
+    <!-- 5 buckets: 1-1.5, 1.5-2, 2-2.5, 2.5-3, 3+ -->
+    <div class="freq-buckets freq-buckets-5" id="lifeFreqBuckets">
+      <div class="freq-bucket" data-b="b1"  data-min="1"   data-max="1.5">
+        <div class="fb-tag"><span class="dot" style="background:#3D9E6B"></span>1 — 1.5×</div>
+        <div class="fb-range">crossed 1× · not yet 1.5×</div>
+        <div class="fb-count mono" id="freqB1Count">—</div>
+        <div class="fb-metric"><span>Total spend</span><b class="mono" id="freqB1Spend">—</b></div>
+        <div class="fb-metric"><span>Total reach</span><b class="mono" id="freqB1Reach">—</b></div>
         <div class="fb-hint">click to drill</div>
       </div>
-      <div class="freq-bucket" data-b="mid"  data-min="2"   data-max="2.5">
-        <div class="fb-tag"><span class="dot" style="background:var(--warning-mid)"></span>Mid frequency</div>
-        <div class="fb-range">2.0 — 2.5×</div>
-        <div class="fb-count mono" id="freqMidCount">—</div>
-        <div class="fb-metric"><span>Total spend</span><b class="mono" id="freqMidSpend">—</b></div>
-        <div class="fb-metric"><span>Total reach</span><b class="mono" id="freqMidReach">—</b></div>
+      <div class="freq-bucket" data-b="b2"  data-min="1.5" data-max="2">
+        <div class="fb-tag"><span class="dot" style="background:#7FB069"></span>1.5 — 2×</div>
+        <div class="fb-range">crossed 1.5× · not yet 2×</div>
+        <div class="fb-count mono" id="freqB2Count">—</div>
+        <div class="fb-metric"><span>Total spend</span><b class="mono" id="freqB2Spend">—</b></div>
+        <div class="fb-metric"><span>Total reach</span><b class="mono" id="freqB2Reach">—</b></div>
         <div class="fb-hint">click to drill</div>
       </div>
-      <div class="freq-bucket" data-b="high" data-min="2.5" data-max="3">
-        <div class="fb-tag"><span class="dot" style="background:var(--error-mid)"></span>High frequency</div>
-        <div class="fb-range">2.5 — 3.0×</div>
-        <div class="fb-count mono" id="freqHighCount">—</div>
-        <div class="fb-metric"><span>Total spend</span><b class="mono" id="freqHighSpend">—</b></div>
-        <div class="fb-metric"><span>Total reach</span><b class="mono" id="freqHighReach">—</b></div>
+      <div class="freq-bucket" data-b="b3"  data-min="2"   data-max="2.5">
+        <div class="fb-tag"><span class="dot" style="background:#D9922A"></span>2 — 2.5×</div>
+        <div class="fb-range">crossed 2× · not yet 2.5×</div>
+        <div class="fb-count mono" id="freqB3Count">—</div>
+        <div class="fb-metric"><span>Total spend</span><b class="mono" id="freqB3Spend">—</b></div>
+        <div class="fb-metric"><span>Total reach</span><b class="mono" id="freqB3Reach">—</b></div>
+        <div class="fb-hint">click to drill</div>
+      </div>
+      <div class="freq-bucket" data-b="b4"  data-min="2.5" data-max="3">
+        <div class="fb-tag"><span class="dot" style="background:#C0603A"></span>2.5 — 3×</div>
+        <div class="fb-range">crossed 2.5× · not yet 3×</div>
+        <div class="fb-count mono" id="freqB4Count">—</div>
+        <div class="fb-metric"><span>Total spend</span><b class="mono" id="freqB4Spend">—</b></div>
+        <div class="fb-metric"><span>Total reach</span><b class="mono" id="freqB4Reach">—</b></div>
+        <div class="fb-hint">click to drill</div>
+      </div>
+      <div class="freq-bucket" data-b="b5"  data-min="3">
+        <div class="fb-tag"><span class="dot" style="background:#C0392B"></span>3×+</div>
+        <div class="fb-range">crossed 3× — saturated reach</div>
+        <div class="fb-count mono" id="freqB5Count">—</div>
+        <div class="fb-metric"><span>Total spend</span><b class="mono" id="freqB5Spend">—</b></div>
+        <div class="fb-metric"><span>Total reach</span><b class="mono" id="freqB5Reach">—</b></div>
         <div class="fb-hint">click to drill</div>
       </div>
     </div>
-    <!-- Drill table for selected bucket -->
-    <div id="freqDrill" style="display:none;margin-top:14px;overflow:auto;max-height:380px">
-      <table class="tbl" style="margin:0">
+    <!-- Drill table for selected bucket — one row per ad, five crossing dates -->
+    <div id="freqDrill" style="display:none;margin-top:14px;overflow:auto;max-height:520px">
+      <table class="tbl freq-drill-tbl" style="margin:0">
         <thead><tr>
-          <th>Ad name</th><th>Status</th><th>Created</th>
-          <th class="num">Frequency</th><th class="num">Reach</th>
-          <th class="num">Impressions</th><th class="num">Spend</th>
-          <th class="num">ROAS</th><th>Category</th>
+          <th>Ad name</th>
+          <th>Status</th>
+          <th class="num">Max freq</th>
+          <th>@ 1×</th>
+          <th>@ 1.5×</th>
+          <th>@ 2×</th>
+          <th>@ 2.5×</th>
+          <th>@ 3×</th>
+          <th class="num">Lifetime spend</th>
+          <th class="num">Lifetime reach</th>
         </tr></thead>
         <tbody id="freqDrillBody"></tbody>
       </table>
@@ -2453,6 +2511,37 @@ const previewUrlOf = e => (e ? (e.i || e.t) : '') || '';
    Formula (computed in the view): incremental_reach = latest_daily_reach -
    previous_daily_reach; cost_per_incremental_reach = latest_daily_spend /
    incremental_reach. Merged into allAds by ad_id at load time. */
+/* Per-ad frequency crossings from public.ae_freq_lifecycle. For every ad,
+   the date it first crossed cumulative frequency 1.0 / 1.5 / 2.0 / 2.5 / 3.0
+   plus impressions/reach/spend ON that day. Fed into the Creative Lifecycle
+   frequency-bucket view. */
+async function fetchFreqLifecycle(){
+  if (!SUPABASE_URL || !SUPABASE_ANON) return {};
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                   Prefer:'count=none'};
+  const out = {};
+  const cols = 'ad_id,first_date,last_date,max_cum_freq,'+
+               'd_1,imp_at_1,reach_at_1,spend_at_1,'+
+               'd_1_5,imp_at_1_5,reach_at_1_5,spend_at_1_5,'+
+               'd_2,imp_at_2,reach_at_2,spend_at_2,'+
+               'd_2_5,imp_at_2_5,reach_at_2_5,spend_at_2_5,'+
+               'd_3,imp_at_3,reach_at_3,spend_at_3';
+  let offset = 0, BATCH = 1000;
+  while (true){
+    const url = SUPABASE_URL+'/rest/v1/ae_freq_lifecycle?select='+cols+
+                '&limit='+BATCH+'&offset='+offset;
+    const r = await fetch(url,{headers});
+    if (!r.ok) break;
+    const j = await r.json();
+    if (!Array.isArray(j) || !j.length) break;
+    for (const row of j){ if (row.ad_id) out[row.ad_id] = row; }
+    if (j.length < BATCH) break;
+    offset += BATCH;
+  }
+  return out;
+}
+let freqLifecycleByAdId = {};
+
 async function fetchReachRecent(){
   if (!SUPABASE_URL || !SUPABASE_ANON) return {};
   const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
@@ -3661,47 +3750,73 @@ function renderLifecycle(){
   /* Apply the Lifecycle date-range filter (ad_created window) once up front,
      so both the frequency buckets and the 14-day buffer read the same set. */
   const lifeRows = lifeFilterByDate(allAds);
-  /* ── Frequency buckets ────────────────────────────────────────────── */
-  const eligible = lifeRows.filter(a => {
-    const f = effFreq(a);
-    return f > 0 && f <= 3;
-  });
-  const buckets = {
-    low : eligible.filter(a => effFreq(a) <  2),
-    mid : eligible.filter(a => { const f = effFreq(a); return f >= 2 && f < 2.5; }),
-    high: eligible.filter(a => { const f = effFreq(a); return f >= 2.5 && f <= 3; }),
-  };
-  function sumF(rows, k){ return rows.reduce((s,r) => s + (+r[k] || 0), 0); }
 
-  ['low','mid','high'].forEach(k => {
+  /* ── Lifetime totals across ALL ads in scope ────────────────────── */
+  const totalSpend = lifeRows.reduce((s,r) => s + (+r.amount_spent  || 0), 0);
+  const totalReach = lifeRows.reduce((s,r) => s + (+r.reach         || 0), 0);
+  const totalImpr  = lifeRows.reduce((s,r) => s + (+r.impressions   || 0), 0);
+  document.getElementById('freqTotAds'  ).textContent = fmtInt(lifeRows.length);
+  document.getElementById('freqTotSpend').textContent = fmtRs(totalSpend);
+  document.getElementById('freqTotReach').textContent = fmtInt(totalReach);
+  document.getElementById('freqTotImpr' ).textContent = fmtInt(totalImpr);
+
+  /* ── 5 buckets keyed by max_cum_freq from ae_freq_lifecycle ──────── */
+  const buckets = {b1:[], b2:[], b3:[], b4:[], b5:[]};
+  for (const r of lifeRows){
+    const fx = freqLifecycleByAdId[r.ad_id];
+    if (!fx) continue;               // ad hasn't served enough to have a lifecycle row
+    const m = +fx.max_cum_freq || 0;
+    if      (m >= 3.0) buckets.b5.push(r);
+    else if (m >= 2.5) buckets.b4.push(r);
+    else if (m >= 2.0) buckets.b3.push(r);
+    else if (m >= 1.5) buckets.b2.push(r);
+    else if (m >= 1.0) buckets.b1.push(r);
+    // ads that never crossed 1.0 fall off the lifecycle view
+  }
+  const sumF = (rows, k) => rows.reduce((s,r) => s + (+r[k] || 0), 0);
+  ['b1','b2','b3','b4','b5'].forEach(k => {
     const rows = buckets[k];
-    const cap = k === 'low' ? 'Low' : k === 'mid' ? 'Mid' : 'High';
-    document.getElementById('freq'+cap+'Count').textContent = fmtInt(rows.length);
-    document.getElementById('freq'+cap+'Spend').textContent = fmtRs(sumF(rows, 'amount_spent'));
-    document.getElementById('freq'+cap+'Reach').textContent = fmtInt(sumF(rows, 'reach'));
+    document.getElementById('freq'+k.toUpperCase()+'Count').textContent = fmtInt(rows.length);
+    document.getElementById('freq'+k.toUpperCase()+'Spend').textContent = fmtRs (sumF(rows,'amount_spent'));
+    document.getElementById('freq'+k.toUpperCase()+'Reach').textContent = fmtInt(sumF(rows,'reach'));
   });
-  document.getElementById('lifeFreqTot').textContent = fmtInt(eligible.length) + ' ads in scope';
+  const inScope = buckets.b1.length + buckets.b2.length + buckets.b3.length + buckets.b4.length + buckets.b5.length;
+  document.getElementById('lifeFreqTot').textContent =
+    fmtInt(inScope) + ' ads in lifecycle · ' + fmtInt(lifeRows.length) + ' total lifetime';
 
-  // Render drill table for active bucket if any
-  if (freqActiveBucket) {
+  /* ── Render drill table for active bucket ─────────────────────────── */
+  if (freqActiveBucket && buckets[freqActiveBucket]) {
     document.getElementById('freqDrill').style.display = 'block';
     const rows = buckets[freqActiveBucket].slice()
       .sort((a,b) => (+b.amount_spent || 0) - (+a.amount_spent || 0))
       .slice(0, 100);
+    // One compact cell per crossing: date + (imp / reach / spend)
+    const cx = (d, imp, reach, spend) => {
+      if (!d) return '<td class="fx-cell fx-empty">—</td>';
+      return '<td class="fx-cell">'+
+        '<span class="fx-date">'+d+'</span>'+
+        '<span class="fx-metric">'+fmtInt(imp)+' impr</span> · '+
+        '<span class="fx-metric">'+fmtInt(reach)+' reach</span><br>'+
+        '<span class="fx-metric">'+fmtRs(spend)+' spend</span>'+
+      '</td>';
+    };
     document.getElementById('freqDrillBody').innerHTML = rows.map(r => {
+      const fx = freqLifecycleByAdId[r.ad_id] || {};
       const stCls = (r.ad_status||'').toUpperCase() === 'ACTIVE' ? 's-active'
                   : (r.ad_status||'').toUpperCase().includes('PAUSED') ? 's-draft' : 's-archived';
       return '<tr>'+
-        '<td style="max-width:300px"><div style="font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
-          (r.ad_name||'—')+'</div></td>'+
+        '<td style="max-width:280px"><div style="font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
+          (r.ad_name||'—')+'</div>'+
+          '<div style="font-size:10px;color:var(--text-tertiary)">'+(r.campaign_name||'')+'</div></td>'+
         '<td><span class="status-pill '+stCls+'">'+(r.ad_status||'—')+'</span></td>'+
-        '<td style="font-family:JetBrains Mono;font-size:11px">'+(r.ad_created||'—')+'</td>'+
-        '<td class="num">'+effFreq(r).toFixed(2)+'×</td>'+
-        '<td class="num">'+fmtInt(r.reach)+'</td>'+
-        '<td class="num">'+fmtInt(r.impressions)+'</td>'+
+        '<td class="num">'+(fx.max_cum_freq != null ? (+fx.max_cum_freq).toFixed(2)+'×' : '—')+'</td>'+
+        cx(fx.d_1,   fx.imp_at_1,   fx.reach_at_1,   fx.spend_at_1)+
+        cx(fx.d_1_5, fx.imp_at_1_5, fx.reach_at_1_5, fx.spend_at_1_5)+
+        cx(fx.d_2,   fx.imp_at_2,   fx.reach_at_2,   fx.spend_at_2)+
+        cx(fx.d_2_5, fx.imp_at_2_5, fx.reach_at_2_5, fx.spend_at_2_5)+
+        cx(fx.d_3,   fx.imp_at_3,   fx.reach_at_3,   fx.spend_at_3)+
         '<td class="num">'+fmtRs(r.amount_spent)+'</td>'+
-        '<td class="num">'+fmtRoas(r.roas_ma)+'</td>'+
-        '<td>'+(r.category||'—')+'</td>'+
+        '<td class="num">'+fmtInt(r.reach)+'</td>'+
       '</tr>';
     }).join('');
   } else {
@@ -3790,7 +3905,10 @@ document.getElementById('lifeBufferSearch').addEventListener('input', e => {
   lifeSearchDb = setTimeout(() => { lifeBufferSearch = e.target.value; renderLifecycle(); }, 200);
 });
 document.getElementById('lifeRefresh').onclick = async () => {
-  allAds = await fetchAds(); renderLifecycle();
+  const [freshAllAds, freshFreq] = await Promise.all([fetchAds(), fetchFreqLifecycle()]);
+  allAds = freshAllAds;
+  freqLifecycleByAdId = freshFreq;
+  renderLifecycle();
 };
 document.getElementById('lifeExport').onclick = () => {
   const today = new Date(); today.setHours(0,0,0,0);
@@ -6254,12 +6372,13 @@ document.getElementById('invExport').onclick = () => {
   const cachedPromise = fetchPrimaryFromCache(state.dateFrom || '', state.dateTo || '')
     .catch(() => null);
 
-  // Kick off ae_table_view + thumbnails + reach-recent in parallel either way
-  const [cached, freshAllAds, freshThumbs, freshReach] = await Promise.all([
-    cachedPromise, fetchAds(), fetchThumbnails(), fetchReachRecent()
+  // Kick off ae_table_view + thumbnails + reach-recent + freq-lifecycle in parallel
+  const [cached, freshAllAds, freshThumbs, freshReach, freshFreq] = await Promise.all([
+    cachedPromise, fetchAds(), fetchThumbnails(), fetchReachRecent(), fetchFreqLifecycle()
   ]);
   allAds = freshAllAds; thumbsByAdId = freshThumbs;
   reachRecentByAdId = freshReach;
+  freqLifecycleByAdId = freshFreq;
   // Merge the reach-recent snapshot into each ae row by ad_id so renderAE
   // can display incremental_reach / cost_per_incremental_reach inline.
   for (const r of allAds){
