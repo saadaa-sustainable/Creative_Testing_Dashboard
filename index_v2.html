@@ -1065,6 +1065,13 @@
   .ai-empty-hint{padding:24px;text-align:center;color:var(--text-tertiary);
     font-size:12.5px;font-style:italic}
   .ae-tbl td.thumb-cell{padding:6px 8px;width:52px}
+  /* Drill-modal name cell — ad name + destination URL beneath */
+  .drill-name-cell{max-width:340px;padding:6px 10px !important}
+  .drill-ad-name{font-weight:600;color:var(--text-primary);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+  .drill-ad-url{margin-top:2px;font-size:10.5px;color:var(--text-tertiary);
+    font-family:'JetBrains Mono',monospace;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;letter-spacing:-.1px}
   /* Drill-modal link column (Landing + Preview) */
   .drill-links-cell{white-space:nowrap;padding:6px 8px !important}
   .drill-link{display:inline-block;padding:2px 8px;margin-right:4px;
@@ -3333,6 +3340,18 @@ function renderBucket(){
     if (pv) parts.push('<a href="'+encodeURI(pv)+'" target="_blank" rel="noopener" class="drill-link mute" title="Ad preview">◈ Preview</a>');
     return parts.length ? parts.join(' ') : '<span class="mute">—</span>';
   };
+  // Show the destination URL in a compact host + path form beneath the ad
+  // name, e.g. saadaa.in/collections/whisper-hook. Strips protocol, drops
+  // query strings & UTM tags, and trims long paths to 60 chars.
+  const shortUrl = (url) => {
+    if (!url) return '';
+    try {
+      const u = new URL(url);
+      let path = (u.pathname || '').replace(/\/+$/, '');
+      if (path.length > 60) path = path.slice(0, 57) + '…';
+      return (u.hostname || '') + path;
+    } catch { return url.slice(0, 80); }
+  };
   for (const r of top){
     const tr = document.createElement('tr'); tr.style.cursor='pointer';
     tr.onclick = (e) => { if (e.target.closest('a')) return; openDrawer(r); };
@@ -3346,9 +3365,16 @@ function renderBucket(){
     // results_table cache. Look it up by ad_id; fall back to 0.
     const shop = aeByAdId[r.ad_id];
     const shopOrders = shop ? (+shop.shopify_orders || 0) : 0;
+    // Ad name + destination URL beneath. The URL is the actual page the
+    // click-through lands on (e.g. saadaa.in/collections/whisper-hook).
+    const dest = shortUrl(r.ad_link || r.preview_link || '');
+    const nameCell = '<td class="drill-name-cell" title="'+name+'">'+
+        '<div class="drill-ad-name">'+name+'</div>'+
+        (dest ? '<div class="drill-ad-url" title="'+(r.ad_link||'').replace(/"/g,'&quot;')+'">↗ '+dest+'</div>' : '')+
+      '</td>';
     tr.innerHTML =
       thumbCell+
-      '<td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+name+'">'+name+'</td>'+
+      nameCell+
       '<td class="mono" style="color:var(--text-secondary)">'+created+'</td>'+
       '<td class="mono">'+fmtRs(r.amount_spent)+'</td>'+
       '<td class="mono">'+fmtRoas(r.roas_ma)+'</td>'+
