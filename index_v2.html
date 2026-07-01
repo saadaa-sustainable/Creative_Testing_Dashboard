@@ -1078,6 +1078,13 @@
   .freq-buckets{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
   .freq-buckets-5{grid-template-columns:repeat(5,1fr)}
   .freq-buckets-6{grid-template-columns:repeat(6,1fr);gap:10px}
+  .freq-status-row{display:flex;gap:6px;margin:10px 0 12px 0;flex-wrap:wrap}
+  .freq-status-row .preset{padding:5px 12px;font-size:11px;border:1px solid var(--border);
+    background:var(--surface-2);border-radius:6px;color:var(--text-secondary);
+    cursor:pointer;font-family:'Space Grotesk',sans-serif;letter-spacing:.02em}
+  .freq-status-row .preset:hover{border-color:var(--accent);color:var(--text-primary)}
+  .freq-status-row .preset.active{background:var(--accent);border-color:var(--accent);
+    color:#000;font-weight:600}
   /* Lifetime-totals strip above the buckets */
   .freq-totals{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
     margin:6px 0 14px}
@@ -1521,6 +1528,13 @@
       </h3>
       <span class="mono" style="font-size:11px;color:var(--text-tertiary)" id="lifeFreqTot">—</span>
     </div>
+    <!-- Status filter — applies to totals, bucket counts, and drill -->
+    <div class="freq-status-row" id="lifeFreqStatusRow">
+      <button class="preset active" data-s="">All statuses</button>
+      <button class="preset"        data-s="ACTIVE">Active</button>
+      <button class="preset"        data-s="PAUSED">Paused</button>
+      <button class="preset"        data-s="ARCHIVED">Archived / Other</button>
+    </div>
     <!-- Lifetime totals across ALL ads (unbucketed) -->
     <div class="freq-totals" id="freqTotals">
       <div class="ft-tile"><span class="lbl">Total ads</span><b class="mono" id="freqTotAds">—</b></div>
@@ -1580,12 +1594,13 @@
       </div>
     </div>
     <!-- Drill table for selected bucket — one row per ad, five crossing dates -->
-    <div id="freqDrill" style="display:none;margin-top:14px;overflow:auto;max-height:520px">
+    <div id="freqDrill" style="display:none;margin-top:14px;overflow:auto;max-height:900px">
       <table class="tbl freq-drill-tbl" style="margin:0">
         <thead><tr>
           <th>Ad name</th>
           <th>Status</th>
           <th class="num">Max freq</th>
+          <th id="freqDrillEnteredHdr">Entered bucket</th>
           <th>@ 1×</th>
           <th>@ 1.5×</th>
           <th>@ 2×</th>
@@ -3740,9 +3755,20 @@ function effFreq(a){
 }
 
 let freqActiveBucket = null;
+let freqStatusFilter = '';       // '', 'ACTIVE', 'PAUSED', 'ARCHIVED' — applies to Frequency section
 let lifeBufferStatus = '';
 let lifeBufferSearch = '';
 let lifeSection      = 'freq';   // 'freq' (frequency distribution) | 'buffer' (14-day)
+
+/* Normalise Meta's ad_status into the three chip buckets. Everything that
+   isn't ACTIVE or PAUSED (archived, deleted, disapproved, etc.) is
+   grouped under ARCHIVED so the chip row stays a clean three-way split. */
+function freqStatusOf(r){
+  const s = (r.ad_status || '').toUpperCase();
+  if (s === 'ACTIVE') return 'ACTIVE';
+  if (s.includes('PAUSED')) return 'PAUSED';
+  return 'ARCHIVED';
+}
 
 /* Filter ae_table_view rows by ad_created against the Lifecycle DRP window. */
 function lifeFilterByDate(rows){
@@ -3762,9 +3788,16 @@ function lifeFilterByDate(rows){
 function renderLifecycle(){
   /* Apply the Lifecycle date-range filter (ad_created window) once up front,
      so both the frequency buckets and the 14-day buffer read the same set. */
-  const lifeRows = lifeFilterByDate(allAds);
+  const lifeRowsAll = lifeFilterByDate(allAds);
+  /* Frequency-section status filter (chip row above the buckets). Applies
+     to KPIs, bucket counts, AND the drill so the numbers stay coherent
+     with what the user sees. The 14-day buffer below still reads
+     lifeRowsAll so it isn't gated by this chip. */
+  const lifeRows = freqStatusFilter
+    ? lifeRowsAll.filter(r => freqStatusOf(r) === freqStatusFilter)
+    : lifeRowsAll;
 
-  /* ── Lifetime totals across ALL ads in scope ────────────────────── */
+  /* ── Lifetime totals across ALL ads in scope (post-status filter) ── */
   const totalSpend = lifeRows.reduce((s,r) => s + (+r.amount_spent  || 0), 0);
   const totalReach = lifeRows.reduce((s,r) => s + (+r.reach         || 0), 0);
   const totalImpr  = lifeRows.reduce((s,r) => s + (+r.impressions   || 0), 0);
@@ -3801,7 +3834,12 @@ function renderLifecycle(){
     document.getElementById('freqDrill').style.display = 'block';
     const rows = buckets[freqActiveBucket].slice()
       .sort((a,b) => (+b.amount_spent || 0) - (+a.amount_spent || 0))
-      .slice(0, 100);
+      .slice(0, 300);
+    // Which crossing date qualifies each ad for the CURRENT bucket
+    const enteredKey = {b0:null, b1:'d_1', b2:'d_1_5', b3:'d_2', b4:'d_2_5', b5:'d_3'}[freqActiveBucket];
+    const enteredLbl = {b0:'—', b1:'1×', b2:'1.5×', b3:'2×', b4:'2.5×', b5:'3×'}[freqActiveBucket];
+    document.getElementById('freqDrillEnteredHdr').textContent =
+      'Entered ' + (enteredLbl === '—' ? 'bucket' : enteredLbl);
     // One compact cell per crossing: date + (imp / reach / spend)
     const cx = (d, imp, reach, spend) => {
       if (!d) return '<td class="fx-cell fx-empty">—</td>';
@@ -3816,12 +3854,14 @@ function renderLifecycle(){
       const fx = freqLifecycleByAdId[r.ad_id] || {};
       const stCls = (r.ad_status||'').toUpperCase() === 'ACTIVE' ? 's-active'
                   : (r.ad_status||'').toUpperCase().includes('PAUSED') ? 's-draft' : 's-archived';
+      const enteredDate = enteredKey ? (fx[enteredKey] || '—') : '—';
       return '<tr>'+
         '<td style="max-width:280px"><div style="font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
           (r.ad_name||'—')+'</div>'+
           '<div style="font-size:10px;color:var(--text-tertiary)">'+(r.campaign_name||'')+'</div></td>'+
         '<td><span class="status-pill '+stCls+'">'+(r.ad_status||'—')+'</span></td>'+
         '<td class="num">'+(fx.max_cum_freq != null ? (+fx.max_cum_freq).toFixed(2)+'×' : '—')+'</td>'+
+        '<td class="mono" style="font-size:11px">'+enteredDate+'</td>'+
         cx(fx.d_1,   fx.imp_at_1,   fx.reach_at_1,   fx.spend_at_1)+
         cx(fx.d_1_5, fx.imp_at_1_5, fx.reach_at_1_5, fx.spend_at_1_5)+
         cx(fx.d_2,   fx.imp_at_2,   fx.reach_at_2,   fx.spend_at_2)+
@@ -3837,7 +3877,7 @@ function renderLifecycle(){
 
   /* ── 14-Day buffer ────────────────────────────────────────────────── */
   const today = new Date(); today.setHours(0,0,0,0);
-  let bufRows = lifeRows.filter(a => {
+  let bufRows = lifeRowsAll.filter(a => {
     if (!a.ad_created) return false;
     const days = Math.floor((today - new Date(a.ad_created)) / 86400000);
     return days >= 14;
@@ -3902,6 +3942,13 @@ document.getElementById('lifeFreqBuckets').addEventListener('click', e => {
     document.querySelectorAll('.freq-bucket').forEach(b => b.classList.remove('active'));
     card.classList.add('active');
   }
+  renderLifecycle();
+});
+document.getElementById('lifeFreqStatusRow').addEventListener('click', e => {
+  const btn = e.target.closest('.preset'); if (!btn) return;
+  document.querySelectorAll('#lifeFreqStatusRow .preset').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  freqStatusFilter = btn.dataset.s || '';
   renderLifecycle();
 });
 document.getElementById('lifeBufferStatusRow').addEventListener('click', e => {
