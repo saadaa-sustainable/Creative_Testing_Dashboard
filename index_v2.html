@@ -2531,7 +2531,11 @@ async function fetchFreqLifecycle(){
     const url = SUPABASE_URL+'/rest/v1/ae_freq_lifecycle?select='+cols+
                 '&limit='+BATCH+'&offset='+offset;
     const r = await fetch(url,{headers});
-    if (!r.ok) break;
+    if (!r.ok){
+      console.warn('[fetchFreqLifecycle] HTTP', r.status, 'at offset', offset,
+                   '— frequency buckets will show 0. Body:', await r.text().catch(()=>'?'));
+      break;
+    }
     const j = await r.json();
     if (!Array.isArray(j) || !j.length) break;
     for (const row of j){ if (row.ad_id) out[row.ad_id] = row; }
