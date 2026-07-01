@@ -336,10 +336,12 @@ def compute_results(
 
         # Roll up to 4 visible buckets (Winner / ITE / Analyse / Discarded):
         #   Incremental Winner + Winner → Winner bucket
-        #   Priority (P0 ITE)          → ITE bucket
-        #   Analyze 1 + Analyze 2      → Analyse bucket
-        #   Discarded                  → Discarded bucket
-        if (f1 and f2 and f3 and f4) or (f1 and f2 and f3):
+        #   P0 analysis (was Priority)  → ITE bucket
+        #   P1 + P2 analysis            → Analyse bucket
+        #   Discarded                   → Discarded bucket
+        # Winner rule updated to F1 AND (F2 OR F3) — either roas OR ncp
+        # qualifies, matching the ae_table_view category definition.
+        if f1 and (f2 or f3):
             cat = "Winner"
         elif f1 and f4:
             cat = "ITE"

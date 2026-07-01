@@ -1276,9 +1276,9 @@
         <option value="">All tiers</option>
         <option value="Incremental Winner">Incremental Winner</option>
         <option value="Winner">Winner</option>
-        <option value="Priority">Priority</option>
-        <option value="Analyze 1">Analyze 1</option>
-        <option value="Analyze 2">Analyze 2</option>
+        <option value="P0 analysis">P0 analysis</option>
+        <option value="P1 analysis">P1 analysis</option>
+        <option value="P2 analysis">P2 analysis</option>
         <option value="Discarded">Discarded</option>
       </select>
     </div>
@@ -1357,16 +1357,16 @@
       <div class="k-lbl">Incremental Winner</div><div class="k-val mono" id="kp-incr">—</div>
       <div class="k-sub">Spend <b id="kp-incr-sp">—</b></div>
     </div>
-    <div class="kpi" data-cat="priority"  data-filter="Priority">
-      <div class="k-lbl">Priority</div><div class="k-val mono" id="kp-pri">—</div>
+    <div class="kpi" data-cat="priority"  data-filter="P0 analysis">
+      <div class="k-lbl">P0 analysis</div><div class="k-val mono" id="kp-pri">—</div>
       <div class="k-sub">Spend <b id="kp-pri-sp">—</b></div>
     </div>
-    <div class="kpi" data-cat="analyze1"  data-filter="Analyze 1">
-      <div class="k-lbl">Analyze 1</div><div class="k-val mono" id="kp-a1">—</div>
+    <div class="kpi" data-cat="analyze1"  data-filter="P1 analysis">
+      <div class="k-lbl">P1 analysis</div><div class="k-val mono" id="kp-a1">—</div>
       <div class="k-sub">Spend <b id="kp-a1-sp">—</b></div>
     </div>
-    <div class="kpi" data-cat="analyze2"  data-filter="Analyze 2">
-      <div class="k-lbl">Analyze 2</div><div class="k-val mono" id="kp-a2">—</div>
+    <div class="kpi" data-cat="analyze2"  data-filter="P2 analysis">
+      <div class="k-lbl">P2 analysis</div><div class="k-val mono" id="kp-a2">—</div>
       <div class="k-sub">Spend <b id="kp-a2-sp">—</b></div>
     </div>
     <div class="kpi" data-cat="discarded" data-filter="Discarded">
@@ -1662,9 +1662,9 @@
         <button class="preset active" data-s="">All verdicts</button>
         <button class="preset" data-s="Winner">Winners</button>
         <button class="preset" data-s="Incremental Winner">Inc. Winners</button>
-        <button class="preset" data-s="Priority">Priority</button>
-        <button class="preset" data-s="Analyze 1">Analyze 1</button>
-        <button class="preset" data-s="Analyze 2">Analyze 2</button>
+        <button class="preset" data-s="P0 analysis">P0 analysis</button>
+        <button class="preset" data-s="P1 analysis">P1 analysis</button>
+        <button class="preset" data-s="P2 analysis">P2 analysis</button>
         <button class="preset" data-s="Discarded">Discarded</button>
       </div>
       <input class="fg-input" id="lifeBufferSearch" type="text" placeholder="search ad name / campaign" style="width:240px">
@@ -1721,9 +1721,9 @@
         <option value="">All Categories</option>
         <option>Incremental Winner</option>
         <option>Winner</option>
-        <option>Priority</option>
-        <option>Analyze 1</option>
-        <option>Analyze 2</option>
+        <option>P0 analysis</option>
+        <option>P1 analysis</option>
+        <option>P2 analysis</option>
         <option>Discarded</option>
       </select>
     </div>
@@ -1842,16 +1842,16 @@
       <div class="k-lbl">Winner</div><div class="k-val mono" id="aeKp-w">—</div>
       <div class="k-sub">spend <b id="aeKp-w-sp">—</b></div>
     </div>
-    <div class="kpi" data-cat="Priority" data-cls="priority">
-      <div class="k-lbl">Priority</div><div class="k-val mono" id="aeKp-pr">—</div>
+    <div class="kpi" data-cat="P0 analysis" data-cls="priority">
+      <div class="k-lbl">P0 analysis</div><div class="k-val mono" id="aeKp-pr">—</div>
       <div class="k-sub">spend <b id="aeKp-pr-sp">—</b></div>
     </div>
-    <div class="kpi" data-cat="Analyze 1" data-cls="analyze1">
-      <div class="k-lbl">Analyze 1</div><div class="k-val mono" id="aeKp-a1">—</div>
+    <div class="kpi" data-cat="P1 analysis" data-cls="analyze1">
+      <div class="k-lbl">P1 analysis</div><div class="k-val mono" id="aeKp-a1">—</div>
       <div class="k-sub">spend <b id="aeKp-a1-sp">—</b></div>
     </div>
-    <div class="kpi" data-cat="Analyze 2" data-cls="analyze2">
-      <div class="k-lbl">Analyze 2</div><div class="k-val mono" id="aeKp-a2">—</div>
+    <div class="kpi" data-cat="P2 analysis" data-cls="analyze2">
+      <div class="k-lbl">P2 analysis</div><div class="k-val mono" id="aeKp-a2">—</div>
       <div class="k-sub">spend <b id="aeKp-a2-sp">—</b></div>
     </div>
     <div class="kpi" data-cat="Discarded" data-cls="discarded">
@@ -2321,11 +2321,11 @@
       <div class="def-section-lbl" style="margin-top:22px">Categorisation algorithm</div>
       <p class="def-prose">
         Each unique ad is evaluated against a four-filter matrix. <b>F1 is mandatory</b>
-        for any Winner-class bucket. <b>Incremental Winner</b> passes all four. <b>Winner</b>
-        clears F1–F3 (F4 not required). Ads that pass only F1 + F4 land in <b>Priority</b>
-        (P0 iteration target). Ads passing F1 alone fall to <b>Analyze 1</b>; ads passing
-        F2 (but not F1 — still building impressions) go to <b>Analyze 2</b>. Everything
-        else is <b>Discarded</b>.
+        for any Winner-class bucket. <b>Incremental Winner</b> = F1 + (F2 or F3) + F4.
+        <b>Winner</b> = F1 + (F2 or F3) — F4 not required. Ads that pass only
+        F1 + F4 land in <b>P0 analysis</b> (iteration target). Ads passing F1 alone fall
+        to <b>P1 analysis</b>; ads passing F2 (but not F1 — still building
+        impressions) go to <b>P2 analysis</b>. Everything else is <b>Discarded</b>.
       </p>
 
       <table class="tbl def-cats">
@@ -2333,26 +2333,26 @@
         <tbody>
           <tr>
             <td><span class="badge incr">Incremental Winner</span></td>
-            <td class="mono">F1 ✓ AND F2 ✓ AND F3 ✓ AND F4 ✓</td>
+            <td class="mono">F1 ✓ AND (F2 ✓ OR F3 ✓) AND F4 ✓</td>
             <td>Scale aggressively. Top-tier proven creative.</td>
           </tr>
           <tr>
             <td><span class="badge win">Winner</span></td>
-            <td class="mono">F1 ✓ AND F2 ✓ AND F3 ✓</td>
+            <td class="mono">F1 ✓ AND (F2 ✓ OR F3 ✓)</td>
             <td>Scale. F4 close-second; iterate on cost-per-FTEWV.</td>
           </tr>
           <tr>
-            <td><span class="badge pri">Priority</span></td>
+            <td><span class="badge pri">P0 analysis</span></td>
             <td class="mono">F1 ✓ AND F4 ✓</td>
-            <td>Impressions met + cheap FTEWV. P0 iteration target.</td>
+            <td>Impressions met + cheap FTEWV. Iteration target.</td>
           </tr>
           <tr>
-            <td><span class="badge a1">Analyze 1</span></td>
+            <td><span class="badge a1">P1 analysis</span></td>
             <td class="mono">F1 ✓ only</td>
             <td>Hit impressions, but ROAS / Cost-NCP / Cost-FTEWV all miss.</td>
           </tr>
           <tr>
-            <td><span class="badge a2">Analyze 2</span></td>
+            <td><span class="badge a2">P2 analysis</span></td>
             <td class="mono">F2 ✓ (F1 not yet)</td>
             <td>Strong ROAS signal but still building impressions.</td>
           </tr>
@@ -2675,12 +2675,12 @@ function _ctCategory(impr, roas, cpncp, cpft, t){
   const f3 = cpncp > 0 && cpncp <= t.f3;
   const f4 = cpft  > 0 && cpft  <= t.f4;
   let cat;
-  if      (f1 && f2 && f3 && f4) cat = 'Incremental Winner';
-  else if (f1 && f2 && f3)       cat = 'Winner';
-  else if (f1 && f4)             cat = 'Priority';
-  else if (f1)                   cat = 'Analyze 1';
-  else if (f2)                   cat = 'Analyze 2';
-  else                           cat = 'Discarded';
+  if      (f1 && (f2 || f3) && f4) cat = 'Incremental Winner';
+  else if (f1 && (f2 || f3))       cat = 'Winner';
+  else if (f1 && f4)               cat = 'P0 analysis';
+  else if (f1)                     cat = 'P1 analysis';
+  else if (f2)                     cat = 'P2 analysis';
+  else                             cat = 'Discarded';
   return {f1_pass:f1, f2_pass:f2, f3_pass:f3, f4_pass:f4, category:cat};
 }
 /* Fast-path: pre-computed per-ad rollup from results_table. The pipeline's
@@ -2957,8 +2957,8 @@ function populateCampaignDropdown(rows){
 }
 
 function renderKpis(rows){
-  const map = {'Winner':'winner','Incremental Winner':'incr','Priority':'pri',
-               'Analyze 1':'a1','Analyze 2':'a2','Discarded':'dis'};
+  const map = {'Winner':'winner','Incremental Winner':'incr','P0 analysis':'pri',
+               'P1 analysis':'a1','P2 analysis':'a2','Discarded':'dis'};
   const buckets = Object.fromEntries(Object.keys(map).map(k=>[k,{n:0,sp:0}]));
   for (const r of rows){
     const c = r.category || 'Discarded';
@@ -3161,8 +3161,8 @@ function renderModal(){
   }
 }
 function badgeCls(c){
-  return ({'Winner':'win','Incremental Winner':'incr','Priority':'pri',
-           'Analyze 1':'a1','Analyze 2':'a2','Discarded':'disc'})[c] || '';
+  return ({'Winner':'win','Incremental Winner':'incr','P0 analysis':'pri',
+           'P1 analysis':'a1','P2 analysis':'a2','Discarded':'disc'})[c] || '';
 }
 
 /* ── Bucket modal (Product / Creative focus drill-down) ───────────── */
@@ -3424,8 +3424,8 @@ document.getElementById('drClose').onclick = closeDrawer;
 
 /* ── Funnel breakdown (Creative Type × Category) ───────────────────── */
 const CTYPE_ICONS = { 'IFAD':'🎬', 'Graphic AD':'🖼️', 'VID':'📹', 'STATIC':'📷' };
-const FUNNEL_SUB  = ['Incremental Winner','Winner','Priority','Analyze 1','Analyze 2','Discarded'];
-const FUNNEL_SUB_SHORT = ['Inc. Winner','Winner','Priority','Analyze 1','Analyze 2','Discarded'];
+const FUNNEL_SUB  = ['Incremental Winner','Winner','P0 analysis','P1 analysis','P2 analysis','Discarded'];
+const FUNNEL_SUB_SHORT = ['Inc. Winner','Winner','P0','P1','P2','Discarded'];
 const FUNNEL_COL_CLS  = ['col-incr','col-win','col-pri','col-a1','col-a2','col-disc'];
 function renderFunnel(rows){
   const body = document.getElementById('funnelBody'); if (!body) return;
@@ -3455,8 +3455,8 @@ function renderFunnel(rows){
   html += `<div class="fk-row fk-master" style="grid-template-columns:${cols}">
     <div style="grid-column:span 2"></div>
     <div class="fk-master-cell win"  style="grid-column:span 2">Winner</div>
-    <div class="fk-master-cell pri"  style="grid-column:span 1">Priority</div>
-    <div class="fk-master-cell anl"  style="grid-column:span 2">Analyze</div>
+    <div class="fk-master-cell pri"  style="grid-column:span 1">P0 analysis</div>
+    <div class="fk-master-cell anl"  style="grid-column:span 2">P1 / P2 analysis</div>
     <div class="fk-master-cell dis"  style="grid-column:span 1">Discarded</div>
     <div class="fk-master-cell f4">F4 Quality</div>
   </div>`;
@@ -3974,8 +3974,8 @@ function renderLifecycle(){
   bufRows.sort((a,b) => (+b.amount_spent || 0) - (+a.amount_spent || 0));
 
   const tierClass = c => ({
-    'Winner':'winner','Incremental Winner':'incwinner','Priority':'priority',
-    'Analyze 1':'analyze1','Analyze 2':'analyze2','Discarded':'discarded'
+    'Winner':'winner','Incremental Winner':'incwinner','P0 analysis':'priority',
+    'P1 analysis':'analyze1','P2 analysis':'analyze2','Discarded':'discarded'
   })[c] || 'discarded';
   const passCell = v => v ? '<span class="pass-yes">✓</span>' : '<span class="pass-no">✗</span>';
 
@@ -4094,11 +4094,11 @@ document.getElementById('lifeExport').onclick = () => {
    Computes f1/f2/f3/f4 client-side from current threshold inputs.
    Recategorises into Winner / Inc.Winner / Priority / Analyze1/2 / Discarded
    using the same rules as refresh_ae_table.py:
-       f1 (Min Imp) AND f2 AND f3 AND f4  → Incremental Winner
-       f1 AND f2 AND f3                    → Winner
-       f1 AND f4                           → Priority
-       f1                                  → Analyze 1
-       f2                                  → Analyze 2
+       f1 (Min Imp) AND (f2 OR f3) AND f4  → Incremental Winner
+       f1 AND (f2 OR f3)                   → Winner
+       f1 AND f4                           → P0 analysis
+       f1                                  → P1 analysis
+       f2                                  → P2 analysis
        else                                → Discarded
    ──────────────────────────────────────────────────────────────────── */
 let aeSelectedCat = '';
@@ -5805,12 +5805,12 @@ function aeCategorise(r, t){
   const p3 = (+r.cost_per_ncp   || 0) > 0 && (+r.cost_per_ncp   || Infinity) <= t.f3;
   const p4 = (+r.cost_per_ftewv || 0) > 0 && (+r.cost_per_ftewv || Infinity) <= t.f4;
   let cat;
-  if      (p1 && p2 && p3 && p4) cat = 'Incremental Winner';
-  else if (p1 && p2 && p3)       cat = 'Winner';
-  else if (p1 && p4)             cat = 'Priority';
-  else if (p1)                   cat = 'Analyze 1';
-  else if (p2)                   cat = 'Analyze 2';
-  else                           cat = 'Discarded';
+  if      (p1 && (p2 || p3) && p4) cat = 'Incremental Winner';
+  else if (p1 && (p2 || p3))       cat = 'Winner';
+  else if (p1 && p4)               cat = 'P0 analysis';
+  else if (p1)                     cat = 'P1 analysis';
+  else if (p2)                     cat = 'P2 analysis';
+  else                             cat = 'Discarded';
   return {p1, p2, p3, p4, category: cat};
 }
 
@@ -5897,9 +5897,9 @@ function aeFiltered(){
 const CAT_CLASS = {
   'Incremental Winner':'cat-iw',
   'Winner':'cat-winner',
-  'Priority':'cat-priority',
-  'Analyze 1':'cat-a1',
-  'Analyze 2':'cat-a2',
+  'P0 analysis':'cat-priority',
+  'P1 analysis':'cat-a1',
+  'P2 analysis':'cat-a2',
   'Discarded':'cat-disc',
 };
 
@@ -5953,9 +5953,9 @@ function renderAE(){
   };
   setKPI('iw', 'Incremental Winner');
   setKPI('w',  'Winner');
-  setKPI('pr', 'Priority');
-  setKPI('a1', 'Analyze 1');
-  setKPI('a2', 'Analyze 2');
+  setKPI('pr', 'P0 analysis');
+  setKPI('a1', 'P1 analysis');
+  setKPI('a2', 'P2 analysis');
   setKPI('d',  'Discarded');
 
   // Reflect selected card visually
@@ -6152,7 +6152,7 @@ async function aeCrosscheck(){
     const c = r.db_category || r.category;
     dbCt[c] = (dbCt[c]||0) + 1;
   });
-  const cats = ['Incremental Winner','Winner','Priority','Analyze 1','Analyze 2','Discarded'];
+  const cats = ['Incremental Winner','Winner','P0 analysis','P1 analysis','P2 analysis','Discarded'];
   let html = '';
   const pad = (s, n) => (s + ' '.repeat(Math.max(0, n - s.length)));
   html += pad('Category', 24) + pad('UI (your thresholds)', 24) + pad('DB (ae_table_view)', 24) + 'Δ\n';

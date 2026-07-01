@@ -4,11 +4,11 @@ One row per unique ad_id with lifetime aggregates and lifecycle status.
 Run anytime backfill_table changes (e.g., after run_backfill.py).
 
 Status rules (6 categories — mirrors dashboard getAdCategory):
-    Incremental Winner = F1 AND F2 AND F3 AND F4
-    Winner             = F1 AND F2 AND F3
-    Priority (P0 ITE)  = F1 AND F4
-    Analyze 1          = F1 only
-    Analyze 2          = F2 only
+    Incremental Winner = F1 AND (F2 OR F3) AND F4
+    Winner             = F1 AND (F2 OR F3)
+    P0 analysis        = F1 AND F4
+    P1 analysis        = F1 only
+    P2 analysis        = F2 only
     Discarded          = everything else
 
 Thresholds:
@@ -149,27 +149,27 @@ SELECT
     a.ad_id, a.ad_name, a.created_date, a.last_seen, a.days_active,
     a.total_impressions, a.total_spend, a.total_conv_value, a.total_ncp, a.total_ftewv,
     CASE
-        -- Incremental Winner = F1 AND F2 AND F3 AND F4
+        -- Incremental Winner = F1 AND (F2 OR F3) AND F4
         WHEN a.total_impressions >= 50000
-         AND a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.2
-         AND a.total_ncp   > 0 AND a.total_spend / a.total_ncp   <= 525
+         AND ((a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.2)
+              OR (a.total_ncp > 0 AND a.total_spend / a.total_ncp <= 525))
          AND a.total_ftewv > 0 AND a.total_spend / a.total_ftewv <= 25
             THEN 'Incremental Winner'
-        -- Winner = F1 AND F2 AND F3
+        -- Winner = F1 AND (F2 OR F3)
         WHEN a.total_impressions >= 50000
-         AND a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.2
-         AND a.total_ncp   > 0 AND a.total_spend / a.total_ncp <= 525
+         AND ((a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.2)
+              OR (a.total_ncp > 0 AND a.total_spend / a.total_ncp <= 525))
             THEN 'Winner'
-        -- Priority (P0 ITE) = F1 AND F4
+        -- P0 analysis (was Priority) = F1 AND F4
         WHEN a.total_impressions >= 50000
          AND a.total_ftewv > 0 AND a.total_spend / a.total_ftewv <= 25
-            THEN 'Priority'
-        -- Analyze 1 = F1 only
+            THEN 'P0 analysis'
+        -- P1 analysis (was Analyze 1) = F1 only
         WHEN a.total_impressions >= 50000
-            THEN 'Analyze 1'
-        -- Analyze 2 = F2 only
+            THEN 'P1 analysis'
+        -- P2 analysis (was Analyze 2) = F2 only
         WHEN a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.2
-            THEN 'Analyze 2'
+            THEN 'P2 analysis'
         ELSE 'Discarded'
     END  AS status,
     ls.ad_status,
