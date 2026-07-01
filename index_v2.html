@@ -5830,9 +5830,24 @@ function renderAE(){
 
   const showDisc = document.getElementById('aeShowDiscarded').checked;
   const hiddenNote = (!showDisc && !aeSelectedCat) ? ' · Discarded hidden' : '';
+  // Diagnostic strip: shows which date-field mode is active + delivery-set size
+  const dfEl = document.getElementById('aeDateField');
+  const dfVal = dfEl ? dfEl.value : '';
+  const dfLbl = dfEl && dfEl.selectedOptions[0] ? dfEl.selectedOptions[0].text : dfVal;
+  const dFrom = document.getElementById('aeDateFrom').value;
+  const dTo   = document.getElementById('aeDateTo').value;
+  let modeNote = '';
+  if (dFrom || dTo){
+    modeNote = ' · date field: ' + dfLbl;
+    if (dfVal === '__delivery__'){
+      modeNote += (aeDeliverySet ? (' · delivery set ' + fmtInt(aeDeliverySet.size)) : ' · delivery set loading…');
+    }
+  }
+  const catNote = aeSelectedCat ? (' · category=' + aeSelectedCat) : '';
   document.getElementById('aeFooter').textContent =
     'Showing ' + fmtInt(slice.length) + ' of ' + fmtInt(totalRows) + ' filtered ' +
-    '(' + fmtInt(allAds.length) + ' total in ae_table_view' + hiddenNote + ')';
+    '(' + fmtInt(allAds.length) + ' total in ae_table_view' + hiddenNote + ')'+
+    modeNote + catNote;
 
   // Pagination footer
   document.getElementById('aeRowInfo').textContent   = fmtInt(totalRows) + ' rows';
