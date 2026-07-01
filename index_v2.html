@@ -1017,7 +1017,7 @@
   #aiChannelRow .kpi[data-channel="all"]        { --accent:#1B1A17 }
   #aiChannelRow .kpi[data-channel="meta"]       { --accent:#1877F2 }
   #aiChannelRow .kpi[data-channel="google"]     { --accent:#4285F4 }
-  #aiChannelRow .kpi[data-channel="kwikengage"] { --accent:#8B5CF6 }
+  #aiChannelRow .kpi[data-channel="retention"] { --accent:#8B5CF6 }
   #aiChannelRow .kpi[data-channel="other"]      { --accent:#9A9384 }
   .ai-ch-drill{background:var(--bg-white);border:1px solid var(--border-warm);
     border-radius:12px;padding:16px 20px;margin-bottom:14px;
@@ -1049,7 +1049,7 @@
     transition:width .35s cubic-bezier(.4,0,.2,1)}
   .ai-src-tbl .bar-fill.meta       { background:#1877F2 }
   .ai-src-tbl .bar-fill.google     { background:#4285F4 }
-  .ai-src-tbl .bar-fill.kwikengage { background:#8B5CF6 }
+  .ai-src-tbl .bar-fill.retention { background:#8B5CF6 }
   .ai-src-tbl .bar-fill.other      { background:var(--accent-yellow-hover) }
   .ai-src-bar-cell{display:flex;align-items:center;gap:10px;min-width:200px}
   .ai-src-bar-pct{font-family:'JetBrains Mono',monospace;font-size:10.5px;
@@ -1904,8 +1904,9 @@
   <!-- Channel KPI row — order counts by traffic channel.
        Meta bundles meta/facebook/instagram/ig/fb/igshopping.
        Google bundles google/google_ads/gads.
-       KwikEngage bundles kwikengage/kwikchat/kwikchatbot (all kwik*).
-       Other is everything else (direct, null, email, wa, chatgpt.com, etc).
+       Retention bundles kwikengage/kwikchat/kwikchatbot (all kwik*)
+         plus wa, sagepilot, email, rcs — every retention-marketing tool.
+       Other is everything else (direct, null, chatgpt.com, fealtyx, etc.).
        Click any card to open the utm_source breakdown drilldown below. -->
   <div class="kpi-row" id="aiChannelRow" style="grid-template-columns:repeat(5,1fr)">
     <div class="kpi ai-ch-card" data-channel="all">
@@ -1923,10 +1924,10 @@
       <div class="k-val mono" id="aiCh-google">—</div>
       <div class="k-sub">sales <b id="aiCh-google-sp">—</b></div>
     </div>
-    <div class="kpi ai-ch-card" data-channel="kwikengage">
-      <div class="k-lbl">KwikEngage</div>
-      <div class="k-val mono" id="aiCh-kwikengage">—</div>
-      <div class="k-sub">sales <b id="aiCh-kwikengage-sp">—</b></div>
+    <div class="kpi ai-ch-card" data-channel="retention">
+      <div class="k-lbl">Retention</div>
+      <div class="k-val mono" id="aiCh-retention">—</div>
+      <div class="k-sub">sales <b id="aiCh-retention-sp">—</b></div>
     </div>
     <div class="kpi ai-ch-card" data-channel="other">
       <div class="k-lbl">Other</div>
@@ -4786,14 +4787,25 @@ async function aiReloadOrders(){
 }
 
 // Selected utm_source values (multi-select). Empty Set = "all sources".
+// The sentinel '' in this Set means "utm_source is null/blank".
 const aiUtmSourceSel = new Set();
 
-function aiPopulateFilters(){
-  const srcCounts = new Map(), med = new Set();
+// Build a Map<source, count> from aiOrders including a '' bucket for
+// null/blank utm_source rows. Used by the multi-select popover AND by
+// the channel drilldown so the two views stay in sync.
+function aiBuildSourceCounts(){
+  const m = new Map();
   for (const r of aiOrders){
-    if (r.utm_source){
-      srcCounts.set(r.utm_source, (srcCounts.get(r.utm_source) || 0) + 1);
-    }
+    const key = (r.utm_source && String(r.utm_source).trim()) ? r.utm_source : '';
+    m.set(key, (m.get(key) || 0) + 1);
+  }
+  return m;
+}
+
+function aiPopulateFilters(){
+  const srcCounts = aiBuildSourceCounts();
+  const med = new Set();
+  for (const r of aiOrders){
     if (r.utm_medium) med.add(r.utm_medium);
   }
   // utm_medium — still a single-select
@@ -4811,15 +4823,23 @@ function aiRenderSourceMs(srcCounts){
   const list = document.getElementById('aiUtmSourceList');
   const search = (document.getElementById('aiUtmSourceSearch').value || '').toLowerCase();
   // Sort by count desc, then name
+  // Sort: blank sentinel first (so users can spot it), then by count desc
   const items = Array.from(srcCounts.entries())
-    .filter(([n]) => !search || n.toLowerCase().includes(search))
-    .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    .filter(([n]) => !search || (n === '' ? '(blank)'.includes(search) : n.toLowerCase().includes(search)))
+    .sort((a,b) => {
+      if (a[0] === '' && b[0] !== '') return -1;
+      if (b[0] === '' && a[0] !== '') return  1;
+      return b[1] - a[1] || a[0].localeCompare(b[0]);
+    });
   list.innerHTML = items.map(([name, count]) => {
     const checked = aiUtmSourceSel.has(name) ? 'checked' : '';
+    const displayName = name === '' ? '(blank)' : name;
     const safe = String(name).replace(/"/g, '&quot;');
+    const safeDisp = displayName.replace(/"/g, '&quot;');
+    const italic = name === '' ? ' style="font-style:italic;color:var(--text-tertiary)"' : '';
     return '<label class="ms-item">'+
       '<input type="checkbox" data-ms-val="'+safe+'" '+checked+'>'+
-      '<span class="ms-item-name" title="'+safe+'">'+name+'</span>'+
+      '<span class="ms-item-name" title="'+safeDisp+'"'+italic+'>'+displayName+'</span>'+
       '<span class="ms-item-count">'+fmtInt(count)+'</span>'+
     '</label>';
   }).join('') || '<div style="padding:16px;text-align:center;color:var(--text-tertiary);font-size:12px">No matches</div>';
@@ -4923,16 +4943,24 @@ function aiTierClass(t){
   return 'none';
 }
 
-/* Classify a raw utm_source into one of the four channels. */
-const _AI_META_RE   = /^(meta|facebook|fb|instagram|ig|igshopping|meta_ads?)$/i;
-const _AI_GOOGLE_RE = /^(google|gads|google_ads?|adwords)$/i;
-const _AI_KWIK_RE   = /^(kwikengage|kwikchat|kwikchatbot|kwik.*)$/i;
+/* Classify a raw utm_source into one of the four channels.
+   Meta       — any source starting with "meta" (meta, meta_ads,
+                 meta-featuredofferings, metald_1, meta-sitelink, …),
+                 plus facebook / fb / instagram / ig / igshopping.
+   Google     — google / gads / google_ads / adwords / any "google*".
+   Retention  — kwikengage/kwikchat/kwikchatbot/any kwik*, plus
+                 wa, sagepilot(-ai), email, rcs.
+   Other      — everything else (direct, blank, chatgpt.com, robylon,
+                 fealtyx, nector, etc.). */
+const _AI_META_RE      = /^(meta[\w\-]*|facebook|fb|instagram|ig|igshopping)$/i;
+const _AI_GOOGLE_RE    = /^(google[\w\-]*|gads|adwords)$/i;
+const _AI_RETENTION_RE = /^(kwik[\w\-]*|wa|sagepilot(?:[-_]?ai)?|email|rcs)$/i;
 function aiChannel(utm){
   const s = (utm || '').trim();
-  if (!s) return 'other';
-  if (_AI_META_RE.test(s))   return 'meta';
-  if (_AI_GOOGLE_RE.test(s)) return 'google';
-  if (_AI_KWIK_RE.test(s))   return 'kwikengage';
+  if (!s) return 'other';                       // blank / NULL utm_source
+  if (_AI_META_RE.test(s))      return 'meta';
+  if (_AI_GOOGLE_RE.test(s))    return 'google';
+  if (_AI_RETENTION_RE.test(s)) return 'retention';
   return 'other';
 }
 
@@ -4941,7 +4969,7 @@ let aiOpenChannel = '';
 
 function aiRenderChannels(){
   const chs = {all:{n:0,sp:0}, meta:{n:0,sp:0}, google:{n:0,sp:0},
-               kwikengage:{n:0,sp:0}, other:{n:0,sp:0}};
+               retention:{n:0,sp:0}, other:{n:0,sp:0}};
   for (const r of aiOrders){
     const c = aiChannel(r.utm_source);
     const sp = +r.total_price || 0;
@@ -4953,7 +4981,7 @@ function aiRenderChannels(){
     document.getElementById('aiCh-'+id+'-sp').textContent = fmtRs(chs[k].sp);
   };
   set('all','all'); set('meta','meta'); set('google','google');
-  set('kwikengage','kwikengage'); set('other','other');
+  set('retention','retention'); set('other','other');
   // Reflect currently-open drilldown selection
   document.querySelectorAll('#aiChannelRow .kpi').forEach(card => {
     card.classList.toggle('selected', card.dataset.channel === aiOpenChannel);
@@ -4969,7 +4997,7 @@ function aiRenderChannelDrill(channel){
   const body  = document.getElementById('aiChannelDrillBody');
   const ttl   = document.getElementById('aiChannelDrillTtl');
   const sub   = document.getElementById('aiChannelDrillSub');
-  const nice  = {meta:'Meta', google:'Google', kwikengage:'KwikEngage',
+  const nice  = {meta:'Meta', google:'Google', retention:'Retention',
                  other:'Other', all:'All channels'};
   panel.style.display = 'block';
   ttl.textContent = nice[channel] + ' · utm_source breakdown';
@@ -5026,10 +5054,11 @@ function aiRenderChannelDrill(channel){
     tr.addEventListener('click', () => {
       const src = tr.dataset.drillSrc;
       aiUtmSourceSel.clear();
-      if (src && src !== '(blank)') aiUtmSourceSel.add(src);
-      const counts = new Map();
-      for (const r of aiOrders){ if (r.utm_source) counts.set(r.utm_source, (counts.get(r.utm_source)||0)+1); }
-      aiRenderSourceMs(counts);
+      // "(blank)" is our display token for null/empty utm_source — pass
+      // the empty-string sentinel into the Set so the filter matches
+      // rows where r.utm_source is blank.
+      aiUtmSourceSel.add(src === '(blank)' ? '' : src);
+      aiRenderSourceMs(aiBuildSourceCounts());
       aiPage = 0; aiRenderTable();
     });
   });
@@ -5126,20 +5155,18 @@ function initAdIntel(){
   });
   document.getElementById('aiUtmSourceSearch').addEventListener('input', () => {
     // Re-render the list with the current search term (counts recomputed from aiOrders)
-    const counts = new Map();
-    for (const r of aiOrders){ if (r.utm_source) counts.set(r.utm_source, (counts.get(r.utm_source)||0)+1); }
-    aiRenderSourceMs(counts);
+    aiRenderSourceMs(aiBuildSourceCounts());
   });
   document.querySelectorAll('#aiUtmSourcePanel .ms-mini').forEach(btn => {
     btn.addEventListener('click', e => {
       const op = e.target.dataset.msOp;
-      const counts = new Map();
-      for (const r of aiOrders){ if (r.utm_source) counts.set(r.utm_source, (counts.get(r.utm_source)||0)+1); }
+      const counts = aiBuildSourceCounts();
       if (op === 'all'){
         // "All" = select every source currently visible after search
         const searchQ = (document.getElementById('aiUtmSourceSearch').value || '').toLowerCase();
         for (const [name] of counts){
-          if (!searchQ || name.toLowerCase().includes(searchQ)) aiUtmSourceSel.add(name);
+          const hay = name === '' ? '(blank)' : name.toLowerCase();
+          if (!searchQ || hay.includes(searchQ)) aiUtmSourceSel.add(name);
         }
       } else if (op === 'none'){
         aiUtmSourceSel.clear();
@@ -5173,10 +5200,9 @@ function initAdIntel(){
     // Column order for the CSV. matched_tier is written as the CANONICAL
     // Step N label (via aiStep) so legacy DB values (T1_ad_id, T2_ad_name,
     // T3, T0_template) come out normalised — matching what the UI shows.
-    // We also emit a separate raw_matched_tier column so power users can
-    // still see the underlying DB value if they need it for debugging.
+    // The step-wise breakdown is the sole source of truth for matching, so
+    // the raw DB value is not exported.
     const cols = ['order_created_at','order_id','total_price','matched_tier',
-                  'raw_matched_tier',
                   'utm_source','utm_medium','utm_campaign','utm_content','utm_term',
                   'matched_value','ad_id','ad_name','campaign_name','ad_status'];
     const csv = [cols.join(',')];
@@ -5186,9 +5212,8 @@ function initAdIntel(){
       const status = r.ad_id ? (aiAdStatusMap[r.ad_id] || 'UNKNOWN') : '';
       const rowOut = {
         ...r,
-        matched_tier:     stepLabel,          // Step 1 / Step 2 / … / Unmatched
-        raw_matched_tier: r.matched_tier || '',
-        ad_status:        status,
+        matched_tier: stepLabel,   // Step 1 / Step 2 / Step 3 / Step 4 / Step 5 / Unmatched
+        ad_status:    status,
       };
       csv.push(cols.map(c => JSON.stringify(rowOut[c] ?? '')).join(','));
     }
@@ -5216,30 +5241,29 @@ function initAdIntel(){
       aiUtmSourceSel.clear();
       aiCloseChannelDrill();
     } else {
-      // Set filter to every utm_source that maps to this channel
+      // Set filter to every utm_source that maps to this channel.
+      // '' (empty string) is the canonical sentinel for null/blank rows —
+      // those land under "other" per aiChannel() and are pushed into the
+      // Set so blank orders survive an Other-channel filter.
       aiUtmSourceSel.clear();
       if (channel !== 'all'){
         for (const r of aiOrders){
-          const s = r.utm_source;
-          if (s && aiChannel(s) === channel) aiUtmSourceSel.add(s);
+          const s = (r.utm_source || '').trim();
+          if (aiChannel(s) === channel) aiUtmSourceSel.add(s);
         }
       }
       aiRenderChannelDrill(channel);
     }
     // Repaint the utm_source multi-select popover so the checkboxes and
     // label reflect the new selection
-    const counts = new Map();
-    for (const r of aiOrders){ if (r.utm_source) counts.set(r.utm_source, (counts.get(r.utm_source)||0)+1); }
-    aiRenderSourceMs(counts);
+    aiRenderSourceMs(aiBuildSourceCounts());
     aiPage = 0;
     aiRenderTable();
   });
   document.getElementById('aiChannelDrillClose').addEventListener('click', () => {
     aiUtmSourceSel.clear();
     aiCloseChannelDrill();
-    const counts = new Map();
-    for (const r of aiOrders){ if (r.utm_source) counts.set(r.utm_source, (counts.get(r.utm_source)||0)+1); }
-    aiRenderSourceMs(counts);
+    aiRenderSourceMs(aiBuildSourceCounts());
     aiPage = 0;
     aiRenderTable();
   });
