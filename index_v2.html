@@ -1077,6 +1077,7 @@
   /* ── Lifecycle: frequency buckets ──────────────────────────────── */
   .freq-buckets{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
   .freq-buckets-5{grid-template-columns:repeat(5,1fr)}
+  .freq-buckets-6{grid-template-columns:repeat(6,1fr);gap:10px}
   /* Lifetime-totals strip above the buckets */
   .freq-totals{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
     margin:6px 0 14px}
@@ -1527,8 +1528,16 @@
       <div class="ft-tile"><span class="lbl">Total lifetime reach</span><b class="mono" id="freqTotReach">—</b></div>
       <div class="ft-tile"><span class="lbl">Total lifetime impressions</span><b class="mono" id="freqTotImpr">—</b></div>
     </div>
-    <!-- 5 buckets: 1-1.5, 1.5-2, 2-2.5, 2.5-3, 3+ -->
-    <div class="freq-buckets freq-buckets-5" id="lifeFreqBuckets">
+    <!-- 6 buckets: <1 (never served), 1-1.5, 1.5-2, 2-2.5, 2.5-3, 3+ -->
+    <div class="freq-buckets freq-buckets-6" id="lifeFreqBuckets">
+      <div class="freq-bucket" data-b="b0"  data-max="1">
+        <div class="fb-tag"><span class="dot" style="background:#8C8C8C"></span>&lt; 1×</div>
+        <div class="fb-range">never served · no impressions</div>
+        <div class="fb-count mono" id="freqB0Count">—</div>
+        <div class="fb-metric"><span>Total spend</span><b class="mono" id="freqB0Spend">—</b></div>
+        <div class="fb-metric"><span>Total reach</span><b class="mono" id="freqB0Reach">—</b></div>
+        <div class="fb-hint">click to drill</div>
+      </div>
       <div class="freq-bucket" data-b="b1"  data-min="1"   data-max="1.5">
         <div class="fb-tag"><span class="dot" style="background:#3D9E6B"></span>1 — 1.5×</div>
         <div class="fb-range">crossed 1× · not yet 1.5×</div>
@@ -3764,29 +3773,28 @@ function renderLifecycle(){
   document.getElementById('freqTotReach').textContent = fmtInt(totalReach);
   document.getElementById('freqTotImpr' ).textContent = fmtInt(totalImpr);
 
-  /* ── 5 buckets keyed by max_cum_freq from ae_freq_lifecycle ──────── */
-  const buckets = {b1:[], b2:[], b3:[], b4:[], b5:[]};
+  /* ── 6 buckets keyed by max_cum_freq. b0 = never served (no lifecycle row) ── */
+  const buckets = {b0:[], b1:[], b2:[], b3:[], b4:[], b5:[]};
   for (const r of lifeRows){
     const fx = freqLifecycleByAdId[r.ad_id];
-    if (!fx) continue;               // ad hasn't served enough to have a lifecycle row
+    if (!fx){ buckets.b0.push(r); continue; }   // ad has no served days → <1×
     const m = +fx.max_cum_freq || 0;
     if      (m >= 3.0) buckets.b5.push(r);
     else if (m >= 2.5) buckets.b4.push(r);
     else if (m >= 2.0) buckets.b3.push(r);
     else if (m >= 1.5) buckets.b2.push(r);
     else if (m >= 1.0) buckets.b1.push(r);
-    // ads that never crossed 1.0 fall off the lifecycle view
+    else               buckets.b0.push(r);      // edge-case: served but stayed <1
   }
   const sumF = (rows, k) => rows.reduce((s,r) => s + (+r[k] || 0), 0);
-  ['b1','b2','b3','b4','b5'].forEach(k => {
+  ['b0','b1','b2','b3','b4','b5'].forEach(k => {
     const rows = buckets[k];
     document.getElementById('freq'+k.toUpperCase()+'Count').textContent = fmtInt(rows.length);
     document.getElementById('freq'+k.toUpperCase()+'Spend').textContent = fmtRs (sumF(rows,'amount_spent'));
     document.getElementById('freq'+k.toUpperCase()+'Reach').textContent = fmtInt(sumF(rows,'reach'));
   });
-  const inScope = buckets.b1.length + buckets.b2.length + buckets.b3.length + buckets.b4.length + buckets.b5.length;
   document.getElementById('lifeFreqTot').textContent =
-    fmtInt(inScope) + ' ads in lifecycle · ' + fmtInt(lifeRows.length) + ' total lifetime';
+    fmtInt(lifeRows.length) + ' ads in lifecycle';
 
   /* ── Render drill table for active bucket ─────────────────────────── */
   if (freqActiveBucket && buckets[freqActiveBucket]) {
