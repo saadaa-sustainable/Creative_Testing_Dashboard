@@ -108,8 +108,13 @@ def sc(page: Page, name: str, full_page: bool = False, clip=None):
 def build_screenshots():
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
+        # Force IST so the dashboard's `new Date()` matches the pipeline's
+        # "today" and applyDatePreset('last30') hits the results_table cache
+        # window (otherwise we're off by one day and the slow-path kicks in).
         ctx = browser.new_context(viewport={"width": 1600, "height": 950},
-                                  device_scale_factor=1.5)
+                                  device_scale_factor=1.5,
+                                  timezone_id="Asia/Kolkata",
+                                  locale="en-IN")
         page = ctx.new_page()
         say(f"[*] opening dashboard  (viewport 1600x950 @1.5x)")
         # log console errors so silent fetch failures surface
@@ -117,24 +122,49 @@ def build_screenshots():
             say(f"    [console.{m.type}]", scrub(m.text)[:200])
             if m.type in ("error","warning") else None
         ))
-        page.goto(dashboard_url(), wait_until="networkidle", timeout=60_000)
-        # Wait until (a) allAds has loaded AND (b) primaryAds has content
-        # or 40s max. The dashboard fetches ae_table_view (15k rows) and
-        # results_table cache in parallel — both need to land before KPIs
-        # display real numbers.
+        try:
+            page.goto(dashboard_url(), wait_until="domcontentloaded",
+                      timeout=30_000)
+        except Exception as e:
+            say(f"    ! goto failed: {scrub(str(e))[:180]}")
+            browser.close(); return
+        # Playwright's headless browser computes "today" as 2026-07-01
+        # (UTC boundary) even with Asia/Kolkata locale, so the default
+        # Last-30d window falls a day off the results_table cache. Give
+        # the init IIFE a moment to run, then click a preset that maps
+        # to a smaller live-aggregation window (2 days) so it finishes
+        # quickly regardless of cache alignment.
+        page.wait_for_timeout(2500)
+        page.evaluate("""
+          () => {
+            const btn = document.querySelector('.preset[data-p="thisMonth"]');
+            if (btn) btn.click();
+          }
+        """)
+        # Wait for data by observing DOM signals — allAds and primaryAds
+        # are `let`-scoped so they're not on window and page.evaluate
+        # can't see them directly. Instead we watch the KPI tile #kp-winner
+        # for a non-"—" text (means renderKpis has run against non-empty
+        # primaryAds) and the dbStat strip for a "Loaded" prefix (means
+        # results_table cache / primary aggregation completed).
         say("    waiting for data …")
         try:
             page.wait_for_function(
-                "() => (window.allAds || []).length > 100 && "
-                "(window.primaryAds || []).length > 0",
-                timeout=40_000
+                """() => {
+                    const kp = document.querySelector('#kp-winner');
+                    const db = document.querySelector('#dbStat');
+                    const kpReady = kp && kp.textContent && kp.textContent.trim() !== '—';
+                    const dbReady = db && /Loaded/i.test(db.textContent || '');
+                    return kpReady && dbReady;
+                }""",
+                timeout=180_000
             )
-            page.wait_for_timeout(1500)   # let render settle
-            n_all = page.evaluate("window.allAds.length")
-            n_prim = page.evaluate("window.primaryAds.length")
-            say(f"    allAds={n_all}  primaryAds={n_prim}")
+            page.wait_for_timeout(3000)   # let charts + funnel render
+            db_text = page.evaluate("document.querySelector('#dbStat')?.textContent || ''")
+            say(f"    ready — {scrub(db_text).strip()}")
         except Exception as e:
-            say(f"    ! data-load wait timed out: {scrub(str(e))[:120]}")
+            db_text = page.evaluate("document.querySelector('#dbStat')?.textContent || ''")
+            say(f"    ! data-load wait timed out — dbStat: {scrub(db_text).strip()}")
 
         # ── 1. Creative Testing (default view)
         say("[*] Creative Testing")
