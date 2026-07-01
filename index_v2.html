@@ -5952,10 +5952,8 @@ function renderAE(){
   const dfEl = document.getElementById('aeDateField');
   const dfVal = dfEl ? dfEl.value : '';
   const dfLbl = dfEl && dfEl.selectedOptions[0] ? dfEl.selectedOptions[0].text : dfVal;
-  const dFrom = document.getElementById('aeDateFrom').value;
-  const dTo   = document.getElementById('aeDateTo').value;
   let modeNote = '';
-  if (dFrom || dTo){
+  if (dFromStr || dToStr){
     modeNote = ' · date field: ' + dfLbl;
     if (dfVal === '__delivery__'){
       modeNote += (aeDeliverySet ? (' · delivery set ' + fmtInt(aeDeliverySet.size)) : ' · delivery set loading…');
