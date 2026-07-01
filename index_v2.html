@@ -1007,6 +1007,55 @@
     border-radius:4px;padding:1px 6px;margin-left:6px;letter-spacing:0.3px;
     text-transform:none;display:none}
   .ms-count-lbl.visible{display:inline-block}
+  /* Channel KPI row + drilldown (Ad Intelligence, order counts by traffic channel) */
+  #aiChannelRow .kpi{cursor:pointer;transition:transform .12s,box-shadow .12s}
+  #aiChannelRow .kpi:hover{transform:translateY(-1px);
+    box-shadow:0 6px 18px rgba(28,25,22,.08);border-color:var(--accent-yellow)}
+  #aiChannelRow .kpi.selected{border-color:var(--accent-yellow);
+    box-shadow:0 0 0 2px var(--accent-yellow) inset;
+    background:var(--accent-warm-tint)}
+  #aiChannelRow .kpi[data-channel="all"]        { --accent:#1B1A17 }
+  #aiChannelRow .kpi[data-channel="meta"]       { --accent:#1877F2 }
+  #aiChannelRow .kpi[data-channel="google"]     { --accent:#4285F4 }
+  #aiChannelRow .kpi[data-channel="kwikengage"] { --accent:#8B5CF6 }
+  #aiChannelRow .kpi[data-channel="other"]      { --accent:#9A9384 }
+  .ai-ch-drill{background:var(--bg-white);border:1px solid var(--border-warm);
+    border-radius:12px;padding:16px 20px;margin-bottom:14px;
+    box-shadow:0 4px 14px rgba(28,25,22,0.06)}
+  .ai-ch-drill-hdr{display:flex;justify-content:space-between;align-items:flex-start;
+    margin-bottom:14px;border-bottom:1px solid var(--border-warm);padding-bottom:12px}
+  .ai-ch-drill-ttl{font-family:'Space Grotesk',sans-serif;font-size:14px;
+    font-weight:700;color:var(--text-primary)}
+  .ai-ch-drill-sub{font-size:11.5px;color:var(--text-secondary);margin-top:3px}
+  .ai-ch-drill-body{}
+  /* Breakdown table — utm_source × count × sales × bar-fill */
+  .ai-src-tbl{width:100%;border-collapse:separate;border-spacing:0}
+  .ai-src-tbl thead th{font-family:'Space Grotesk',sans-serif;font-size:10px;
+    font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+    color:var(--text-secondary);padding:8px 10px;text-align:left;
+    border-bottom:1px solid var(--border-warm);background:var(--bg-page-alt)}
+  .ai-src-tbl thead th.num{text-align:right}
+  .ai-src-tbl tbody tr:nth-child(even) td{background:var(--bg-page-alt)}
+  .ai-src-tbl tbody tr:hover td{background:var(--accent-warm-tint);cursor:pointer}
+  .ai-src-tbl td{padding:8px 10px;font-size:12px;color:var(--text-mid);
+    border-bottom:1px solid #F0EDE6;background:var(--bg-white);vertical-align:middle}
+  .ai-src-tbl td.num{font-family:'JetBrains Mono',monospace;text-align:right;
+    color:var(--text-primary);font-weight:600}
+  .ai-src-tbl .src-name{font-family:'JetBrains Mono',monospace;font-size:11.5px;
+    font-weight:700;color:var(--text-primary);text-transform:lowercase}
+  .ai-src-tbl .bar{height:6px;background:var(--bg-muted);border-radius:99px;
+    overflow:hidden;min-width:120px;flex:1}
+  .ai-src-tbl .bar-fill{height:100%;border-radius:99px;
+    transition:width .35s cubic-bezier(.4,0,.2,1)}
+  .ai-src-tbl .bar-fill.meta       { background:#1877F2 }
+  .ai-src-tbl .bar-fill.google     { background:#4285F4 }
+  .ai-src-tbl .bar-fill.kwikengage { background:#8B5CF6 }
+  .ai-src-tbl .bar-fill.other      { background:var(--accent-yellow-hover) }
+  .ai-src-bar-cell{display:flex;align-items:center;gap:10px;min-width:200px}
+  .ai-src-bar-pct{font-family:'JetBrains Mono',monospace;font-size:10.5px;
+    color:var(--text-tertiary);font-weight:600;min-width:44px;text-align:right}
+  .ai-empty-hint{padding:24px;text-align:center;color:var(--text-tertiary);
+    font-size:12.5px;font-style:italic}
   .ae-tbl td.thumb-cell{padding:6px 8px;width:52px}
   .cat-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;
     font-weight:700;letter-spacing:0.4px;text-transform:uppercase}
@@ -1850,6 +1899,51 @@
       <button class="btn ghost" id="aiRefresh">↻ Refresh</button>
       <button class="btn" id="aiExport">Export CSV</button>
     </div>
+  </div>
+
+  <!-- Channel KPI row — order counts by traffic channel.
+       Meta bundles meta/facebook/instagram/ig/fb/igshopping.
+       Google bundles google/google_ads/gads.
+       KwikEngage bundles kwikengage/kwikchat/kwikchatbot (all kwik*).
+       Other is everything else (direct, null, email, wa, chatgpt.com, etc).
+       Click any card to open the utm_source breakdown drilldown below. -->
+  <div class="kpi-row" id="aiChannelRow" style="grid-template-columns:repeat(5,1fr)">
+    <div class="kpi ai-ch-card" data-channel="all">
+      <div class="k-lbl">Total Orders</div>
+      <div class="k-val mono" id="aiCh-all">—</div>
+      <div class="k-sub">sales <b id="aiCh-all-sp">—</b></div>
+    </div>
+    <div class="kpi ai-ch-card" data-channel="meta">
+      <div class="k-lbl">Meta</div>
+      <div class="k-val mono" id="aiCh-meta">—</div>
+      <div class="k-sub">sales <b id="aiCh-meta-sp">—</b></div>
+    </div>
+    <div class="kpi ai-ch-card" data-channel="google">
+      <div class="k-lbl">Google</div>
+      <div class="k-val mono" id="aiCh-google">—</div>
+      <div class="k-sub">sales <b id="aiCh-google-sp">—</b></div>
+    </div>
+    <div class="kpi ai-ch-card" data-channel="kwikengage">
+      <div class="k-lbl">KwikEngage</div>
+      <div class="k-val mono" id="aiCh-kwikengage">—</div>
+      <div class="k-sub">sales <b id="aiCh-kwikengage-sp">—</b></div>
+    </div>
+    <div class="kpi ai-ch-card" data-channel="other">
+      <div class="k-lbl">Other</div>
+      <div class="k-val mono" id="aiCh-other">—</div>
+      <div class="k-sub">sales <b id="aiCh-other-sp">—</b></div>
+    </div>
+  </div>
+  <!-- Drilldown — utm_source breakdown for the clicked channel -->
+  <div class="ai-ch-drill" id="aiChannelDrill" style="display:none">
+    <div class="ai-ch-drill-hdr">
+      <div>
+        <div class="ai-ch-drill-ttl" id="aiChannelDrillTtl">Meta · utm_source breakdown</div>
+        <div class="ai-ch-drill-sub" id="aiChannelDrillSub">—</div>
+      </div>
+      <button class="mc-close" id="aiChannelDrillClose" type="button">×</button>
+    </div>
+    <div class="ai-ch-drill-body" id="aiChannelDrillBody"></div>
   </div>
 
   <!-- KPI cards — one per Step in the 5-step rule cascade.
@@ -4684,6 +4778,9 @@ async function aiReloadOrders(){
   // Populate filter dropdowns from data
   aiPopulateFilters();
   aiPage = 0;
+  aiRenderChannels();
+  // If a drill was already open, refresh its contents against the new dataset
+  if (aiOpenChannel) aiRenderChannelDrill(aiOpenChannel);
   aiRenderKpis();
   aiRenderTable();
 }
@@ -4824,6 +4921,124 @@ function aiTierClass(t){
   if (t === 'Step 4') return 't3';
   if (t === 'Step 5') return 't4';
   return 'none';
+}
+
+/* Classify a raw utm_source into one of the four channels. */
+const _AI_META_RE   = /^(meta|facebook|fb|instagram|ig|igshopping|meta_ads?)$/i;
+const _AI_GOOGLE_RE = /^(google|gads|google_ads?|adwords)$/i;
+const _AI_KWIK_RE   = /^(kwikengage|kwikchat|kwikchatbot|kwik.*)$/i;
+function aiChannel(utm){
+  const s = (utm || '').trim();
+  if (!s) return 'other';
+  if (_AI_META_RE.test(s))   return 'meta';
+  if (_AI_GOOGLE_RE.test(s)) return 'google';
+  if (_AI_KWIK_RE.test(s))   return 'kwikengage';
+  return 'other';
+}
+
+/* Track which channel drilldown is currently open (empty = none). */
+let aiOpenChannel = '';
+
+function aiRenderChannels(){
+  const chs = {all:{n:0,sp:0}, meta:{n:0,sp:0}, google:{n:0,sp:0},
+               kwikengage:{n:0,sp:0}, other:{n:0,sp:0}};
+  for (const r of aiOrders){
+    const c = aiChannel(r.utm_source);
+    const sp = +r.total_price || 0;
+    chs.all.n += 1;      chs.all.sp += sp;
+    chs[c].n  += 1;      chs[c].sp  += sp;
+  }
+  const set = (id, k) => {
+    document.getElementById('aiCh-'+id     ).textContent = fmtInt(chs[k].n);
+    document.getElementById('aiCh-'+id+'-sp').textContent = fmtRs(chs[k].sp);
+  };
+  set('all','all'); set('meta','meta'); set('google','google');
+  set('kwikengage','kwikengage'); set('other','other');
+  // Reflect currently-open drilldown selection
+  document.querySelectorAll('#aiChannelRow .kpi').forEach(card => {
+    card.classList.toggle('selected', card.dataset.channel === aiOpenChannel);
+  });
+}
+
+function aiRenderChannelDrill(channel){
+  aiOpenChannel = channel;
+  document.querySelectorAll('#aiChannelRow .kpi').forEach(card => {
+    card.classList.toggle('selected', card.dataset.channel === channel);
+  });
+  const panel = document.getElementById('aiChannelDrill');
+  const body  = document.getElementById('aiChannelDrillBody');
+  const ttl   = document.getElementById('aiChannelDrillTtl');
+  const sub   = document.getElementById('aiChannelDrillSub');
+  const nice  = {meta:'Meta', google:'Google', kwikengage:'KwikEngage',
+                 other:'Other', all:'All channels'};
+  panel.style.display = 'block';
+  ttl.textContent = nice[channel] + ' · utm_source breakdown';
+  // Group rows in this channel by lowercased utm_source
+  const groups = new Map();
+  let totalOrders = 0, totalSales = 0;
+  for (const r of aiOrders){
+    const c = aiChannel(r.utm_source);
+    if (channel !== 'all' && c !== channel) continue;
+    const key = (r.utm_source || '(blank)').toLowerCase();
+    if (!groups.has(key)) groups.set(key, {src:key, orders:0, sales:0});
+    const g = groups.get(key);
+    g.orders += 1;
+    g.sales  += +r.total_price || 0;
+    totalOrders += 1;
+    totalSales  += +r.total_price || 0;
+  }
+  const list = Array.from(groups.values())
+    .sort((a,b) => b.orders - a.orders);
+  sub.textContent = fmtInt(totalOrders) + ' orders · ' + fmtRs(totalSales) +
+                    ' · ' + list.length + ' unique utm_source values';
+  if (!list.length){
+    body.innerHTML = '<div class="ai-empty-hint">No orders in this channel for the current window.</div>';
+    return;
+  }
+  const maxOrders = list[0].orders;
+  const barCls = channel === 'all' ? 'other' : channel;
+  body.innerHTML = '<table class="ai-src-tbl">'+
+    '<thead><tr>'+
+      '<th style="width:180px">utm_source</th>'+
+      '<th class="num" style="width:100px">Orders</th>'+
+      '<th class="num" style="width:130px">Sales</th>'+
+      '<th class="num" style="width:80px">AOV</th>'+
+      '<th>Share of channel</th>'+
+    '</tr></thead>'+
+    '<tbody>' + list.map(g => {
+      const pct  = totalOrders ? (g.orders / totalOrders * 100) : 0;
+      const bw   = maxOrders   ? (g.orders / maxOrders  * 100) : 0;
+      const aov  = g.orders > 0 ? g.sales / g.orders : 0;
+      const safe = String(g.src).replace(/"/g,'&quot;');
+      return '<tr data-drill-src="'+safe+'">'+
+        '<td><span class="src-name">'+g.src+'</span></td>'+
+        '<td class="num">'+fmtInt(g.orders)+'</td>'+
+        '<td class="num">'+fmtRs(g.sales)+'</td>'+
+        '<td class="num">'+fmtRs(aov)+'</td>'+
+        '<td><div class="ai-src-bar-cell">'+
+          '<div class="bar"><div class="bar-fill '+barCls+'" style="width:'+bw.toFixed(1)+'%"></div></div>'+
+          '<span class="ai-src-bar-pct">'+pct.toFixed(1)+'%</span>'+
+        '</div></td>'+
+      '</tr>';
+    }).join('') + '</tbody></table>';
+  // Row click → set utm_source filter to just this value and close the drill
+  body.querySelectorAll('tr[data-drill-src]').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const src = tr.dataset.drillSrc;
+      aiUtmSourceSel.clear();
+      if (src && src !== '(blank)') aiUtmSourceSel.add(src);
+      const counts = new Map();
+      for (const r of aiOrders){ if (r.utm_source) counts.set(r.utm_source, (counts.get(r.utm_source)||0)+1); }
+      aiRenderSourceMs(counts);
+      aiPage = 0; aiRenderTable();
+    });
+  });
+}
+
+function aiCloseChannelDrill(){
+  aiOpenChannel = '';
+  document.getElementById('aiChannelDrill').style.display = 'none';
+  document.querySelectorAll('#aiChannelRow .kpi').forEach(c => c.classList.remove('selected'));
 }
 
 function aiRenderKpis(){
@@ -4989,6 +5204,15 @@ function initAdIntel(){
     document.getElementById('aiTierSel').value = card.dataset.tier;
     aiPage = 0; aiRenderTable();
   });
+  // Channel KPI cards → open the utm_source breakdown drilldown.
+  // Clicking the same card again closes it (toggle).
+  document.getElementById('aiChannelRow').addEventListener('click', e => {
+    const card = e.target.closest('.kpi'); if (!card) return;
+    const channel = card.dataset.channel;
+    if (aiOpenChannel === channel) aiCloseChannelDrill();
+    else                            aiRenderChannelDrill(channel);
+  });
+  document.getElementById('aiChannelDrillClose').addEventListener('click', aiCloseChannelDrill);
 }
 
 /* Group ad rows by ad_name or campaign — sum numeric fields, keep most-recent ad meta */
