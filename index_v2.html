@@ -1904,6 +1904,11 @@
       </div>
       <input type="hidden" id="aiDateFrom">
       <input type="hidden" id="aiDateTo">
+      <!-- Toggle: KPI cards show count vs percentage as the primary value -->
+      <div class="life-toggle" id="aiDisplayToggle" title="Switch KPI cards between count and percentage view">
+        <button class="lt-btn active" data-mode="count" type="button">#</button>
+        <button class="lt-btn"        data-mode="pct"   type="button">%</button>
+      </div>
       <button class="btn ghost" id="aiRefresh">↻ Refresh</button>
       <button class="btn" id="aiExport">Export CSV</button>
     </div>
@@ -5010,6 +5015,7 @@ function aiChannel(srcKey){
 
 /* Track which channel drilldown is currently open (empty = none). */
 let aiOpenChannel = '';
+let aiDisplayMode = 'count';   // 'count' | 'pct' — swaps KPI primary value with chip
 
 function aiRenderChannels(){
   const chs = {all:{n:0,sp:0}, meta:{n:0,sp:0}, google:{n:0,sp:0},
@@ -5022,13 +5028,18 @@ function aiRenderChannels(){
   }
   const total = chs.all.n || 0;
   const set = (id, k) => {
-    document.getElementById('aiCh-'+id     ).textContent = fmtInt(chs[k].n);
+    const n = chs[k].n;
+    const pctStr = k === 'all' ? '100%'
+                 : (total > 0 ? ((n / total * 100).toFixed(1) + '%') : '—');
+    const countStr = fmtInt(n);
+    // Depending on display mode, swap which value is primary (big) vs
+    // secondary (chip).
+    const primary   = aiDisplayMode === 'pct' ? pctStr : countStr;
+    const secondary = aiDisplayMode === 'pct' ? countStr : pctStr;
+    document.getElementById('aiCh-'+id     ).textContent = primary;
     document.getElementById('aiCh-'+id+'-sp').textContent = fmtRs(chs[k].sp);
     const pcEl = document.getElementById('aiCh-'+id+'-pc');
-    if (!pcEl) return;
-    if (k === 'all'){ pcEl.textContent = '100%'; return; }
-    const pct = total > 0 ? (chs[k].n / total * 100) : 0;
-    pcEl.textContent = pct.toFixed(1) + '%';
+    if (pcEl) pcEl.textContent = secondary;
   };
   set('all','all'); set('meta','meta'); set('google','google');
   set('retention','retention'); set('other','other');
@@ -5143,10 +5154,14 @@ function aiRenderKpis(){
   for (const k in buckets) total += buckets[k];
   const set = (id, k) => {
     const n = buckets[k] || 0;
-    document.getElementById('aiKp-'+id     ).textContent = fmtInt(n);
+    const pctStr   = total > 0 ? ((n / total * 100).toFixed(1) + '%') : '—';
+    const countStr = fmtInt(n);
+    const primary   = aiDisplayMode === 'pct' ? pctStr : countStr;
+    const secondary = aiDisplayMode === 'pct' ? countStr : pctStr;
+    document.getElementById('aiKp-'+id     ).textContent = primary;
     document.getElementById('aiKp-'+id+'-sp').textContent = fmtRs(sales[k] || 0);
     const pcEl = document.getElementById('aiKp-'+id+'-pc');
-    if (pcEl) pcEl.textContent = total > 0 ? ((n / total * 100).toFixed(1) + '%') : '—';
+    if (pcEl) pcEl.textContent = secondary;
   };
   set('S1','Step 1'); set('S2','Step 2'); set('S3','Step 3');
   set('S4','Step 4'); set('S5','Step 5'); set('none','__none__');
@@ -5334,6 +5349,16 @@ function initAdIntel(){
     aiRenderSourceMs(aiBuildSourceCounts());
     aiPage = 0;
     aiRenderTable();
+  });
+  // # / % toggle — swaps KPI card primary value with the chip
+  document.getElementById('aiDisplayToggle').addEventListener('click', e => {
+    const btn = e.target.closest('.lt-btn'); if (!btn) return;
+    aiDisplayMode = btn.dataset.mode === 'pct' ? 'pct' : 'count';
+    document.querySelectorAll('#aiDisplayToggle .lt-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === aiDisplayMode);
+    });
+    aiRenderChannels();
+    aiRenderKpis();
   });
 }
 
