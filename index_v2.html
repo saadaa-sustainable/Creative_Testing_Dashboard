@@ -270,6 +270,14 @@
     color:var(--text-primary);letter-spacing:-.4px;margin-bottom:4px;line-height:1.1}
   .kpi .k-sub{font-size:11px;color:var(--text-secondary);display:flex;gap:8px}
   .kpi .k-sub b{color:var(--accent,var(--text-primary));font-weight:600}
+  /* Percentage chip that sits next to the count number in a KPI card */
+  .kpi .k-pct{display:inline-block;margin-left:8px;font-family:'JetBrains Mono',monospace;
+    font-size:11px;font-weight:700;letter-spacing:.2px;padding:2px 8px;
+    border-radius:99px;background:var(--accent-warm-tint);
+    color:var(--accent-yellow-hover);border:1px solid var(--accent-yellow);
+    vertical-align:middle;line-height:1.5}
+  .kpi .k-pct.muted{background:var(--bg-page-alt);color:var(--text-tertiary);
+    border-color:var(--border-warm)}
 
   /* ── Funnel breakdown (Creative Type × Category) ─────────────────── */
   .funnel-card{background:var(--bg-white);border:1px solid var(--border-primary);
@@ -1911,27 +1919,27 @@
   <div class="kpi-row" id="aiChannelRow" style="grid-template-columns:repeat(5,1fr)">
     <div class="kpi ai-ch-card" data-channel="all">
       <div class="k-lbl">Total Orders</div>
-      <div class="k-val mono" id="aiCh-all">—</div>
+      <div class="k-val mono"><span id="aiCh-all">—</span><span class="k-pct muted" id="aiCh-all-pc">100%</span></div>
       <div class="k-sub">sales <b id="aiCh-all-sp">—</b></div>
     </div>
     <div class="kpi ai-ch-card" data-channel="meta">
       <div class="k-lbl">Meta</div>
-      <div class="k-val mono" id="aiCh-meta">—</div>
+      <div class="k-val mono"><span id="aiCh-meta">—</span><span class="k-pct" id="aiCh-meta-pc">—</span></div>
       <div class="k-sub">sales <b id="aiCh-meta-sp">—</b></div>
     </div>
     <div class="kpi ai-ch-card" data-channel="google">
       <div class="k-lbl">Google</div>
-      <div class="k-val mono" id="aiCh-google">—</div>
+      <div class="k-val mono"><span id="aiCh-google">—</span><span class="k-pct" id="aiCh-google-pc">—</span></div>
       <div class="k-sub">sales <b id="aiCh-google-sp">—</b></div>
     </div>
     <div class="kpi ai-ch-card" data-channel="retention">
       <div class="k-lbl">Retention</div>
-      <div class="k-val mono" id="aiCh-retention">—</div>
+      <div class="k-val mono"><span id="aiCh-retention">—</span><span class="k-pct" id="aiCh-retention-pc">—</span></div>
       <div class="k-sub">sales <b id="aiCh-retention-sp">—</b></div>
     </div>
     <div class="kpi ai-ch-card" data-channel="other">
       <div class="k-lbl">Other</div>
-      <div class="k-val mono" id="aiCh-other">—</div>
+      <div class="k-val mono"><span id="aiCh-other">—</span><span class="k-pct" id="aiCh-other-pc">—</span></div>
       <div class="k-sub">sales <b id="aiCh-other-sp">—</b></div>
     </div>
   </div>
@@ -1958,22 +1966,22 @@
         because it doesn't carry a Meta ad reference). -->
   <div class="kpi-row" id="aiTierCards" style="grid-template-columns:repeat(6,1fr)">
     <div class="kpi" data-tier="Step 1"><div class="k-lbl">Step 1 · utm = ad_id</div>
-      <div class="k-val mono" id="aiKp-S1">—</div>
+      <div class="k-val mono"><span id="aiKp-S1">—</span><span class="k-pct" id="aiKp-S1-pc">—</span></div>
       <div class="k-sub">sales <b id="aiKp-S1-sp">—</b></div></div>
     <div class="kpi" data-tier="Step 2"><div class="k-lbl">Step 2 · utm = ad_name</div>
-      <div class="k-val mono" id="aiKp-S2">—</div>
+      <div class="k-val mono"><span id="aiKp-S2">—</span><span class="k-pct" id="aiKp-S2-pc">—</span></div>
       <div class="k-sub">sales <b id="aiKp-S2-sp">—</b></div></div>
     <div class="kpi" data-tier="Step 3"><div class="k-lbl">Step 3 · adset+name⊇utm</div>
-      <div class="k-val mono" id="aiKp-S3">—</div>
+      <div class="k-val mono"><span id="aiKp-S3">—</span><span class="k-pct" id="aiKp-S3-pc">—</span></div>
       <div class="k-sub">sales <b id="aiKp-S3-sp">—</b></div></div>
     <div class="kpi" data-tier="Step 4"><div class="k-lbl">Step 4 · sep-normalised</div>
-      <div class="k-val mono" id="aiKp-S4">—</div>
+      <div class="k-val mono"><span id="aiKp-S4">—</span><span class="k-pct" id="aiKp-S4-pc">—</span></div>
       <div class="k-sub">sales <b id="aiKp-S4-sp">—</b></div></div>
     <div class="kpi" data-tier="Step 5"><div class="k-lbl">Step 5 · multi-attribute</div>
-      <div class="k-val mono" id="aiKp-S5">—</div>
+      <div class="k-val mono"><span id="aiKp-S5">—</span><span class="k-pct" id="aiKp-S5-pc">—</span></div>
       <div class="k-sub">sales <b id="aiKp-S5-sp">—</b></div></div>
     <div class="kpi" data-tier="__none__"><div class="k-lbl">Unmatched</div>
-      <div class="k-val mono" id="aiKp-none">—</div>
+      <div class="k-val mono"><span id="aiKp-none">—</span><span class="k-pct" id="aiKp-none-pc">—</span></div>
       <div class="k-sub">sales <b id="aiKp-none-sp">—</b></div></div>
   </div>
 
@@ -5012,9 +5020,15 @@ function aiRenderChannels(){
     chs.all.n += 1;      chs.all.sp += sp;
     chs[c].n  += 1;      chs[c].sp  += sp;
   }
+  const total = chs.all.n || 0;
   const set = (id, k) => {
     document.getElementById('aiCh-'+id     ).textContent = fmtInt(chs[k].n);
     document.getElementById('aiCh-'+id+'-sp').textContent = fmtRs(chs[k].sp);
+    const pcEl = document.getElementById('aiCh-'+id+'-pc');
+    if (!pcEl) return;
+    if (k === 'all'){ pcEl.textContent = '100%'; return; }
+    const pct = total > 0 ? (chs[k].n / total * 100) : 0;
+    pcEl.textContent = pct.toFixed(1) + '%';
   };
   set('all','all'); set('meta','meta'); set('google','google');
   set('retention','retention'); set('other','other');
@@ -5124,9 +5138,15 @@ function aiRenderKpis(){
     buckets[k] += 1;
     sales[k]   += (+r.total_price || 0);
   }
+  // Total across all Step-buckets (including Unmatched) — same as aiOrders.length
+  let total = 0;
+  for (const k in buckets) total += buckets[k];
   const set = (id, k) => {
-    document.getElementById('aiKp-'+id     ).textContent = fmtInt(buckets[k] || 0);
+    const n = buckets[k] || 0;
+    document.getElementById('aiKp-'+id     ).textContent = fmtInt(n);
     document.getElementById('aiKp-'+id+'-sp').textContent = fmtRs(sales[k] || 0);
+    const pcEl = document.getElementById('aiKp-'+id+'-pc');
+    if (pcEl) pcEl.textContent = total > 0 ? ((n / total * 100).toFixed(1) + '%') : '—';
   };
   set('S1','Step 1'); set('S2','Step 2'); set('S3','Step 3');
   set('S4','Step 4'); set('S5','Step 5'); set('none','__none__');
