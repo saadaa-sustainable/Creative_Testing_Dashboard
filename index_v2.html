@@ -4874,7 +4874,11 @@ function drpRender(){
 function drpDayClick(node){
   if (!node || node.classList.contains('other-month') || node.classList.contains('disabled')) return;
   const dt = drpParseLocal(node.dataset.date);
-  if (!drpState.selecting){
+  // If the previous selection is fully complete (both from + to filled
+  // and we're not mid-range) or if we have neither, start a fresh
+  // range with this click as the new "from".
+  const hasCompleted = drpState.from && drpState.to && !drpState.selecting;
+  if (!drpState.selecting || hasCompleted){
     drpState.from = dt; drpState.to = null; drpState.hov = null;
     drpState.selecting = true; drpState.preset = 'custom';
   } else {
@@ -4936,11 +4940,19 @@ async function drpApply(){
   const fromInp = drpEl('aeDateFrom'), toInp = drpEl('aeDateTo');
   if (drpState.preset === 'lifetime' || (!drpState.from && !drpState.to)){
     fromInp.value = ''; toInp.value = '';
+    drpState.from = null; drpState.to = null;
   } else {
     let from = drpState.from, to = drpState.to || drpState.from;
     if (from > to){ const t = from; from = to; to = t; }
     fromInp.value = drpFmtLocal(from); toInp.value = drpFmtLocal(to);
+    // Normalise the state so the next picker-open shows the current
+    // range as a completed selection (not mid-way through a range).
+    drpState.from = from; drpState.to = to;
   }
+  // Critical: reset the "picking a range" mode. Without this, single-day
+  // Apply leaves drpState.selecting = true and the NEXT day-click gets
+  // interpreted as the end of the old range instead of a fresh start.
+  drpState.selecting = false; drpState.hov = null;
   drpUpdateButton();
   drpClose();
   await aeRebuildDeliverySet();
@@ -5082,7 +5094,8 @@ function lifeDrpRender(){
 function lifeDrpDayClick(node){
   if (!node || node.classList.contains('other-month') || node.classList.contains('disabled')) return;
   const dt = drpParseLocal(node.dataset.date);
-  if (!lifeDrpState.selecting){
+  const hasCompleted = lifeDrpState.from && lifeDrpState.to && !lifeDrpState.selecting;
+  if (!lifeDrpState.selecting || hasCompleted){
     lifeDrpState.from = dt; lifeDrpState.to = null; lifeDrpState.hov = null;
     lifeDrpState.selecting = true; lifeDrpState.preset = 'custom';
   } else {
@@ -5141,11 +5154,14 @@ function lifeDrpApply(){
   const fromInp = lifeDrpEl('lifeDateFrom'), toInp = lifeDrpEl('lifeDateTo');
   if (lifeDrpState.preset === 'lifetime' || (!lifeDrpState.from && !lifeDrpState.to)){
     fromInp.value = ''; toInp.value = '';
+    lifeDrpState.from = null; lifeDrpState.to = null;
   } else {
     let from = lifeDrpState.from, to = lifeDrpState.to || lifeDrpState.from;
     if (from > to){ const t = from; from = to; to = t; }
     fromInp.value = drpFmtLocal(from); toInp.value = drpFmtLocal(to);
+    lifeDrpState.from = from; lifeDrpState.to = to;
   }
+  lifeDrpState.selecting = false; lifeDrpState.hov = null;
   lifeDrpUpdateButton();
   lifeDrpClose();
   renderLifecycle();
