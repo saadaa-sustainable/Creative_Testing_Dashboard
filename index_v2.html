@@ -4973,10 +4973,46 @@ function drpDayClick(node){
   }
   drpRender();
 }
+/* Update range-highlight classes IN PLACE on the existing cells instead
+ * of calling drpRender (which wipes innerHTML). The reason: on the very
+ * next mouseup, click bubbles up to the calendar container's listener —
+ * but if innerHTML was just replaced, the day cell is detached and the
+ * click never reaches the container. So hover-driven re-render was
+ * eating the second click of a range. */
+function drpUpdateRangeHighlight(){
+  let rFrom = drpState.from;
+  let rTo   = drpState.selecting && drpState.hov ? drpState.hov : drpState.to;
+  if (rFrom && rTo && rFrom > rTo){ const t = rFrom; rFrom = rTo; rTo = t; }
+  const from = rFrom ? rFrom.getTime() : null;
+  const to   = rTo   ? rTo.getTime()   : null;
+  ['ae-drp-cal-l','ae-drp-cal-r'].forEach(id => {
+    const cal = drpEl(id); if (!cal) return;
+    cal.querySelectorAll('.drp-day').forEach(cell => {
+      cell.classList.remove('range-start','range-end','in-range');
+      if (cell.classList.contains('other-month')) return;
+      const iso = cell.dataset.date; if (!iso) return;
+      const t = drpParseLocal(iso).getTime();
+      if (from !== null && t === from) cell.classList.add('range-start');
+      if (to   !== null && t === to)   cell.classList.add('range-end');
+      if (from !== null && to !== null && t > from && t < to) cell.classList.add('in-range');
+    });
+  });
+  // Also refresh the footer text since the "end" hint changes with hover.
+  const footerEl = drpEl('ae-drp-footer-range');
+  if (footerEl){
+    if (drpState.selecting && drpState.from && !drpState.to){
+      footerEl.textContent = drpDisplay(rFrom) + ' → click END date';
+    } else {
+      footerEl.textContent = drpDisplay(rFrom) + ' - ' + drpDisplay(rTo);
+    }
+  }
+}
 function drpDayHover(node){
   if (!drpState.selecting || !node || node.classList.contains('other-month') || node.classList.contains('disabled')) return;
   drpState.hov = drpParseLocal(node.dataset.date);
-  drpRender();
+  // Class-only update — keeps existing DOM nodes attached so the ensuing
+  // click event bubbles to the calendar listener.
+  drpUpdateRangeHighlight();
 }
 function drpPreset(key){
   const now = new Date(); now.setHours(0,0,0,0);
@@ -5205,10 +5241,37 @@ function lifeDrpDayClick(node){
   }
   lifeDrpRender();
 }
+function lifeDrpUpdateRangeHighlight(){
+  let rFrom = lifeDrpState.from;
+  let rTo   = lifeDrpState.selecting && lifeDrpState.hov ? lifeDrpState.hov : lifeDrpState.to;
+  if (rFrom && rTo && rFrom > rTo){ const t = rFrom; rFrom = rTo; rTo = t; }
+  const from = rFrom ? rFrom.getTime() : null;
+  const to   = rTo   ? rTo.getTime()   : null;
+  ['life-drp-cal-l','life-drp-cal-r'].forEach(id => {
+    const cal = lifeDrpEl(id); if (!cal) return;
+    cal.querySelectorAll('.drp-day').forEach(cell => {
+      cell.classList.remove('range-start','range-end','in-range');
+      if (cell.classList.contains('other-month')) return;
+      const iso = cell.dataset.date; if (!iso) return;
+      const t = drpParseLocal(iso).getTime();
+      if (from !== null && t === from) cell.classList.add('range-start');
+      if (to   !== null && t === to)   cell.classList.add('range-end');
+      if (from !== null && to !== null && t > from && t < to) cell.classList.add('in-range');
+    });
+  });
+  const footerEl = lifeDrpEl('life-drp-footer-range');
+  if (footerEl){
+    if (lifeDrpState.selecting && lifeDrpState.from && !lifeDrpState.to){
+      footerEl.textContent = drpDisplay(rFrom) + ' → click END date';
+    } else {
+      footerEl.textContent = drpDisplay(rFrom) + ' - ' + drpDisplay(rTo);
+    }
+  }
+}
 function lifeDrpDayHover(node){
   if (!lifeDrpState.selecting || !node || node.classList.contains('other-month') || node.classList.contains('disabled')) return;
   lifeDrpState.hov = drpParseLocal(node.dataset.date);
-  lifeDrpRender();
+  lifeDrpUpdateRangeHighlight();
 }
 function lifeDrpPreset(key){
   const now = new Date(); now.setHours(0,0,0,0);
