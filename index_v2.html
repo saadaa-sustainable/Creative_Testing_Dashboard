@@ -1707,6 +1707,7 @@
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn ghost" id="aeBtnCrosscheck">⇄ Cross-check vs old dashboard</button>
+      <button class="btn ghost" id="aeBtnIncrReach" title="Aggregate incremental reach and cost-per-1k by ad name, campaign, ad set, or account">▲ Incremental Reach Analysis</button>
       <button class="btn ghost" id="aeBtnRefresh">↻ Refresh</button>
       <button class="btn"       id="aeBtnExport">Export CSV</button>
     </div>
@@ -1945,6 +1946,7 @@
             <th class="num" data-sort="reach">Reach</th>
             <th class="num" data-sort="incremental_reach" title="Latest daily reach − previous daily reach (from primary_table/backfill_table)">Incr. Reach</th>
             <th class="num" data-sort="cost_per_incremental_reach" title="Latest daily spend ÷ incremental reach">Cost/Incr Reach</th>
+            <th class="num" data-sort="cost_per_1000_incremental_reach" title="Cost per 1,000 incremental reach — CPM equivalent for the incremental-reach delta on the ad's latest reporting day">Cost/1k Incr Reach</th>
             <th class="num" data-sort="reach_weight_pct">Reach Weight %</th>
             <th class="num" data-sort="frequency">Freq</th>
             <th class="num" data-sort="amount_spent">Spend</th>
@@ -2443,6 +2445,61 @@
   </div>
 </div>
 
+<!-- ═════════════════ MODAL (Incremental Reach group-by) ═════════════════ -->
+<div id="incrReachModal" role="dialog" aria-hidden="true"
+     style="position:fixed;inset:0;background:rgba(30,26,15,0.5);z-index:1400;
+            display:none;align-items:center;justify-content:center;padding:32px">
+  <div style="background:var(--bg-white);border-radius:14px;width:100%;max-width:1200px;
+              max-height:90vh;overflow:hidden;display:flex;flex-direction:column;
+              box-shadow:0 20px 60px rgba(0,0,0,.35)">
+    <div style="padding:16px 22px;border-bottom:1px solid var(--border-primary);
+                display:flex;align-items:center;gap:18px">
+      <div style="flex:1">
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;
+                    font-weight:700;color:var(--text-primary);letter-spacing:.4px;
+                    text-transform:uppercase">Incremental Reach Analysis</div>
+        <div id="incrReachSub" style="font-size:11px;color:var(--text-tertiary);
+                    margin-top:2px;font-family:'JetBrains Mono',monospace">
+          Aggregated latest-day incremental reach and cost per 1,000 across ads
+        </div>
+      </div>
+      <button id="incrReachClose" class="btn ghost">✕</button>
+    </div>
+    <div style="padding:12px 22px;border-bottom:1px solid var(--border-soft);
+                background:var(--bg-page-alt);display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+      <div style="display:flex;gap:6px" id="incrReachGroupBy">
+        <span style="font-size:10.5px;color:var(--text-tertiary);align-self:center;
+                     letter-spacing:.5px;text-transform:uppercase;margin-right:6px">Group by</span>
+        <button class="chip active" data-g="ad_name">Ad name</button>
+        <button class="chip"        data-g="campaign_name">Campaign</button>
+        <button class="chip"        data-g="adset_name">Ad set</button>
+        <button class="chip"        data-g="account_name">Account</button>
+      </div>
+      <div style="flex:1"></div>
+      <input id="incrReachSearch" type="search" placeholder="Search groups…"
+             style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;
+                    background:var(--bg-white);font-size:11.5px;width:280px;
+                    font-family:'Inter',sans-serif;outline:none">
+      <span id="incrReachCount" class="mono" style="font-size:11px;color:var(--text-tertiary)">—</span>
+    </div>
+    <div style="overflow:auto;flex:1">
+      <table class="tbl" id="incrReachTbl" style="margin:0;min-width:900px">
+        <thead><tr>
+          <th data-irsort="grp" class="sortable">Group</th>
+          <th class="num sortable" data-irsort="n">Ads</th>
+          <th class="num sortable" data-irsort="latest_reach">Latest reach</th>
+          <th class="num sortable" data-irsort="previous_reach">Prev reach</th>
+          <th class="num sortable" data-irsort="incremental_reach">Incr. reach</th>
+          <th class="num sortable" data-irsort="latest_spend">Latest spend</th>
+          <th class="num sortable" data-irsort="cost_per_1000">Cost / 1k incr. reach</th>
+        </tr></thead>
+        <tbody id="incrReachBody"><tr><td colspan="7" style="padding:32px;text-align:center;
+              color:var(--text-tertiary)">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- ═════════════════ MODAL (Winners popup) ═════════════════ -->
 <div id="modal" role="dialog" aria-hidden="true">
   <div class="modal-card">
@@ -2630,8 +2687,8 @@ async function fetchReachRecent(){
                    Prefer:'count=none'};
   const out = {};
   let offset = 0, BATCH = 1000;
-  const cols = 'ad_id,latest_date,latest_reach,previous_reach,'+
-               'incremental_reach,cost_per_incremental_reach';
+  const cols = 'ad_id,latest_date,latest_reach,previous_reach,latest_spend,'+
+               'incremental_reach,cost_per_incremental_reach,cost_per_1000_incremental_reach';
   while (true){
     const url = SUPABASE_URL+'/rest/v1/ae_reach_recent?select='+cols+
                 '&limit='+BATCH+'&offset='+offset;
@@ -3787,8 +3844,10 @@ document.getElementById('btnRefresh').onclick = async ()=>{
   for (const r of allAds){
     const rr = reachRecentByAdId[r.ad_id];
     if (rr){
-      r.incremental_reach          = rr.incremental_reach;
-      r.cost_per_incremental_reach = rr.cost_per_incremental_reach;
+      r.incremental_reach                = rr.incremental_reach;
+      r.cost_per_incremental_reach       = rr.cost_per_incremental_reach;
+      r.cost_per_1000_incremental_reach  = rr.cost_per_1000_incremental_reach;
+      r.latest_spend                     = rr.latest_spend;
     }
   }
   aeApplyCurrentThresholds();
@@ -6098,6 +6157,7 @@ function renderAE(){
       numCell(reachVal)+
       numCell(r.incremental_reach == null ? '—' : fmtInt(r.incremental_reach))+
       numCell(r.cost_per_incremental_reach == null ? '—' : fmtRs(r.cost_per_incremental_reach))+
+      numCell(r.cost_per_1000_incremental_reach == null ? '—' : fmtRs(r.cost_per_1000_incremental_reach))+
       numCell(fmtNum2(r.reach_weight_pct))+
       numCell(freqVal)+
       numCell(spendVal)+
@@ -6373,8 +6433,10 @@ document.getElementById('aeBtnRefresh').onclick = async () => {
   for (const r of allAds){
     const rr = reachRecentByAdId[r.ad_id];
     if (rr){
-      r.incremental_reach          = rr.incremental_reach;
-      r.cost_per_incremental_reach = rr.cost_per_incremental_reach;
+      r.incremental_reach                = rr.incremental_reach;
+      r.cost_per_incremental_reach       = rr.cost_per_incremental_reach;
+      r.cost_per_1000_incremental_reach  = rr.cost_per_1000_incremental_reach;
+      r.latest_spend                     = rr.latest_spend;
     }
   }
   aeApplyCurrentThresholds();
@@ -6403,6 +6465,139 @@ document.getElementById('aeBtnCrosscheck').onclick = () => {
 document.getElementById('aeCrossClose').onclick = () => {
   document.getElementById('aeCrossPanel').style.display = 'none';
 };
+
+/* ────────────────────────────────────────────────────────────────────
+   INCREMENTAL REACH ANALYSIS — group-by drill
+
+   Aggregates each ad's latest-day incremental reach (from
+   ae_reach_recent, merged onto allAds at load) across the group-by
+   key. Cost per 1,000 incremental reach is recomputed at the group
+   level so aggregate makes sense — SUM(latest_spend) / SUM(incr_reach)
+   * 1000 rather than a simple average of per-ad CPMs.
+
+   Filters follow the Ads Analyse "Filter by" state so the drill
+   reflects the same rows the user is looking at in the table.
+   ──────────────────────────────────────────────────────────────────── */
+let incrReachGroupKey = 'ad_name';
+let incrReachSearch   = '';
+let incrReachSort     = {key:'incremental_reach', dir:'desc'};
+
+function _incrOpen(){
+  document.getElementById('incrReachModal').style.display = 'flex';
+  document.getElementById('incrReachModal').setAttribute('aria-hidden','false');
+  _incrRender();
+}
+function _incrClose(){
+  document.getElementById('incrReachModal').style.display = 'none';
+  document.getElementById('incrReachModal').setAttribute('aria-hidden','true');
+}
+function _incrRender(){
+  // Use the current Ads Analyse filtered set so the drill matches the table.
+  const rows = (typeof aeFiltered === 'function' ? aeFiltered() : allAds) || [];
+  const groups = new Map();
+  for (const r of rows){
+    if (r.incremental_reach == null) continue;
+    const g = (r[incrReachGroupKey] || '(unknown)').toString();
+    let acc = groups.get(g);
+    if (!acc){
+      acc = {grp:g, n:0, latest_reach:0, previous_reach:0,
+             incremental_reach:0, latest_spend:0};
+      groups.set(g, acc);
+    }
+    acc.n              += 1;
+    acc.latest_reach   += (+r.reach || 0);   // ae_table_view lifetime reach; close enough as reference
+    acc.previous_reach += Math.max(0, (+r.reach || 0) - (+r.incremental_reach || 0));
+    acc.incremental_reach += (+r.incremental_reach || 0);
+    acc.latest_spend      += (+r.latest_spend      || 0);
+  }
+  // Cost per 1k at the aggregate level = spend / incr_reach * 1000
+  for (const g of groups.values()){
+    g.cost_per_1000 = g.incremental_reach > 0
+      ? (g.latest_spend * 1000) / g.incremental_reach
+      : null;
+  }
+  let list = [...groups.values()];
+  // Search
+  const q = (incrReachSearch || '').toLowerCase().trim();
+  if (q) list = list.filter(g => g.grp.toLowerCase().includes(q));
+  // Sort
+  const dir = incrReachSort.dir === 'asc' ? 1 : -1;
+  list.sort((a,b) => {
+    const va = a[incrReachSort.key], vb = b[incrReachSort.key];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    if (typeof va === 'string') return dir * va.localeCompare(vb);
+    return dir * (va - vb);
+  });
+  // Sort indicator on headers
+  document.querySelectorAll('#incrReachTbl th.sortable').forEach(th => {
+    th.classList.remove('sort-asc','sort-desc');
+    if (th.dataset.irsort === incrReachSort.key){
+      th.classList.add(incrReachSort.dir === 'asc' ? 'sort-asc' : 'sort-desc');
+    }
+  });
+  // Body
+  const body = document.getElementById('incrReachBody');
+  if (!list.length){
+    body.innerHTML = '<tr><td colspan="7" style="padding:32px;text-align:center;'+
+                     'color:var(--text-tertiary)">No ads with incremental-reach data '+
+                     'in the current filter.</td></tr>';
+  } else {
+    body.innerHTML = list.slice(0, 500).map(g => {
+      const grpHtml = '<div style="font-weight:600;color:var(--text-primary);'+
+                      'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'+
+                      'max-width:340px" title="'+g.grp.replace(/"/g,'&quot;')+'">'+
+                      g.grp+'</div>';
+      return '<tr>'+
+        '<td>'+grpHtml+'</td>'+
+        '<td class="num">'+fmtInt(g.n)+'</td>'+
+        '<td class="num">'+fmtInt(g.latest_reach)+'</td>'+
+        '<td class="num">'+fmtInt(g.previous_reach)+'</td>'+
+        '<td class="num" style="color:#2E7755;font-weight:600">'+fmtInt(g.incremental_reach)+'</td>'+
+        '<td class="num">'+fmtRs(g.latest_spend)+'</td>'+
+        '<td class="num">'+(g.cost_per_1000 == null ? '—' : '₹'+fmtNum2(g.cost_per_1000))+'</td>'+
+      '</tr>';
+    }).join('');
+  }
+  const totalIncr = list.reduce((s,g) => s + (+g.incremental_reach || 0), 0);
+  const totalSpend = list.reduce((s,g) => s + (+g.latest_spend || 0), 0);
+  const overallCpm = totalIncr > 0 ? (totalSpend * 1000 / totalIncr) : null;
+  document.getElementById('incrReachCount').textContent =
+    fmtInt(list.length) + ' groups · Σ incr reach ' + fmtInt(totalIncr) +
+    (overallCpm != null ? ' · overall ₹' + fmtNum2(overallCpm) + ' / 1k' : '');
+  document.getElementById('incrReachSub').textContent =
+    'Grouped by ' + ({'ad_name':'ad name','campaign_name':'campaign',
+                     'adset_name':'ad set','account_name':'account'})[incrReachGroupKey];
+}
+document.getElementById('aeBtnIncrReach').onclick = _incrOpen;
+document.getElementById('incrReachClose').onclick = _incrClose;
+document.getElementById('incrReachModal').addEventListener('click', e => {
+  if (e.target.id === 'incrReachModal') _incrClose();
+});
+document.getElementById('incrReachGroupBy').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  document.querySelectorAll('#incrReachGroupBy .chip').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  incrReachGroupKey = b.dataset.g;
+  _incrRender();
+});
+let _incrSearchDb = null;
+document.getElementById('incrReachSearch').addEventListener('input', e => {
+  clearTimeout(_incrSearchDb);
+  _incrSearchDb = setTimeout(() => { incrReachSearch = e.target.value; _incrRender(); }, 180);
+});
+document.getElementById('incrReachTbl').addEventListener('click', e => {
+  const th = e.target.closest('th.sortable'); if (!th) return;
+  const k = th.dataset.irsort;
+  if (incrReachSort.key === k){
+    incrReachSort.dir = incrReachSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    incrReachSort.key = k;
+    incrReachSort.dir = (k === 'grp') ? 'asc' : 'desc';
+  }
+  _incrRender();
+});
 
 /* ────────────────────────────────────────────────────────────────────
    INVENTORY — Shopify products via Admin GraphQL
@@ -6598,8 +6793,10 @@ document.getElementById('invExport').onclick = () => {
   for (const r of allAds){
     const rr = reachRecentByAdId[r.ad_id];
     if (rr){
-      r.incremental_reach          = rr.incremental_reach;
-      r.cost_per_incremental_reach = rr.cost_per_incremental_reach;
+      r.incremental_reach                = rr.incremental_reach;
+      r.cost_per_incremental_reach       = rr.cost_per_incremental_reach;
+      r.cost_per_1000_incremental_reach  = rr.cost_per_1000_incremental_reach;
+      r.latest_spend                     = rr.latest_spend;
     }
   }
 
