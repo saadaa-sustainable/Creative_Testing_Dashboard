@@ -2274,12 +2274,16 @@
   <div id="invConfigPanel" style="display:none;background:var(--bg-white);
               border:1px solid var(--border-primary);border-radius:12px;
               padding:16px 22px;margin-bottom:12px">
-    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap">
       <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;
                   text-transform:uppercase;letter-spacing:.5px;color:var(--text-primary)">
         Shopify inventory source</div>
-      <div style="font-size:11px;color:var(--text-tertiary)">
-        Stored in this browser's localStorage — no server round-trip. Refresh reloads from the Shopify Admin GraphQL API.</div>
+      <div style="font-size:11px;color:var(--text-tertiary);flex:1;min-width:280px">
+        Live inventory is served from Supabase (public.shopify_products cache).
+        The cache is refreshed by <code>backend/sync_shopify_products.py</code>.
+        Credentials below are used only by that sync script — the browser doesn't
+        call Shopify directly (Admin API doesn't send CORS headers).
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;align-items:end">
       <div>
@@ -6875,33 +6879,74 @@ async function shopifyGraphQL(query, variables){
 }
 
 async function loadInventory(){
+  // Shopify Admin GraphQL doesn't send CORS headers so the browser can't
+  // hit it directly — we read from the public.shopify_products cache in
+  // Supabase instead. That table is refreshed by
+  // backend/sync_shopify_products.py (run any time / on a cron). The
+  // Shopify config panel is still available so anyone can PIN their own
+  // shop's cache (future — right now the pipeline only serves the
+  // configured shop).
   const footer = document.getElementById('invFooter');
-  if (!SHOPIFY_DOMAIN || !SHOPIFY_TOKEN){
-    footer.innerHTML = '⚠️ <b>Missing Shopify credentials.</b> Click ' +
-      '<b>⚙ Shopify config</b> above to enter your shop domain and admin API token, ' +
-      'or append <code style="background:#fff;padding:2px 6px;border-radius:4px;border:1px solid var(--border-warm)">' +
-      '?shopDomain=&lt;shop&gt;.myshopify.com&amp;shopifyToken=&lt;token&gt;</code> to the URL.';
+  if (!SUPABASE_URL || !SUPABASE_ANON){
+    footer.innerHTML = '⚠️ Supabase URL/key missing — inventory cache unreachable.';
     return;
   }
-  footer.innerHTML = 'Loading products from Shopify <span class="spinner"></span>';
+  footer.innerHTML = 'Loading products from cache <span class="spinner"></span>';
   invProducts = [];
-  let cursor = null, page = 0;
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                   Prefer:'count=none'};
+  const cols = 'id,title,status,vendor,product_type,handle,image_url,'+
+               'variant_count,total_inventory,price_min,price_max,'+
+               'created_at_shop,updated_at_shop,synced_at';
+  let offset = 0, BATCH = 1000, lastSynced = null;
   try {
     while (true){
-      const d = await shopifyGraphQL(INV_QUERY, {after: cursor});
-      const edges = d.products.edges;
-      edges.forEach(e => invProducts.push(e.node));
-      page += 1;
-      footer.innerHTML = 'Loading… page ' + page + ' · ' + invProducts.length + ' products fetched <span class="spinner"></span>';
-      if (!d.products.pageInfo.hasNextPage) break;
-      cursor = d.products.pageInfo.endCursor;
+      const url = SUPABASE_URL + '/rest/v1/shopify_products?select=' + cols +
+                  '&order=updated_at_shop.desc&limit=' + BATCH + '&offset=' + offset;
+      const r = await fetch(url, {headers});
+      if (!r.ok){
+        const txt = await r.text().catch(() => '');
+        throw new Error('HTTP ' + r.status + ' — ' + txt.slice(0, 120));
+      }
+      const j = await r.json();
+      if (!Array.isArray(j) || !j.length) break;
+      // Adapt to the shape the renderer expects (matches the old GraphQL result)
+      for (const p of j){
+        invProducts.push({
+          id:              p.id,
+          title:           p.title,
+          status:          p.status,
+          vendor:          p.vendor,
+          productType:     p.product_type,
+          handle:          p.handle,
+          createdAt:       p.created_at_shop,
+          updatedAt:       p.updated_at_shop,
+          totalInventory:  p.total_inventory,
+          featuredImage:   p.image_url ? {url: p.image_url} : null,
+          priceRangeV2: {
+            minVariantPrice: {amount: p.price_min},
+            maxVariantPrice: {amount: p.price_max},
+          },
+          variantsCount: {count: p.variant_count},
+        });
+        if (p.synced_at && (!lastSynced || p.synced_at > lastSynced)) lastSynced = p.synced_at;
+      }
+      footer.innerHTML = 'Loading… ' + invProducts.length.toLocaleString() +
+                          ' products fetched <span class="spinner"></span>';
+      if (j.length < BATCH) break;
+      offset += BATCH;
     }
   } catch (err){
-    footer.innerHTML = '❌ Shopify fetch failed: ' + String(err.message || err);
+    footer.innerHTML = '❌ Inventory cache fetch failed: ' + String(err.message || err) +
+      '<br><span style="font-size:11px;color:var(--text-tertiary)">The cache is populated by ' +
+      '<code>backend/sync_shopify_products.py</code> — run it to refresh.</span>';
     return;
   }
-  footer.textContent = 'Loaded ' + invProducts.length.toLocaleString() + ' products  ·  ' +
-    'last refresh ' + new Date().toLocaleString();
+  const lastTxt = lastSynced
+    ? ' · last synced ' + new Date(lastSynced).toLocaleString()
+    : '';
+  footer.textContent = 'Loaded ' + invProducts.length.toLocaleString() +
+    ' products from cache' + lastTxt;
   renderInventoryKpis();
   renderInventoryTable();
 }
@@ -7030,17 +7075,11 @@ document.getElementById('invCfgSave').onclick = () => {
   SHOPIFY_DOMAIN  = domain;
   SHOPIFY_TOKEN   = token;
   SHOPIFY_API_VER = apiVer;
-  st.textContent = '✓ saved · fetching inventory…';
-  st.style.color = 'var(--text-secondary)';
+  st.textContent = '✓ credentials stored — the browser reads inventory from ' +
+                   'the Supabase cache. Run backend/sync_shopify_products.py to refresh the cache.';
+  st.style.color = 'var(--success-text, #2E7755)';
   VIEW_LOADED.inventory = false;
-  loadInventory().then(() => {
-    st.textContent = '✓ credentials stored — shop=' + domain + ' · api ' + apiVer +
-                     ' · loaded ' + fmtInt((invProducts||[]).length) + ' products';
-    st.style.color = 'var(--success-text, #2E7755)';
-  }).catch(e => {
-    st.textContent = '✗ fetch failed: ' + String(e).slice(0, 120);
-    st.style.color = '#B33A2A';
-  });
+  loadInventory();
   VIEW_LOADED.inventory = true;
 };
 document.getElementById('invCfgClear').onclick = () => {
