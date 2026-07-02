@@ -2523,7 +2523,31 @@
       </div>
       <button id="incrReachClose" class="btn ghost">✕</button>
     </div>
-    <div style="padding:12px 22px;border-bottom:1px solid var(--border-soft);
+    <!-- Row 1: date presets + explicit range -->
+    <div style="padding:10px 22px;border-bottom:1px solid var(--border-soft);
+                background:var(--bg-page-alt);display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <span style="font-size:10.5px;color:var(--text-tertiary);
+                   letter-spacing:.5px;text-transform:uppercase">Window</span>
+      <div style="display:flex;gap:6px" id="incrReachDatePresets">
+        <button class="preset"        data-d="1">Yesterday</button>
+        <button class="preset active" data-d="7">Last 7d</button>
+        <button class="preset"        data-d="14">Last 14d</button>
+        <button class="preset"        data-d="30">Last 30d</button>
+      </div>
+      <span style="font-size:10.5px;color:var(--text-tertiary);
+                   letter-spacing:.5px;text-transform:uppercase;margin-left:6px">Custom</span>
+      <input id="incrReachDateFrom" type="date"
+             style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;
+                    background:var(--bg-white);font-size:11.5px;font-family:'JetBrains Mono',monospace">
+      <span style="font-size:11px;color:var(--text-tertiary)">→</span>
+      <input id="incrReachDateTo" type="date"
+             style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;
+                    background:var(--bg-white);font-size:11.5px;font-family:'JetBrains Mono',monospace">
+      <button id="incrReachDateApply" class="btn ghost"
+              style="padding:4px 10px;font-size:11px">Apply</button>
+    </div>
+    <!-- Row 2: group-by + search -->
+    <div style="padding:10px 22px;border-bottom:1px solid var(--border-soft);
                 background:var(--bg-page-alt);display:flex;align-items:center;gap:20px;flex-wrap:wrap">
       <div style="display:flex;gap:6px" id="incrReachGroupBy">
         <span style="font-size:10.5px;color:var(--text-tertiary);align-self:center;
@@ -2541,17 +2565,18 @@
       <span id="incrReachCount" class="mono" style="font-size:11px;color:var(--text-tertiary)">—</span>
     </div>
     <div style="overflow:auto;flex:1">
-      <table class="tbl" id="incrReachTbl" style="margin:0;min-width:900px">
+      <table class="tbl" id="incrReachTbl" style="margin:0;min-width:1100px">
         <thead><tr>
           <th data-irsort="grp" class="sortable">Group</th>
+          <th data-irsort="landing" class="sortable" id="incrReachLandingHdr">Landing page</th>
           <th class="num sortable" data-irsort="n">Ads</th>
-          <th class="num sortable" data-irsort="latest_reach">Latest reach</th>
-          <th class="num sortable" data-irsort="previous_reach">Prev reach</th>
-          <th class="num sortable" data-irsort="incremental_reach">Incr. reach</th>
-          <th class="num sortable" data-irsort="latest_spend">Latest spend</th>
-          <th class="num sortable" data-irsort="cost_per_1000">Cost / 1k incr. reach</th>
+          <th class="num sortable" data-irsort="days_active">Days</th>
+          <th class="num sortable" data-irsort="reach_sum">Total reach</th>
+          <th class="num sortable" data-irsort="reach_peak">Peak reach</th>
+          <th class="num sortable" data-irsort="spend_sum">Total spend</th>
+          <th class="num sortable" data-irsort="cost_per_1000">Cost / 1k reach</th>
         </tr></thead>
-        <tbody id="incrReachBody"><tr><td colspan="7" style="padding:32px;text-align:center;
+        <tbody id="incrReachBody"><tr><td colspan="8" style="padding:32px;text-align:center;
               color:var(--text-tertiary)">Loading…</td></tr></tbody>
       </table>
     </div>
@@ -6561,40 +6586,107 @@ document.getElementById('aeCrossClose').onclick = () => {
    ──────────────────────────────────────────────────────────────────── */
 let incrReachGroupKey = 'ad_name';
 let incrReachSearch   = '';
-let incrReachSort     = {key:'incremental_reach', dir:'desc'};
+let incrReachSort     = {key:'reach_sum', dir:'desc'};
+let incrReachData     = [];  // per-ad rows returned by the RPC
+let incrReachFrom     = '';
+let incrReachTo       = '';
+
+// ── Date preset helper ──────────────────────────────────────────────
+function _incrPresetDates(days){
+  // Yesterday inclusive, N days ending yesterday. Keeps the range
+  // stable across timezones — today's data is still being collected.
+  const t = new Date(); t.setHours(0,0,0,0);
+  const to = new Date(t); to.setDate(t.getDate() - 1);
+  const from = new Date(to); from.setDate(to.getDate() - (days - 1));
+  const iso = d => d.toISOString().slice(0,10);
+  return {from: iso(from), to: iso(to)};
+}
+
+// ── RPC fetch ───────────────────────────────────────────────────────
+async function _incrFetch(){
+  if (!SUPABASE_URL || !SUPABASE_ANON){ incrReachData = []; return; }
+  const body = document.getElementById('incrReachBody');
+  body.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;'+
+                   'color:var(--text-tertiary)">Loading window ' +
+                   incrReachFrom + ' → ' + incrReachTo + ' …</td></tr>';
+  const url = SUPABASE_URL + '/rest/v1/rpc/get_reach_by_window';
+  try {
+    const r = await fetch(url, {
+      method:'POST',
+      headers:{apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+               'Content-Type':'application/json'},
+      body: JSON.stringify({from_date: incrReachFrom, to_date: incrReachTo})
+    });
+    if (!r.ok){
+      const errTxt = await r.text().catch(() => '');
+      body.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;'+
+                       'color:#B33A2A">RPC failed HTTP '+r.status+' — '+
+                       errTxt.slice(0,120)+'</td></tr>';
+      incrReachData = []; return;
+    }
+    incrReachData = await r.json();
+  } catch (e){
+    body.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;'+
+                     'color:#B33A2A">Network error: '+String(e).slice(0,120)+'</td></tr>';
+    incrReachData = [];
+  }
+}
 
 function _incrOpen(){
   document.getElementById('incrReachModal').style.display = 'flex';
   document.getElementById('incrReachModal').setAttribute('aria-hidden','false');
-  _incrRender();
+  if (!incrReachFrom || !incrReachTo){
+    const p = _incrPresetDates(7);
+    incrReachFrom = p.from; incrReachTo = p.to;
+    document.getElementById('incrReachDateFrom').value = incrReachFrom;
+    document.getElementById('incrReachDateTo'  ).value = incrReachTo;
+  }
+  _incrRefetchAndRender();
 }
 function _incrClose(){
   document.getElementById('incrReachModal').style.display = 'none';
   document.getElementById('incrReachModal').setAttribute('aria-hidden','true');
 }
+
+async function _incrRefetchAndRender(){
+  await _incrFetch();
+  _incrRender();
+}
+
+// ── Aggregation + render ────────────────────────────────────────────
 function _incrRender(){
-  // Use the current Ads Analyse filtered set so the drill matches the table.
-  const rows = (typeof aeFiltered === 'function' ? aeFiltered() : allAds) || [];
+  // Build a lookup: ad_id → ae row (for ad_name, campaign, adset, account, ad_link)
+  const aeByAdId = {};
+  for (const a of (allAds || [])){ if (a.ad_id) aeByAdId[a.ad_id] = a; }
+
   const groups = new Map();
-  for (const r of rows){
-    if (r.incremental_reach == null) continue;
-    const g = (r[incrReachGroupKey] || '(unknown)').toString();
+  for (const row of (incrReachData || [])){
+    const meta = aeByAdId[row.ad_id];
+    if (!meta) continue;  // ad no longer in ae_table_view
+    const g = (meta[incrReachGroupKey] || '(unknown)').toString();
     let acc = groups.get(g);
     if (!acc){
-      acc = {grp:g, n:0, latest_reach:0, previous_reach:0,
-             incremental_reach:0, latest_spend:0};
+      acc = {grp:g, n:0, days_active:0, reach_sum:0, reach_peak:0,
+             spend_sum:0, landing:'', landingCounts:{}};
       groups.set(g, acc);
     }
-    acc.n              += 1;
-    acc.latest_reach   += (+r.reach || 0);   // ae_table_view lifetime reach; close enough as reference
-    acc.previous_reach += Math.max(0, (+r.reach || 0) - (+r.incremental_reach || 0));
-    acc.incremental_reach += (+r.incremental_reach || 0);
-    acc.latest_spend      += (+r.latest_spend      || 0);
+    acc.n           += 1;
+    acc.days_active  = Math.max(acc.days_active, +row.days_active || 0);
+    acc.reach_sum   += +row.reach_sum || 0;
+    acc.reach_peak   = Math.max(acc.reach_peak, +row.reach_peak || 0);
+    acc.spend_sum   += +row.spend_sum || 0;
+    // Track most-common landing URL for the group
+    const lp = meta.ad_link || '';
+    if (lp){
+      acc.landingCounts[lp] = (acc.landingCounts[lp] || 0) + 1;
+      if (!acc.landing || acc.landingCounts[lp] > acc.landingCounts[acc.landing]){
+        acc.landing = lp;
+      }
+    }
   }
-  // Cost per 1k at the aggregate level = spend / incr_reach * 1000
   for (const g of groups.values()){
-    g.cost_per_1000 = g.incremental_reach > 0
-      ? (g.latest_spend * 1000) / g.incremental_reach
+    g.cost_per_1000 = g.reach_sum > 0
+      ? (g.spend_sum * 1000) / g.reach_sum
       : null;
   }
   let list = [...groups.values()];
@@ -6611,45 +6703,61 @@ function _incrRender(){
     if (typeof va === 'string') return dir * va.localeCompare(vb);
     return dir * (va - vb);
   });
-  // Sort indicator on headers
+  // Sort indicator
   document.querySelectorAll('#incrReachTbl th.sortable').forEach(th => {
     th.classList.remove('sort-asc','sort-desc');
     if (th.dataset.irsort === incrReachSort.key){
       th.classList.add(incrReachSort.dir === 'asc' ? 'sort-asc' : 'sort-desc');
     }
   });
+  // Hide Landing column when grouping by non-ad dimension
+  const lpHdr = document.getElementById('incrReachLandingHdr');
+  const lpVisible = incrReachGroupKey === 'ad_name' || incrReachGroupKey === 'campaign_name';
+  if (lpHdr) lpHdr.style.display = lpVisible ? '' : 'none';
   // Body
   const body = document.getElementById('incrReachBody');
   if (!list.length){
-    body.innerHTML = '<tr><td colspan="7" style="padding:32px;text-align:center;'+
-                     'color:var(--text-tertiary)">No ads with incremental-reach data '+
-                     'in the current filter.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;'+
+                     'color:var(--text-tertiary)">No reach data in the selected window. '+
+                     'Try a wider range.</td></tr>';
   } else {
     body.innerHTML = list.slice(0, 500).map(g => {
       const grpHtml = '<div style="font-weight:600;color:var(--text-primary);'+
                       'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'+
-                      'max-width:340px" title="'+g.grp.replace(/"/g,'&quot;')+'">'+
+                      'max-width:320px" title="'+g.grp.replace(/"/g,'&quot;')+'">'+
                       g.grp+'</div>';
+      let lpCell = '';
+      if (lpVisible){
+        lpCell = '<td>' + (g.landing
+          ? (typeof aeLandingCell === 'function' ? '' : '') +
+            '<a class="lp-url" href="'+g.landing+'" target="_blank" rel="noopener" '+
+            'title="'+g.landing.replace(/"/g,'&quot;')+'" style="font-size:11px">'+
+            (g.landing.replace(/^https?:\/\//,'').slice(0, 40) +
+              (g.landing.length > 47 ? '…' : ''))+'</a>'
+          : '<span style="color:var(--text-tertiary)">—</span>') + '</td>';
+      }
       return '<tr>'+
         '<td>'+grpHtml+'</td>'+
+        lpCell+
         '<td class="num">'+fmtInt(g.n)+'</td>'+
-        '<td class="num">'+fmtInt(g.latest_reach)+'</td>'+
-        '<td class="num">'+fmtInt(g.previous_reach)+'</td>'+
-        '<td class="num" style="color:#2E7755;font-weight:600">'+fmtInt(g.incremental_reach)+'</td>'+
-        '<td class="num">'+fmtRs(g.latest_spend)+'</td>'+
+        '<td class="num">'+fmtInt(g.days_active)+'</td>'+
+        '<td class="num" style="color:#2E7755;font-weight:600">'+fmtInt(g.reach_sum)+'</td>'+
+        '<td class="num">'+fmtInt(g.reach_peak)+'</td>'+
+        '<td class="num">'+fmtRs(g.spend_sum)+'</td>'+
         '<td class="num">'+(g.cost_per_1000 == null ? '—' : '₹'+fmtNum2(g.cost_per_1000))+'</td>'+
       '</tr>';
     }).join('');
   }
-  const totalIncr = list.reduce((s,g) => s + (+g.incremental_reach || 0), 0);
-  const totalSpend = list.reduce((s,g) => s + (+g.latest_spend || 0), 0);
-  const overallCpm = totalIncr > 0 ? (totalSpend * 1000 / totalIncr) : null;
+  const totalReach = list.reduce((s,g) => s + (+g.reach_sum || 0), 0);
+  const totalSpend = list.reduce((s,g) => s + (+g.spend_sum || 0), 0);
+  const overallCpm = totalReach > 0 ? (totalSpend * 1000 / totalReach) : null;
   document.getElementById('incrReachCount').textContent =
-    fmtInt(list.length) + ' groups · Σ incr reach ' + fmtInt(totalIncr) +
+    fmtInt(list.length) + ' groups · Σ reach ' + fmtInt(totalReach) +
     (overallCpm != null ? ' · overall ₹' + fmtNum2(overallCpm) + ' / 1k' : '');
   document.getElementById('incrReachSub').textContent =
-    'Grouped by ' + ({'ad_name':'ad name','campaign_name':'campaign',
-                     'adset_name':'ad set','account_name':'account'})[incrReachGroupKey];
+    incrReachFrom + ' → ' + incrReachTo + ' · grouped by ' +
+    ({'ad_name':'ad name','campaign_name':'campaign',
+      'adset_name':'ad set','account_name':'account'})[incrReachGroupKey];
 }
 document.getElementById('aeBtnIncrReach').onclick = _incrOpen;
 document.getElementById('incrReachClose').onclick = _incrClose;
@@ -6663,6 +6771,26 @@ document.getElementById('incrReachGroupBy').addEventListener('click', e => {
   incrReachGroupKey = b.dataset.g;
   _incrRender();
 });
+document.getElementById('incrReachDatePresets').addEventListener('click', e => {
+  const b = e.target.closest('.preset'); if (!b) return;
+  document.querySelectorAll('#incrReachDatePresets .preset').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  const d = +b.dataset.d;
+  const p = _incrPresetDates(d);
+  incrReachFrom = p.from; incrReachTo = p.to;
+  document.getElementById('incrReachDateFrom').value = incrReachFrom;
+  document.getElementById('incrReachDateTo'  ).value = incrReachTo;
+  _incrRefetchAndRender();
+});
+document.getElementById('incrReachDateApply').onclick = () => {
+  const f = document.getElementById('incrReachDateFrom').value;
+  const t = document.getElementById('incrReachDateTo'  ).value;
+  if (!f || !t){ alert('Both dates required.'); return; }
+  if (f > t){ alert('From must be before To.'); return; }
+  document.querySelectorAll('#incrReachDatePresets .preset').forEach(x => x.classList.remove('active'));
+  incrReachFrom = f; incrReachTo = t;
+  _incrRefetchAndRender();
+};
 let _incrSearchDb = null;
 document.getElementById('incrReachSearch').addEventListener('input', e => {
   clearTimeout(_incrSearchDb);
@@ -6675,7 +6803,7 @@ document.getElementById('incrReachTbl').addEventListener('click', e => {
     incrReachSort.dir = incrReachSort.dir === 'asc' ? 'desc' : 'asc';
   } else {
     incrReachSort.key = k;
-    incrReachSort.dir = (k === 'grp') ? 'asc' : 'desc';
+    incrReachSort.dir = (k === 'grp' || k === 'landing') ? 'asc' : 'desc';
   }
   _incrRender();
 });
