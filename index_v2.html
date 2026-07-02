@@ -4366,6 +4366,70 @@ let aeRules    = [];            // [{field, op, value}, …] for multi-filter
 // Set<ad_id> of ads that delivered inside the current date window.
 // null = not fetched yet / no active window; empty Set = fetched, no matches.
 let aeDeliverySet = null;
+// Per-ad windowed metrics (impressions, reach, spend, ...) for the current
+// AE date range. Populated by fetchAeWindowMetrics() whenever the range
+// changes. When set, renderAE prefers these over the lifetime totals on
+// each row so the numbers reflect the selected dates.
+let aeWindowMetricsByAdId = {};
+let _aeWindowMetricsKey    = '';
+async function fetchAeWindowMetrics(){
+  const from = document.getElementById('aeDateFrom').value || '';
+  const to   = document.getElementById('aeDateTo').value   || '';
+  const key  = from + '|' + to;
+  if (!from || !to){
+    aeWindowMetricsByAdId = {}; _aeWindowMetricsKey = ''; return;
+  }
+  if (key === _aeWindowMetricsKey) return;  // already fetched for this range
+  _aeWindowMetricsKey = key;
+  if (!SUPABASE_URL || !SUPABASE_ANON){ aeWindowMetricsByAdId = {}; return; }
+  try {
+    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_ae_metrics_by_window', {
+      method:'POST',
+      headers:{apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+               'Content-Type':'application/json'},
+      body: JSON.stringify({from_date: from, to_date: to})
+    });
+    if (!r.ok){
+      console.warn('[fetchAeWindowMetrics] HTTP', r.status,
+                   await r.text().catch(()=>''));
+      aeWindowMetricsByAdId = {}; return;
+    }
+    const rows = await r.json();
+    const out = {};
+    for (const row of rows){
+      if (!row.ad_id) continue;
+      const impr  = +row.impressions || 0;
+      const reach = +row.reach_sum   || 0;
+      const spend = +row.spend       || 0;
+      const conv  = +row.conv_value  || 0;
+      const ftewv = +row.ftewv       || 0;
+      const ncp   = +row.ncp         || 0;
+      out[row.ad_id] = {
+        days_active:     +row.days_active || 0,
+        impressions:     impr,
+        reach:           reach,
+        reach_peak:      +row.reach_peak || 0,
+        amount_spent:    spend,
+        conv_value:      conv,
+        purchases:       +row.purchases  || 0,
+        link_clicks_raw: +row.link_clicks || 0,
+        ftewv_count:     ftewv,
+        ncp_count:       ncp,
+        // Derived
+        frequency:       reach > 0 ? impr / reach : 0,
+        cost_per_1000:   impr  > 0 ? spend / impr * 1000 : 0,
+        ctr_pct:         impr  > 0 ? (+row.link_clicks || 0) / impr * 100 : 0,
+        roas_ma:         spend > 0 ? conv / spend : 0,
+        cost_per_ftewv:  ftewv > 0 ? spend / ftewv : 0,
+        cost_per_ncp:    ncp   > 0 ? spend / ncp   : 0,
+      };
+    }
+    aeWindowMetricsByAdId = out;
+  } catch (e){
+    console.warn('[fetchAeWindowMetrics] network error', e);
+    aeWindowMetricsByAdId = {};
+  }
+}
 // Cache: window key ("from|to") → Set<ad_id> so repeated ranges are instant.
 const _aeDeliveryCache = new Map();
 async function aeRebuildDeliverySet(){
@@ -4955,7 +5019,9 @@ async function drpApply(){
   drpState.selecting = false; drpState.hov = null;
   drpUpdateButton();
   drpClose();
-  await aeRebuildDeliverySet();
+  // Fetch both in parallel — delivery set gates which ads to show,
+  // window metrics gates the values shown in each row's columns.
+  await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics()]);
   aePage = 0; renderAE();
 }
 async function drpClearDateRange(){
@@ -4965,7 +5031,7 @@ async function drpClearDateRange(){
   drpState.selecting = false; drpState.preset = 'lifetime';
   drpUpdateButton();
   drpRender();
-  await aeRebuildDeliverySet();
+  await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics()]);
   aePage = 0; renderAE();
 }
 function initDateRangePicker(){
@@ -6183,6 +6249,31 @@ const CAT_CLASS = {
   'Discarded':'cat-disc',
 };
 
+/* Overlay windowed metrics onto an ae row when a date range is set.
+ * Falls through to the row's lifetime values if the ad had no delivery
+ * in the window. Category and F-flags stay lifetime-based on purpose —
+ * they're the ad's overall verdict, not "was this ad a winner on Jun 29?" */
+function aeApplyWindow(r){
+  const w = aeWindowMetricsByAdId[r.ad_id];
+  if (!w) return r;
+  return Object.assign({}, r, {
+    impressions:     w.impressions,
+    reach:           w.reach,
+    amount_spent:    w.amount_spent,
+    frequency:       w.frequency,
+    cost_per_1000:   w.cost_per_1000,
+    ctr_pct:         w.ctr_pct,
+    roas_ma:         w.roas_ma,
+    cost_per_ftewv:  w.cost_per_ftewv,
+    cost_per_ncp:    w.cost_per_ncp,
+    conv_value:      w.conv_value,
+    purchases:       w.purchases,
+    link_clicks_raw: w.link_clicks_raw,
+    ftewv_count:     w.ftewv_count,
+    ncp_count:       w.ncp_count,
+    _isWindowed:     true,
+  });
+}
 function renderAE(){
   if (!allAds.length){
     // Data hasn't landed yet. Instead of silently bailing (and
@@ -6192,7 +6283,8 @@ function renderAE(){
     if (footer) footer.textContent = 'Loading ae_table_view — filters will apply once the 15k-row fetch completes';
     return;
   }
-  const rows = aeFiltered();
+  const hasWindow = Object.keys(aeWindowMetricsByAdId).length > 0;
+  const rows = aeFiltered().map(r => hasWindow ? aeApplyWindow(r) : r);
 
   // KPIs honour the date range + account + status + multi-filter (but NOT
   // category / discarded toggle — so clicking a card still shows the count
@@ -6226,12 +6318,19 @@ function renderAE(){
   if (activeRules.length){
     cats = cats.filter(r => activeRules.every(rule => aeMfMatch(r, rule)));
   }
+  // KPI card spend totals reflect window metrics when a range is set,
+  // so "Winner spend: ₹5.9 Cr" becomes "Winner spend on 29/06: ₹X" the
+  // moment the picker's date is picked.
+  const hasWindowKPI = Object.keys(aeWindowMetricsByAdId).length > 0;
   const totalsByCat = {};
   cats.forEach(r => {
     const k = r.category;
     if (!totalsByCat[k]) totalsByCat[k] = {n:0, sp:0};
     totalsByCat[k].n  += 1;
-    totalsByCat[k].sp += (+r.amount_spent || 0);
+    const spend = hasWindowKPI && aeWindowMetricsByAdId[r.ad_id]
+      ? aeWindowMetricsByAdId[r.ad_id].amount_spent
+      : (+r.amount_spent || 0);
+    totalsByCat[k].sp += spend;
   });
   const setKPI = (id, name) => {
     const x = totalsByCat[name] || {n:0, sp:0};
@@ -6431,6 +6530,9 @@ function renderAE(){
     if (dfVal === '__delivery__'){
       modeNote += (aeDeliverySet ? (' · delivery set ' + fmtInt(aeDeliverySet.size)) : ' · delivery set loading…');
     }
+    modeNote += Object.keys(aeWindowMetricsByAdId).length
+      ? ' · window metrics ✓'
+      : ' · window metrics loading…';
   }
   const catNote = aeSelectedCat ? (' · category=' + aeSelectedCat) : '';
   document.getElementById('aeFooter').textContent =
@@ -6550,7 +6652,7 @@ document.getElementById('aePageSize').addEventListener('change', () => { aePage 
   document.getElementById(id).addEventListener('change', async () => {
     clearTimeout(window._aeDeliveryDb);
     window._aeDeliveryDb = setTimeout(async () => {
-      await aeRebuildDeliverySet();
+      await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics()]);
       aePage = 0; renderAE();
     }, 220);
   }));
