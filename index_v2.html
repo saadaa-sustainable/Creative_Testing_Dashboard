@@ -921,6 +921,22 @@
   .ae-link{color:var(--accent-yellow-hover);font-weight:800;text-decoration:none;
     font-size:13px}
   .ae-link:hover{text-decoration:underline}
+  /* Landing-page cell — badge + host + short path */
+  .ae-landing{max-width:340px;padding:6px 10px;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .lp-badge{display:inline-block;padding:1px 7px;border-radius:4px;
+    font-size:9px;font-weight:700;letter-spacing:.45px;text-transform:uppercase;
+    margin-right:8px;font-family:'Space Grotesk',sans-serif;vertical-align:middle}
+  .lp-badge.lp-coll{background:#E0F0E5;color:#2E7755}
+  .lp-badge.lp-prod{background:#F3E5D0;color:#8A5A0A}
+  .lp-badge.lp-page{background:#E5EAF2;color:#3B5A82}
+  .lp-badge.lp-home{background:#F5F0E5;color:#6B675A}
+  .lp-badge.lp-blog{background:#F0E5EA;color:#824A5F}
+  .lp-badge.lp-other{background:#EEEAE0;color:#6B675A}
+  .lp-url{color:var(--text-secondary);text-decoration:none;font-family:'JetBrains Mono',monospace;
+    font-size:11px;letter-spacing:-.1px}
+  .lp-url:hover{color:var(--text-primary)}
+  .lp-path{color:var(--text-tertiary);margin-left:1px}
   /* Inline thumbnail cell — Meta Graph creative.thumbnail_url */
   .ae-thumb{width:44px;height:44px;border-radius:6px;object-fit:cover;
     border:1px solid var(--border-warm);background:var(--bg-page-alt);
@@ -1706,7 +1722,6 @@
       <div class="sub">4-filter category engine · live from ae_table_view · re-evaluated client-side when thresholds change</div>
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn ghost" id="aeBtnCrosscheck">⇄ Cross-check vs old dashboard</button>
       <button class="btn ghost" id="aeBtnIncrReach" title="Aggregate incremental reach and cost-per-1k by ad name, campaign, ad set, or account">▲ Incremental Reach Analysis</button>
       <button class="btn ghost" id="aeBtnRefresh">↻ Refresh</button>
       <button class="btn"       id="aeBtnExport">Export CSV</button>
@@ -1986,6 +2001,7 @@
             <th class="num" data-sort="engagement_count">Engagement</th>
             <th class="col-link" data-sort="preview_link">Preview</th>
             <th class="col-link" data-sort="ad_link">Ad Link</th>
+            <th data-sort="ad_link" title="Destination URL the click-through lands on (host + path)">Landing page</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -2246,9 +2262,50 @@
     </div>
     <div style="display:flex;gap:8px">
       <input class="fg-input" id="invSearch" type="text" placeholder="search title, SKU, vendor" style="width:280px">
+      <button class="btn ghost" id="invBtnConfig" title="Configure the Shopify shop domain and admin API token stored in this browser">⚙ Shopify config</button>
       <button class="btn ghost" id="invRefresh">↻ Refresh</button>
       <button class="btn" id="invExport">Export CSV</button>
     </div>
+  </div>
+
+  <!-- Shopify credentials panel — stored in localStorage so the config
+       persists across reloads without needing URL params. -->
+  <div id="invConfigPanel" style="display:none;background:var(--bg-white);
+              border:1px solid var(--border-primary);border-radius:12px;
+              padding:16px 22px;margin-bottom:12px">
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
+      <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;
+                  text-transform:uppercase;letter-spacing:.5px;color:var(--text-primary)">
+        Shopify inventory source</div>
+      <div style="font-size:11px;color:var(--text-tertiary)">
+        Stored in this browser's localStorage — no server round-trip. Refresh reloads from the Shopify Admin GraphQL API.</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;align-items:end">
+      <div>
+        <label style="display:block;font-size:10.5px;color:var(--text-tertiary);
+                    letter-spacing:.4px;margin-bottom:3px;text-transform:uppercase">Shop domain</label>
+        <input id="invCfgDomain" class="fg-input" type="text" style="width:100%"
+               placeholder="your-shop.myshopify.com" autocomplete="off" spellcheck="false">
+      </div>
+      <div>
+        <label style="display:block;font-size:10.5px;color:var(--text-tertiary);
+                    letter-spacing:.4px;margin-bottom:3px;text-transform:uppercase">Admin API access token</label>
+        <input id="invCfgToken" class="fg-input" type="password" style="width:100%"
+               placeholder="shpat_..." autocomplete="off" spellcheck="false">
+      </div>
+      <div>
+        <label style="display:block;font-size:10.5px;color:var(--text-tertiary);
+                    letter-spacing:.4px;margin-bottom:3px;text-transform:uppercase">API version</label>
+        <input id="invCfgApiVer" class="fg-input" type="text" style="width:100px"
+               placeholder="2025-10">
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn"       id="invCfgSave">Save & fetch</button>
+        <button class="btn ghost" id="invCfgClear" title="Remove stored credentials">Clear</button>
+      </div>
+    </div>
+    <div id="invCfgStatus" style="margin-top:8px;font-size:11px;color:var(--text-tertiary);
+              font-family:'JetBrains Mono',monospace"></div>
   </div>
 
   <!-- Status filter pills -->
@@ -6096,6 +6153,28 @@ function renderAE(){
   const linkCell = (href, label) => href
     ? '<td><a class="ae-link" href="'+href+'" target="_blank" rel="noopener">'+label+'</a></td>'
     : '<td class="id-cell">—</td>';
+  // Landing-page cell: strip protocol + query string, badge the URL type
+  // (collection / product / custom page / homepage / other), show the
+  // host + short path as monospace clickable text.
+  const aeLandingCell = (url) => {
+    if (!url) return '<td class="id-cell">—</td>';
+    let host = '', path = '', badge = 'other', badgeLbl = 'Other';
+    try {
+      const u = new URL(url);
+      host = u.hostname; path = u.pathname.replace(/\/+$/, '');
+      if      (path.startsWith('/collections/')) { badge = 'coll';    badgeLbl = 'Collection'; }
+      else if (path.startsWith('/products/'))    { badge = 'prod';    badgeLbl = 'Product'; }
+      else if (path.startsWith('/pages/'))       { badge = 'page';    badgeLbl = 'Page'; }
+      else if (path === '' || path === '/')      { badge = 'home';    badgeLbl = 'Homepage'; }
+      else if (path.startsWith('/blogs/'))       { badge = 'blog';    badgeLbl = 'Blog'; }
+    } catch { path = url.slice(0, 60); }
+    let shortPath = path.length > 50 ? path.slice(0, 47) + '…' : path;
+    return '<td class="ae-landing" title="'+url.replace(/"/g,'&quot;')+'">'+
+             '<span class="lp-badge lp-'+badge+'">'+badgeLbl+'</span>'+
+             '<a class="lp-url" href="'+url+'" target="_blank" rel="noopener">'+
+               (host || '')+'<span class="lp-path">'+shortPath+'</span></a>'+
+           '</td>';
+  };
   const fmtPct = v => (v == null || v === '') ? '—' : (+v).toFixed(2) + '%';
   const fmtNum2 = v => (v == null || v === '') ? '—' : (+v).toFixed(2);
   const fmtNum3 = v => (v == null || v === '') ? '—' : (+v).toFixed(3);
@@ -6197,6 +6276,7 @@ function renderAE(){
       numCell(fmtInt(r.engagement_count))+
       linkCell(r.preview_link, '▸ Preview')+
       linkCell(r.ad_link,      '▸ Open')+
+      aeLandingCell(r.ad_link)+
     '</tr>';
     // Append the expanded daily-row directly below the parent if open
     return isOpen ? (main + aeRenderDailyRowHTML(r, COLSPAN)) : main;
@@ -6605,9 +6685,23 @@ document.getElementById('incrReachTbl').addEventListener('click', e => {
      ?shopDomain=<shop>.myshopify.com&shopifyToken=<admin_token>
      [&shopifyApiVer=2025-10]
    ──────────────────────────────────────────────────────────────────── */
-const SHOPIFY_DOMAIN  = params.get('shopDomain') || '';
-const SHOPIFY_TOKEN   = params.get('shopifyToken') || '';
-const SHOPIFY_API_VER = params.get('shopifyApiVer') || '2025-10';
+// Shopify credentials resolve in this order:
+//   1. localStorage (set via the Inventory config panel — persistent)
+//   2. URL params (?shopDomain=&shopifyToken=&shopifyApiVer= — one-off)
+// Kept as `let` so the config panel can rewrite them without a reload.
+function _readShopifyCfg(){
+  let cfg = {};
+  try { cfg = JSON.parse(localStorage.getItem('shopify.cfg') || '{}') || {}; }
+  catch { cfg = {}; }
+  return {
+    domain:  cfg.domain || params.get('shopDomain')    || '',
+    token:   cfg.token  || params.get('shopifyToken')  || '',
+    apiVer:  cfg.apiVer || params.get('shopifyApiVer') || '2025-10',
+  };
+}
+let SHOPIFY_DOMAIN  = _readShopifyCfg().domain;
+let SHOPIFY_TOKEN   = _readShopifyCfg().token;
+let SHOPIFY_API_VER = _readShopifyCfg().apiVer;
 let invProducts = [];
 let invState = {status:'', search:'', excludeOOS:false, excludeNoImg:false};
 
@@ -6651,9 +6745,10 @@ async function shopifyGraphQL(query, variables){
 async function loadInventory(){
   const footer = document.getElementById('invFooter');
   if (!SHOPIFY_DOMAIN || !SHOPIFY_TOKEN){
-    footer.innerHTML = '⚠️ <b>Missing Shopify credentials.</b> Append to URL: ' +
-      '<code style="background:#fff;padding:2px 6px;border-radius:4px;border:1px solid var(--border-warm)">' +
-      '?shopDomain=&lt;your-shop&gt;.myshopify.com&amp;shopifyToken=&lt;admin_api_token&gt;</code>';
+    footer.innerHTML = '⚠️ <b>Missing Shopify credentials.</b> Click ' +
+      '<b>⚙ Shopify config</b> above to enter your shop domain and admin API token, ' +
+      'or append <code style="background:#fff;padding:2px 6px;border-radius:4px;border:1px solid var(--border-warm)">' +
+      '?shopDomain=&lt;shop&gt;.myshopify.com&amp;shopifyToken=&lt;token&gt;</code> to the URL.';
     return;
   }
   footer.innerHTML = 'Loading products from Shopify <span class="spinner"></span>';
@@ -6755,6 +6850,76 @@ document.getElementById('invSearch').addEventListener('input', e => {
 document.getElementById('invExcludeOOS' ).addEventListener('change', e => { invState.excludeOOS  = e.target.checked; renderInventoryTable(); });
 document.getElementById('invExcludeNoImg').addEventListener('change', e => { invState.excludeNoImg = e.target.checked; renderInventoryTable(); });
 document.getElementById('invRefresh').onclick = () => { VIEW_LOADED.inventory = false; loadInventory(); VIEW_LOADED.inventory = true; };
+
+// ── Shopify config panel ─────────────────────────────────────────────
+// Small toolbar-panel that reads/writes shopify.cfg in localStorage.
+// Token stored as a plain string — this is a private dashboard and
+// the same token would otherwise sit in the URL address bar, so
+// localStorage is no worse. Cleared via the "Clear" button.
+function _invConfigPopulate(){
+  const cfg = _readShopifyCfg();
+  document.getElementById('invCfgDomain').value = cfg.domain;
+  document.getElementById('invCfgToken' ).value = cfg.token;
+  document.getElementById('invCfgApiVer').value = cfg.apiVer;
+  const st = document.getElementById('invCfgStatus');
+  if (cfg.domain && cfg.token){
+    st.textContent = '✓ credentials stored — shop=' + cfg.domain + ' · api ' + cfg.apiVer;
+    st.style.color = 'var(--success-text, #2E7755)';
+  } else {
+    st.textContent = 'No credentials stored. Enter them above to fetch inventory.';
+    st.style.color = 'var(--text-tertiary)';
+  }
+}
+document.getElementById('invBtnConfig').onclick = () => {
+  const p = document.getElementById('invConfigPanel');
+  const open = p.style.display === 'none';
+  p.style.display = open ? 'block' : 'none';
+  if (open) _invConfigPopulate();
+};
+document.getElementById('invCfgSave').onclick = () => {
+  const domain = (document.getElementById('invCfgDomain').value || '').trim();
+  const token  = (document.getElementById('invCfgToken' ).value || '').trim();
+  const apiVer = (document.getElementById('invCfgApiVer').value || '2025-10').trim();
+  const st = document.getElementById('invCfgStatus');
+  if (!/^[a-z0-9\-]+\.myshopify\.com$/i.test(domain)){
+    st.textContent = '✗ domain must look like your-shop.myshopify.com';
+    st.style.color = '#B33A2A'; return;
+  }
+  if (!token.startsWith('shpat_') && !token.startsWith('shpca_') && token.length < 20){
+    st.textContent = '✗ token doesn\'t look like an admin API token (shpat_...)';
+    st.style.color = '#B33A2A'; return;
+  }
+  try {
+    localStorage.setItem('shopify.cfg', JSON.stringify({domain, token, apiVer}));
+  } catch (e){
+    st.textContent = '✗ could not write to localStorage: ' + e.message;
+    st.style.color = '#B33A2A'; return;
+  }
+  SHOPIFY_DOMAIN  = domain;
+  SHOPIFY_TOKEN   = token;
+  SHOPIFY_API_VER = apiVer;
+  st.textContent = '✓ saved · fetching inventory…';
+  st.style.color = 'var(--text-secondary)';
+  VIEW_LOADED.inventory = false;
+  loadInventory().then(() => {
+    st.textContent = '✓ credentials stored — shop=' + domain + ' · api ' + apiVer +
+                     ' · loaded ' + fmtInt((invProducts||[]).length) + ' products';
+    st.style.color = 'var(--success-text, #2E7755)';
+  }).catch(e => {
+    st.textContent = '✗ fetch failed: ' + String(e).slice(0, 120);
+    st.style.color = '#B33A2A';
+  });
+  VIEW_LOADED.inventory = true;
+};
+document.getElementById('invCfgClear').onclick = () => {
+  localStorage.removeItem('shopify.cfg');
+  SHOPIFY_DOMAIN = ''; SHOPIFY_TOKEN = '';
+  document.getElementById('invCfgDomain').value = '';
+  document.getElementById('invCfgToken' ).value = '';
+  const st = document.getElementById('invCfgStatus');
+  st.textContent = '✓ credentials cleared from this browser';
+  st.style.color = 'var(--text-tertiary)';
+};
 document.getElementById('invExport').onclick = () => {
   const rows = invFiltered();
   if (!rows.length) return;
