@@ -2654,6 +2654,9 @@ const dbStat = document.getElementById('dbStat');
 const fmtInt = n => (n==null||isNaN(n)) ? '—' : Math.round(+n).toLocaleString('en-IN');
 const fmtRs  = n => (n==null||isNaN(n)) ? '—' : '₹' + fmtInt(n);
 const fmtRoas= n => (n==null||isNaN(n)) ? '—' : (+n).toFixed(2)+'x';
+// Global 2-decimal formatter — used by the Incremental Reach modal and
+// anywhere else outside renderAE()'s local scope.
+const fmtNum2 = v => (v==null||v===''||isNaN(+v)) ? '—' : (+v).toLocaleString('en-IN',{minimumFractionDigits:2, maximumFractionDigits:2});
 
 let allAds      = [];   // ae_table_view rows → drives Ads Analyse + Lifecycle
 let primaryAds  = [];   // primary_table aggregated per ad → drives Creative Testing
