@@ -1,0 +1,676 @@
+{
+  "started_at": "2026-07-02T00:24:09.944687+00:00",
+  "duration_s": 177.99,
+  "totals": {
+    "PASS": 74,
+    "FAIL": 0,
+    "WARN": 6,
+    "SKIP": 0
+  },
+  "suites": [
+    {
+      "module": "01 \u00b7 Meta API vs Supabase",
+      "started": 1782951671.9514904,
+      "ended": 1782951678.091794,
+      "counts": {
+        "PASS": 6,
+        "FAIL": 0,
+        "WARN": 0,
+        "SKIP": 0
+      },
+      "checks": [
+        {
+          "name": "Meta ad_id set size (2026-07-01)",
+          "status": "PASS",
+          "detail": "680 ads",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "DB ad_id set size (2026-07-01)",
+          "status": "PASS",
+          "detail": "680 ads",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "ad_id set overlap",
+          "status": "PASS",
+          "detail": "100.00% (680 shared)",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "impressions parity (2026-07-01)",
+          "status": "PASS",
+          "detail": "meta=3,617,729 db=3,616,286 \u0394=0.0399%",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "spend parity (2026-07-01)",
+          "status": "PASS",
+          "detail": "meta=381,928 db=381,711 \u0394=0.0569%",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "reach parity (2026-07-01)",
+          "status": "PASS",
+          "detail": "meta=3,081,452 db=3,080,438 \u0394=0.0329%",
+          "expected": "",
+          "actual": ""
+        }
+      ]
+    },
+    {
+      "module": "02 \u00b7 Category algorithm",
+      "started": 1782951678.091794,
+      "ended": 1782951681.0610213,
+      "counts": {
+        "PASS": 7,
+        "FAIL": 0,
+        "WARN": 0,
+        "SKIP": 0
+      },
+      "checks": [
+        {
+          "name": "category label validity",
+          "status": "PASS",
+          "detail": "6 labels present (15,268 rows)",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "ae_table_view total row count",
+          "status": "PASS",
+          "detail": "15,268 rows",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "category algorithm consistency (1000-row sample)",
+          "status": "PASS",
+          "detail": "all rows match",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "Discarded rows have no f1/f2 pass",
+          "status": "PASS",
+          "detail": "0 rows violate ordering",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "Winner-class rows honour F1 AND (F2 OR F3)",
+          "status": "PASS",
+          "detail": "0 violations",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "distribution snapshot",
+          "status": "PASS",
+          "detail": "Incremental Winner=66 \u00b7 Winner=971 \u00b7 P0 analysis=148 \u00b7 P1 analysis=1,646 \u00b7 P2 analysis=1,514 \u00b7 Discarded=10,923",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "lifetime spend (ae_table_view)",
+          "status": "PASS",
+          "detail": "\u20b9368,811,570",
+          "expected": "",
+          "actual": ""
+        }
+      ]
+    },
+    {
+      "module": "03 \u00b7 ae_table_view integrity",
+      "started": 1782951681.0610213,
+      "ended": 1782951687.1241205,
+      "counts": {
+        "PASS": 9,
+        "FAIL": 0,
+        "WARN": 3,
+        "SKIP": 0
+      },
+      "checks": [
+        {
+          "name": "ae_table_view row count = ae_raw_view",
+          "status": "PASS",
+          "detail": "15,268 rows",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "ad_id uniqueness",
+          "status": "PASS",
+          "detail": "no duplicates",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "ad_id non-null / non-empty",
+          "status": "PASS",
+          "detail": "0 violations",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "F1 pass flag = impressions >= 50,000",
+          "status": "PASS",
+          "detail": "0 mismatches",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "F2 pass flag = roas_ma >= 3.2",
+          "status": "WARN",
+          "detail": "2 rows disagree \u2014 likely ae_raw_view uses different upstream thresholds",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "F3 pass flag = 0 < cost_per_ncp <= 525",
+          "status": "WARN",
+          "detail": "11,903 rows disagree \u2014 likely ae_raw_view uses different upstream thresholds",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "F4 pass flag = 0 < cost_per_ftewv <= 25",
+          "status": "WARN",
+          "detail": "10,002 rows disagree \u2014 likely ae_raw_view uses different upstream thresholds",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "lifetime spend reconciles vs backfill_table",
+          "status": "PASS",
+          "detail": "\u20b9368,811,570",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "roas_ma >= 0 everywhere",
+          "status": "PASS",
+          "detail": "0 negatives",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "ROAS sanity (conv/spend < 10,000x)",
+          "status": "PASS",
+          "detail": "no extreme outliers",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "shopify_orders >= 0",
+          "status": "PASS",
+          "detail": "0 negatives",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "ae_raw_view freshness",
+          "status": "PASS",
+          "detail": "refreshed 3.6h ago",
+          "expected": "",
+          "actual": ""
+        }
+      ]
+    },
+    {
+      "module": "04 \u00b7 Freq lifecycle integrity",
+      "started": 1782951687.1241205,
+      "ended": 1782951690.4245942,
+      "counts": {
+        "PASS": 9,
+        "FAIL": 0,
+        "WARN": 0,
+        "SKIP": 0
+      },
+      "checks": [
+        {
+          "name": "view = mat table row count",
+          "status": "PASS",
+          "detail": "11,681 rows",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "ad_id uniqueness in mat",
+          "status": "PASS",
+          "detail": "no duplicates",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "crossings are monotonic (d_1 <= d_1_5 <= d_2 <= \u2026)",
+          "status": "PASS",
+          "detail": "0 violations",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "max_cum_freq > 0",
+          "status": "PASS",
+          "detail": "0 zero/null rows in mat",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "mat.ad_id \u2286 ae_table_view.ad_id",
+          "status": "PASS",
+          "detail": "referential integrity holds",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "crossing date \u2194 metric pairing intact",
+          "status": "PASS",
+          "detail": "every d_N has imp_at_N",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "no served ad has max_cum_freq < 1 (math)",
+          "status": "PASS",
+          "detail": "0 sub-1\u00d7 rows \u2014 expected",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "bucket distribution",
+          "status": "PASS",
+          "detail": "1-1.5\u00d7=1,957 1.5-2\u00d7=1,431 2-2.5\u00d7=1,299 2.5-3\u00d7=902 3\u00d7+=6,092",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "every served ad has a lifecycle row",
+          "status": "PASS",
+          "detail": "no missing coverage",
+          "expected": "",
+          "actual": ""
+        }
+      ]
+    },
+    {
+      "module": "05 \u00b7 Shopify attribution",
+      "started": 1782951690.4245942,
+      "ended": 1782951718.2313821,
+      "counts": {
+        "PASS": 16,
+        "FAIL": 0,
+        "WARN": 2,
+        "SKIP": 0
+      },
+      "checks": [
+        {
+          "name": "shopify_ad_attribution total rows",
+          "status": "PASS",
+          "detail": "692,836 orders",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "matched_tier naming consistent",
+          "status": "WARN",
+          "detail": "mixed labels present \u2014 old T-prefix + new Step-N; consider rebuilding rebuild_attribution_orders",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "has_match \u21d4 (matched_tier IS NOT NULL)",
+          "status": "PASS",
+          "detail": "0 violations",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "matched rows have ad_id",
+          "status": "WARN",
+          "detail": "76 orphan rows, all from legacy tiers (T3) \u2014 cleanup item",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "ad_id \u2286 ae_table_view.ad_id",
+          "status": "PASS",
+          "detail": "referential integrity holds",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "Step 1: matched_value = ad_id",
+          "status": "PASS",
+          "detail": "0 violations",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "tier Step 1",
+          "status": "PASS",
+          "detail": "31,591 orders \u00b7 \u20b939,690,331",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "tier Step 2",
+          "status": "PASS",
+          "detail": "165,311 orders \u00b7 \u20b9207,875,669",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "tier Step 3",
+          "status": "PASS",
+          "detail": "85,568 orders \u00b7 \u20b997,638,764",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "tier Step 4",
+          "status": "PASS",
+          "detail": "5,751 orders \u00b7 \u20b97,056,189",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "tier Step 5",
+          "status": "PASS",
+          "detail": "35,233 orders \u00b7 \u20b944,329,963",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "tier T0_template",
+          "status": "PASS",
+          "detail": "664 orders \u00b7 \u20b91,052,640",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "tier T1_ad_id",
+          "status": "PASS",
+          "detail": "2,325 orders \u00b7 \u20b92,578,085",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "tier T2_ad_name",
+          "status": "PASS",
+          "detail": "2,181 orders \u00b7 \u20b92,937,569",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "tier T3",
+          "status": "PASS",
+          "detail": "76 orders \u00b7 \u20b994,422",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "tier Unmatched",
+          "status": "PASS",
+          "detail": "364,136 orders \u00b7 \u20b9453,049,458",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "row-count reconciliation",
+          "status": "PASS",
+          "detail": "0 delta",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "overall match rate",
+          "status": "PASS",
+          "detail": "47.4%",
+          "expected": "",
+          "actual": ""
+        }
+      ]
+    },
+    {
+      "module": "06 \u00b7 Cross-view parity",
+      "started": 1782951718.2313821,
+      "ended": 1782951725.1882484,
+      "counts": {
+        "PASS": 6,
+        "FAIL": 0,
+        "WARN": 0,
+        "SKIP": 0
+      },
+      "checks": [
+        {
+          "name": "ae_table_view.spend = backfill.spend",
+          "status": "PASS",
+          "detail": "\u20b9368,811,570",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "category label sets align",
+          "status": "PASS",
+          "detail": "both have 6 labels",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "results_table cache freshness",
+          "status": "PASS",
+          "detail": "2026-06-03\u21922026-07-02 (9,174 ads, 0d lag)",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "primary_table freshness",
+          "status": "PASS",
+          "detail": "latest 2026-07-01 \u00b7 393,460 rows total",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "high-spend ad reconciles across sources",
+          "status": "PASS",
+          "detail": "ad 120210879750940422: 60,456,359 impr \u00b7 \u20b95,631,500",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "random ad max_cum_freq sanity",
+          "status": "PASS",
+          "detail": "ad 120235530527760422: computed=1.92 mat=1.92",
+          "expected": "",
+          "actual": ""
+        }
+      ]
+    },
+    {
+      "module": "07 \u00b7 Dashboard UI (Playwright)",
+      "started": 1782951725.1882484,
+      "ended": 1782951843.1400309,
+      "counts": {
+        "PASS": 13,
+        "FAIL": 0,
+        "WARN": 1,
+        "SKIP": 0
+      },
+      "checks": [
+        {
+          "name": "dashboard renders KPIs",
+          "status": "PASS",
+          "detail": "kp-winner=6",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "no JS pageerror events",
+          "status": "PASS",
+          "detail": "clean",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "sidebar \u2192 view-lifecycle opens",
+          "status": "PASS",
+          "detail": "visible",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "sidebar \u2192 view-ae opens",
+          "status": "PASS",
+          "detail": "visible",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "sidebar \u2192 view-adintel opens",
+          "status": "PASS",
+          "detail": "visible",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "sidebar \u2192 view-inventory opens",
+          "status": "PASS",
+          "detail": "visible",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "sidebar \u2192 view-testing opens",
+          "status": "PASS",
+          "detail": "visible",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "AE KPI Incremental Winner > 0",
+          "status": "PASS",
+          "detail": "n=66",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "AE KPI Winner > 0",
+          "status": "PASS",
+          "detail": "n=972",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "AE KPI Discarded > 0",
+          "status": "PASS",
+          "detail": "n=10,922",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "AE Winner tile filters the table",
+          "status": "WARN",
+          "detail": "no visible change (rows stayed at 100)",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "Freq search narrows results",
+          "status": "PASS",
+          "detail": "300 \u2192 300",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "Status chip filters Freq totals",
+          "status": "PASS",
+          "detail": "active=1,018 < all=15,268",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "Definitions modal opens",
+          "status": "PASS",
+          "detail": "visible",
+          "expected": "",
+          "actual": ""
+        }
+      ]
+    },
+    {
+      "module": "08 \u00b7 Pipeline health",
+      "started": 1782951843.1400309,
+      "ended": 1782951849.9446876,
+      "counts": {
+        "PASS": 8,
+        "FAIL": 0,
+        "WARN": 0,
+        "SKIP": 0
+      },
+      "checks": [
+        {
+          "name": "primary_table.date current",
+          "status": "PASS",
+          "detail": "max=2026-07-01 (1d lag)",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "backfill_table.date current",
+          "status": "PASS",
+          "detail": "max=2026-07-01 (1d lag)",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "14-day primary_table coverage",
+          "status": "PASS",
+          "detail": "no zero-row days",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "results_table covers all 4 accounts",
+          "status": "PASS",
+          "detail": "4 accounts",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "shopify_ad_agg populated",
+          "status": "PASS",
+          "detail": "3,578 ad-level rows",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "primary_table sanity (no negatives)",
+          "status": "PASS",
+          "detail": "clean",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "backfill_table sanity (no negatives)",
+          "status": "PASS",
+          "detail": "clean",
+          "expected": "",
+          "actual": ""
+        },
+        {
+          "name": "14-day impressions stability",
+          "status": "PASS",
+          "detail": "latest 3 days within 0.3\u20133\u00d7 of median 3,613,797",
+          "expected": "",
+          "actual": ""
+        }
+      ]
+    }
+  ]
+}
