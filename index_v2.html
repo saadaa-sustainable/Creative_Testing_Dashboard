@@ -3840,6 +3840,17 @@ function rerender(){
   renderCreativeChart(c);
   renderTrendChart(rows);
   renderLandingPageFocus(rows);
+  // Ads Analyse depends on allAds (ae_table_view). If it loaded after
+  // the user already navigated to the AE view, renderAE would never
+  // fire (the sidebar handler bailed on the empty-allAds guard). Fire
+  // it here so late-arriving data always paints.
+  if (typeof renderAE === 'function' && (allAds || []).length){
+    try { renderAE(); } catch(_){}
+  }
+  // Same guarantee for Lifecycle — depends on allAds + freqLifecycleByAdId.
+  if (typeof renderLifecycle === 'function' && (allAds || []).length){
+    try { renderLifecycle(); } catch(_){}
+  }
 }
 
 document.getElementById('kpiRow').addEventListener('click', e=>{
@@ -4901,6 +4912,11 @@ function drpPreset(key){
          if (drpState.viewMonth < 0){ drpState.viewMonth = 11; drpState.viewYear -= 1; } }
   drpRender();
   drpPositionPanel();
+  // Auto-apply for real presets so users don't have to click Apply
+  // separately — the picker closes and the table refreshes immediately.
+  // Custom mode is skipped (returns early above) so the calendar
+  // stays open for the user to pick a range.
+  drpApply();
 }
 function drpUpdateButton(){
   const lbl = drpEl('ae-drp-label');
@@ -5104,6 +5120,8 @@ function lifeDrpPreset(key){
          if (lifeDrpState.viewMonth < 0){ lifeDrpState.viewMonth = 11; lifeDrpState.viewYear -= 1; } }
   lifeDrpRender();
   lifeDrpPositionPanel();
+  // Auto-apply so the picker closes and the view refreshes on preset click.
+  lifeDrpApply();
 }
 function lifeDrpUpdateButton(){
   const lbl = lifeDrpEl('life-drp-label');
@@ -6150,7 +6168,14 @@ const CAT_CLASS = {
 };
 
 function renderAE(){
-  if (!allAds.length) return;
+  if (!allAds.length){
+    // Data hasn't landed yet. Instead of silently bailing (and
+    // leaving the KPIs stuck on "—"), show a loading state. rerender()
+    // will call renderAE again once the ae_table_view fetch resolves.
+    const footer = document.getElementById('aeFooter');
+    if (footer) footer.textContent = 'Loading ae_table_view — filters will apply once the 15k-row fetch completes';
+    return;
+  }
   const rows = aeFiltered();
 
   // KPIs honour the date range + account + status + multi-filter (but NOT
