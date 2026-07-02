@@ -2559,7 +2559,8 @@
                     text-transform:uppercase">Incremental Reach Analysis</div>
         <div id="incrReachSub" style="font-size:11px;color:var(--text-tertiary);
                     margin-top:2px;font-family:'JetBrains Mono',monospace">
-          Aggregated latest-day incremental reach and cost per 1,000 across ads
+          Incremental reach = reach on last reporting day − reach on first reporting day in window.
+          Cost / 1k = SUM(spend) ÷ SUM(incr reach) × 1000.
         </div>
       </div>
       <button id="incrReachClose" class="btn ghost">✕</button>
@@ -2606,18 +2607,23 @@
       <span id="incrReachCount" class="mono" style="font-size:11px;color:var(--text-tertiary)">—</span>
     </div>
     <div style="overflow:auto;flex:1">
-      <table class="tbl" id="incrReachTbl" style="margin:0;min-width:1100px">
+      <table class="tbl" id="incrReachTbl" style="margin:0;min-width:1240px">
         <thead><tr>
           <th data-irsort="grp" class="sortable">Group</th>
           <th data-irsort="landing" class="sortable" id="incrReachLandingHdr">Landing page</th>
           <th class="num sortable" data-irsort="n">Ads</th>
           <th class="num sortable" data-irsort="days_active">Days</th>
-          <th class="num sortable" data-irsort="reach_sum">Total reach</th>
-          <th class="num sortable" data-irsort="reach_peak">Peak reach</th>
+          <th class="num sortable" data-irsort="reach_first"
+              title="Reach on the first reporting day in the window">Reach D1</th>
+          <th class="num sortable" data-irsort="reach_last"
+              title="Reach on the last reporting day in the window">Reach D-last</th>
+          <th class="num sortable" data-irsort="reach_incr"
+              title="Reach D-last − Reach D1 — new users reached during the window">Incr. reach</th>
           <th class="num sortable" data-irsort="spend_sum">Total spend</th>
-          <th class="num sortable" data-irsort="cost_per_1000">Cost / 1k reach</th>
+          <th class="num sortable" data-irsort="cost_per_1000"
+              title="Total spend ÷ incremental reach × 1000 — cost per 1,000 newly-reached users">Cost / 1k incr. reach</th>
         </tr></thead>
-        <tbody id="incrReachBody"><tr><td colspan="8" style="padding:32px;text-align:center;
+        <tbody id="incrReachBody"><tr><td colspan="9" style="padding:32px;text-align:center;
               color:var(--text-tertiary)">Loading…</td></tr></tbody>
       </table>
     </div>
@@ -6630,7 +6636,7 @@ document.getElementById('aeCrossClose').onclick = () => {
    ──────────────────────────────────────────────────────────────────── */
 let incrReachGroupKey = 'ad_name';
 let incrReachSearch   = '';
-let incrReachSort     = {key:'reach_sum', dir:'desc'};
+let incrReachSort     = {key:'reach_incr', dir:'desc'};
 let incrReachData     = [];  // per-ad rows returned by the RPC
 let incrReachFrom     = '';
 let incrReachTo       = '';
@@ -6650,7 +6656,7 @@ function _incrPresetDates(days){
 async function _incrFetch(){
   if (!SUPABASE_URL || !SUPABASE_ANON){ incrReachData = []; return; }
   const body = document.getElementById('incrReachBody');
-  body.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;'+
+  body.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;'+
                    'color:var(--text-tertiary)">Loading window ' +
                    incrReachFrom + ' → ' + incrReachTo + ' …</td></tr>';
   const url = SUPABASE_URL + '/rest/v1/rpc/get_reach_by_window';
@@ -6663,14 +6669,14 @@ async function _incrFetch(){
     });
     if (!r.ok){
       const errTxt = await r.text().catch(() => '');
-      body.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;'+
+      body.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;'+
                        'color:#B33A2A">RPC failed HTTP '+r.status+' — '+
                        errTxt.slice(0,120)+'</td></tr>';
       incrReachData = []; return;
     }
     incrReachData = await r.json();
   } catch (e){
-    body.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;'+
+    body.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;'+
                      'color:#B33A2A">Network error: '+String(e).slice(0,120)+'</td></tr>';
     incrReachData = [];
   }
@@ -6710,15 +6716,19 @@ function _incrRender(){
     const g = (meta[incrReachGroupKey] || '(unknown)').toString();
     let acc = groups.get(g);
     if (!acc){
-      acc = {grp:g, n:0, days_active:0, reach_sum:0, reach_peak:0,
-             spend_sum:0, landing:'', landingCounts:{}};
+      acc = {grp:g, n:0, days_active:0, reach_first:0, reach_last:0,
+             reach_incr:0, reach_sum:0, reach_peak:0, spend_sum:0,
+             landing:'', landingCounts:{}};
       groups.set(g, acc);
     }
     acc.n           += 1;
     acc.days_active  = Math.max(acc.days_active, +row.days_active || 0);
-    acc.reach_sum   += +row.reach_sum || 0;
+    acc.reach_first += +row.reach_first || 0;
+    acc.reach_last  += +row.reach_last  || 0;
+    acc.reach_incr  += +row.reach_incr  || 0;
+    acc.reach_sum   += +row.reach_sum   || 0;
     acc.reach_peak   = Math.max(acc.reach_peak, +row.reach_peak || 0);
-    acc.spend_sum   += +row.spend_sum || 0;
+    acc.spend_sum   += +row.spend_sum   || 0;
     // Track most-common landing URL for the group
     const lp = meta.ad_link || '';
     if (lp){
@@ -6728,9 +6738,10 @@ function _incrRender(){
       }
     }
   }
+  // Weighted CPM at group level: SUM(spend) / SUM(reach_incr) * 1000
   for (const g of groups.values()){
-    g.cost_per_1000 = g.reach_sum > 0
-      ? (g.spend_sum * 1000) / g.reach_sum
+    g.cost_per_1000 = g.reach_incr > 0
+      ? (g.spend_sum * 1000) / g.reach_incr
       : null;
   }
   let list = [...groups.values()];
@@ -6761,7 +6772,7 @@ function _incrRender(){
   // Body
   const body = document.getElementById('incrReachBody');
   if (!list.length){
-    body.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;'+
+    body.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;'+
                      'color:var(--text-tertiary)">No reach data in the selected window. '+
                      'Try a wider range.</td></tr>';
   } else {
@@ -6773,8 +6784,7 @@ function _incrRender(){
       let lpCell = '';
       if (lpVisible){
         lpCell = '<td>' + (g.landing
-          ? (typeof aeLandingCell === 'function' ? '' : '') +
-            '<a class="lp-url" href="'+g.landing+'" target="_blank" rel="noopener" '+
+          ? '<a class="lp-url" href="'+g.landing+'" target="_blank" rel="noopener" '+
             'title="'+g.landing.replace(/"/g,'&quot;')+'" style="font-size:11px">'+
             (g.landing.replace(/^https?:\/\//,'').slice(0, 40) +
               (g.landing.length > 47 ? '…' : ''))+'</a>'
@@ -6785,18 +6795,19 @@ function _incrRender(){
         lpCell+
         '<td class="num">'+fmtInt(g.n)+'</td>'+
         '<td class="num">'+fmtInt(g.days_active)+'</td>'+
-        '<td class="num" style="color:#2E7755;font-weight:600">'+fmtInt(g.reach_sum)+'</td>'+
-        '<td class="num">'+fmtInt(g.reach_peak)+'</td>'+
+        '<td class="num">'+fmtInt(g.reach_first)+'</td>'+
+        '<td class="num">'+fmtInt(g.reach_last)+'</td>'+
+        '<td class="num" style="color:#2E7755;font-weight:700">'+fmtInt(g.reach_incr)+'</td>'+
         '<td class="num">'+fmtRs(g.spend_sum)+'</td>'+
         '<td class="num">'+(g.cost_per_1000 == null ? '—' : '₹'+fmtNum2(g.cost_per_1000))+'</td>'+
       '</tr>';
     }).join('');
   }
-  const totalReach = list.reduce((s,g) => s + (+g.reach_sum || 0), 0);
-  const totalSpend = list.reduce((s,g) => s + (+g.spend_sum || 0), 0);
-  const overallCpm = totalReach > 0 ? (totalSpend * 1000 / totalReach) : null;
+  const totalIncr  = list.reduce((s,g) => s + (+g.reach_incr || 0), 0);
+  const totalSpend = list.reduce((s,g) => s + (+g.spend_sum   || 0), 0);
+  const overallCpm = totalIncr > 0 ? (totalSpend * 1000 / totalIncr) : null;
   document.getElementById('incrReachCount').textContent =
-    fmtInt(list.length) + ' groups · Σ reach ' + fmtInt(totalReach) +
+    fmtInt(list.length) + ' groups · Σ incr reach ' + fmtInt(totalIncr) +
     (overallCpm != null ? ' · overall ₹' + fmtNum2(overallCpm) + ' / 1k' : '');
   document.getElementById('incrReachSub').textContent =
     incrReachFrom + ' → ' + incrReachTo + ' · grouped by ' +
