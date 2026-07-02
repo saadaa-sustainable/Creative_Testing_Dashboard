@@ -4932,7 +4932,29 @@ function drpRender(){
   const end = drpState.selecting && drpState.hov ? drpState.hov : drpState.to;
   let a = drpState.from, b = end;
   if (a && b && a > b){ const t = a; a = b; b = t; }
-  drpEl('ae-drp-footer-range').textContent = drpDisplay(a) + ' - ' + drpDisplay(b);
+  // If mid-selection (start picked, end not yet), make the footer shout
+  // so users don't hit Apply and get a single-day range they didn't want.
+  const footerEl = drpEl('ae-drp-footer-range');
+  const applyBtn = drpEl('ae-drp-apply');
+  if (drpState.selecting && drpState.from && !drpState.to){
+    footerEl.textContent = drpDisplay(a) + ' → click END date';
+    footerEl.style.color = '#B33A2A';
+    footerEl.style.fontWeight = '700';
+    if (applyBtn){
+      applyBtn.disabled = true;
+      applyBtn.style.opacity = '0.4';
+      applyBtn.style.cursor = 'not-allowed';
+      applyBtn.title = 'Pick an END date first';
+    }
+  } else {
+    footerEl.textContent = drpDisplay(a) + ' - ' + drpDisplay(b);
+    footerEl.style.color = ''; footerEl.style.fontWeight = '';
+    if (applyBtn){
+      applyBtn.disabled = false;
+      applyBtn.style.opacity = ''; applyBtn.style.cursor = '';
+      applyBtn.title = '';
+    }
+  }
   drpSetPresetActive(drpState.preset);
 }
 function drpDayClick(node){
@@ -5154,7 +5176,20 @@ function lifeDrpRender(){
   const end = lifeDrpState.selecting && lifeDrpState.hov ? lifeDrpState.hov : lifeDrpState.to;
   let a = lifeDrpState.from, b = end;
   if (a && b && a > b){ const t = a; a = b; b = t; }
-  lifeDrpEl('life-drp-footer-range').textContent = drpDisplay(a) + ' - ' + drpDisplay(b);
+  // Same mid-selection helper as the AE picker — makes it obvious the
+  // second click is required.
+  const lFooter = lifeDrpEl('life-drp-footer-range');
+  const lApply  = lifeDrpEl('life-drp-apply');
+  if (lifeDrpState.selecting && lifeDrpState.from && !lifeDrpState.to){
+    lFooter.textContent = drpDisplay(a) + ' → click END date';
+    lFooter.style.color = '#B33A2A';
+    lFooter.style.fontWeight = '700';
+    if (lApply){ lApply.disabled = true; lApply.style.opacity='0.4'; lApply.style.cursor='not-allowed'; }
+  } else {
+    lFooter.textContent = drpDisplay(a) + ' - ' + drpDisplay(b);
+    lFooter.style.color = ''; lFooter.style.fontWeight = '';
+    if (lApply){ lApply.disabled = false; lApply.style.opacity=''; lApply.style.cursor=''; }
+  }
   lifeDrpSetPresetActive(lifeDrpState.preset);
 }
 function lifeDrpDayClick(node){
