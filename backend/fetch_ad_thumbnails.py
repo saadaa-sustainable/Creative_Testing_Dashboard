@@ -38,7 +38,9 @@ if not DB_URL: raise SystemExit("Missing SUPABASE_DB_URL in .env")
 
 VER   = "v22.0"
 GRAPH = f"https://graph.facebook.com/{VER}"
-FIELDS = "creative{id,thumbnail_url,image_url,object_type,video_id,object_story_spec}"
+FIELDS = ("creative{id,thumbnail_url,image_url,object_type,video_id,"
+          "object_story_spec,effective_object_story_id,"
+          "instagram_permalink_url}")
 SLEEP_BETWEEN = 0.25
 REFRESH_DAYS  = 7
 
@@ -78,6 +80,14 @@ def fetch(ad_id):
         err = (body.get("error") or {}).get("message", "")
         return None, f"HTTP_{r.status_code}: {scrub(err)[:160]}", usage
     cr = body.get("creative") or {}
+    oss = cr.get("object_story_spec") or {}
+    # Facebook page-post ID (page_id_post_id) → embeddable via
+    # https://www.facebook.com/plugins/post.php?href=https://www.facebook.com/{id}/posts/{post_id}
+    fb_permalink = None
+    eos = cr.get("effective_object_story_id") or ""
+    if eos and "_" in eos:
+        page_id, post_id = eos.split("_", 1)
+        fb_permalink = f"https://www.facebook.com/{page_id}/posts/{post_id}"
     return {
         # Sharper preview source (used in the dashboard's drawer at ~500px wide):
         # 1. creative.image_url             — direct full-res image asset
@@ -86,11 +96,16 @@ def fetch(ad_id):
         # Falls back to the small thumbnail_url everywhere else.
         "thumbnail_url": cr.get("thumbnail_url"),
         "image_url":     cr.get("image_url")
-                         or ((cr.get("object_story_spec") or {}).get("link_data")  or {}).get("image_url")
-                         or ((cr.get("object_story_spec") or {}).get("video_data") or {}).get("image_url"),
+                         or (oss.get("link_data")  or {}).get("image_url")
+                         or (oss.get("video_data") or {}).get("image_url"),
         "creative_id":   cr.get("id"),
         "object_type":   cr.get("object_type"),
         "video_id":      cr.get("video_id"),
+        # NEW: iframe-embeddable URLs. Instagram permalinks can be turned into
+        # instagram.com/p/{shortcode}/embed/ on the frontend; FB page-post
+        # URLs can be wrapped in facebook.com/plugins/post.php?href=...
+        "instagram_permalink": cr.get("instagram_permalink_url"),
+        "fb_permalink":        fb_permalink,
     }, None, usage
 
 def main():
@@ -126,16 +141,20 @@ def main():
 
     upsert = """
       INSERT INTO ad_thumbnails (ad_id, thumbnail_url, image_url, creative_id,
-                                 object_type, video_id, fetched_at, last_error)
-      VALUES (%s,%s,%s,%s,%s,%s, NOW(), %s)
+                                 object_type, video_id,
+                                 instagram_permalink, fb_permalink,
+                                 fetched_at, last_error)
+      VALUES (%s,%s,%s,%s,%s,%s,%s,%s, NOW(), %s)
       ON CONFLICT (ad_id) DO UPDATE SET
-        thumbnail_url = EXCLUDED.thumbnail_url,
-        image_url     = EXCLUDED.image_url,
-        creative_id   = EXCLUDED.creative_id,
-        object_type   = EXCLUDED.object_type,
-        video_id      = EXCLUDED.video_id,
-        fetched_at    = NOW(),
-        last_error    = EXCLUDED.last_error
+        thumbnail_url        = EXCLUDED.thumbnail_url,
+        image_url            = EXCLUDED.image_url,
+        creative_id          = EXCLUDED.creative_id,
+        object_type          = EXCLUDED.object_type,
+        video_id             = EXCLUDED.video_id,
+        instagram_permalink  = EXCLUDED.instagram_permalink,
+        fb_permalink         = EXCLUDED.fb_permalink,
+        fetched_at           = NOW(),
+        last_error           = EXCLUDED.last_error
     """
     ok = err = no_thumb = 0
     t0 = time.time()
@@ -143,7 +162,7 @@ def main():
         rec, error, usage = fetch(ad_id)
         if rec is None:
             err += 1
-            cur.execute(upsert, (ad_id, None, None, None, None, None, error))
+            cur.execute(upsert, (ad_id, None, None, None, None, None, None, None, error))
             conn.commit()
             if i % 50 == 0 or i == len(targets):
                 print(f"  [{i:>5}/{len(targets):>5}]  err   {ad_id}  {error}")
@@ -152,7 +171,8 @@ def main():
             ok += 1
             cur.execute(upsert, (ad_id, rec["thumbnail_url"], rec["image_url"],
                                   rec["creative_id"], rec["object_type"],
-                                  rec["video_id"], None))
+                                  rec["video_id"], rec["instagram_permalink"],
+                                  rec["fb_permalink"], None))
             conn.commit()
             if i % 50 == 0 or i == len(targets):
                 tt = rec["thumbnail_url"]
