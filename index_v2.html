@@ -2601,6 +2601,7 @@
         <span style="font-size:10.5px;color:var(--text-tertiary);align-self:center;
                      letter-spacing:.5px;text-transform:uppercase;margin-right:6px">Group by</span>
         <button class="chip active" data-g="ad_name">Ad name</button>
+        <button class="chip"        data-g="ad_id" title="One row per unique ad_id — no roll-up">Ad ID</button>
         <button class="chip"        data-g="campaign_name">Campaign</button>
         <button class="chip"        data-g="adset_name">Ad set</button>
         <button class="chip"        data-g="account_name">Account</button>
@@ -6965,7 +6966,11 @@ function _incrRender(){
     if (!acc){
       acc = {grp:g, n:0, days_active:0, reach_first:0, reach_last:0,
              reach_incr:0, reach_sum:0, reach_peak:0, spend_sum:0,
-             landing:'', landingCounts:{}};
+             landing:'', landingCounts:{},
+             // Secondary label: when grouping by ad_id we show the ad_name
+             // beneath the ID so users can identify the ad without leaving
+             // the modal.
+             subLabel: incrReachGroupKey === 'ad_id' ? (meta.ad_name || '') : ''};
       groups.set(g, acc);
     }
     acc.n           += 1;
@@ -7012,9 +7017,14 @@ function _incrRender(){
       th.classList.add(incrReachSort.dir === 'asc' ? 'sort-asc' : 'sort-desc');
     }
   });
-  // Hide Landing column when grouping by non-ad dimension
+  // Landing column is meaningful when the group's rows share a single URL.
+  // That's true for ad_id (one row per ad), ad_name (usually a single URL
+  // across duplicates), and campaign (usually a shared destination). For
+  // ad set or account, the URL varies too much and would mislead.
   const lpHdr = document.getElementById('incrReachLandingHdr');
-  const lpVisible = incrReachGroupKey === 'ad_name' || incrReachGroupKey === 'campaign_name';
+  const lpVisible = incrReachGroupKey === 'ad_id' ||
+                    incrReachGroupKey === 'ad_name' ||
+                    incrReachGroupKey === 'campaign_name';
   if (lpHdr) lpHdr.style.display = lpVisible ? '' : 'none';
   // Body
   const body = document.getElementById('incrReachBody');
@@ -7024,10 +7034,20 @@ function _incrRender(){
                      'Try a wider range.</td></tr>';
   } else {
     body.innerHTML = list.slice(0, 500).map(g => {
-      const grpHtml = '<div style="font-weight:600;color:var(--text-primary);'+
-                      'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'+
-                      'max-width:320px" title="'+g.grp.replace(/"/g,'&quot;')+'">'+
-                      g.grp+'</div>';
+      const grpTitle = g.grp + (g.subLabel ? ' — ' + g.subLabel : '');
+      const grpHtml =
+        '<div style="font-weight:600;color:var(--text-primary);'+
+        'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'+
+        'max-width:320px" title="'+grpTitle.replace(/"/g,'&quot;')+'">'+
+        (incrReachGroupKey === 'ad_id'
+          ? '<span style="font-family:JetBrains Mono,monospace;font-size:11px">'+g.grp+'</span>'
+          : g.grp)+
+        '</div>'+
+        (g.subLabel
+          ? '<div style="font-size:10px;color:var(--text-tertiary);overflow:hidden;'+
+            'text-overflow:ellipsis;white-space:nowrap;max-width:320px" title="'+
+            g.subLabel.replace(/"/g,'&quot;')+'">'+g.subLabel+'</div>'
+          : '');
       let lpCell = '';
       if (lpVisible){
         lpCell = '<td>' + (g.landing
@@ -7058,7 +7078,7 @@ function _incrRender(){
     (overallCpm != null ? ' · overall ₹' + fmtNum2(overallCpm) + ' / 1k' : '');
   document.getElementById('incrReachSub').textContent =
     incrReachFrom + ' → ' + incrReachTo + ' · grouped by ' +
-    ({'ad_name':'ad name','campaign_name':'campaign',
+    ({'ad_name':'ad name','ad_id':'ad ID','campaign_name':'campaign',
       'adset_name':'ad set','account_name':'account'})[incrReachGroupKey];
 }
 document.getElementById('aeBtnIncrReach').onclick = _incrOpen;
