@@ -65,6 +65,23 @@ def parse_usage_header(headers):
     nums = list(walk(obj))
     return max(nums) if nums else 0
 
+def fetch_video_source(video_id):
+    """Second, optional GET — resolves a video_id to its signed CDN source URL
+    (an .mp4 that plays directly in HTML5 <video>). Signed URL, expires after
+    a few hours; refresh on the daily cycle."""
+    if not video_id: return None, 0
+    try:
+        r = requests.get(f"{GRAPH}/{video_id}",
+                         params={"fields": "source", "access_token": TOK},
+                         timeout=15)
+    except Exception:
+        return None, 0
+    usage = parse_usage_header(r.headers)
+    try: body = r.json()
+    except Exception: return None, usage
+    if r.status_code != 200: return None, usage
+    return body.get("source"), usage
+
 def fetch(ad_id):
     """One GET. Returns (record_or_None, error_or_None, usage_pct)."""
     try:
@@ -88,6 +105,11 @@ def fetch(ad_id):
     if eos and "_" in eos:
         page_id, post_id = eos.split("_", 1)
         fb_permalink = f"https://www.facebook.com/{page_id}/posts/{post_id}"
+    video_id = cr.get("video_id")
+    # Follow-up call to resolve video_id → signed CDN source URL for
+    # native HTML5 <video> playback. Skip when no video.
+    video_source, vs_usage = fetch_video_source(video_id)
+    usage = max(usage, vs_usage)
     return {
         # Sharper preview source (used in the dashboard's drawer at ~500px wide):
         # 1. creative.image_url             — direct full-res image asset
@@ -100,12 +122,17 @@ def fetch(ad_id):
                          or (oss.get("video_data") or {}).get("image_url"),
         "creative_id":   cr.get("id"),
         "object_type":   cr.get("object_type"),
-        "video_id":      cr.get("video_id"),
-        # NEW: iframe-embeddable URLs. Instagram permalinks can be turned into
+        "video_id":      video_id,
+        # iframe-embeddable URLs. Instagram permalinks can be turned into
         # instagram.com/p/{shortcode}/embed/ on the frontend; FB page-post
         # URLs can be wrapped in facebook.com/plugins/post.php?href=...
         "instagram_permalink": cr.get("instagram_permalink_url"),
         "fb_permalink":        fb_permalink,
+        # NEW: signed CDN .mp4 URL for direct HTML5 <video> playback. This is
+        # the game-changer — it works even when there's no public Instagram or
+        # Facebook post (dark-post ads). Expires after a few hours so the
+        # daily thumbnail refresh keeps it warm.
+        "video_source_url":    video_source,
     }, None, usage
 
 def main():
@@ -143,18 +170,25 @@ def main():
       INSERT INTO ad_thumbnails (ad_id, thumbnail_url, image_url, creative_id,
                                  object_type, video_id,
                                  instagram_permalink, fb_permalink,
+                                 video_source_url, video_source_fetched_at,
                                  fetched_at, last_error)
-      VALUES (%s,%s,%s,%s,%s,%s,%s,%s, NOW(), %s)
+      VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,
+              CASE WHEN %s IS NOT NULL THEN NOW() ELSE NULL END,
+              NOW(), %s)
       ON CONFLICT (ad_id) DO UPDATE SET
-        thumbnail_url        = EXCLUDED.thumbnail_url,
-        image_url            = EXCLUDED.image_url,
-        creative_id          = EXCLUDED.creative_id,
-        object_type          = EXCLUDED.object_type,
-        video_id             = EXCLUDED.video_id,
-        instagram_permalink  = EXCLUDED.instagram_permalink,
-        fb_permalink         = EXCLUDED.fb_permalink,
-        fetched_at           = NOW(),
-        last_error           = EXCLUDED.last_error
+        thumbnail_url          = EXCLUDED.thumbnail_url,
+        image_url              = EXCLUDED.image_url,
+        creative_id            = EXCLUDED.creative_id,
+        object_type            = EXCLUDED.object_type,
+        video_id               = EXCLUDED.video_id,
+        instagram_permalink    = EXCLUDED.instagram_permalink,
+        fb_permalink           = EXCLUDED.fb_permalink,
+        video_source_url       = COALESCE(EXCLUDED.video_source_url,
+                                          ad_thumbnails.video_source_url),
+        video_source_fetched_at = COALESCE(EXCLUDED.video_source_fetched_at,
+                                           ad_thumbnails.video_source_fetched_at),
+        fetched_at             = NOW(),
+        last_error             = EXCLUDED.last_error
     """
     ok = err = no_thumb = 0
     t0 = time.time()
@@ -162,17 +196,21 @@ def main():
         rec, error, usage = fetch(ad_id)
         if rec is None:
             err += 1
-            cur.execute(upsert, (ad_id, None, None, None, None, None, None, None, error))
+            cur.execute(upsert, (ad_id, None, None, None, None, None,
+                                  None, None, None, None, error))
             conn.commit()
             if i % 50 == 0 or i == len(targets):
                 print(f"  [{i:>5}/{len(targets):>5}]  err   {ad_id}  {error}")
         else:
             if not rec["thumbnail_url"]: no_thumb += 1
             ok += 1
+            vs = rec["video_source_url"]
             cur.execute(upsert, (ad_id, rec["thumbnail_url"], rec["image_url"],
                                   rec["creative_id"], rec["object_type"],
                                   rec["video_id"], rec["instagram_permalink"],
-                                  rec["fb_permalink"], None))
+                                  rec["fb_permalink"],
+                                  vs, vs,   # value + trigger for fetched_at
+                                  None))
             conn.commit()
             if i % 50 == 0 or i == len(targets):
                 tt = rec["thumbnail_url"]

@@ -539,6 +539,8 @@
   .dr-preview-col{display:flex;flex-direction:column;gap:8px}
   .dr-iframe{width:100%;height:600px;border:1px solid var(--border-primary);
     border-radius:12px;background:#FFF;overflow:hidden}
+  .dr-video{width:100%;max-height:600px;border:1px solid var(--border-primary);
+    border-radius:12px;background:#000;object-fit:contain;display:block}
   .dr-preview-foot{font-size:10.5px;color:var(--text-tertiary);
     font-family:'JetBrains Mono',monospace;padding:4px 2px}
   .dr-meta-col{display:flex;flex-direction:column;gap:14px}
@@ -2699,6 +2701,11 @@
   <div class="dr-body dr-body-2col">
     <!-- LEFT: live iframe preview (Instagram post embed or static image fallback) -->
     <div class="dr-preview-col">
+      <!-- Native <video> for direct MP4 playback — the best experience:
+           user can hit play, scrub, unmute. Poster keeps a first frame
+           visible while metadata loads. -->
+      <video id="drVideo" class="dr-video" controls playsinline preload="metadata"
+             style="display:none"></video>
       <iframe id="drIframe" class="dr-iframe"
               sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
               loading="lazy" allowtransparency="true" frameborder="0"
@@ -2892,8 +2899,8 @@ async function fetchThumbnails(){
   const out = {};
   let offset = 0, BATCH = 1000;
   while (true){
-    const url = SUPABASE_URL+'/rest/v1/ad_thumbnails?select=ad_id,thumbnail_url,image_url,instagram_permalink,fb_permalink'+
-                '&or=(thumbnail_url.not.is.null,image_url.not.is.null)'+
+    const url = SUPABASE_URL+'/rest/v1/ad_thumbnails?select=ad_id,thumbnail_url,image_url,instagram_permalink,fb_permalink,video_source_url,video_source_fetched_at'+
+                '&or=(thumbnail_url.not.is.null,image_url.not.is.null,video_source_url.not.is.null)'+
                 '&limit='+BATCH+'&offset='+offset;
     const r = await fetch(url,{headers});
     if (!r.ok) break;
@@ -2906,6 +2913,8 @@ async function fetchThumbnails(){
         i:   row.image_url || '',
         ig:  row.instagram_permalink || '',
         fb:  row.fb_permalink || '',
+        v:   row.video_source_url || '',
+        vt:  row.video_source_fetched_at || '',
       };
     }
     if (j.length < BATCH) break;
@@ -3722,11 +3731,19 @@ function openDrawer(r){
     {day:'numeric', month:'short', year:'numeric'}) : '—';
   document.getElementById('drCreatedLine').textContent = 'Ad created ' + created;
 
-  // LEFT column: try Instagram embed first, then FB post plugin, then static image, then no-preview
+  // LEFT column: preference order —
+  //   1. video_source_url  → native <video>  (playable, best UX)
+  //   2. Instagram permalink → iframe embed  (live post, requires click to open on IG for playback)
+  //   3. FB page-post permalink → iframe FB plugin
+  //   4. Static image thumbnail
+  //   5. No preview → Ads Library link
   const entry = r.ad_id ? thumbsByAdId[r.ad_id] : null;
-  const igLink = entry && entry.ig ? entry.ig : '';
-  const fbLink = entry && entry.fb ? entry.fb : '';
+  const videoUrl  = entry && entry.v  ? entry.v  : '';
+  const igLink    = entry && entry.ig ? entry.ig : '';
+  const fbLink    = entry && entry.fb ? entry.fb : '';
   const staticUrl = previewUrlOf(entry);
+  const posterUrl = staticUrl;   // use image as the video poster frame
+  const video    = document.getElementById('drVideo');
   const iframe   = document.getElementById('drIframe');
   const staticWr = document.getElementById('drStaticWrap');
   const staticIm = document.getElementById('drImg');
@@ -3735,6 +3752,9 @@ function openDrawer(r){
   const igOpen   = document.getElementById('drIgLink');
   const fbOpen   = document.getElementById('drFbLink');
 
+  // Reset every preview surface
+  video.pause(); video.style.display = 'none';
+  video.removeAttribute('src'); video.removeAttribute('poster');
   iframe.style.display = 'none'; iframe.removeAttribute('src');
   staticWr.style.display = 'none'; staticIm.removeAttribute('src');
   noPv.style.display = 'none';
@@ -3743,10 +3763,24 @@ function openDrawer(r){
 
   const igEmbed = _iframeUrlForIg(igLink);
   const fbEmbed = fbLink ? _iframeUrlForFb(fbLink) : '';
-  if (igEmbed){
+
+  if (videoUrl){
+    // Native HTML5 <video> — the click-to-play experience matches
+    // Instagram/Facebook's own preview and works for dark-post ads too.
+    if (posterUrl) video.setAttribute('poster', posterUrl);
+    video.src = videoUrl;
+    video.load();  // reset any lingering internal state
+    video.style.display = 'block';
+    const age = entry && entry.vt ? new Date(entry.vt) : null;
+    foot.textContent = 'Playable · Meta CDN mp4' +
+      (age ? ' · cached ' + age.toLocaleDateString() : '') +
+      (igLink ? ' · ↗ IG post available' : '');
+    if (igLink){ igOpen.href = igLink; igOpen.style.display = 'inline'; }
+    if (fbLink){ fbOpen.href = fbLink; fbOpen.style.display = 'inline'; }
+  } else if (igEmbed){
     iframe.src = igEmbed;
     iframe.style.display = 'block';
-    foot.textContent = 'Live embed · Instagram · click ↗ to open on ig.com';
+    foot.textContent = 'Live embed · Instagram · click the post to play on ig.com';
     igOpen.href = igLink; igOpen.style.display = 'inline';
   } else if (fbEmbed){
     iframe.src = fbEmbed;
@@ -3756,7 +3790,7 @@ function openDrawer(r){
   } else if (staticUrl){
     staticIm.src = staticUrl;
     staticWr.style.display = 'block';
-    foot.textContent = 'Static thumbnail (no Instagram / Facebook permalink cached for this ad)';
+    foot.textContent = 'Static thumbnail (video CDN URL not cached — run fetch_ad_thumbnails.py to refresh)';
   } else {
     noPv.style.display = 'block';
     document.getElementById('drOpenLib').href =
@@ -3777,7 +3811,10 @@ function closeDrawer(){
   const drawer = document.getElementById('drawer');
   drawer.classList.remove('open');
   drawer.setAttribute('aria-hidden','true');
-  // Also unload the iframe so it stops fetching in the background
+  // Stop the video mid-playback (browsers keep decoding it otherwise)
+  const video = document.getElementById('drVideo');
+  if (video){ video.pause(); video.removeAttribute('src'); video.load(); }
+  // Unload the iframe so it stops fetching in the background
   const iframe = document.getElementById('drIframe');
   if (iframe){ iframe.removeAttribute('src'); iframe.style.display = 'none'; }
   const img = document.getElementById('drImg');
