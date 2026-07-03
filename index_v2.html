@@ -883,7 +883,7 @@
   .ae-tbl-wrap{overflow:auto;flex:1 1 auto;min-height:0}
   /* AE table — wide layout with horizontal scroll, sticky header */
   .ae-tbl{width:100%;table-layout:auto;border-collapse:separate;border-spacing:0;
-    min-width:3800px}
+    min-width:4400px}
   .ae-tbl thead th{position:sticky;top:0;background:var(--bg-page-alt);z-index:2;
     font-size:9.5px !important;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;
     color:var(--text-secondary);padding:9px 10px;cursor:pointer;user-select:none;
@@ -895,16 +895,22 @@
   .ae-tbl thead th.sort-desc::after { content:' ↓';color:var(--accent-yellow) }
   /* Column-specific min/max widths — font-size locked to the base rule
      above so no header (short or long label) renders at a different size. */
-  .ae-tbl thead th.col-adname{min-width:240px;max-width:320px;font-size:9.5px !important}
-  .ae-tbl thead th.col-camp{min-width:180px;max-width:260px;font-size:9.5px !important}
+  .ae-tbl thead th.col-adname{min-width:260px;max-width:360px;font-size:9.5px !important}
+  .ae-tbl thead th.col-camp{min-width:200px;max-width:280px;font-size:9.5px !important}
+  .ae-tbl thead th.col-adid{min-width:150px;font-size:9.5px !important}
+  .ae-tbl thead th.col-adsetid{min-width:130px;font-size:9.5px !important}
+  /* Every numeric column gets a comfortable minimum so digits don't
+     crowd against the border or the next column's header text. */
+  .ae-tbl thead th.num{min-width:100px}
   .ae-tbl tbody tr:nth-child(even) td{background:var(--bg-page-alt)}
   .ae-tbl tbody tr:hover td{background:var(--accent-warm-tint)}
-  .ae-tbl td{padding:8px 10px;font-size:11.5px;color:var(--text-mid);
+  .ae-tbl td{padding:8px 14px;font-size:11.5px;color:var(--text-mid);
     border-bottom:1px solid #F0EDE6;white-space:nowrap;vertical-align:middle;
     background:var(--bg-white)}
-  .ae-tbl td.num{font-family:'JetBrains Mono',monospace;text-align:right;font-size:11px}
-  .ae-tbl td.ad-cell{max-width:320px;overflow:hidden;text-overflow:ellipsis}
-  .ae-tbl td.camp-cell{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+  .ae-tbl td.num{font-family:'JetBrains Mono',monospace;text-align:right;font-size:11px;
+    padding-left:16px;padding-right:16px}
+  .ae-tbl td.ad-cell{max-width:360px;overflow:hidden;text-overflow:ellipsis}
+  .ae-tbl td.camp-cell{max-width:280px;overflow:hidden;text-overflow:ellipsis}
   .ae-tbl td.id-cell{font-family:'JetBrains Mono',monospace;font-size:10.5px;
     color:var(--text-tertiary)}
   /* Inline pills — F1/F2/F3/F4 pass flags */
@@ -1977,10 +1983,10 @@
         <thead>
           <tr>
             <th data-nosort="1" class="col-thumb">Preview</th>
-            <th data-sort="campaign_name" class="col-camp">Campaign</th>
-            <th data-sort="adset_id">Ad Set ID</th>
-            <th data-sort="ad_id">Ad ID</th>
             <th data-sort="ad_name" class="col-adname">Ad Name</th>
+            <th data-sort="ad_id" class="col-adid">Ad ID</th>
+            <th data-sort="campaign_name" class="col-camp">Campaign</th>
+            <th data-sort="adset_id" class="col-adsetid">Ad Set ID</th>
             <th data-nosort="1">Attribution</th>
             <th data-sort="account_name">Account</th>
             <th data-sort="ad_created">Created</th>
@@ -6528,10 +6534,10 @@ function renderAE(){
       : '<td class="thumb-cell"><div class="ae-thumb-placeholder" title="No thumbnail">—</div></td>';
     const main = '<tr>'+
       thumbCell+
+      '<td class="ad-cell" title="'+(r.ad_name||'')+'"><span style="font-weight:600;color:var(--text-primary)">'+(r.ad_name||'—')+'</span></td>'+
+      '<td class="id-cell">'+(r.ad_id||'—')+'</td>'+
       '<td class="camp-cell" title="'+(r.campaign_name||'')+'">'+(r.campaign_name||'—')+'</td>'+
       '<td class="id-cell">'+(r.adset_id||'—')+'</td>'+
-      '<td class="id-cell">'+(r.ad_id||'—')+'</td>'+
-      '<td class="ad-cell" title="'+(r.ad_name||'')+'"><span style="font-weight:600;color:var(--text-primary)">'+(r.ad_name||'—')+'</span></td>'+
       '<td>'+dailyBtn+'</td>'+
       '<td>'+(r.account_name||'—')+'</td>'+
       dCell(r.ad_created)+
