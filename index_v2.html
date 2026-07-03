@@ -1765,7 +1765,6 @@
       <div class="sub">4-filter category engine · live from ae_table_view · re-evaluated client-side when thresholds change</div>
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn ghost" id="aeBtnCrosscheck" title="Cross-check the current recomputed categories against ae_table_view.category">⇄ Cross-check</button>
       <button class="btn ghost" id="aeBtnIncrReach" title="Aggregate incremental reach and cost-per-1k by ad name, campaign, ad set, or account">▲ Incremental Reach Analysis</button>
       <button class="btn ghost" id="aeBtnRefresh">↻ Refresh</button>
       <button class="btn"       id="aeBtnExport">Export CSV</button>
@@ -1936,17 +1935,6 @@
     </div>
   </div>
 
-  <!-- Cross-check panel (collapsed by default) -->
-  <div id="aeCrossPanel" style="display:none">
-    <div class="funnel-card" style="margin-bottom:12px;background:var(--accent-warm-tint);border-color:var(--warning-border)">
-      <div class="funnel-hdr">
-        <h3>⇄ Cross-check — counts in this dashboard vs ae_table_view ground truth</h3>
-        <button class="btn ghost" id="aeCrossClose" style="padding:4px 10px;font-size:11px">close ✕</button>
-      </div>
-      <div id="aeCrossBody" style="font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;padding:6px"></div>
-    </div>
-  </div>
-
   <!-- Show / hide Discarded toggle (the old dashboard hid Discarded by default) -->
   <div style="display:flex;justify-content:space-between;align-items:center;margin:8px 2px 6px">
     <label style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--text-secondary);cursor:pointer">
@@ -2003,9 +1991,6 @@
             <th data-sort="ad_status">Ad Status</th>
             <th class="num" data-sort="impressions">Impressions</th>
             <th class="num" data-sort="reach">Reach</th>
-            <th class="num" data-sort="incremental_reach" title="Latest daily reach − previous daily reach (from primary_table/backfill_table)">Incr. Reach</th>
-            <th class="num" data-sort="cost_per_incremental_reach" title="Latest daily spend ÷ incremental reach">Cost/Incr Reach</th>
-            <th class="num" data-sort="cost_per_1000_incremental_reach" title="Cost per 1,000 incremental reach — CPM equivalent for the incremental-reach delta on the ad's latest reporting day">Cost/1k Incr Reach</th>
             <th class="num" data-sort="reach_weight_pct">Reach Weight %</th>
             <th class="num" data-sort="frequency">Freq</th>
             <th class="num" data-sort="amount_spent">Spend</th>
@@ -6555,9 +6540,6 @@ function renderAE(){
       '<td><span class="ae-status '+statusCls+'">'+(r.ad_status||'—')+'</span></td>'+
       numCell(impVal)+
       numCell(reachVal)+
-      numCell(r.incremental_reach == null ? '—' : fmtInt(r.incremental_reach))+
-      numCell(r.cost_per_incremental_reach == null ? '—' : fmtRs(r.cost_per_incremental_reach))+
-      numCell(r.cost_per_1000_incremental_reach == null ? '—' : fmtRs(r.cost_per_1000_incremental_reach))+
       numCell(fmtNum2(r.reach_weight_pct))+
       numCell(freqVal)+
       numCell(spendVal)+
@@ -6650,51 +6632,6 @@ function renderAE(){
   document.getElementById('aePageInfo').textContent  = 'Page ' + (aePage + 1) + ' / ' + totalPages;
   document.getElementById('aePrevPage').disabled     = aePage === 0;
   document.getElementById('aeNextPage').disabled     = aePage >= totalPages - 1;
-}
-
-/* Cross-check: counts here vs ground-truth in ae_table_view category column.
-   Both should be identical when default thresholds are used (50000/3.2/525/25),
-   because the DB column is computed with those same constants. If the user
-   tweaks thresholds in the UI the new categorisation diverges from the DB. */
-async function aeCrosscheck(){
-  const body = document.getElementById('aeCrossBody');
-  body.textContent = 'computing …';
-  // Counts in current UI (recategorised with current thresholds)
-  const ui = aeRecategorise(allAds);
-  const uiCt = {};
-  ui.forEach(r => uiCt[r.category] = (uiCt[r.category]||0) + 1);
-  // Counts straight from ae_table_view.category column (DB ground truth,
-  // snapshotted in .db_category before we overwrote .category)
-  const dbCt = {};
-  allAds.forEach(r => {
-    const c = r.db_category || r.category;
-    dbCt[c] = (dbCt[c]||0) + 1;
-  });
-  const cats = ['Incremental Winner','Winner','P0 analysis','P1 analysis','P2 analysis','Discarded'];
-  let html = '';
-  const pad = (s, n) => (s + ' '.repeat(Math.max(0, n - s.length)));
-  html += pad('Category', 24) + pad('UI (your thresholds)', 24) + pad('DB (ae_table_view)', 24) + 'Δ\n';
-  html += '─'.repeat(80) + '\n';
-  let okAll = true;
-  cats.forEach(c => {
-    const u = uiCt[c] || 0;
-    const d = dbCt[c] || 0;
-    const delta = u - d;
-    if (delta !== 0) okAll = false;
-    html += pad(c, 24) +
-            pad(u.toLocaleString(), 24) +
-            pad(d.toLocaleString(), 24) +
-            (delta === 0 ? '✓' : ('Δ ' + (delta > 0 ? '+' : '') + delta.toLocaleString())) + '\n';
-  });
-  html += '─'.repeat(80) + '\n';
-  html += pad('TOTAL', 24) + pad(ui.length.toLocaleString(), 24) + pad(allAds.length.toLocaleString(), 24) + '✓\n\n';
-  const t = aeReadThresholds();
-  html += okAll
-    ? `✅  UI matches DB exactly — your thresholds (${t.f1}/${t.f2}/${t.f3}/${t.f4}) match the DB-computed values.`
-    : `⚠  UI thresholds (${t.f1}/${t.f2}/${t.f3}/${t.f4}) differ from the DB-baked ones (50000/3.2/525/25).\n` +
-      '   The deltas above are the expected category shifts. The DB column is computed by refresh_ae_table.py;\n' +
-      '   rerun it with the new constants if you want the DB to match.';
-  body.textContent = html;
 }
 
 /* Wiring */
@@ -6861,15 +6798,6 @@ document.getElementById('aeBtnExport').onclick = () => {
   a.download = 'ads_analyse_' + (new Date().toISOString().slice(0,10)) + '.csv';
   a.click();
 };
-document.getElementById('aeBtnCrosscheck').onclick = () => {
-  const p = document.getElementById('aeCrossPanel');
-  if (p.style.display === 'none') { p.style.display = 'block'; aeCrosscheck(); }
-  else                            { p.style.display = 'none'; }
-};
-document.getElementById('aeCrossClose').onclick = () => {
-  document.getElementById('aeCrossPanel').style.display = 'none';
-};
-
 /* ────────────────────────────────────────────────────────────────────
    INCREMENTAL REACH ANALYSIS — group-by drill
 
