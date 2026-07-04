@@ -1879,25 +1879,27 @@ async function aeRebuildDeliverySet(){
   if (!SUPABASE_URL || !SUPABASE_ANON) return;
   const dbStatEl = document.getElementById('dbStat');
   if (dbStatEl) dbStatEl.innerHTML = 'Loading delivery ads <span class="spinner"></span>';
-  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON, Prefer:'count=none'};
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                   'Content-Type':'application/json', Prefer:'count=none'};
+  // Single RPC call — server-side DISTINCT against the ae_daily_agg_mat mat
+  // table. Replaces the 900k-row paginated crawl of primary + backfill that
+  // used to blow past anon's 3s statement_timeout for 30+ day windows.
   const ids = new Set();
-  const BATCH = 1000;
-  for (const table of ['primary_table','backfill_table']){
-    let offset = 0;
-    while (true){
-      let url = SUPABASE_URL+'/rest/v1/'+table+'?select=ad_id'+
-                '&ad_id=not.is.null&impressions=gt.0'+
-                '&limit='+BATCH+'&offset='+offset;
-      if (from) url += '&date=gte.'+from;
-      if (to)   url += '&date=lte.'+to;
-      const r = await fetch(url, {headers});
-      if (!r.ok) break;
+  try {
+    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_delivery_ads', {
+      method:'POST', headers,
+      body: JSON.stringify({from_date: from || '1970-01-01',
+                            to_date:   to   || '2100-01-01'}),
+    });
+    if (r.ok){
       const j = await r.json();
-      if (!Array.isArray(j) || !j.length) break;
-      for (const row of j) if (row.ad_id) ids.add(row.ad_id);
-      if (j.length < BATCH) break;
-      offset += BATCH;
+      if (Array.isArray(j)) for (const row of j){ if (row.ad_id) ids.add(row.ad_id); }
+    } else {
+      console.warn('[aeRebuildDeliverySet] RPC HTTP', r.status,
+                   await r.text().catch(()=>''));
     }
+  } catch (e){
+    console.warn('[aeRebuildDeliverySet] network error', e);
   }
   _aeDeliveryCache.set(key, ids);
   aeDeliverySet = ids;
