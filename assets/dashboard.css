@@ -1342,14 +1342,16 @@
   }
 
   @media (max-width: 900px){
-    /* Hamburger mode — sidebar hides fully, use the #sbToggle button */
+    /* Hamburger mode — sidebar hides fully, use the #sbToggle button.
+       !important needed because the base #sbToggle{display:none} rule
+       is defined AFTER this media block in the CSS file. */
     #sidebar{transform:translateX(-100%); transition:transform .25s}
     #sidebar.open{transform:translateX(0); width:212px}
     #sidebar.open .sb-title, #sidebar.open .sb-item span,
     #sidebar.open .sb-section, #sidebar.open .sb-status{display:block}
     #sidebar.open .sb-item{justify-content:flex-start;padding:8px 16px}
-    #main{margin-left:0; padding:64px 14px 40px}
-    #sbToggle{display:flex}
+    #main{margin-left:0 !important; padding:64px 14px 40px}
+    #sbToggle{display:flex !important}
     /* AE filter grid: 2 columns */
     .ae-filter-grid{grid-template-columns:repeat(2,1fr)}
     /* Ad Analyse KPI cards row: keep auto-fit but bump min */
