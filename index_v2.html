@@ -1286,9 +1286,138 @@
   .tier-badge.discarded {background:var(--bg-muted);color:var(--text-tertiary)}
   .pass-yes{color:var(--success-text);font-weight:700}
   .pass-no {color:var(--error-text);opacity:0.7}
+
+  /* ═════════════════════════════════════════════════════════════════
+     RESPONSIVE LAYER
+     Every rule below only kicks in on smaller viewports. Desktop-first,
+     so the base layout above stays unchanged; these are override cascades
+     for the specific pain points that break when the dashboard opens on
+     a laptop / tablet / phone.
+
+     Breakpoints:
+        1400  laptop     — kpi cards go 3+3 instead of 6-across, table
+                           padding tightens, drawer stays two-column
+        1024  tablet-l   — kpi cards go 3+3, drawer shrinks, sidebar stays
+        900   tablet     — sidebar becomes a hamburger, drawer 100vw,
+                           kpi cards go 2+2+2, freq-buckets go 2 cols
+        640   phone      — everything stacks in one column, kpi cards go
+                           2-across, funnel/tables scroll horizontally
+     ══════════════════════════════════════════════════════════════════ */
+
+  /* KPI grid: use auto-fit so the number of columns adapts to viewport
+     width without needing separate breakpoints. Cards never squeeze
+     below 170px which keeps the labels + numbers readable. */
+  .kpi-row{
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  }
+  /* Same for the Frequency Lifecycle bucket cards */
+  .freq-buckets{
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  .freq-buckets-5, .freq-buckets-6{
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  .freq-totals{
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  /* Bucket drill modal — its overlay padding + max-width work down to
+     phone width already; only fix the header wrap and the sort toolbar. */
+
+  @media (max-width: 1400px){
+    /* Laptop screens: KPI values shrink slightly so they don't wrap */
+    .kpi .k-val{font-size:22px}
+    .ft-tile b{font-size:16px}
+    .fb-count{font-size:22px}
+    /* Filter cards get less padding */
+    .filter-card{padding:14px 16px}
+    /* AE filter grid stays 4-wide but with less inter-column gap */
+    .ae-filter-grid{gap:10px}
+  }
+
+  @media (max-width: 1024px){
+    /* Sidebar shrinks to icons-only mode */
+    #sidebar{width:64px}
+    #sidebar .sb-title, #sidebar .sb-item span:not(.sb-icon),
+    #sidebar .sb-section, #sidebar .sb-status{display:none}
+    #sidebar .sb-item{justify-content:center;padding:12px 0}
+    #main{margin-left:64px}
+    /* AE filter grid drops to 3 columns */
+    .ae-filter-grid{grid-template-columns:repeat(3,1fr)}
+    /* Drawer maxes out at viewport width */
+    #drawer{width:min(900px, 100vw)}
+    /* Two-column drawer body stacks on tablet-sized drawers */
+    .dr-body-2col{grid-template-columns:1fr; gap:14px}
+    .dr-iframe, .dr-video{height:500px; max-height:60vh}
+  }
+
+  @media (max-width: 900px){
+    /* Hamburger mode — sidebar hides fully, use the #sbToggle button */
+    #sidebar{transform:translateX(-100%); transition:transform .25s}
+    #sidebar.open{transform:translateX(0); width:212px}
+    #sidebar.open .sb-title, #sidebar.open .sb-item span,
+    #sidebar.open .sb-section, #sidebar.open .sb-status{display:block}
+    #sidebar.open .sb-item{justify-content:flex-start;padding:8px 16px}
+    #main{margin-left:0; padding:64px 14px 40px}
+    #sbToggle{display:flex}
+    /* AE filter grid: 2 columns */
+    .ae-filter-grid{grid-template-columns:repeat(2,1fr)}
+    /* Ad Analyse KPI cards row: keep auto-fit but bump min */
+    #aeCats{grid-template-columns:repeat(auto-fit, minmax(160px, 1fr))}
+    /* Frequency 5/6 bucket layout: 3 columns */
+    .freq-buckets-5, .freq-buckets-6{
+      grid-template-columns:repeat(3, 1fr)
+    }
+    /* Modal padding shrinks so content isn't cut off */
+    #bucketModal, #incrReachModal{padding:12px}
+    /* Cross-view modal cards can drop the shadow overhead */
+    .modal-card{max-width:100vw}
+    /* Drawer full width, iframe shorter */
+    #drawer{width:100vw; right:-100vw}
+    .dr-iframe, .dr-video{height:420px; max-height:50vh}
+  }
+
+  @media (max-width: 640px){
+    /* Phone — everything stacks; the app becomes a one-column report */
+    .kpi-row{grid-template-columns:repeat(2, 1fr)}
+    #aeCats{grid-template-columns:repeat(2, 1fr)}
+    .freq-buckets, .freq-buckets-5, .freq-buckets-6{
+      grid-template-columns:repeat(2, 1fr)
+    }
+    .freq-totals{grid-template-columns:repeat(2, 1fr)}
+    .ae-filter-grid{grid-template-columns:1fr}
+    /* Page headers shrink so they don't wrap to 3 lines */
+    .heading, h1.heading{font-size:20px}
+    .sub{font-size:11px}
+    /* KPI card values readable at small screens */
+    .kpi{padding:12px 14px}
+    .kpi .k-val{font-size:20px}
+    .kpi .k-lbl{font-size:10px}
+    /* Modal fills the screen edge-to-edge with 4px gutter */
+    #bucketModal, #incrReachModal, #modal{padding:4px}
+    /* Drawer footer buttons shrink so all three fit in a row */
+    .dr-footer{padding:10px 12px; gap:6px}
+    .dr-footer .btn, .dr-footer a.btn{font-size:11px; padding:6px 10px}
+    /* Freq drill table remains horizontally scrollable — no changes
+       needed since it already lives inside .freq-drill-tbl with a
+       min-width; the parent overflow:auto handles the rest. */
+  }
+
+  /* Hamburger button — invisible on desktop, shown on <=900px */
+  #sbToggle{
+    position:fixed; top:12px; left:12px; z-index:200;
+    display:none; align-items:center; justify-content:center;
+    width:40px; height:40px; border-radius:8px;
+    background:var(--bg-white); border:1px solid var(--border-primary);
+    cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.08);
+    font-size:18px; color:var(--text-primary)
+  }
+  #sbToggle:hover{background:var(--accent-warm-tint)}
 </style>
 </head>
 <body>
+
+<!-- Mobile hamburger — only visible at ≤900px viewport widths -->
+<button id="sbToggle" aria-label="Toggle sidebar" title="Menu">☰</button>
 
 <!-- ═════════════════ SIDEBAR ═════════════════ -->
 <aside id="sidebar">
@@ -4188,7 +4317,24 @@ document.querySelectorAll('.sb-item').forEach(it => {
       VIEW_LOADED.adintel = true;
     }
     if (v === 'inventory' && !VIEW_LOADED.inventory) { loadInventory(); VIEW_LOADED.inventory = true; }
+    // Auto-close the mobile sidebar after selection
+    if (window.innerWidth <= 900) document.getElementById('sidebar').classList.remove('open');
   });
+});
+
+/* Hamburger toggle — mobile / tablet only (see @media 900px in CSS).
+   Also close when clicking outside the sidebar on those viewports. */
+document.getElementById('sbToggle')?.addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('sidebar').classList.toggle('open');
+});
+document.addEventListener('click', e => {
+  if (window.innerWidth > 900) return;
+  const sb = document.getElementById('sidebar');
+  const tog = document.getElementById('sbToggle');
+  if (sb.classList.contains('open') && !sb.contains(e.target) && e.target !== tog){
+    sb.classList.remove('open');
+  }
 });
 
 /* ────────────────────────────────────────────────────────────────────
