@@ -3155,8 +3155,13 @@ function aiFiltered(){
   const trm    = (document.getElementById('aiUtmTerm'    ).value || '').trim().toLowerCase();
   const mv     = (document.getElementById('aiMatchedValue').value|| '').trim().toLowerCase();
   let rows = aiOrders;
-  if (tier === '__matched__')   rows = rows.filter(r => aiStep(r) !== '__none__');
-  else if (tier === '__none__') rows = rows.filter(r => aiStep(r) === '__none__');
+  // A row is "matched" if either the Meta cascade or the Google cascade
+  // placed it in a non-__none__ bucket.
+  const _matched = r => aiStep(r) !== '__none__' || aiGoogleStep(r) !== '__none__';
+  if (tier === '__matched__')   rows = rows.filter(_matched);
+  else if (tier === '__none__') rows = rows.filter(r => !_matched(r));
+  else if (tier === 'G1' || tier === 'G2' || tier === 'G3' || tier === 'G4')
+                                rows = rows.filter(r => aiGoogleStep(r) === tier);
   else if (tier)                rows = rows.filter(r => aiStep(r) === tier);
   // Multi-select utm_source — empty Set means "all"
   if (aiUtmSourceSel.size) rows = rows.filter(r => aiUtmSourceSel.has(aiSourceKey(r)));
@@ -3269,6 +3274,7 @@ function aiChannel(srcKey){
 /* Track which channel drilldown is currently open (empty = none). */
 let aiOpenChannel = '';
 let aiDisplayMode = 'count';   // 'count' | 'pct' — swaps KPI primary value with chip
+let aiTierMode    = 'meta';    // 'meta' | 'google' — which tier cascade the KPI row shows
 
 function aiRenderChannels(){
   const chs = {all:{n:0,sp:0}, meta:{n:0,sp:0}, google:{n:0,sp:0},
@@ -3395,17 +3401,50 @@ function aiCloseChannelDrill(){
   document.querySelectorAll('#aiChannelRow .kpi').forEach(c => c.classList.remove('selected'));
 }
 
+/* Google-side tier bucketing: G1 (ad_id), G2 (campaign_id),
+   G3 (joint campaign+ad_name), G4 (unique ad_name), Unmatched. */
+function aiGoogleStep(row){
+  const t = (row.matched_tier || '').trim();
+  if (t === 'G1' || t === 'G2' || t === 'G3' || t === 'G4') return t;
+  return '__none__';
+}
+
 function aiRenderKpis(){
+  if (aiTierMode === 'google'){
+    const buckets = {G1:0,G2:0,G3:0,G4:0,'__none__':0};
+    const sales   = {G1:0,G2:0,G3:0,G4:0,'__none__':0};
+    // Scope to Google-channel orders only, so the % denominator makes sense
+    for (const r of aiOrders){
+      if (aiChannel(aiSourceKey(r)) !== 'google') continue;
+      const k = aiGoogleStep(r);
+      buckets[k] += 1;
+      sales[k]   += (+r.total_price || 0);
+    }
+    let total = 0; for (const k in buckets) total += buckets[k];
+    const set = (id, k) => {
+      const n = buckets[k] || 0;
+      const pctStr   = total > 0 ? ((n / total * 100).toFixed(1) + '%') : '—';
+      const countStr = fmtInt(n);
+      const primary   = aiDisplayMode === 'pct' ? pctStr : countStr;
+      const secondary = aiDisplayMode === 'pct' ? countStr : pctStr;
+      document.getElementById('aiKp-'+id     ).textContent = primary;
+      document.getElementById('aiKp-'+id+'-sp').textContent = fmtRs(sales[k] || 0);
+      const pcEl = document.getElementById('aiKp-'+id+'-pc');
+      if (pcEl) pcEl.textContent = secondary;
+    };
+    set('G1','G1'); set('G2','G2'); set('G3','G3'); set('G4','G4'); set('Gnone','__none__');
+    return;
+  }
   const buckets = {'Step 1':0,'Step 2':0,'Step 3':0,'Step 4':0,'Step 5':0,'__none__':0};
   const sales   = {'Step 1':0,'Step 2':0,'Step 3':0,'Step 4':0,'Step 5':0,'__none__':0};
+  // Scope to Meta-channel orders only, so the % denominator makes sense
   for (const r of aiOrders){
+    if (aiChannel(aiSourceKey(r)) !== 'meta') continue;
     const k = aiStep(r);
     buckets[k] += 1;
     sales[k]   += (+r.total_price || 0);
   }
-  // Total across all Step-buckets (including Unmatched) — same as aiOrders.length
-  let total = 0;
-  for (const k in buckets) total += buckets[k];
+  let total = 0; for (const k in buckets) total += buckets[k];
   const set = (id, k) => {
     const n = buckets[k] || 0;
     const pctStr   = total > 0 ? ((n / total * 100).toFixed(1) + '%') : '—';
@@ -3435,9 +3474,14 @@ function aiRenderTable(){
     tb.innerHTML = '<tr><td colspan="14" style="padding:30px;text-align:center;color:var(--text-tertiary)">No rows match the current filter.</td></tr>';
   } else {
     tb.innerHTML = slice.map(r => {
-      const step = aiStep(r);
-      const tier = step === '__none__' ? '—' : step;
-      const tc   = aiTierClass(step);
+      const step  = aiStep(r);
+      const gstep = aiGoogleStep(r);
+      const tier  = step !== '__none__' ? step
+                  : gstep !== '__none__' ? gstep
+                  : '—';
+      const tc    = step !== '__none__' ? aiTierClass(step)
+                  : gstep !== '__none__' ? 't1'
+                  : 'none';
       const date = (r.order_created_at || '').slice(0,16).replace('T',' ');
       const st   = r.ad_id ? (aiAdStatusMap[r.ad_id] || 'UNKNOWN') : '—';
       const stCls= st === 'ACTIVE' ? 'active' : '';
@@ -3558,11 +3602,26 @@ function initAdIntel(){
     a.download = 'ad_intelligence_' + new Date().toISOString().slice(0,10) + '.csv';
     a.click();
   };
-  // KPI cards click → filter to that tier
-  document.getElementById('aiTierCards').addEventListener('click', e => {
+  // KPI cards click → filter to that tier (both Meta and Google rows share
+  // the same handler; card.dataset.tier carries the tier key already)
+  const _tierClick = e => {
     const card = e.target.closest('.kpi'); if (!card) return;
     document.getElementById('aiTierSel').value = card.dataset.tier;
     aiPage = 0; aiRenderTable();
+  };
+  document.getElementById('aiTierCards'      ).addEventListener('click', _tierClick);
+  document.getElementById('aiTierCardsGoogle').addEventListener('click', _tierClick);
+
+  // Meta / Google tier row toggle — swaps which cascade the tier KPI row shows
+  document.getElementById('aiTierModeToggle').addEventListener('click', e => {
+    const btn = e.target.closest('.lt-btn'); if (!btn) return;
+    aiTierMode = btn.dataset.mode === 'google' ? 'google' : 'meta';
+    document.querySelectorAll('#aiTierModeToggle .lt-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === aiTierMode);
+    });
+    document.getElementById('aiTierCards'      ).style.display = (aiTierMode === 'meta'  ) ? 'grid' : 'none';
+    document.getElementById('aiTierCardsGoogle').style.display = (aiTierMode === 'google') ? 'grid' : 'none';
+    aiRenderKpis();
   });
   // Channel KPI cards → apply the channel as a utm_source filter (pushes
   // every source that classifies into that channel into the multi-select)

@@ -894,15 +894,22 @@
     <div class="ai-ch-drill-body" id="aiChannelDrillBody"></div>
   </div>
 
-  <!-- KPI cards — one per Step in the 5-step rule cascade.
+  <!-- Meta / Google tier toggle — swaps the tier KPI row between the
+       Meta 5-step cascade and the Google 4-tier match cascade. Counts
+       are scoped to the selected channel only (Meta orders in Meta
+       mode, Google orders in Google mode). -->
+  <div class="ai-tier-mode-bar">
+    <div class="life-toggle" id="aiTierModeToggle" title="Switch tier cards between Meta and Google match rates">
+      <button class="lt-btn active" data-mode="meta"   type="button">Meta</button>
+      <button class="lt-btn"        data-mode="google" type="button">Google</button>
+    </div>
+  </div>
+  <!-- Meta mode: 5-step cascade
        Step 1 utm_content == ad_id
        Step 2 utm_content == ad_name
        Step 3 adset + ad_name contains utm_content
        Step 4 adset + separator-normalised contains
-       Step 5 adset + multi-attribute score >= 1
-       (legacy tier values T1_ad_id, T2_ad_name, T3 are folded into the
-        equivalent step; T0_template lives in the Unmatched bucket
-        because it doesn't carry a Meta ad reference). -->
+       Step 5 adset + multi-attribute score >= 1 -->
   <div class="kpi-row" id="aiTierCards" style="grid-template-columns:repeat(6,1fr)">
     <div class="kpi" data-tier="Step 1"><div class="k-lbl">Step 1 · utm = ad_id</div>
       <div class="k-val mono"><span id="aiKp-S1">—</span><span class="k-pct" id="aiKp-S1-pc">—</span></div>
@@ -922,6 +929,28 @@
     <div class="kpi" data-tier="__none__"><div class="k-lbl">Unmatched</div>
       <div class="k-val mono"><span id="aiKp-none">—</span><span class="k-pct" id="aiKp-none-pc">—</span></div>
       <div class="k-sub">sales <b id="aiKp-none-sp">—</b></div></div>
+  </div>
+  <!-- Google mode: 4-tier match cascade
+       G1 utm_content == numeric ad_id
+       G2 utm_campaign == numeric campaign_id (Google auto-tag)
+       G3 utm_content=ad_name AND utm_campaign=campaign_name
+       G4 utm_content=ad_name, uniquely one campaign in the CSV -->
+  <div class="kpi-row" id="aiTierCardsGoogle" style="display:none;grid-template-columns:repeat(5,1fr)">
+    <div class="kpi" data-tier="G1"><div class="k-lbl">G1 · utm = ad_id</div>
+      <div class="k-val mono"><span id="aiKp-G1">—</span><span class="k-pct" id="aiKp-G1-pc">—</span></div>
+      <div class="k-sub">sales <b id="aiKp-G1-sp">—</b></div></div>
+    <div class="kpi" data-tier="G2"><div class="k-lbl">G2 · utm = campaign_id</div>
+      <div class="k-val mono"><span id="aiKp-G2">—</span><span class="k-pct" id="aiKp-G2-pc">—</span></div>
+      <div class="k-sub">sales <b id="aiKp-G2-sp">—</b></div></div>
+    <div class="kpi" data-tier="G3"><div class="k-lbl">G3 · campaign+ad_name</div>
+      <div class="k-val mono"><span id="aiKp-G3">—</span><span class="k-pct" id="aiKp-G3-pc">—</span></div>
+      <div class="k-sub">sales <b id="aiKp-G3-sp">—</b></div></div>
+    <div class="kpi" data-tier="G4"><div class="k-lbl">G4 · unique ad_name</div>
+      <div class="k-val mono"><span id="aiKp-G4">—</span><span class="k-pct" id="aiKp-G4-pc">—</span></div>
+      <div class="k-sub">sales <b id="aiKp-G4-sp">—</b></div></div>
+    <div class="kpi" data-tier="__none__"><div class="k-lbl">Unmatched</div>
+      <div class="k-val mono"><span id="aiKp-Gnone">—</span><span class="k-pct" id="aiKp-Gnone-pc">—</span></div>
+      <div class="k-sub">sales <b id="aiKp-Gnone-sp">—</b></div></div>
   </div>
 
   <!-- Filter grid -->
@@ -956,7 +985,11 @@
         <option value="Step 3">Step 3 · adset+name⊇utm</option>
         <option value="Step 4">Step 4 · sep-normalised</option>
         <option value="Step 5">Step 5 · multi-attribute</option>
-        <option value="__matched__">Any match (Step 1-5)</option>
+        <option value="G1">G1 · Google ad_id</option>
+        <option value="G2">G2 · Google campaign_id</option>
+        <option value="G3">G3 · Google campaign+ad_name</option>
+        <option value="G4">G4 · Google unique ad_name</option>
+        <option value="__matched__">Any match (Step 1-5 or G1-G4)</option>
         <option value="__none__">Unmatched only</option>
       </select>
     </div>
