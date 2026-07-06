@@ -3612,7 +3612,9 @@ function initAdIntel(){
   document.getElementById('aiTierCards'      ).addEventListener('click', _tierClick);
   document.getElementById('aiTierCardsGoogle').addEventListener('click', _tierClick);
 
-  // Meta / Google tier row toggle — swaps which cascade the tier KPI row shows
+  // Meta / Google tier row toggle — swaps the KPI cascade AND scopes the
+  // table + source filter to the same channel, so what you see in the
+  // table always matches the cascade you're looking at above.
   document.getElementById('aiTierModeToggle').addEventListener('click', e => {
     const btn = e.target.closest('.lt-btn'); if (!btn) return;
     aiTierMode = btn.dataset.mode === 'google' ? 'google' : 'meta';
@@ -3621,7 +3623,23 @@ function initAdIntel(){
     });
     document.getElementById('aiTierCards'      ).style.display = (aiTierMode === 'meta'  ) ? 'grid' : 'none';
     document.getElementById('aiTierCardsGoogle').style.display = (aiTierMode === 'google') ? 'grid' : 'none';
+
+    // Rescope utm_source multi-select to the mode's channel so the table
+    // only shows orders that could plausibly match the visible cascade.
+    aiUtmSourceSel.clear();
+    for (const r of aiOrders){
+      const key = aiSourceKey(r);
+      if (aiChannel(key) === aiTierMode) aiUtmSourceSel.add(key);
+    }
+    // Any prior tier filter is now stale (Meta step selected while
+    // switching to Google, or vice versa) — clear it back to "All".
+    document.getElementById('aiTierSel').value = '';
+
+    aiRenderSourceMs(aiBuildSourceCounts());
+    aiRenderChannels();
     aiRenderKpis();
+    aiPage = 0;
+    aiRenderTable();
   });
   // Channel KPI cards → apply the channel as a utm_source filter (pushes
   // every source that classifies into that channel into the multi-select)
