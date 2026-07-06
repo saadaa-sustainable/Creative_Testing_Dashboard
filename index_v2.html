@@ -1161,6 +1161,16 @@
         <th>Type</th>
         <th class="num">Variants</th>
         <th class="num">Total inventory</th>
+        <!-- DoQ metrics — sourced from BigQuery via product_doq_daily,
+             matched to Shopify products by SKU-prefix tag.
+             Daily qty = ordered units on the latest BQ snapshot day.
+             DoQ 30/45 = avg daily ordered qty over last 30/45 days.
+             OOS 30d = number of days out-of-stock in the last 30 (worst
+             variant). -->
+        <th class="num" title="Ordered units on the latest BigQuery snapshot day">Daily qty</th>
+        <th class="num" title="Average daily ordered quantity, last 30 days">DoQ 30d</th>
+        <th class="num" title="Average daily ordered quantity, last 45 days">DoQ 45d</th>
+        <th class="num" title="Days out-of-stock in the last 30 days (worst variant)">OOS 30d</th>
         <th class="num">Price range (₹)</th>
         <th>Created</th>
       </tr></thead>

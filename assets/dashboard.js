@@ -4706,6 +4706,33 @@ async function loadInventory(){
     : '';
   footer.textContent = 'Loaded ' + invProducts.length.toLocaleString() +
     ' products from cache' + lastTxt;
+
+  // Overlay DoQ metrics from product_doq_daily. This is a small side-
+  // fetch (~6k rows) that maps to invProducts by product_id — matched
+  // to the latest date_day so we always show the freshest snapshot.
+  try {
+    const doqUrl = SUPABASE_URL + '/rest/v1/product_doq_daily' +
+      '?select=product_id,date_day,daily_quantity,doq_30,doq_45,oos_days_30' +
+      '&order=date_day.desc&limit=20000';
+    const dr = await fetch(doqUrl, {headers});
+    if (dr.ok){
+      const drows = await dr.json();
+      // First occurrence wins because we sorted by date_day desc — that
+      // is the freshest snapshot per product.
+      const byProd = {};
+      for (const d of drows){
+        if (!byProd[d.product_id]) byProd[d.product_id] = d;
+      }
+      for (const p of invProducts){
+        const d = byProd[p.id];
+        p.doq_daily = d?.daily_quantity ?? null;
+        p.doq_30    = d?.doq_30         ?? null;
+        p.doq_45    = d?.doq_45         ?? null;
+        p.oos_30    = d?.oos_days_30    ?? null;
+      }
+    }
+  } catch (e){ /* DoQ overlay is best-effort — table still works without it */ }
+
   renderInventoryKpis();
   renderInventoryTable();
 }
@@ -4749,6 +4776,12 @@ function renderInventoryTable(){
     const minP = +p.priceRangeV2?.minVariantPrice?.amount || 0;
     const maxP = +p.priceRangeV2?.maxVariantPrice?.amount || 0;
     const priceTxt = minP === maxP ? fmtRs(minP) : fmtRs(minP) + ' – ' + fmtRs(maxP);
+    // DoQ / OOS cells — "—" when the product had no SKU-tag match in
+    // product_doq_daily (mostly bedsheets / no SKU-shaped tags).
+    const dq  = p.doq_daily != null ? fmtInt(p.doq_daily) : '—';
+    const d30 = p.doq_30    != null ? (+p.doq_30).toFixed(2) : '—';
+    const d45 = p.doq_45    != null ? (+p.doq_45).toFixed(2) : '—';
+    const oo  = p.oos_30    != null ? fmtInt(p.oos_30) : '—';
     return '<tr>'+
       '<td>'+img+'</td>'+
       '<td class="title-cell">'+
@@ -4760,6 +4793,10 @@ function renderInventoryTable(){
       '<td>'+(p.productType || '—')+'</td>'+
       '<td class="num">'+fmtInt(p.variantsCount?.count)+'</td>'+
       '<td class="num">'+fmtInt(p.totalInventory)+'</td>'+
+      '<td class="num">'+dq +'</td>'+
+      '<td class="num">'+d30+'</td>'+
+      '<td class="num">'+d45+'</td>'+
+      '<td class="num">'+oo +'</td>'+
       '<td class="num">'+priceTxt+'</td>'+
       '<td style="font-family:JetBrains Mono;font-size:11px">'+(p.createdAt ? p.createdAt.slice(0,10) : '—')+'</td>'+
     '</tr>';
