@@ -1222,52 +1222,93 @@
           <div class="hint">First-time engaged-view-purchase cost.</div></div>
       </div>
 
-      <!-- Algorithm -->
-      <div class="def-section-lbl" style="margin-top:22px">Categorisation algorithm</div>
+      <!-- Algorithm — matrix view: ✓ required, — not required, ~ either -->
+      <div class="def-section-lbl" style="margin-top:22px">Categorisation matrix</div>
       <p class="def-prose">
-        Each unique ad is evaluated against a four-filter matrix. <b>F1 is mandatory</b>
-        for any Winner-class bucket. <b>Incremental Winner</b> = F1 + (F2 or F3) + F4.
-        <b>Winner</b> = F1 + (F2 or F3) — F4 not required. Ads that pass only
-        F1 + F4 land in <b>P0 analysis</b> (iteration target). Ads passing F1 alone fall
-        to <b>P1 analysis</b>; ads passing F2 (but not F1 — still building
-        impressions) go to <b>P2 analysis</b>. Everything else is <b>Discarded</b>.
+        Each unique ad is evaluated against the four filters. A <b>✓</b> means the
+        filter must pass for that category; a <b>—</b> means it isn't checked; a
+        <b>~</b> means either state is fine (the row wins on other columns). Categories
+        are matched top-down — the first matching row wins.
       </p>
 
-      <table class="tbl def-cats">
-        <thead><tr><th>Category</th><th>Condition</th><th>Action</th></tr></thead>
+      <!-- F4 note — universal quality gate: it doesn't gate P1/P2/Discarded
+           membership, but its state is evaluated for every ad because it
+           upgrades categories: F1 alone → P1, but F1+F4 → P0; F1+F2 → Winner,
+           but F1+F2+F4 → Incremental Winner. -->
+      <div class="def-note">
+        <span class="def-note-icon">◆</span>
+        <span><b>F4 is a universal quality metric</b> — it's evaluated for every ad
+        and acts as the upgrade gate across categories (F1-only → P1; F1+F4 → P0;
+        F1+F2 → Winner; F1+F2+F4 → Incremental Winner). P2 stays P2 whether F4
+        passes or not — F2's presence with no F1 is the deciding signal.</span>
+      </div>
+
+      <table class="tbl def-cats def-matrix">
+        <thead><tr>
+          <th>Category</th>
+          <th class="def-f-col" title="F1 — Impressions ≥ 50,000">F1</th>
+          <th class="def-f-col" title="F2 — ROAS ≥ 3.2">F2</th>
+          <th class="def-f-col" title="F3 — Cost / NCP ≤ ₹525">F3</th>
+          <th class="def-f-col" title="F4 — Cost / FTEWV ≤ ₹12">F4</th>
+          <th>Action</th>
+        </tr></thead>
         <tbody>
           <tr>
             <td><span class="badge incr">Incremental Winner</span></td>
-            <td class="mono">F1 ✓ AND (F2 ✓ OR F3 ✓) AND F4 ✓</td>
+            <td class="def-cell"><span class="def-mark yes">✓</span></td>
+            <td class="def-cell def-or"><span class="def-mark yes">✓</span></td>
+            <td class="def-cell def-or"><span class="def-mark yes">✓</span></td>
+            <td class="def-cell"><span class="def-mark yes">✓</span></td>
             <td>Scale aggressively. Top-tier proven creative.</td>
           </tr>
           <tr>
             <td><span class="badge win">Winner</span></td>
-            <td class="mono">F1 ✓ AND (F2 ✓ OR F3 ✓)</td>
+            <td class="def-cell"><span class="def-mark yes">✓</span></td>
+            <td class="def-cell def-or"><span class="def-mark yes">✓</span></td>
+            <td class="def-cell def-or"><span class="def-mark yes">✓</span></td>
+            <td class="def-cell"><span class="def-mark any">~</span></td>
             <td>Scale. F4 close-second; iterate on cost-per-FTEWV.</td>
           </tr>
           <tr>
             <td><span class="badge pri">P0 analysis</span></td>
-            <td class="mono">F1 ✓ AND F4 ✓</td>
+            <td class="def-cell"><span class="def-mark yes">✓</span></td>
+            <td class="def-cell"><span class="def-mark no">—</span></td>
+            <td class="def-cell"><span class="def-mark no">—</span></td>
+            <td class="def-cell"><span class="def-mark yes">✓</span></td>
             <td>Impressions met + cheap FTEWV. Iteration target.</td>
           </tr>
           <tr>
             <td><span class="badge a1">P1 analysis</span></td>
-            <td class="mono">F1 ✓ only</td>
+            <td class="def-cell"><span class="def-mark yes">✓</span></td>
+            <td class="def-cell"><span class="def-mark no">—</span></td>
+            <td class="def-cell"><span class="def-mark no">—</span></td>
+            <td class="def-cell"><span class="def-mark no">—</span></td>
             <td>Hit impressions, but ROAS / Cost-NCP / Cost-FTEWV all miss.</td>
           </tr>
           <tr>
             <td><span class="badge a2">P2 analysis</span></td>
-            <td class="mono">F2 ✓ (F1 not yet)</td>
-            <td>Strong ROAS signal but still building impressions.</td>
+            <td class="def-cell"><span class="def-mark no">—</span></td>
+            <td class="def-cell"><span class="def-mark yes">✓</span></td>
+            <td class="def-cell"><span class="def-mark no">—</span></td>
+            <td class="def-cell"><span class="def-mark any">~</span></td>
+            <td>Strong ROAS signal (F4 either state) but still building impressions.</td>
           </tr>
           <tr>
             <td><span class="badge disc">Discarded</span></td>
-            <td class="mono">else (no filter passes)</td>
+            <td class="def-cell"><span class="def-mark no">—</span></td>
+            <td class="def-cell"><span class="def-mark no">—</span></td>
+            <td class="def-cell"><span class="def-mark no">—</span></td>
+            <td class="def-cell"><span class="def-mark no">—</span></td>
             <td>Cut spend or rework creative — no signal.</td>
           </tr>
         </tbody>
       </table>
+      <div class="def-legend">
+        <span><span class="def-mark yes">✓</span> required</span>
+        <span><span class="def-mark no">—</span> not required</span>
+        <span><span class="def-mark any">~</span> either state OK</span>
+        <span class="def-or-badge">F2 / F3 group — either passes</span>
+      </div>
 
       <p class="def-prose" style="margin-top:18px;color:var(--text-secondary);font-size:11.5px">
         Thresholds are set in <code>refresh_summary_table.py</code>. To tune them, edit the

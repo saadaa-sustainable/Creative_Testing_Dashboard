@@ -454,6 +454,35 @@
   table.tbl.def-cats td{vertical-align:middle}
   table.tbl.def-cats td:first-child{width:170px}
   table.tbl.def-cats td:last-child{color:var(--text-secondary);font-size:11.5px}
+  /* Matrix view — F1/F2/F3/F4 as compact centered columns of ✓ / — / ~ marks */
+  table.tbl.def-matrix th.def-f-col{width:52px;text-align:center;
+    font-family:'Space Grotesk',sans-serif;letter-spacing:.4px}
+  table.tbl.def-matrix td.def-cell{width:52px;text-align:center;padding:9px 6px}
+  /* Grouped F2/F3 background — the "either passes" pair reads as one column
+     block instead of two independent ticks. */
+  table.tbl.def-matrix td.def-cell.def-or{background:var(--bg-page-alt)}
+  table.tbl.def-matrix th.def-f-col:nth-child(3),
+  table.tbl.def-matrix th.def-f-col:nth-child(4){background:var(--bg-page-alt)}
+  .def-mark{display:inline-flex;align-items:center;justify-content:center;
+    width:24px;height:24px;border-radius:6px;font-weight:700;font-size:13px;
+    font-family:'Space Grotesk',sans-serif;line-height:1}
+  .def-mark.yes{background:var(--success-bg);color:var(--success-text);border:1px solid #cfd8c5}
+  .def-mark.no {background:var(--bg-muted); color:var(--text-tertiary);border:1px solid var(--border-warm)}
+  .def-mark.any{background:var(--warning-bg);color:var(--warning-text);border:1px solid var(--warning-border);
+    font-size:14px;line-height:.9}
+  /* Universal-F4 callout note that sits above the matrix table. */
+  .def-note{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
+    background:var(--warning-bg);border:1px solid var(--warning-border);
+    border-radius:10px;margin:6px 0 14px;font-size:12.5px;color:var(--text-primary);
+    line-height:1.55}
+  .def-note-icon{color:var(--warning-text);font-size:15px;line-height:1.4;flex-shrink:0}
+  .def-note b{color:var(--warning-text)}
+  /* Legend below the matrix — mirrors the marks used in the cells. */
+  .def-legend{display:flex;gap:16px;flex-wrap:wrap;align-items:center;
+    margin-top:12px;font-size:11.5px;color:var(--text-secondary);
+    padding:10px 12px;background:var(--bg-page-alt);border-radius:8px}
+  .def-legend > span{display:inline-flex;align-items:center;gap:6px}
+  .def-or-badge{margin-left:auto;color:var(--text-tertiary);font-style:italic}
 
   /* ── Modal (Winners popup) ────────────────────────────────────────── */
   #modal{position:fixed;inset:0;background:rgba(44,36,32,0.55);backdrop-filter:blur(4px);
