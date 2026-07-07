@@ -506,8 +506,8 @@
     margin-bottom:8px;font-weight:700}
   .dr-preview .ph a{color:var(--text-link);text-decoration:none;font-weight:600}
   .dr-preview .ph a:hover{text-decoration:underline}
-  .dr-iframe{width:100%;aspect-ratio:9/16;max-height:380px;border:1px solid var(--border-primary);
-    border-radius:10px;background:var(--bg-muted)}
+  /* Legacy .dr-iframe rule removed — the 2-col drawer redesign below
+     supersedes it with a taller preview that fills the drawer height. */
   /* Drawer preview image — uses ad_thumbnails (image_url if available, else
      the smaller thumbnail_url). preview_link is a fb.me short URL that Meta
      blocks from iframe embeds, so we render an <img> instead.
@@ -517,7 +517,7 @@
      object_story_spec when creative.image_url is absent) and only falls
      back to the small thumbnail_url. The image-rendering hint keeps any
      remaining upscale crisp instead of bilinear-blurred. */
-  .dr-img{width:100%;max-height:min(820px, calc(100vh - 220px));object-fit:contain;
+  .dr-img{width:100%;max-height:calc(100vh - 140px);object-fit:contain;
     border:1px solid var(--border-primary);border-radius:12px;
     background:var(--bg-muted);display:block;
     image-rendering:-webkit-optimize-contrast}
@@ -530,10 +530,10 @@
   .dr-body-2col{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:24px;
     padding:18px 22px;flex:1;overflow:auto;align-items:start}
   .dr-preview-col{display:flex;flex-direction:column;gap:8px}
-  .dr-iframe{width:100%;height:min(820px, calc(100vh - 220px));
+  .dr-iframe{width:100%;height:calc(100vh - 140px);min-height:720px;
     border:1px solid var(--border-primary);
     border-radius:12px;background:#FFF;overflow:hidden}
-  .dr-video{width:100%;max-height:min(820px, calc(100vh - 220px));
+  .dr-video{width:100%;height:calc(100vh - 140px);min-height:720px;
     border:1px solid var(--border-primary);
     border-radius:12px;background:#000;object-fit:contain;display:block}
   .dr-preview-foot{font-size:10.5px;color:var(--text-tertiary);
