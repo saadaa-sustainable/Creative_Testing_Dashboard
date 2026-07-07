@@ -83,11 +83,21 @@ ALTER TABLE summary_table ADD COLUMN IF NOT EXISTS shopify_top_tier TEXT;
 -- build the iframe src.  Facebook permalink drives the FB plugin iframe.
 ALTER TABLE summary_table ADD COLUMN IF NOT EXISTS instagram_permalink TEXT;
 ALTER TABLE summary_table ADD COLUMN IF NOT EXISTS fb_permalink        TEXT;
+-- Verdict-history: status_at is when the CURRENT status was set (i.e. when
+-- the ad last transitioned INTO its present verdict). prev_status is the
+-- verdict it held BEFORE the current one, and prev_status_at is when that
+-- verdict was first applied. Together they let the 14-day buffer resolver
+-- show "Winner (5 d) — was P0 analysis (12 d)" without any audit table.
+ALTER TABLE summary_table ADD COLUMN IF NOT EXISTS status_at       TIMESTAMPTZ;
+ALTER TABLE summary_table ADD COLUMN IF NOT EXISTS prev_status     TEXT;
+ALTER TABLE summary_table ADD COLUMN IF NOT EXISTS prev_status_at  TIMESTAMPTZ;
 """
 
 REFRESH_SQL = """
-TRUNCATE summary_table;
-
+-- UPSERT (not TRUNCATE+INSERT) so verdict-history columns can carry
+-- forward across rebuilds. Old logic destroyed all state every run,
+-- which meant we could never tell WHEN an ad's verdict actually
+-- changed — every row's status_at was NOW() regardless of drift.
 INSERT INTO summary_table (
     ad_id, ad_name, created_date, last_seen, days_active,
     total_impressions, total_spend, total_conv_value, total_ncp, total_ftewv,
@@ -95,6 +105,7 @@ INSERT INTO summary_table (
     shopify_orders, shopify_sales, shopify_aov, shopify_roas,
     shopify_first_order, shopify_last_order, shopify_top_tier,
     instagram_permalink, fb_permalink,
+    status_at,
     refreshed_at
 )
 WITH agg AS (
@@ -201,12 +212,57 @@ SELECT
     st.shopify_top_tier,
     pl.instagram_permalink,
     pl.fb_permalink,
+    NOW() AS status_at,     -- overridden by the ON CONFLICT branch below when status is unchanged
     NOW() AS refreshed_at
 FROM agg a
 LEFT JOIN latest_status ls USING (ad_id)
 LEFT JOIN shopify_agg sa USING (ad_id)
 LEFT JOIN shopify_top_tier st USING (ad_id)
-LEFT JOIN permalinks pl USING (ad_id);
+LEFT JOIN permalinks pl USING (ad_id)
+ON CONFLICT (ad_id) DO UPDATE SET
+    ad_name             = EXCLUDED.ad_name,
+    created_date        = EXCLUDED.created_date,
+    last_seen           = EXCLUDED.last_seen,
+    days_active         = EXCLUDED.days_active,
+    total_impressions   = EXCLUDED.total_impressions,
+    total_spend         = EXCLUDED.total_spend,
+    total_conv_value    = EXCLUDED.total_conv_value,
+    total_ncp           = EXCLUDED.total_ncp,
+    total_ftewv         = EXCLUDED.total_ftewv,
+    ad_status           = EXCLUDED.ad_status,
+    f1_pass             = EXCLUDED.f1_pass,
+    f2_pass             = EXCLUDED.f2_pass,
+    f3_pass             = EXCLUDED.f3_pass,
+    f4_pass             = EXCLUDED.f4_pass,
+    shopify_orders      = EXCLUDED.shopify_orders,
+    shopify_sales       = EXCLUDED.shopify_sales,
+    shopify_aov         = EXCLUDED.shopify_aov,
+    shopify_roas        = EXCLUDED.shopify_roas,
+    shopify_first_order = EXCLUDED.shopify_first_order,
+    shopify_last_order  = EXCLUDED.shopify_last_order,
+    shopify_top_tier    = EXCLUDED.shopify_top_tier,
+    instagram_permalink = EXCLUDED.instagram_permalink,
+    fb_permalink        = EXCLUDED.fb_permalink,
+    refreshed_at        = EXCLUDED.refreshed_at,
+    -- Verdict-history bookkeeping: only rewrite status_at/prev_status when
+    -- the status *actually* changes. Same-status rebuilds keep the old
+    -- status_at so users see "Winner (12 d ago)" not "Winner (just now)".
+    status              = EXCLUDED.status,
+    status_at           = CASE
+        WHEN summary_table.status IS DISTINCT FROM EXCLUDED.status
+        THEN EXCLUDED.status_at
+        ELSE summary_table.status_at
+    END,
+    prev_status         = CASE
+        WHEN summary_table.status IS DISTINCT FROM EXCLUDED.status
+        THEN summary_table.status
+        ELSE summary_table.prev_status
+    END,
+    prev_status_at      = CASE
+        WHEN summary_table.status IS DISTINCT FROM EXCLUDED.status
+        THEN summary_table.status_at
+        ELSE summary_table.prev_status_at
+    END;
 """
 
 
@@ -222,7 +278,7 @@ def main():
     cur.execute(SCHEMA_SQL)
     conn.commit()
 
-    log.info("Running TRUNCATE + INSERT from backfill_table…")
+    log.info("Running UPSERT from backfill_table (verdict history preserved)…")
     cur.execute(REFRESH_SQL)
     conn.commit()
 

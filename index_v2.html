@@ -528,11 +528,21 @@
     <div style="overflow:auto;max-height:calc(100vh - 460px)">
       <table class="tbl" id="lifeBufferTbl" style="margin:0">
         <thead><tr>
-          <th>Ad name</th><th>Status</th><th>Created</th><th class="num">Days since</th>
-          <th title="Category the ad was assigned at last DB refresh — the 'sticker' it entered the buffer with">Marked as</th>
-          <th title="Current verdict re-evaluated from live metrics + current thresholds. Differs from Marked as when metrics drifted since the last refresh.">Verdict</th>
-          <th>F1 ≥50k</th><th>F2 ROAS</th><th>F3 CPNCP</th><th>F4 CPFTV</th>
-          <th class="num">Spend</th><th class="num">ROAS</th><th class="num">FTEWV</th><th class="num">NCP</th>
+          <th>Ad name</th>
+          <th>Created</th>
+          <th>Status</th>
+          <th title="Latest verdict from summary_table (set by refresh_summary_table.py)">Current verdict</th>
+          <th title="When the current verdict was first assigned — 'unchanged' if the ad has never transitioned since it was recorded">Current since</th>
+          <th title="The verdict that was in effect BEFORE the current one, or '—' if the ad has never transitioned">Last known verdict</th>
+          <th title="When the last-known verdict was originally set (empty if no prior transition exists)">Last verdict on</th>
+          <th title="F1 — Impressions ≥ 50,000">F1</th>
+          <th title="F2 — ROAS ≥ 3.2 OR Cost/NCP ≤ ₹525">F2</th>
+          <th title="F3 — Cost/FTEWV ≤ ₹12">F3</th>
+          <th class="num">Impressions</th>
+          <th class="num">Spend</th>
+          <th class="num">ROAS</th>
+          <th class="num">NCP</th>
+          <th class="num">FTEWV</th>
         </tr></thead>
         <tbody id="lifeBufferBody"></tbody>
       </table>

@@ -1566,10 +1566,9 @@ function lifeFilterByDate(rows){
     return true;
   });
 }
-// Fetches summary_table.refreshed_at once per session and caches it — same
-// value for every row because refresh_summary_table.py does TRUNCATE+INSERT,
-// so a single timestamp is authoritative for when the Marked-as stickers
-// were last written.
+// Fetches summary_table.refreshed_at once per session and caches it. Every
+// row shares the same refreshed_at (whole-table UPSERT stamps NOW() on the
+// refreshed_at column for all rows), so a single value is authoritative.
 let _summaryRefreshedAt = null;
 async function _fetchSummaryRefreshedAt(){
   if (_summaryRefreshedAt !== null) return _summaryRefreshedAt;
@@ -1584,6 +1583,46 @@ async function _fetchSummaryRefreshedAt(){
     _summaryRefreshedAt = (Array.isArray(j) && j[0]?.refreshed_at) || '';
   } catch { _summaryRefreshedAt = ''; }
   return _summaryRefreshedAt;
+}
+// Fetches verdict-history columns from summary_table for every ad and
+// merges them onto allAds by ad_id. Called from renderLifecycle so the
+// 14-day buffer resolver has status_at / prev_status / prev_status_at
+// available for its "current verdict changed on" and "last known verdict"
+// cells. Cached module-level so subsequent renders don't re-hit the API.
+let _summaryHistoryMerged = false;
+async function _mergeSummaryHistoryIntoAllAds(){
+  if (_summaryHistoryMerged) return;
+  if (!SUPABASE_URL || !SUPABASE_ANON) return;
+  if (!Array.isArray(allAds) || !allAds.length) return;
+  try {
+    const cols = 'ad_id,status,status_at,prev_status,prev_status_at,refreshed_at';
+    const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                     Prefer:'count=none'};
+    let out = [], offset = 0, BATCH = 5000;
+    while (true){
+      const r = await fetch(SUPABASE_URL +
+        '/rest/v1/summary_table?select=' + cols +
+        '&order=ad_id.asc&limit=' + BATCH + '&offset=' + offset,
+        {headers});
+      if (!r.ok) break;
+      const j = await r.json();
+      if (!Array.isArray(j) || !j.length) break;
+      out = out.concat(j);
+      if (j.length < BATCH) break;
+      offset += BATCH;
+    }
+    const byId = {};
+    for (const row of out) byId[row.ad_id] = row;
+    for (const a of allAds){
+      const h = byId[a.ad_id];
+      if (!h) continue;
+      a.summary_status       = h.status;
+      a.summary_status_at    = h.status_at;
+      a.summary_prev_status  = h.prev_status;
+      a.summary_prev_at      = h.prev_status_at;
+    }
+    _summaryHistoryMerged = true;
+  } catch { /* best effort — buffer resolver renders without history */ }
 }
 // Human-readable relative-time formatter: "3 h ago", "2 d ago", "just now".
 function _relTime(iso){
@@ -1744,10 +1783,15 @@ function renderLifecycle(){
     bufRows = bufRows.filter(r => ((r.ad_name||'')+' '+(r.campaign_name||'')+' '+(r.ad_id||'')).toLowerCase().includes(q));
   }
   // "Drifted only" toggle — surface ads whose live-computed verdict has moved
-  // away from the DB-baked Marked-as sticker (e.g. Winner → Discarded).
+  // away from the DB-recorded current status (e.g. Winner → Discarded). Uses
+  // summary_status (fetched from summary_table.status) when available,
+  // falling back to db_category (the ae_table_view baked-in value).
   const driftEl = document.getElementById('lifeBufferDriftOnly');
   if (driftEl && driftEl.checked){
-    bufRows = bufRows.filter(r => r.db_category && r.db_category !== r.category);
+    bufRows = bufRows.filter(r => {
+      const baseline = r.summary_status || r.db_category;
+      return baseline && baseline !== r.category;
+    });
   }
   bufRows.sort((a,b) => (+b.amount_spent || 0) - (+a.amount_spent || 0));
 
@@ -1770,48 +1814,67 @@ function renderLifecycle(){
     chipV.textContent = _relTime(ts) + ' · ' + iso + ' UTC';
     chip.style.display = 'inline-flex';
   });
+  // Merge summary_table verdict history (status_at, prev_status, prev_status_at)
+  // onto allAds — fires once per session then re-renders so the fresh history
+  // cells appear on the next paint. renderLifecycle() is idempotent so re-render
+  // is cheap.
+  _mergeSummaryHistoryIntoAllAds().then(() => {
+    if (_summaryHistoryMerged && !window._bufReRendered){
+      window._bufReRendered = true;
+      renderLifecycle();
+    }
+  });
+
+  const isoDate = ts => {
+    if (!ts) return '—';
+    const d = new Date(ts); if (isNaN(d)) return '—';
+    return d.toISOString().slice(0,10);
+  };
 
   document.getElementById('lifeBufferBody').innerHTML = bufRows.slice(0, 500).map(r => {
-    const days = Math.floor((today - new Date(r.ad_created)) / 86400000);
     const stCls = (r.ad_status||'').toUpperCase() === 'ACTIVE' ? 's-active'
                 : (r.ad_status||'').toUpperCase().includes('PAUSED') ? 's-draft' : 's-archived';
-    // "Marked as" = the DB-baked snapshot captured at last refresh_summary_table
-    // run. aeApplyCurrentThresholds() stores this in .db_category before
-    // re-evaluating .category with the current wall-clock + threshold inputs.
-    // When the two differ, the ad's metrics have drifted since the last DB
-    // refresh — the row gets a "changed" pill so users can spot ad-decay
-    // (Winner → Discarded because ROAS fell below 3.2 AND Cost/NCP crossed
-    // ₹525) or improvement (P1 → Winner because ROAS finally cleared).
-    const initialCat = r.db_category || r.category || '—';
-    const currentCat = r.category || '—';
-    const changed    = initialCat !== '—' && currentCat !== initialCat;
-    // Drift pill's tooltip carries the "since" timestamp so users see when
-    // the DB-baked Marked-as was written (i.e. the latest moment before the
-    // drift could have occurred).
-    const sinceStr = _summaryRefreshedAt
-      ? ' since ' + new Date(_summaryRefreshedAt).toISOString().replace('T',' ').slice(0,16) + ' UTC'
-      : '';
-    const changedPill = changed
-      ? '<span class="buf-drift" title="Verdict has drifted' + sinceStr +
-        ' — metrics changed since the last DB refresh">↻ updated</span>'
-      : '';
+    // Verdict-history columns come from summary_table via
+    // _mergeSummaryHistoryIntoAllAds(); fallback to live client-computed
+    // r.category when the DB history hasn't been fetched yet or the ad has
+    // no summary_table row (rare — brand-new ads).
+    const currentVerdict = r.summary_status || r.category || '—';
+    const prevVerdict    = r.summary_prev_status || null;
+    const statusAt       = r.summary_status_at   || null;
+    const prevAt         = r.summary_prev_at     || null;
+    // Rule: if the current-verdict date matches the prev-verdict date (or
+    // no prev exists), the current verdict has never transitioned from a
+    // prior state — display "Unchanged" instead of a raw timestamp.
+    const currentSince = (!prevAt || statusAt === prevAt)
+      ? '<span class="buf-unchanged" title="This ad has never transitioned since it was first recorded">Unchanged</span>'
+      : '<span class="mono buf-timeago" title="' + statusAt + '">' + isoDate(statusAt) + '<div class="buf-rel">' + _relTime(statusAt) + '</div></span>';
+    const lastKnown = prevVerdict
+      ? '<span class="tier-badge ' + tierClass(prevVerdict) + '">' + prevVerdict + '</span>'
+      : '<span style="color:var(--text-tertiary)">—</span>';
+    const lastOn = prevAt
+      ? '<span class="mono buf-timeago" title="' + prevAt + '">' + isoDate(prevAt) + '<div class="buf-rel">' + _relTime(prevAt) + '</div></span>'
+      : '<span style="color:var(--text-tertiary)">—</span>';
+    // 3-filter model: F1 = impressions, F2 = ROAS OR Cost/NCP (either f2_pass
+    // or f3_pass), F3 = Cost/FTEWV (was f4_pass).
+    const f2Group = r.f2_pass || r.f3_pass;
     return '<tr>'+
-      '<td style="max-width:280px"><div style="font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
+      '<td style="max-width:260px"><div style="font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
         (r.ad_name||'—')+'</div>'+
         '<div style="font-size:10px;color:var(--text-tertiary)">'+(r.campaign_name||'')+'</div></td>'+
-      '<td><span class="status-pill '+stCls+'">'+(r.ad_status||'—')+'</span></td>'+
       '<td style="font-family:JetBrains Mono;font-size:11px">'+(r.ad_created||'—')+'</td>'+
-      '<td class="num">'+days+'d</td>'+
-      '<td><span class="tier-badge '+tierClass(initialCat)+'">'+initialCat+'</span></td>'+
-      '<td><span class="tier-badge '+tierClass(currentCat)+'">'+currentCat+'</span>'+changedPill+'</td>'+
+      '<td><span class="status-pill '+stCls+'">'+(r.ad_status||'—')+'</span></td>'+
+      '<td><span class="tier-badge '+tierClass(currentVerdict)+'">'+currentVerdict+'</span></td>'+
+      '<td>'+currentSince+'</td>'+
+      '<td>'+lastKnown+'</td>'+
+      '<td>'+lastOn+'</td>'+
       '<td style="text-align:center">'+passCell(r.f1_pass)+'</td>'+
-      '<td style="text-align:center">'+passCell(r.f2_pass)+'</td>'+
-      '<td style="text-align:center">'+passCell(r.f3_pass)+'</td>'+
+      '<td style="text-align:center">'+passCell(f2Group)+'</td>'+
       '<td style="text-align:center">'+passCell(r.f4_pass)+'</td>'+
+      '<td class="num">'+fmtInt(r.impressions)+'</td>'+
       '<td class="num">'+fmtRs(r.amount_spent)+'</td>'+
       '<td class="num">'+fmtRoas(r.roas_ma)+'</td>'+
-      '<td class="num">'+fmtInt(r.ftewv_count)+'</td>'+
       '<td class="num">'+fmtInt(r.ncp_count)+'</td>'+
+      '<td class="num">'+fmtInt(r.ftewv_count)+'</td>'+
     '</tr>';
   }).join('');
   document.getElementById('lifeBufferTot').textContent = fmtInt(bufRows.length) + ' ads (showing top 500)';
