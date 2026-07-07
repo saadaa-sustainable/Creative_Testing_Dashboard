@@ -78,6 +78,11 @@ ALTER TABLE summary_table ADD COLUMN IF NOT EXISTS shopify_roas NUMERIC(14,3);
 ALTER TABLE summary_table ADD COLUMN IF NOT EXISTS shopify_first_order DATE;
 ALTER TABLE summary_table ADD COLUMN IF NOT EXISTS shopify_last_order DATE;
 ALTER TABLE summary_table ADD COLUMN IF NOT EXISTS shopify_top_tier TEXT;
+-- Live preview URLs (Meta Graph scrape → ad_thumbnails).  Instagram permalink
+-- is the base URL; the dashboard appends /embed/captioned/ at render time to
+-- build the iframe src.  Facebook permalink drives the FB plugin iframe.
+ALTER TABLE summary_table ADD COLUMN IF NOT EXISTS instagram_permalink TEXT;
+ALTER TABLE summary_table ADD COLUMN IF NOT EXISTS fb_permalink        TEXT;
 """
 
 REFRESH_SQL = """
@@ -89,6 +94,7 @@ INSERT INTO summary_table (
     status, ad_status, f1_pass, f2_pass, f3_pass, f4_pass,
     shopify_orders, shopify_sales, shopify_aov, shopify_roas,
     shopify_first_order, shopify_last_order, shopify_top_tier,
+    instagram_permalink, fb_permalink,
     refreshed_at
 )
 WITH agg AS (
@@ -144,6 +150,13 @@ latest_status AS (
         WHERE p2.ad_id = a.ad_id AND p2.ad_status IS NOT NULL
         ORDER BY p2.date DESC LIMIT 1
     ) p ON TRUE
+),
+-- Instagram / Facebook permalinks — one row per ad_id from ad_thumbnails
+-- (Meta Graph scrape).  Instagram is the URL used for the drawer's live
+-- iframe embed; the dashboard appends /embed/captioned/ at render time.
+permalinks AS (
+    SELECT ad_id, instagram_permalink, fb_permalink
+    FROM public.ad_thumbnails
 )
 SELECT
     a.ad_id, a.ad_name, a.created_date, a.last_seen, a.days_active,
@@ -186,11 +199,14 @@ SELECT
     sa.shopify_first_order,
     sa.shopify_last_order,
     st.shopify_top_tier,
+    pl.instagram_permalink,
+    pl.fb_permalink,
     NOW() AS refreshed_at
 FROM agg a
 LEFT JOIN latest_status ls USING (ad_id)
 LEFT JOIN shopify_agg sa USING (ad_id)
-LEFT JOIN shopify_top_tier st USING (ad_id);
+LEFT JOIN shopify_top_tier st USING (ad_id)
+LEFT JOIN permalinks pl USING (ad_id);
 """
 
 
