@@ -1842,12 +1842,18 @@ function renderLifecycle(){
     const prevVerdict    = r.summary_prev_status || null;
     const statusAt       = r.summary_status_at   || null;
     const prevAt         = r.summary_prev_at     || null;
-    // Rule: if the current-verdict date matches the prev-verdict date (or
-    // no prev exists), the current verdict has never transitioned from a
-    // prior state — display "Unchanged" instead of a raw timestamp.
-    const currentSince = (!prevAt || statusAt === prevAt)
-      ? '<span class="buf-unchanged" title="This ad has never transitioned since it was first recorded">Unchanged</span>'
-      : '<span class="mono buf-timeago" title="' + statusAt + '">' + isoDate(statusAt) + '<div class="buf-rel">' + _relTime(statusAt) + '</div></span>';
+    // ALWAYS show the current-verdict date (status_at is the moment the ad
+    // was tagged with its current verdict — this is meaningful even when
+    // no prior transition exists). When prev_status_at is null or equals
+    // status_at (first record, ad has never transitioned), tag the cell
+    // with a subtle "unchanged" chip AFTER the date so the timeline stays
+    // legible.
+    const noTransition = !prevAt || statusAt === prevAt;
+    const currentSince = statusAt
+      ? '<span class="mono buf-timeago" title="' + statusAt + '">' + isoDate(statusAt) +
+        '<div class="buf-rel">' + _relTime(statusAt) + '</div></span>' +
+        (noTransition ? '<span class="buf-unchanged" title="This ad has never transitioned into another verdict">unchanged</span>' : '')
+      : '<span style="color:var(--text-tertiary)">—</span>';
     const lastKnown = prevVerdict
       ? '<span class="tier-badge ' + tierClass(prevVerdict) + '">' + prevVerdict + '</span>'
       : '<span style="color:var(--text-tertiary)">—</span>';
