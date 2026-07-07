@@ -3037,6 +3037,18 @@ async function aiReloadOrders(){
   aiLoaded = true; aiLoading = false;
   document.getElementById('aiStatus').textContent =
     'Loaded ' + fmtInt(aiOrders.length) + ' rows in ' + ((performance.now()-t0)/1000).toFixed(1) + 's';
+  // Seed the utm_source multi-select to the current tier mode's channel
+  // so the KPI cascade counts and the table row set stay in agreement
+  // even before the user touches the Meta/Google toggle. Without this
+  // the default Meta mode lets non-Meta rows (kwikengage, direct, etc.)
+  // leak into the Unmatched bucket in the table, while the KPI Unmatched
+  // card is already meta-scoped — the two disagreed on the same tier.
+  if (!aiUtmSourceSel.size){
+    for (const r of aiOrders){
+      const key = aiSourceKey(r);
+      if (aiChannel(key) === aiTierMode) aiUtmSourceSel.add(key);
+    }
+  }
   // Populate filter dropdowns from data
   aiPopulateFilters();
   aiPage = 0;
