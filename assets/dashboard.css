@@ -525,9 +525,10 @@
     border:1px dashed var(--border-warm);border-radius:10px;background:var(--bg-page-alt)}
   .dr-no-preview a{color:var(--accent-yellow-hover);font-weight:700;text-decoration:none}
   /* Two-column drawer body: left = live iframe preview, right = metrics.
-     Preview column is intentionally wider than the meta column — the
-     ad video is the primary content, metric cards can wrap into 2 rows. */
-  .dr-body-2col{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:24px;
+     Preview column is narrower — a 9:16 vertical video at ~860px tall
+     only needs ~484px of width, so a slimmer left column removes the
+     black side-bars and frees up horizontal space for the metric cards. */
+  .dr-body-2col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:24px;
     padding:18px 22px;flex:1;overflow:auto;align-items:start}
   .dr-preview-col{display:flex;flex-direction:column;gap:8px}
   .dr-iframe{width:100%;height:calc(100vh - 140px);min-height:720px;
