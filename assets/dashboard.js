@@ -21,11 +21,13 @@ let thumbsByAdId = {};  // {ad_id: thumbnail_url}  — populated from ad_thumbna
                         // table (Meta Graph API fetched server-side)
 let state = {acct:'', status:'', campaign:'', content:'', tier:'',
              dateFrom:'', dateTo:'',
-             // Which ad-date field the top range filters by. 'delivery' keeps
-             // the old semantics (window = primary_table date filter, no ad
-             // filter — ads with impressions in window). 'created', 'first_seen'
-             // and 'result' are client-side filters on the per-ad date field.
-             dateField:'delivery',
+             // Which ad-date field the top range filters by. Default is
+             // 'created' — dashboard opens showing ads created in the last
+             // 30d so users see the freshest creative slate. 'delivery' keeps
+             // the old semantics (window = primary_table filter, no ad-level
+             // filter). 'first_seen' and 'result' are client-side filters
+             // on their respective per-ad date fields.
+             dateField:'created',
              exclCopy:true,                  // hide ads whose name contains "copy"
              ctFormat:false,                 // only ads with name starting CLP-/CTP-
              search:'', searchMode:'contains'};
@@ -1364,13 +1366,14 @@ document.getElementById('fDateField').addEventListener('change', async e => {
 });
 
 /* Reset Filters — clears the top date range, resets the field selector
-   back to delivery mode, and un-forces the CT-format toggle (Excl. copy
-   stays on because it's the sane default for the CT dashboard). */
+   back to the dashboard default (created + last 30d), and un-forces the
+   CT-format toggle (Excl. copy stays on because it's the sane default
+   for the CT dashboard). */
 document.getElementById('fCreatedClear').addEventListener('click', async () => {
   document.getElementById('fDateFrom').value = '';
   document.getElementById('fDateTo').value   = '';
-  document.getElementById('fDateField').value = 'delivery';
-  state.dateFrom = ''; state.dateTo = ''; state.dateField = 'delivery';
+  document.getElementById('fDateField').value = 'created';
+  state.dateFrom = ''; state.dateTo = ''; state.dateField = 'created';
   // Snap preset chips back to "Last 30d" default
   document.querySelectorAll('#presetRow .preset').forEach(x => x.classList.remove('active'));
   const def = document.querySelector('#presetRow .preset[data-p="last30"]');
