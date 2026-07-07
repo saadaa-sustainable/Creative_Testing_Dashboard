@@ -197,7 +197,14 @@ const CT_ACTIVE_STATUSES = new Set([
   'ACTIVE','WITH_ISSUES','PENDING_REVIEW','PREAPPROVED','IN_PROCESS',
   'PENDING_BILLING_INFO','CAMPAIGN_PAUSED','ADSET_PAUSED'
 ]);
-function _ctCategory(impr, roas, cpncp, cpft, t){
+// 14-day evaluation buffer: any ad that would fall to Discarded but is
+// still inside its first 14 days from ad_created gets a "Result Awaited"
+// grace period instead — no filter has fired yet, but the ad has not had
+// enough delivery time for the verdict to be fair.  After day 14 the
+// grace period expires and the ad reverts to Discarded on the next
+// refresh, matching the definition users expect for that category.
+const CT_BUFFER_DAYS = 14;
+function _ctCategory(impr, roas, cpncp, cpft, t, adCreated){
   const f1 = impr  >= t.f1;
   const f2 = roas  >= t.f2;
   const f3 = cpncp > 0 && cpncp <= t.f3;
@@ -209,6 +216,13 @@ function _ctCategory(impr, roas, cpncp, cpft, t){
   else if (f1)                     cat = 'P1 analysis';
   else if (f2)                     cat = 'P2 analysis';
   else                             cat = 'Discarded';
+  if (cat === 'Discarded' && adCreated){
+    const created = new Date(adCreated);
+    if (!isNaN(created)){
+      const daysSince = (Date.now() - created.getTime()) / 86400000;
+      if (daysSince < CT_BUFFER_DAYS) cat = 'Result Awaited';
+    }
+  }
   return {f1_pass:f1, f2_pass:f2, f3_pass:f3, f4_pass:f4, category:cat};
 }
 /* Fast-path: pre-computed per-ad rollup from results_table. The pipeline's
@@ -250,7 +264,7 @@ async function fetchPrimaryFromCache(dateFrom, dateTo){
     const roas  = spend > 0 ? conv / spend : 0;
     const cpft  = (+a.cpf || 0) || (ftewv > 0 ? spend / ftewv : 0);
     const cpncp = (+a.cpn || 0) || (ncp   > 0 ? spend / ncp   : 0);
-    const cat = _ctCategory(impr, roas, cpncp, cpft, t);
+    const cat = _ctCategory(impr, roas, cpncp, cpft, t, a.adCreated || null);
     out.push({
       ad_id:        a.adId || '',
       ad_name:      a.adName || '',
@@ -369,7 +383,7 @@ async function fetchPrimaryAggregated(dateFrom, dateTo){
                   : (m._cpft_sheet.length ? m._cpft_sheet.reduce((a,b)=>a+b,0)/m._cpft_sheet.length : 0);
     const cpncp = m._ncp   > 0 ? m._spend / m._ncp
                   : (m._cpncp_sheet.length ? m._cpncp_sheet.reduce((a,b)=>a+b,0)/m._cpncp_sheet.length : 0);
-    const cat = _ctCategory(m._impr, roas, cpncp, cpft, t);
+    const cat = _ctCategory(m._impr, roas, cpncp, cpft, t, m.ad_created || null);
     out.push({
       ad_id:m.ad_id, ad_name:m.ad_name, account_name:m.account_name,
       campaign_name:m.campaign_name, adset_id:m.adset_id, adset_name:m.adset_name,
@@ -394,7 +408,8 @@ function ctApplyCurrentThresholds(){
             : {f1:50000, f2:3.2, f3:525, f4:12};
   for (const r of primaryAds){
     const cat = _ctCategory(+r.impressions || 0, +r.roas_ma || 0,
-                            +r.cost_per_ncp || 0, +r.cost_per_ftewv || 0, t);
+                            +r.cost_per_ncp || 0, +r.cost_per_ftewv || 0, t,
+                            r.ad_created || null);
     r.f1_pass = cat.f1_pass; r.f2_pass = cat.f2_pass;
     r.f3_pass = cat.f3_pass; r.f4_pass = cat.f4_pass;
     r.category = cat.category;
@@ -495,7 +510,8 @@ function populateCampaignDropdown(rows){
 
 function renderKpis(rows){
   const map = {'Winner':'winner','Incremental Winner':'incr','P0 analysis':'pri',
-               'P1 analysis':'a1','P2 analysis':'a2','Discarded':'dis'};
+               'P1 analysis':'a1','P2 analysis':'a2',
+               'Result Awaited':'ra','Discarded':'dis'};
   const buckets = Object.fromEntries(Object.keys(map).map(k=>[k,{n:0,sp:0}]));
   for (const r of rows){
     const c = r.category || 'Discarded';
@@ -699,7 +715,8 @@ function renderModal(){
 }
 function badgeCls(c){
   return ({'Winner':'win','Incremental Winner':'incr','P0 analysis':'pri',
-           'P1 analysis':'a1','P2 analysis':'a2','Discarded':'disc'})[c] || '';
+           'P1 analysis':'a1','P2 analysis':'a2',
+           'Result Awaited':'ra','Discarded':'disc'})[c] || '';
 }
 
 /* ── Bucket modal (Product / Creative focus drill-down) ───────────── */
@@ -1095,8 +1112,8 @@ document.getElementById('drFooterClose').onclick = closeDrawer;
 
 /* ── Funnel breakdown (Creative Type × Category) ───────────────────── */
 const CTYPE_ICONS = { 'IFAD':'🎬', 'Graphic AD':'🖼️', 'VID':'📹', 'STATIC':'📷' };
-const FUNNEL_SUB  = ['Incremental Winner','Winner','P0 analysis','P1 analysis','P2 analysis','Discarded'];
-const FUNNEL_SUB_SHORT = ['Inc. Winner','Winner','P0','P1','P2','Discarded'];
+const FUNNEL_SUB  = ['Incremental Winner','Winner','P0 analysis','P1 analysis','P2 analysis','Result Awaited','Discarded'];
+const FUNNEL_SUB_SHORT = ['Inc. Winner','Winner','P0','P1','P2','Awaited','Discarded'];
 const FUNNEL_COL_CLS  = ['col-incr','col-win','col-pri','col-a1','col-a2','col-disc'];
 function renderFunnel(rows){
   const body = document.getElementById('funnelBody'); if (!body) return;
@@ -3814,6 +3831,15 @@ function aeCategorise(r, t){
   else if (p1)                     cat = 'P1 analysis';
   else if (p2)                     cat = 'P2 analysis';
   else                             cat = 'Discarded';
+  // Same 14-day buffer used by CT — ads still within their first two
+  // weeks from ad_created show as Result Awaited instead of Discarded.
+  if (cat === 'Discarded' && r.ad_created){
+    const created = new Date(r.ad_created);
+    if (!isNaN(created)){
+      const daysSince = (Date.now() - created.getTime()) / 86400000;
+      if (daysSince < CT_BUFFER_DAYS) cat = 'Result Awaited';
+    }
+  }
   return {p1, p2, p3, p4, category: cat};
 }
 
@@ -3903,6 +3929,7 @@ const CAT_CLASS = {
   'P0 analysis':'cat-priority',
   'P1 analysis':'cat-a1',
   'P2 analysis':'cat-a2',
+  'Result Awaited':'cat-ra',
   'Discarded':'cat-disc',
 };
 

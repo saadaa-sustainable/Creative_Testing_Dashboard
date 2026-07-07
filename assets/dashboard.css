@@ -638,6 +638,9 @@
   .badge.a1   {background:var(--warning-bg);  color:var(--warning-text);  border-color:var(--warning-border)}
   .badge.a2   {background:var(--warning-bg);  color:var(--warning-mid);   border-color:var(--warning-border)}
   .badge.disc {background:var(--error-bg);    color:var(--error-text);    border-color:rgba(192,57,43,.35)}
+  /* Result Awaited — within-14d grace category, distinct from Discarded so
+     users don't confuse "verdict pending" with "verdict = fail". */
+  .badge.ra   {background:var(--info-bg);     color:var(--info-text);     border-color:rgba(53,92,122,.35)}
 
   .empty{padding:40px 20px;text-align:center;color:var(--text-tertiary);font-size:13px}
   .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border-primary);

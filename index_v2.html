@@ -129,6 +129,7 @@
         <option value="P0 analysis">P0 analysis</option>
         <option value="P1 analysis">P1 analysis</option>
         <option value="P2 analysis">P2 analysis</option>
+        <option value="Result Awaited">Result Awaited</option>
         <option value="Discarded">Discarded</option>
       </select>
     </div>
@@ -198,6 +199,13 @@
     <div class="kpi" data-cat="analyze2"  data-filter="P2 analysis">
       <div class="k-lbl">P2 analysis</div><div class="k-val mono" id="kp-a2">—</div>
       <div class="k-sub">Spend <b id="kp-a2-sp">—</b></div>
+    </div>
+    <!-- 14-day grace period: ads with no filter matches but still within
+         14 days of ad_created live here until their verdict is fair. -->
+    <div class="kpi" data-cat="result_awaited" data-filter="Result Awaited"
+         title="No filter passed yet, but the ad is still within its 14-day evaluation window">
+      <div class="k-lbl">Result Awaited</div><div class="k-val mono" id="kp-ra">—</div>
+      <div class="k-sub">Spend <b id="kp-ra-sp">—</b></div>
     </div>
     <div class="kpi" data-cat="discarded" data-filter="Discarded">
       <div class="k-lbl">Discarded</div><div class="k-val mono" id="kp-dis">—</div>
@@ -1245,6 +1253,16 @@
         whether F3 passes or not — F2's presence with no F1 is the deciding signal.</span>
       </div>
 
+      <!-- 14-day evaluation buffer — deferred verdict for young ads -->
+      <div class="def-note">
+        <span class="def-note-icon">⏳</span>
+        <span><b>14-day evaluation buffer</b> — ads within their first 14 days from
+        <code>ad_created</code> that hit no filter drop into <b>Result Awaited</b>
+        instead of Discarded. Once the ad crosses day 14 without lighting any
+        filter, it falls through to Discarded as before. Categories that DO
+        match a filter (Winner / P0 / P1 / P2) are unaffected by the buffer.</span>
+      </div>
+
       <table class="tbl def-cats def-matrix">
         <thead><tr>
           <th>Category</th>
@@ -1290,11 +1308,18 @@
             <td>Strong F2 signal (F3 either state) but still building impressions.</td>
           </tr>
           <tr>
+            <td><span class="badge ra">Result Awaited</span></td>
+            <td class="def-cell"><span class="def-mark no">—</span></td>
+            <td class="def-cell def-or"><span class="def-mark no">—</span></td>
+            <td class="def-cell"><span class="def-mark no">—</span></td>
+            <td>No filter passed yet, but the ad is still inside its 14-day evaluation window from <code>ad_created</code>. Verdict is deferred.</td>
+          </tr>
+          <tr>
             <td><span class="badge disc">Discarded</span></td>
             <td class="def-cell"><span class="def-mark no">—</span></td>
             <td class="def-cell def-or"><span class="def-mark no">—</span></td>
             <td class="def-cell"><span class="def-mark no">—</span></td>
-            <td>Cut spend or rework creative — no signal.</td>
+            <td>Cut spend or rework creative — no signal after 14 days of delivery.</td>
           </tr>
         </tbody>
       </table>
