@@ -564,6 +564,16 @@
     </div>
   </div>
 
+  <!-- Section toggle — Ads table vs Historic Incremental Reach. Same widget
+       as the Creative Lifecycle Freq/Buffer swap. -->
+  <div class="life-toggle" id="aeSectionToggle" style="margin:6px 0 14px">
+    <button class="lt-btn active" data-sec="ads"   type="button">Ads Table</button>
+    <button class="lt-btn"        data-sec="hreach" type="button">Historic Reach</button>
+  </div>
+
+  <!-- Wrap the existing ads content in a section container -->
+  <div id="aeAdsSection">
+
   <!-- ── Filter section — card-grid layout, two rows ─────────────────── -->
   <div class="ae-fgrid row1">
     <div class="ae-fcard">
@@ -828,6 +838,78 @@
         </thead>
         <tbody></tbody>
       </table>
+    </div>
+  </div>
+  </div><!-- /aeAdsSection -->
+
+  <!-- ─── Historic Incremental Reach section ───────────────────────────
+       Data source: primary_table + backfill_table daily rows in the chosen
+       window. Aggregate reach at the Campaign or Adset level PER DAY so
+       small-reach ads that hold their contribution show up in the group's
+       aggregated reach trend instead of getting cancelled out by other
+       ads' larger drops.
+  -->
+  <div id="aeHReachSection" style="display:none">
+    <div class="funnel-card" style="padding:16px 18px">
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+        <!-- Group-by toggle -->
+        <div class="life-toggle" id="hreachGroupBy">
+          <button class="lt-btn active" data-g="campaign_name" type="button">Campaign</button>
+          <button class="lt-btn"        data-g="adset_name"    type="button">Adset</button>
+        </div>
+        <span class="preset-sep">|</span>
+        <!-- Date range: default last 30d, presets for common windows -->
+        <div class="preset-row" style="margin:0">
+          <button class="preset" data-p="last7">Last 7d</button>
+          <button class="preset active" data-p="last30">Last 30d</button>
+          <button class="preset" data-p="last90">Last 90d</button>
+          <span class="preset-sep">|</span>
+          <input class="fg-input preset-date" id="hreachDateFrom" type="date">
+          <span class="preset-arrow">→</span>
+          <input class="fg-input preset-date" id="hreachDateTo"   type="date">
+        </div>
+        <span style="flex:1"></span>
+        <input id="hreachSearch" type="search" placeholder="Search groups…"
+               style="padding:7px 12px;border:1px solid var(--border);border-radius:6px;
+                      background:var(--bg-white);font-size:12px;width:220px;
+                      font-family:'Inter',sans-serif;outline:none">
+        <button class="btn ghost" id="hreachApply" type="button">Apply</button>
+      </div>
+      <!-- The user's D0/D1 example: aggregated reach at the campaign level
+           keeps every contributing ad's daily reach in the total, so a small
+           ad that holds its 10 reach counts equally with a big ad that drops
+           from 100 → 10. Incremental = last-day agg reach − first-day agg reach. -->
+      <div class="def-note" style="margin:0 0 12px 0">
+        <span class="def-note-icon">◆</span>
+        <span>Reach is aggregated at the <b>group level per day</b> (sum of ad reaches within
+        the campaign/adset on that date), then incremental is computed on those daily
+        aggregates — not by summing ad-level increments. This preserves the contribution
+        of every ad in the group, even ads whose own daily reach didn't move.</span>
+      </div>
+      <div style="font-size:11px;color:var(--text-tertiary)" id="hreachStatus">Ready — click Apply to load.</div>
+      <div style="overflow:auto;max-height:calc(100vh - 340px);margin-top:12px">
+        <table class="tbl ae-tbl" id="hreachTbl" style="margin:0">
+          <thead><tr>
+            <th data-hrsort="grp">Group</th>
+            <th class="num" data-hrsort="n_ads">Ads</th>
+            <th class="num" data-hrsort="days">Days delivered</th>
+            <th class="num" data-hrsort="first_reach"
+                title="Aggregated daily reach on the first day of the window">Reach D1</th>
+            <th class="num" data-hrsort="last_reach"
+                title="Aggregated daily reach on the last day of the window">Reach D-last</th>
+            <th class="num" data-hrsort="peak_reach"
+                title="Peak aggregated daily reach anywhere in the window">Peak reach</th>
+            <th class="num" data-hrsort="incr_reach"
+                title="Reach D-last − Reach D1 at the group level (not sum of per-ad increments)">Incr. reach</th>
+            <th class="num" data-hrsort="total_reach"
+                title="Total delivered impressions equivalent — sum of daily aggregated reach">Σ daily reach</th>
+            <th class="num" data-hrsort="spend">Spend</th>
+            <th class="num" data-hrsort="cpk"
+                title="Total spend ÷ incremental reach × 1000">Cost / 1k incr.</th>
+          </tr></thead>
+          <tbody id="hreachBody"><tr><td colspan="10" style="padding:32px;text-align:center;color:var(--text-tertiary)">Pick a window and click Apply.</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div><!-- /view-ae -->

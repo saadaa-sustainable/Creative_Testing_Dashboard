@@ -4103,6 +4103,241 @@ function aeApplyWindow(r){
     _isWindowed:     true,
   });
 }
+/* ─────────────────────────────────────────────────────────────
+   HISTORIC INCREMENTAL REACH  (Ads Analyse → Historic Reach tab)
+   Pulls daily rows from primary_table + backfill_table, aggregates
+   reach at the campaign/adset level PER DAY, and computes incremental
+   reach on the aggregated series. Rationale for group-first aggregation:
+   two ads in one campaign (A: 100→10, B: 10→10) would net to -90 at
+   the ad level, cancelling out B's steady contribution. Group-first
+   preserves it — campaign D1 = 110, D-last = 20, incr = -90 correctly
+   reflects the campaign's aggregate user coverage instead of averaging
+   over ad-level noise.
+   ───────────────────────────────────────────────────────────── */
+let hreachState = {
+  groupBy:'campaign_name', from:'', to:'',
+  search:'', sortKey:'incr_reach', sortDir:'desc',
+  rows:[],
+};
+
+function _hreachApplyPreset(p){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const iso = d => d.toISOString().slice(0,10);
+  let from = null;
+  if (p === 'last7')      { from = new Date(today); from.setDate(today.getDate()-6); }
+  else if (p === 'last30'){ from = new Date(today); from.setDate(today.getDate()-29); }
+  else if (p === 'last90'){ from = new Date(today); from.setDate(today.getDate()-89); }
+  else return;
+  document.getElementById('hreachDateFrom').value = iso(from);
+  document.getElementById('hreachDateTo').value   = iso(today);
+}
+
+async function _hreachFetch(from, to){
+  // Pull daily rows for the window. primary_table covers the recent
+  // 15-day sync window; backfill_table has the older historic depth.
+  // We union both server-side via two parallel range queries and merge
+  // client-side (same ad/date rows can exist in both; primary wins).
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                   Prefer:'count=none'};
+  const cols = 'ad_id,date,campaign_name,adset_name,reach,amount_spent_inr';
+  const fetchAll = async (tbl) => {
+    let out = [], offset = 0, BATCH = 5000;
+    while (true){
+      const url = SUPABASE_URL + '/rest/v1/' + tbl + '?select=' + cols +
+                  '&date=gte.' + from + '&date=lte.' + to +
+                  '&order=date.asc&limit=' + BATCH + '&offset=' + offset;
+      const r = await fetch(url, {headers});
+      if (!r.ok) throw new Error(tbl + ' HTTP ' + r.status);
+      const j = await r.json();
+      if (!Array.isArray(j) || !j.length) break;
+      out = out.concat(j);
+      if (j.length < BATCH) break;
+      offset += BATCH;
+    }
+    return out;
+  };
+  const [prim, back] = await Promise.all([
+    fetchAll('primary_table').catch(() => []),
+    fetchAll('backfill_table').catch(() => []),
+  ]);
+  // Merge: primary_table takes precedence for overlapping (ad_id, date)
+  // because it's the freshest sync.
+  const key = r => (r.ad_id || '') + '|' + (r.date || '');
+  const map = new Map();
+  for (const r of back) map.set(key(r), r);
+  for (const r of prim) map.set(key(r), r);
+  return Array.from(map.values());
+}
+
+function _hreachAggregate(rows, groupBy){
+  // Two-level aggregation:
+  //   1. Sum reach + spend by (group_key, date) — this is where the
+  //      "attribution to steady ads" comes from.  Every ad in the group
+  //      contributes its daily reach to the group's daily total.
+  //   2. From those per-day totals, extract first-day, last-day, peak,
+  //      total-reach-sum, total-spend, day count, unique ads.
+  const perDay = new Map();          // {grp|date -> {reach, spend, ads:Set}}
+  const perGrpAds = new Map();       // {grp -> Set<ad_id>}
+  for (const r of rows){
+    const grp = (r[groupBy] || '(none)').trim() || '(none)';
+    const d = (r.date || '').slice(0,10);
+    if (!d) continue;
+    const k = grp + '|' + d;
+    let bucket = perDay.get(k);
+    if (!bucket){ bucket = {reach:0, spend:0, ads:new Set()}; perDay.set(k, bucket); }
+    bucket.reach += (+r.reach || 0);
+    bucket.spend += (+r.amount_spent_inr || 0);
+    if (r.ad_id) bucket.ads.add(r.ad_id);
+    let ga = perGrpAds.get(grp);
+    if (!ga){ ga = new Set(); perGrpAds.set(grp, ga); }
+    if (r.ad_id) ga.add(r.ad_id);
+  }
+  // Rebucket into per-group timelines.
+  const byGrp = new Map();
+  for (const [k, v] of perDay.entries()){
+    const [grp, d] = k.split('|');
+    let series = byGrp.get(grp);
+    if (!series){ series = []; byGrp.set(grp, series); }
+    series.push({date:d, reach:v.reach, spend:v.spend});
+  }
+  const out = [];
+  for (const [grp, series] of byGrp.entries()){
+    series.sort((a,b) => a.date < b.date ? -1 : 1);
+    const first = series[0], last = series[series.length-1];
+    let peak = 0, totalReach = 0, totalSpend = 0;
+    for (const s of series){
+      if (s.reach > peak) peak = s.reach;
+      totalReach += s.reach;
+      totalSpend += s.spend;
+    }
+    const incr = (last?.reach || 0) - (first?.reach || 0);
+    const cpk  = incr > 0 ? (totalSpend / incr) * 1000 : null;
+    out.push({
+      grp, n_ads:(perGrpAds.get(grp)?.size || 0),
+      days: series.length,
+      first_reach: first?.reach || 0,
+      last_reach : last?.reach  || 0,
+      peak_reach : peak,
+      total_reach: totalReach,
+      spend      : totalSpend,
+      incr_reach : incr,
+      cpk        : cpk,
+    });
+  }
+  return out;
+}
+
+function _hreachRender(){
+  const q = (hreachState.search || '').trim().toLowerCase();
+  let rows = hreachState.rows;
+  if (q) rows = rows.filter(r => r.grp.toLowerCase().includes(q));
+  const dir = hreachState.sortDir === 'asc' ? 1 : -1;
+  const k = hreachState.sortKey;
+  rows = rows.slice().sort((a,b) => {
+    const av = a[k], bv = b[k];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === 'string') return dir * av.localeCompare(bv);
+    return dir * (av - bv);
+  });
+  const body = document.getElementById('hreachBody');
+  if (!rows.length){
+    body.innerHTML = '<tr><td colspan="10" style="padding:32px;text-align:center;color:var(--text-tertiary)">No groups match the current filter.</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.slice(0, 1000).map(r => {
+    const neg = r.incr_reach < 0;
+    return '<tr>'+
+      '<td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+r.grp.replace(/"/g,'&quot;')+'">'+r.grp+'</td>'+
+      '<td class="num">'+fmtInt(r.n_ads)+'</td>'+
+      '<td class="num">'+fmtInt(r.days)+'</td>'+
+      '<td class="num">'+fmtInt(r.first_reach)+'</td>'+
+      '<td class="num">'+fmtInt(r.last_reach)+'</td>'+
+      '<td class="num">'+fmtInt(r.peak_reach)+'</td>'+
+      '<td class="num" style="color:'+(neg?'var(--error-text)':'var(--success-text)')+';font-weight:700">'+
+        (neg?'':'+')+fmtInt(r.incr_reach)+'</td>'+
+      '<td class="num">'+fmtInt(r.total_reach)+'</td>'+
+      '<td class="num">'+fmtRs(r.spend)+'</td>'+
+      '<td class="num">'+(r.cpk != null ? fmtRs(r.cpk) : '—')+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+async function _hreachApply(){
+  const from = document.getElementById('hreachDateFrom').value;
+  const to   = document.getElementById('hreachDateTo').value;
+  if (!from || !to){
+    document.getElementById('hreachStatus').textContent = 'Pick a date range first.';
+    return;
+  }
+  hreachState.from = from; hreachState.to = to;
+  const status = document.getElementById('hreachStatus');
+  status.innerHTML = 'Fetching daily rows from primary_table + backfill_table <span class="spinner"></span>';
+  const t0 = performance.now();
+  try {
+    const rows = await _hreachFetch(from, to);
+    const agg  = _hreachAggregate(rows, hreachState.groupBy);
+    hreachState.rows = agg;
+    const dt = ((performance.now()-t0)/1000).toFixed(1);
+    status.innerHTML = 'Aggregated <b>'+fmtInt(rows.length)+'</b> daily rows into <b>'+
+      fmtInt(agg.length)+'</b> '+
+      (hreachState.groupBy === 'campaign_name' ? 'campaigns' : 'adsets') +
+      ' · '+dt+'s';
+    _hreachRender();
+  } catch (e){
+    status.textContent = 'Error: ' + (e.message || e);
+    hreachState.rows = [];
+    _hreachRender();
+  }
+}
+
+// Wire up controls once the DOM is ready.
+document.getElementById('aeSectionToggle').addEventListener('click', e => {
+  const btn = e.target.closest('.lt-btn'); if (!btn) return;
+  document.querySelectorAll('#aeSectionToggle .lt-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const sec = btn.dataset.sec;
+  document.getElementById('aeAdsSection'  ).style.display = (sec === 'ads')    ? 'block' : 'none';
+  document.getElementById('aeHReachSection').style.display = (sec === 'hreach') ? 'block' : 'none';
+  if (sec === 'hreach' && !hreachState.from){
+    _hreachApplyPreset('last30');
+  }
+});
+document.getElementById('hreachGroupBy').addEventListener('click', e => {
+  const btn = e.target.closest('.lt-btn'); if (!btn) return;
+  document.querySelectorAll('#hreachGroupBy .lt-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  hreachState.groupBy = btn.dataset.g;
+  // Re-aggregate the last fetched daily rows instead of hitting the network
+  // again — grouping is a pure client transformation.
+  if (hreachState.rows.length){
+    // We don't have the raw daily rows cached at the group level, so re-fetch.
+    // Cost is small; the user changes group-by rarely mid-window.
+    _hreachApply();
+  }
+});
+document.querySelector('#aeHReachSection .preset-row').addEventListener('click', e => {
+  const btn = e.target.closest('.preset'); if (!btn) return;
+  document.querySelectorAll('#aeHReachSection .preset-row .preset').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _hreachApplyPreset(btn.dataset.p);
+});
+document.getElementById('hreachApply').addEventListener('click', _hreachApply);
+document.getElementById('hreachSearch').addEventListener('input', e => {
+  hreachState.search = e.target.value;
+  _hreachRender();
+});
+document.querySelectorAll('#hreachTbl thead th').forEach(th => {
+  th.addEventListener('click', () => {
+    const k = th.dataset.hrsort; if (!k) return;
+    if (hreachState.sortKey === k) hreachState.sortDir = hreachState.sortDir === 'asc' ? 'desc' : 'asc';
+    else { hreachState.sortKey = k; hreachState.sortDir = 'desc'; }
+    _hreachRender();
+  });
+});
+_hreachApplyPreset('last30');   // seed the inputs
+
 function renderAE(){
   if (!allAds.length){
     // Data hasn't landed yet. Instead of silently bailing (and
