@@ -1713,11 +1713,18 @@ function renderLifecycle(){
     const q = lifeBufferSearch.toLowerCase().trim();
     bufRows = bufRows.filter(r => ((r.ad_name||'')+' '+(r.campaign_name||'')+' '+(r.ad_id||'')).toLowerCase().includes(q));
   }
+  // "Drifted only" toggle — surface ads whose live-computed verdict has moved
+  // away from the DB-baked Marked-as sticker (e.g. Winner → Discarded).
+  const driftEl = document.getElementById('lifeBufferDriftOnly');
+  if (driftEl && driftEl.checked){
+    bufRows = bufRows.filter(r => r.db_category && r.db_category !== r.category);
+  }
   bufRows.sort((a,b) => (+b.amount_spent || 0) - (+a.amount_spent || 0));
 
   const tierClass = c => ({
     'Winner':'winner','Incremental Winner':'incwinner','P0 analysis':'priority',
-    'P1 analysis':'analyze1','P2 analysis':'analyze2','Discarded':'discarded'
+    'P1 analysis':'analyze1','P2 analysis':'analyze2',
+    'Result Awaited':'ra','Discarded':'discarded'
   })[c] || 'discarded';
   const passCell = v => v ? '<span class="pass-yes">✓</span>' : '<span class="pass-no">✗</span>';
 
@@ -1725,6 +1732,19 @@ function renderLifecycle(){
     const days = Math.floor((today - new Date(r.ad_created)) / 86400000);
     const stCls = (r.ad_status||'').toUpperCase() === 'ACTIVE' ? 's-active'
                 : (r.ad_status||'').toUpperCase().includes('PAUSED') ? 's-draft' : 's-archived';
+    // "Marked as" = the DB-baked snapshot captured at last refresh_summary_table
+    // run. aeApplyCurrentThresholds() stores this in .db_category before
+    // re-evaluating .category with the current wall-clock + threshold inputs.
+    // When the two differ, the ad's metrics have drifted since the last DB
+    // refresh — the row gets a "changed" pill so users can spot ad-decay
+    // (Winner → Discarded because ROAS fell below 3.2 AND Cost/NCP crossed
+    // ₹525) or improvement (P1 → Winner because ROAS finally cleared).
+    const initialCat = r.db_category || r.category || '—';
+    const currentCat = r.category || '—';
+    const changed    = initialCat !== '—' && currentCat !== initialCat;
+    const changedPill = changed
+      ? '<span class="buf-drift" title="Category changed since the last DB refresh — metrics have drifted">↻ updated</span>'
+      : '';
     return '<tr>'+
       '<td style="max-width:280px"><div style="font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
         (r.ad_name||'—')+'</div>'+
@@ -1732,7 +1752,8 @@ function renderLifecycle(){
       '<td><span class="status-pill '+stCls+'">'+(r.ad_status||'—')+'</span></td>'+
       '<td style="font-family:JetBrains Mono;font-size:11px">'+(r.ad_created||'—')+'</td>'+
       '<td class="num">'+days+'d</td>'+
-      '<td><span class="tier-badge '+tierClass(r.category)+'">'+(r.category||'—')+'</span></td>'+
+      '<td><span class="tier-badge '+tierClass(initialCat)+'">'+initialCat+'</span></td>'+
+      '<td><span class="tier-badge '+tierClass(currentCat)+'">'+currentCat+'</span>'+changedPill+'</td>'+
       '<td style="text-align:center">'+passCell(r.f1_pass)+'</td>'+
       '<td style="text-align:center">'+passCell(r.f2_pass)+'</td>'+
       '<td style="text-align:center">'+passCell(r.f3_pass)+'</td>'+
@@ -1807,6 +1828,11 @@ let lifeSearchDb = null;
 document.getElementById('lifeBufferSearch').addEventListener('input', e => {
   clearTimeout(lifeSearchDb);
   lifeSearchDb = setTimeout(() => { lifeBufferSearch = e.target.value; renderLifecycle(); }, 200);
+});
+// Drifted-only checkbox — narrows the buffer table to rows where the DB-baked
+// Marked-as no longer matches the live Verdict (metric-drift snapshot).
+document.getElementById('lifeBufferDriftOnly').addEventListener('change', () => {
+  renderLifecycle();
 });
 document.getElementById('lifeRefresh').onclick = async () => {
   const [freshAllAds, freshFreq] = await Promise.all([fetchAds(), fetchFreqLifecycle()]);

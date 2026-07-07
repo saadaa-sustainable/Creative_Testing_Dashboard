@@ -504,6 +504,13 @@
         <button class="preset" data-s="P1 analysis">P1 analysis</button>
         <button class="preset" data-s="P2 analysis">P2 analysis</button>
         <button class="preset" data-s="Discarded">Discarded</button>
+        <span class="preset-sep">|</span>
+        <label class="ct-toggle" id="lifeBufferDriftToggle"
+               style="cursor:pointer;user-select:none"
+               title="Only ads whose current Verdict differs from the DB-baked Marked-as (metric drift)">
+          <input type="checkbox" id="lifeBufferDriftOnly" style="margin:0 6px 0 0">
+          <span class="ct-toggle-lbl">Drifted only</span>
+        </label>
       </div>
       <input class="fg-input" id="lifeBufferSearch" type="text" placeholder="search ad name / campaign" style="width:240px">
     </div>
@@ -511,7 +518,9 @@
       <table class="tbl" id="lifeBufferTbl" style="margin:0">
         <thead><tr>
           <th>Ad name</th><th>Status</th><th>Created</th><th class="num">Days since</th>
-          <th>Verdict</th><th>F1 ≥50k</th><th>F2 ROAS</th><th>F3 CPNCP</th><th>F4 CPFTV</th>
+          <th title="Category the ad was assigned at last DB refresh — the 'sticker' it entered the buffer with">Marked as</th>
+          <th title="Current verdict re-evaluated from live metrics + current thresholds. Differs from Marked as when metrics drifted since the last refresh.">Verdict</th>
+          <th>F1 ≥50k</th><th>F2 ROAS</th><th>F3 CPNCP</th><th>F4 CPFTV</th>
           <th class="num">Spend</th><th class="num">ROAS</th><th class="num">FTEWV</th><th class="num">NCP</th>
         </tr></thead>
         <tbody id="lifeBufferBody"></tbody>
