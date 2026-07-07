@@ -591,6 +591,12 @@
 
   /* ── Inventory table styles ─────────────────────────────────────── */
   .inv-tbl th{position:sticky;top:0;background:var(--bg-white);z-index:1;font-size:11px}
+  /* Numeric headers inherit the same sizing as text headers — otherwise the
+     global `.tbl .num` rule (intended for tbody cells) leaks into the header
+     row and makes columns like Total inventory / DoQ 30d render larger than
+     Image / Title. */
+  .inv-tbl th.num{font-size:11px;font-family:'Space Grotesk',sans-serif;
+    text-align:right;letter-spacing:.6px;text-transform:uppercase}
   .inv-tbl tbody tr:hover{background:var(--bg-page-alt)}
   .inv-tbl .thumb{width:48px;height:48px;border-radius:8px;background:var(--bg-muted);
     object-fit:cover;border:1px solid var(--border-warm);display:block}
