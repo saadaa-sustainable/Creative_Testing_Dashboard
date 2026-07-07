@@ -481,7 +481,7 @@
   .mc-body canvas{max-height:380px}
 
   /* ── Drawer (KPI/row click → ad detail) ───────────────────────────── */
-  #drawer{position:fixed;top:0;right:-920px;bottom:0;width:900px;max-width:100vw;
+  #drawer{position:fixed;top:0;right:-1180px;bottom:0;width:1160px;max-width:100vw;
     background:var(--bg-white);
     border-left:1px solid var(--border-primary);z-index:95;display:flex;flex-direction:column;
     transition:right .25s cubic-bezier(.2,.6,.2,1);
@@ -517,20 +517,24 @@
      object_story_spec when creative.image_url is absent) and only falls
      back to the small thumbnail_url. The image-rendering hint keeps any
      remaining upscale crisp instead of bilinear-blurred. */
-  .dr-img{width:100%;max-height:420px;object-fit:contain;
-    border:1px solid var(--border-primary);border-radius:10px;
+  .dr-img{width:100%;max-height:min(820px, calc(100vh - 220px));object-fit:contain;
+    border:1px solid var(--border-primary);border-radius:12px;
     background:var(--bg-muted);display:block;
     image-rendering:-webkit-optimize-contrast}
   .dr-no-preview{padding:36px 16px;text-align:center;font-size:12px;color:var(--text-tertiary);
     border:1px dashed var(--border-warm);border-radius:10px;background:var(--bg-page-alt)}
   .dr-no-preview a{color:var(--accent-yellow-hover);font-weight:700;text-decoration:none}
-  /* Two-column drawer body: left = live iframe preview, right = metrics */
-  .dr-body-2col{display:grid;grid-template-columns:1fr 1fr;gap:20px;
+  /* Two-column drawer body: left = live iframe preview, right = metrics.
+     Preview column is intentionally wider than the meta column — the
+     ad video is the primary content, metric cards can wrap into 2 rows. */
+  .dr-body-2col{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:24px;
     padding:18px 22px;flex:1;overflow:auto;align-items:start}
   .dr-preview-col{display:flex;flex-direction:column;gap:8px}
-  .dr-iframe{width:100%;height:600px;border:1px solid var(--border-primary);
+  .dr-iframe{width:100%;height:min(820px, calc(100vh - 220px));
+    border:1px solid var(--border-primary);
     border-radius:12px;background:#FFF;overflow:hidden}
-  .dr-video{width:100%;max-height:600px;border:1px solid var(--border-primary);
+  .dr-video{width:100%;max-height:min(820px, calc(100vh - 220px));
+    border:1px solid var(--border-primary);
     border-radius:12px;background:#000;object-fit:contain;display:block}
   .dr-preview-foot{font-size:10.5px;color:var(--text-tertiary);
     font-family:'JetBrains Mono',monospace;padding:4px 2px}
