@@ -1566,6 +1566,36 @@ function lifeFilterByDate(rows){
     return true;
   });
 }
+// Fetches summary_table.refreshed_at once per session and caches it — same
+// value for every row because refresh_summary_table.py does TRUNCATE+INSERT,
+// so a single timestamp is authoritative for when the Marked-as stickers
+// were last written.
+let _summaryRefreshedAt = null;
+async function _fetchSummaryRefreshedAt(){
+  if (_summaryRefreshedAt !== null) return _summaryRefreshedAt;
+  if (!SUPABASE_URL || !SUPABASE_ANON){ _summaryRefreshedAt = ''; return ''; }
+  try {
+    const r = await fetch(SUPABASE_URL +
+      '/rest/v1/summary_table?select=refreshed_at&order=refreshed_at.desc&limit=1',
+      {headers:{apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                Prefer:'count=none'}});
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    _summaryRefreshedAt = (Array.isArray(j) && j[0]?.refreshed_at) || '';
+  } catch { _summaryRefreshedAt = ''; }
+  return _summaryRefreshedAt;
+}
+// Human-readable relative-time formatter: "3 h ago", "2 d ago", "just now".
+function _relTime(iso){
+  if (!iso) return '';
+  const d = new Date(iso); if (isNaN(d)) return '';
+  const secs = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+  if (secs < 60)    return 'just now';
+  if (secs < 3600)  return Math.floor(secs/60) + ' m ago';
+  if (secs < 86400) return Math.floor(secs/3600) + ' h ago';
+  return Math.floor(secs/86400) + ' d ago';
+}
+
 function renderLifecycle(){
   /* Apply the Lifecycle date-range filter (ad_created window) once up front,
      so both the frequency buckets and the 14-day buffer read the same set. */
@@ -1728,6 +1758,19 @@ function renderLifecycle(){
   })[c] || 'discarded';
   const passCell = v => v ? '<span class="pass-yes">✓</span>' : '<span class="pass-no">✗</span>';
 
+  // Populate the "Tag last updated" header chip — asynchronous, no re-render
+  // needed since the chip is a plain DOM update.
+  _fetchSummaryRefreshedAt().then(ts => {
+    const chip  = document.getElementById('lifeBufferUpdated');
+    const chipV = document.getElementById('lifeBufferUpdatedVal');
+    if (!chip || !chipV) return;
+    if (!ts){ chip.style.display = 'none'; return; }
+    const d = new Date(ts);
+    const iso = isNaN(d) ? ts : d.toISOString().replace('T',' ').slice(0,16);
+    chipV.textContent = _relTime(ts) + ' · ' + iso + ' UTC';
+    chip.style.display = 'inline-flex';
+  });
+
   document.getElementById('lifeBufferBody').innerHTML = bufRows.slice(0, 500).map(r => {
     const days = Math.floor((today - new Date(r.ad_created)) / 86400000);
     const stCls = (r.ad_status||'').toUpperCase() === 'ACTIVE' ? 's-active'
@@ -1742,8 +1785,15 @@ function renderLifecycle(){
     const initialCat = r.db_category || r.category || '—';
     const currentCat = r.category || '—';
     const changed    = initialCat !== '—' && currentCat !== initialCat;
+    // Drift pill's tooltip carries the "since" timestamp so users see when
+    // the DB-baked Marked-as was written (i.e. the latest moment before the
+    // drift could have occurred).
+    const sinceStr = _summaryRefreshedAt
+      ? ' since ' + new Date(_summaryRefreshedAt).toISOString().replace('T',' ').slice(0,16) + ' UTC'
+      : '';
     const changedPill = changed
-      ? '<span class="buf-drift" title="Category changed since the last DB refresh — metrics have drifted">↻ updated</span>'
+      ? '<span class="buf-drift" title="Verdict has drifted' + sinceStr +
+        ' — metrics changed since the last DB refresh">↻ updated</span>'
       : '';
     return '<tr>'+
       '<td style="max-width:280px"><div style="font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+

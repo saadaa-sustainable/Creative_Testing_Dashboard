@@ -1363,6 +1363,17 @@
     letter-spacing:.4px;text-transform:uppercase;
     background:var(--warning-bg);color:var(--warning-text);
     border:1px solid var(--warning-border)}
+  /* Tag-last-updated chip in the section header — reads summary_table.refreshed_at
+     and shows relative + absolute time so users see how fresh the Marked-as
+     stickers are before comparing against the live Verdict. */
+  .buf-updated-chip{display:inline-flex;align-items:center;gap:8px;
+    padding:6px 11px;border-radius:8px;background:var(--bg-page-alt);
+    border:1px solid var(--border-soft);font-family:'Inter',sans-serif;
+    font-size:11px;line-height:1.2}
+  .buf-updated-chip .chip-lbl{font-weight:600;color:var(--text-secondary);
+    text-transform:uppercase;letter-spacing:.4px;font-size:9.5px}
+  .buf-updated-chip .chip-val{font-family:'JetBrains Mono',monospace;
+    color:var(--text-primary);font-weight:600}
 
   /* ═════════════════════════════════════════════════════════════════
      RESPONSIVE LAYER

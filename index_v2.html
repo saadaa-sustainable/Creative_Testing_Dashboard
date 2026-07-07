@@ -493,7 +493,18 @@
   <div class="funnel-card" id="lifeBufferSection" style="display:none">
     <div class="funnel-hdr">
       <h3>14-Day buffer resolver <span class="h-sub">ads at or past day 14 from creation · current verdict + F1-F4 passes</span></h3>
-      <span class="mono" style="font-size:11px;color:var(--text-tertiary)" id="lifeBufferTot">—</span>
+      <div style="display:flex;gap:10px;align-items:center">
+        <!-- Tag-last-updated chip — reads summary_table.refreshed_at (one
+             uniform TS for all rows since it's a TRUNCATE+INSERT rebuild).
+             Marked as sticker was applied at this timestamp; Verdict is
+             live and can drift after it. -->
+        <span class="buf-updated-chip" id="lifeBufferUpdated" style="display:none"
+              title="When the Marked-as sticker was last refreshed by refresh_summary_table.py">
+          <span class="chip-lbl">Tag last updated</span>
+          <span class="chip-val" id="lifeBufferUpdatedVal">—</span>
+        </span>
+        <span class="mono" style="font-size:11px;color:var(--text-tertiary)" id="lifeBufferTot">—</span>
+      </div>
     </div>
     <div class="filter-top" style="margin-bottom:10px">
       <div class="preset-row" id="lifeBufferStatusRow">
