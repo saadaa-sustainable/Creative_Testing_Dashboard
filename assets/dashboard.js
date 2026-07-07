@@ -1481,7 +1481,7 @@ document.getElementById('btnExport').onclick = ()=>{
 /* ────────────────────────────────────────────────────────────────────
    VIEW SWITCHER — sidebar nav between Testing / Lifecycle / AE / Inventory
    ──────────────────────────────────────────────────────────────────── */
-const VIEW_LOADED = {testing:true, lifecycle:false, ae:false, adintel:false, inventory:false};
+const VIEW_LOADED = {testing:true, lifecycle:false, ae:false, adintel:false, inventory:false, hreach:false};
 document.querySelectorAll('.sb-item').forEach(it => {
   it.addEventListener('click', () => {
     const v = it.dataset.view;
@@ -1499,6 +1499,18 @@ document.querySelectorAll('.sb-item').forEach(it => {
       VIEW_LOADED.adintel = true;
     }
     if (v === 'inventory' && !VIEW_LOADED.inventory) { loadInventory(); VIEW_LOADED.inventory = true; }
+    if (v === 'hreach' && !VIEW_LOADED.hreach) {
+      // First open — seed the inputs to a small window (last 7d) so the
+      // auto-fetch is snappy. Users can widen to 30/90d manually via the
+      // preset chips. A 30d union of primary+backfill can be 300k+ rows.
+      _hreachApplyPreset('last7');
+      // Mirror the active state on the preset chip
+      document.querySelectorAll('#view-hreach .preset-row .preset').forEach(b => b.classList.remove('active'));
+      const chip = document.querySelector('#view-hreach .preset[data-p="last7"]');
+      if (chip) chip.classList.add('active');
+      _hreachApply();
+      VIEW_LOADED.hreach = true;
+    }
     // Auto-close the mobile sidebar after selection
     if (window.innerWidth <= 900) document.getElementById('sidebar').classList.remove('open');
   });
@@ -4292,18 +4304,9 @@ async function _hreachApply(){
   }
 }
 
-// Wire up controls once the DOM is ready.
-document.getElementById('aeSectionToggle').addEventListener('click', e => {
-  const btn = e.target.closest('.lt-btn'); if (!btn) return;
-  document.querySelectorAll('#aeSectionToggle .lt-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const sec = btn.dataset.sec;
-  document.getElementById('aeAdsSection'  ).style.display = (sec === 'ads')    ? 'block' : 'none';
-  document.getElementById('aeHReachSection').style.display = (sec === 'hreach') ? 'block' : 'none';
-  if (sec === 'hreach' && !hreachState.from){
-    _hreachApplyPreset('last30');
-  }
-});
+// The Historic Reach view auto-loads with the default (last-30d, Campaign)
+// window the first time the user opens it — wire that from the sidebar's
+// view-switch below. No manual "Apply" is required for the first open.
 document.getElementById('hreachGroupBy').addEventListener('click', e => {
   const btn = e.target.closest('.lt-btn'); if (!btn) return;
   document.querySelectorAll('#hreachGroupBy .lt-btn').forEach(b => b.classList.remove('active'));
@@ -4317,9 +4320,9 @@ document.getElementById('hreachGroupBy').addEventListener('click', e => {
     _hreachApply();
   }
 });
-document.querySelector('#aeHReachSection .preset-row').addEventListener('click', e => {
+document.querySelector('#view-hreach .preset-row').addEventListener('click', e => {
   const btn = e.target.closest('.preset'); if (!btn) return;
-  document.querySelectorAll('#aeHReachSection .preset-row .preset').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#view-hreach .preset-row .preset').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   _hreachApplyPreset(btn.dataset.p);
 });

@@ -105,6 +105,10 @@
   .sb-item:hover{background:rgba(255,255,255,0.04);color:var(--sb-text)}
   .sb-item.active{color:var(--accent-yellow);border-left-color:var(--accent-yellow);
     background:rgba(232,168,124,0.18)}
+  /* Sub-nav item — sits under a parent (e.g. Historic Reach under Ads Analyse).
+     Indented + smaller font so users read it as a child, not a peer. */
+  .sb-subitem{padding-left:34px;font-size:12px;
+    color:rgba(250,248,245,0.62);font-weight:400}
   .sb-bottom{margin-top:auto;padding:14px 18px;border-top:1px solid rgba(231,226,210,0.18);
     font-size:11px;color:rgba(250,248,245,0.55)}
 
