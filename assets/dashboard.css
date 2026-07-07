@@ -438,6 +438,28 @@
   .def-section-lbl::before,.def-section-lbl::after{content:'';flex:1;height:1px;
     background:var(--border-soft)}
   .def-thresh{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  /* 3-filter layout: F1 · F2 (OR pair) · F3 — the F2 card is wider so the
+     ROAS + Cost/NCP sub-rows fit comfortably side-by-side. */
+  .def-thresh-3{grid-template-columns:1fr 1.6fr 1fr}
+  .def-th-or{background:var(--warning-bg);border-color:var(--warning-border)}
+  .def-th-or .val-pair{display:flex;gap:16px;margin-top:4px}
+  .def-th-or .val-pair > div{display:flex;flex-direction:column;gap:2px}
+  .def-th-or .val-pair .lbl{font-family:'Space Grotesk',sans-serif;font-size:9.5px;
+    font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.4px}
+  .def-th-or .val-pair .mono{font-family:'Space Grotesk',sans-serif;font-size:16px;
+    font-weight:700;color:var(--text-primary)}
+  .def-or-inline{font-size:10.5px;color:var(--warning-text);font-weight:800;
+    background:rgba(0,0,0,.04);padding:2px 6px;border-radius:5px;margin:0 4px}
+  /* Sub-labels under the F2 / F3 matrix headers, showing what each column measures. */
+  .def-th-sub{display:block;font-family:'Inter',sans-serif;font-size:9px;
+    font-weight:600;color:var(--text-tertiary);text-transform:none;letter-spacing:0;
+    margin-top:2px}
+  /* CT threshold row — F2 sub-cards get a warm highlight so users read them
+     as one grouped filter rather than two independent thresholds. */
+  .ct-fcard-or{background:var(--warning-bg);border-color:var(--warning-border)}
+  .ct-orpill{display:inline-flex;font-size:9px;font-weight:800;color:var(--warning-text);
+    background:rgba(0,0,0,.06);padding:2px 6px;border-radius:4px;margin-left:6px;
+    letter-spacing:.4px;vertical-align:1px}
   .def-th{background:var(--bg-surface);border:1px solid var(--border-soft);border-radius:10px;
     padding:13px 14px}
   .def-th .ttl{font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:700;
