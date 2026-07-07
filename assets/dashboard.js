@@ -21,7 +21,11 @@ let thumbsByAdId = {};  // {ad_id: thumbnail_url}  — populated from ad_thumbna
                         // table (Meta Graph API fetched server-side)
 let state = {acct:'', status:'', campaign:'', content:'', tier:'',
              dateFrom:'', dateTo:'',
-             createdFrom:'', createdTo:'',   // ad_created filter (old-dashboard parity)
+             // Which ad-date field the top range filters by. 'delivery' keeps
+             // the old semantics (window = primary_table date filter, no ad
+             // filter — ads with impressions in window). 'created', 'first_seen'
+             // and 'result' are client-side filters on the per-ad date field.
+             dateField:'delivery',
              exclCopy:true,                  // hide ads whose name contains "copy"
              ctFormat:false,                 // only ads with name starting CLP-/CTP-
              search:'', searchMode:'contains'};
@@ -418,16 +422,25 @@ function filtered(rows){
   if (state.ctFormat){
     r = r.filter(x => CT_FORMAT_RE.test(String(x.ad_name || '')));
   }
-  // Created Date filter — narrows to ads whose ad_created falls in the
-  // chosen window (matches the old dashboard's "Created Date" row).
-  if (state.createdFrom || state.createdTo){
-    const cf = state.createdFrom ? new Date(state.createdFrom+'T00:00:00') : null;
-    const ct = state.createdTo   ? new Date(state.createdTo  +'T23:59:59') : null;
+  // Ad-date filter — the top range filters ads by one of four date fields
+  // (dateField selector next to the presets). 'delivery' is a no-op here
+  // because it's already enforced by the primary_table server-side date
+  // filter at fetch time (only ads with impressions in the window get
+  // aggregated). The remaining three are client-side filters on the ad's
+  // own timestamp fields, enriched onto primaryAds from ae_table_view.
+  const _fieldKey = state.dateField === 'created'    ? 'ad_created'
+                  : state.dateField === 'first_seen' ? 'first_seen_date'
+                  : state.dateField === 'result'     ? 'date_of_result'
+                  : null;
+  if (_fieldKey && (state.dateFrom || state.dateTo)){
+    const df = state.dateFrom ? new Date(state.dateFrom+'T00:00:00') : null;
+    const dt = state.dateTo   ? new Date(state.dateTo  +'T23:59:59') : null;
     r = r.filter(x => {
-      if (!x.ad_created) return false;
-      const d = new Date(x.ad_created);
-      if (cf && d < cf) return false;
-      if (ct && d > ct) return false;
+      const v = x[_fieldKey];
+      if (!v) return false;
+      const d = new Date(v);
+      if (df && d < df) return false;
+      if (dt && d > dt) return false;
       return true;
     });
   }
@@ -1290,11 +1303,33 @@ bindFilter('fTier','tier');
 bindFilter('fDateFrom','dateFrom',true);
 bindFilter('fDateTo','dateTo',true);
 
+/* Enrich primaryAds with the per-ad date fields (first_seen_date,
+   date_of_result) that live on ae_table_view. primaryAds already carries
+   ad_created from primary_table; the other two are needed by the new
+   top-range field selector (first-seen / result modes). Called after any
+   primaryAds/allAds refresh — no-op if allAds is empty. */
+function enrichPrimaryDates(){
+  if (!Array.isArray(allAds) || !allAds.length || !Array.isArray(primaryAds)) return;
+  const byId = {};
+  for (const a of allAds){
+    if (a && a.ad_id) byId[a.ad_id] = a;
+  }
+  for (const p of primaryAds){
+    const a = byId[p.ad_id];
+    if (!a) continue;
+    if (!p.first_seen_date && a.first_seen_date) p.first_seen_date = a.first_seen_date;
+    if (!p.date_of_result  && a.date_of_result ) p.date_of_result  = a.date_of_result;
+    // ad_created fallback for cache-path rows that came through without it
+    if (!p.ad_created && a.ad_created) p.ad_created = a.ad_created;
+  }
+}
+
 /* Date preset chips — change the date window AND re-fetch primary_table
    so Creative Testing aggregates only the daily rows in the new window
    (matches the OLD dashboard's behaviour). */
 async function refreshPrimaryForRange(){
   primaryAds = await fetchPrimaryAggregated(state.dateFrom || '', state.dateTo || '');
+  enrichPrimaryDates();
   populateCampaignDropdown(primaryAds);
   rerender();
 }
@@ -1314,33 +1349,33 @@ document.getElementById('presetRow').addEventListener('click', async e=>{
   });
 });
 
-/* Created Date filter — purely client-side (filters primaryAds by ad_created).
-   No re-fetch needed; same data, different in-memory slice. */
-function _ctCreatedChipText(){
-  const a = state.createdFrom, b = state.createdTo;
-  if (!a && !b) return '';
-  if (a && b)   return a === b ? a : (a + ' - ' + b);
-  return a ? ('from ' + a) : ('until ' + b);
-}
-function _ctCreatedSync(){
-  const chip = document.getElementById('fCreatedChip');
-  const txt  = _ctCreatedChipText();
-  if (txt){ chip.textContent = txt; chip.style.display = 'inline-flex'; }
-  else    { chip.style.display = 'none'; }
-  rerender();
-}
-['fCreatedFrom','fCreatedTo'].forEach(id => {
-  document.getElementById(id).addEventListener('change', e => {
-    if (id === 'fCreatedFrom') state.createdFrom = e.target.value;
-    else                       state.createdTo   = e.target.value;
-    _ctCreatedSync();
-  });
+/* Date-field selector — picks which per-ad date the top range filters by.
+   When 'delivery' (default), the range is passed to primary_table at fetch
+   time and no further client filter runs. Switching to created/first_seen/
+   result triggers a re-fetch of the full window; the client-side filter in
+   filtered() then narrows to ads whose selected date falls in that range. */
+document.getElementById('fDateField').addEventListener('change', async e => {
+  state.dateField = e.target.value || 'delivery';
+  // Delivery mode changes the fetch semantics — the window becomes a
+  // primary_table date filter. Other modes want the widest window fetched
+  // so the client-side filter has all candidates to narrow from. We
+  // always re-fetch on mode-change to keep the KPI aggregates consistent.
+  await refreshPrimaryForRange();
 });
-document.getElementById('fCreatedClear').addEventListener('click', () => {
-  document.getElementById('fCreatedFrom').value = '';
-  document.getElementById('fCreatedTo').value   = '';
-  state.createdFrom = ''; state.createdTo = '';
-  _ctCreatedSync();
+
+/* Reset Filters — clears the top date range, resets the field selector
+   back to delivery mode, and un-forces the CT-format toggle (Excl. copy
+   stays on because it's the sane default for the CT dashboard). */
+document.getElementById('fCreatedClear').addEventListener('click', async () => {
+  document.getElementById('fDateFrom').value = '';
+  document.getElementById('fDateTo').value   = '';
+  document.getElementById('fDateField').value = 'delivery';
+  state.dateFrom = ''; state.dateTo = ''; state.dateField = 'delivery';
+  // Snap preset chips back to "Last 30d" default
+  document.querySelectorAll('#presetRow .preset').forEach(x => x.classList.remove('active'));
+  const def = document.querySelector('#presetRow .preset[data-p="last30"]');
+  if (def){ def.classList.add('active'); applyDatePreset('last30'); }
+  await refreshPrimaryForRange();
 });
 
 /* Excl. copy + CT Format toggles — pure client-side filters on primaryAds */
@@ -1406,6 +1441,7 @@ document.getElementById('btnRefresh').onclick = async ()=>{
       r.latest_spend                     = rr.latest_spend;
     }
   }
+  enrichPrimaryDates();
   aeApplyCurrentThresholds();
   rerender();
 };
@@ -4308,6 +4344,7 @@ document.getElementById('aeBtnRefresh').onclick = async () => {
       r.latest_spend                     = rr.latest_spend;
     }
   }
+  enrichPrimaryDates();
   aeApplyCurrentThresholds();
   rerender();
   renderAE();
@@ -4950,6 +4987,7 @@ document.getElementById('invExport').onclick = () => {
     // Slow path: live aggregation from primary_table
     primaryAds = await fetchPrimaryAggregated(state.dateFrom || '', state.dateTo || '');
   }
+  enrichPrimaryDates();
   // Refresh ae_table_view rows' category with the current working thresholds
   // (the DB column may have been baked with an older F4 value).
   aeApplyCurrentThresholds();

@@ -180,6 +180,15 @@
   /* Inline date inputs that live in the preset row right next to Custom */
   .preset-sep{color:var(--border-mid);font-size:18px;padding:0 4px;user-select:none}
   .preset-arrow{color:var(--text-tertiary);font-weight:700;padding:0 2px}
+  /* Field selector at the left of the preset row — picks which date field
+     the range filters ads by (delivery / created / first-seen / result). */
+  .fg-select.preset-date-field{min-height:36px;padding:6px 26px 6px 10px;
+    font-size:12.5px;font-weight:600;font-family:'Inter',sans-serif;
+    color:var(--text-primary);background-color:var(--accent-warm-tint);
+    border:1px solid var(--accent-yellow);border-radius:7px;cursor:pointer;
+    margin-right:4px}
+  .fg-select.preset-date-field:hover{background-color:#FCE9B9;
+    border-color:var(--accent-yellow-hover)}
   .fg-input.preset-date{min-height:36px;padding:7px 10px;width:148px;font-size:12.5px;
     background:var(--accent-warm-tint);border:1px solid var(--accent-yellow);
     border-radius:7px;cursor:pointer;font-weight:600;font-family:'Inter',sans-serif;

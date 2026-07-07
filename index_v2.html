@@ -48,9 +48,19 @@
     </div>
   </div>
 
-  <!-- Date range — presets + custom from/to inline next to Custom button -->
+  <!-- Date range — field selector + presets + custom from/to. The field
+       selector picks WHICH ad-date the range applies to: delivery date
+       (default — ads that had impressions in the window, same as before),
+       created date, first-seen date, or result date. -->
   <div class="filter-top">
     <div class="preset-row" id="presetRow">
+      <select class="fg-select preset-date-field" id="fDateField"
+              title="Which date field the range filters ads by">
+        <option value="delivery">Delivery date</option>
+        <option value="created">Created date</option>
+        <option value="first_seen">First seen</option>
+        <option value="result">Result date</option>
+      </select>
       <button class="preset" data-p="last7">Last 7d</button>
       <button class="preset active" data-p="last30">Last 30d</button>
       <button class="preset" data-p="last90">Last 90d</button>
@@ -60,6 +70,23 @@
       <input class="fg-input preset-date" id="fDateFrom" type="date" title="Date from">
       <span class="preset-arrow">→</span>
       <input class="fg-input preset-date" id="fDateTo"   type="date" title="Date to">
+    </div>
+    <!-- Secondary options row — the client-side toggles that used to live
+         with the Created Date row (now removed since that filter is a mode
+         of the primary date range above). -->
+    <div class="preset-row" id="ctOptionsRow" style="margin-top:10px">
+      <button class="ct-toggle on" id="fExclCopy" type="button"
+              title="Hide ads whose name contains the word 'copy'">
+        <span class="ct-toggle-dot"></span>
+        <span class="ct-toggle-lbl">Excl. copy</span>
+      </button>
+      <button class="ct-toggle" id="fCtFormat" type="button"
+              title="Restrict to CT-sheet format (ad name starts with CLP- or CTP-)">
+        <span class="ct-toggle-dot"></span>
+        <span class="ct-toggle-lbl">CT Format</span>
+      </button>
+      <button class="ct-clr-x" id="fCreatedClear" type="button"
+              title="Reset date + toggle filters">Reset Filters</button>
     </div>
   </div>
 
@@ -122,27 +149,6 @@
         <option value="Third Ad Account - SD">Third Account</option>
         <option value="Fourth Ad Account - SD">Fourth Account</option>
       </select>
-    </div>
-    <!-- Created Date filter + Excl. copy / CT Format toggles — full row 2
-         of the filter grid (Date from / Date to moved up to the preset row). -->
-    <div class="fg-field fg-created">
-      <label class="fg-lbl">Created Date <span id="fCreatedChip" class="ct-created-chip" style="display:none"></span></label>
-      <div class="fg-created-row">
-        <input class="fg-input" id="fCreatedFrom" type="date">
-        <span class="ct-created-sep">→</span>
-        <input class="fg-input" id="fCreatedTo"   type="date">
-        <button class="ct-toggle on" id="fExclCopy" type="button"
-                title="Hide ads whose name contains the word 'copy'">
-          <span class="ct-toggle-dot"></span>
-          <span class="ct-toggle-lbl">Excl. copy</span>
-        </button>
-        <button class="ct-toggle" id="fCtFormat" type="button"
-                title="Restrict to CT-sheet format (ad name starts with CLP- or CTP-)">
-          <span class="ct-toggle-dot"></span>
-          <span class="ct-toggle-lbl">CT Format</span>
-        </button>
-        <button class="ct-clr-x" id="fCreatedClear" type="button" title="Clear created-date filter">Reset Filters</button>
-      </div>
     </div>
   </div>
 
