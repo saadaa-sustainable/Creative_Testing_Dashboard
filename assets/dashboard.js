@@ -525,40 +525,44 @@ function renderKpis(rows){
   }
 }
 
+// Landing-page taxonomy (Product in Focus / Product Mix).  Codes are matched
+// with a leading token boundary (start-of-name or [-+_ ]) so shorthand like
+// "IHP" doesn't collide with "HP".  Order matters — first match wins.
 function classifyProduct(adName){
-  const s = (adName||'').toLowerCase();
-  if (s.includes('clp')) return 'Collection page';
-  if (s.includes('pdp') || s.includes('product') || s.includes('vrp')) return 'Product page';
-  if (s.includes('ctp') || s.includes('custom')) return 'Custom page';
-  return 'Other';
+  const s = (adName||'').toUpperCase();
+  const has = (code) => new RegExp('(^|[-+_ ])' + code + '($|[-+_ ])').test(s);
+  if (has('CLP'))                                    return 'Collection page';
+  if (has('PDP') || has('VRP') || has('PP'))          return 'Product page';
+  if (has('CTG') || has('CAT') || has('CATEGORY'))    return 'Category page';
+  if (has('HP')  || has('HOME'))                      return 'Home page';
+  return 'Others';
 }
+// Creative Focus is limited to the three canonical types (IFAD / GAD / VID);
+// everything else (BST, ADB, UGC, BR, Brand, ...) falls into Others so it can
+// be redirected to the Product-in-Focus taxonomy above.
 function classifyCreative(adName){
   const s = adName || '';
   if (/(^|[^A-Za-z])VID([^A-Za-z]|$)/.test(s)) return 'VID';
   if (/IFAD/i.test(s)) return 'IFAD';
   if (/GAD/i.test(s))  return 'GAD';
-  if (/UGC/i.test(s))  return 'UGC';
-  if (/ADB/i.test(s))  return 'ADB';
-  if (/BST/i.test(s))  return 'BST';
-  if (/BR_/i.test(s))  return 'BR';
   return 'OTHER';
 }
 function renderFocusStrips(rows){
-  const p = {'Collection page':0,'Product page':0,'Custom page':0,'Other':0};
-  const c = {IFAD:0,GAD:0,VID:0,UGC:0,ADB:0,BR:0,BST:0,OTHER:0};
+  const p = {'Home page':0,'Category page':0,'Collection page':0,'Product page':0,'Others':0};
+  const c = {IFAD:0,GAD:0,VID:0,OTHER:0};
   for (const r of rows){
     p[classifyProduct(r.ad_name)] += 1;
     c[classifyCreative(r.ad_name)] += 1;
   }
-  const prodKeys = ['Collection page','Product page','Custom page','Other'];
+  const prodKeys = ['Home page','Category page','Collection page','Product page','Others'];
   document.querySelectorAll('#prodStrip .focus-pill').forEach((el, i) => {
     const k = prodKeys[i];
     el.querySelector('b').textContent = fmtInt(p[k] || 0);
     el.dataset.btype = 'product'; el.dataset.bval = k;
     el.classList.toggle('disabled', (p[k]||0) === 0);
   });
-  const creativeKeys = ['IFAD','GAD','VID','UGC','ADB','BR','BST','OTHER'];
-  const creativeLabels = ['IFAD','GAD','VID','UGC','ADB','BR','BST','Other'];
+  const creativeKeys = ['IFAD','GAD','VID'];
+  const creativeLabels = ['IFAD','GAD','VID'];
   document.querySelectorAll('#creativeStrip .focus-pill').forEach((el, i) => {
     const k = creativeKeys[i];
     el.querySelector('b').textContent = fmtInt(c[k] || 0);
@@ -596,17 +600,20 @@ function donutChart(canvas, labels, data, colors){
 }
 function renderProdChart(p){
   if (charts.prod) charts.prod.destroy();
-  const colors = [SAADAA_PALETTE[0], SAADAA_PALETTE[1], SAADAA_PALETTE[2], SAADAA_PALETTE[7]];
-  const data = [p['Collection page'],p['Product page'],p['Custom page'],p['Other']];
+  const colors = [SAADAA_PALETTE[0], SAADAA_PALETTE[1], SAADAA_PALETTE[2],
+                  SAADAA_PALETTE[3], SAADAA_PALETTE[7]];
+  const data = [p['Home page'],p['Category page'],p['Collection page'],
+                p['Product page'],p['Others']];
   charts.prod = donutChart(document.getElementById('chProd'),
-                           ['Collection','Product','Custom','Other'], data, colors);
+                           ['Home','Category','Collection','Product','Others'],
+                           data, colors);
   document.getElementById('prodTotalCnt').textContent = fmtInt(data.reduce((a,b)=>a+b,0));
 }
 function renderCreativeChart(c){
   if (charts.creative) charts.creative.destroy();
-  const data = ['IFAD','GAD','VID','UGC','ADB','BR','BST','OTHER'].map(k=>c[k]||0);
+  const data = ['IFAD','GAD','VID'].map(k=>c[k]||0);
   charts.creative = donutChart(document.getElementById('chCreative'),
-                               ['IFAD','GAD','VID','UGC','ADB','BR','BST','Other'],
+                               ['IFAD','GAD','VID'],
                                data, SAADAA_PALETTE);
   document.getElementById('creativeTotalCnt').textContent = fmtInt(data.reduce((a,b)=>a+b,0));
 }
