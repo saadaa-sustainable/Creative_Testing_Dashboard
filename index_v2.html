@@ -28,6 +28,12 @@
   <div class="sb-item" data-view="adintel">Ad Intelligence</div>
   <div class="sb-section">Catalog</div>
   <div class="sb-item" data-view="inventory">Inventory</div>
+  <div class="sb-section">Historic</div>
+  <!-- Historic sections route to the same underlying view-ae / view-adintel
+       but flip a mode flag that swaps the date defaults + removes the
+       post-2025-01-01 cap. The current (top) items scope to date >= 2025-01-01. -->
+  <div class="sb-item" data-view="ae" data-historic="1" title="Lifetime ads analysis — no post-2025 cap">Historic Ads Analysis</div>
+  <div class="sb-item" data-view="adintel" data-historic="1" title="Lifetime ad intelligence — includes pre-2025 attribution">Historic Ad Intelligence</div>
   <div class="sb-bottom"><span class="mono" id="dbStat">Idle</span></div>
 </aside>
 
@@ -555,7 +561,9 @@
 <div class="view" id="view-ae" style="display:none">
   <div class="page-hdr">
     <div>
-      <h1 class="heading">Ads Analyse</h1>
+      <h1 class="heading">Ads Analyse
+        <span class="historic-banner" style="display:none">⏳ Historic (Lifetime)</span>
+      </h1>
       <div class="sub">4-filter category engine · live from ae_table_view · re-evaluated client-side when thresholds change</div>
     </div>
     <div style="display:flex;gap:8px">
@@ -908,8 +916,10 @@
 <div class="view" id="view-adintel" style="display:none">
   <div class="page-hdr">
     <div>
-      <h1 class="heading">Ad Intelligence</h1>
-      <div class="sub">step-wise UTM matches from <code>shopify_ad_attribution</code> · 690k orders since 2025-01-01</div>
+      <h1 class="heading">Ad Intelligence
+        <span class="historic-banner" style="display:none">⏳ Historic (Lifetime)</span>
+      </h1>
+      <div class="sub">step-wise UTM matches from <code>shopify_ad_attribution</code></div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <!-- Date Range picker — third DRP instance, scoped to ai-drp-* -->

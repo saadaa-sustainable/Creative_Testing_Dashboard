@@ -1482,21 +1482,44 @@ document.getElementById('btnExport').onclick = ()=>{
    VIEW SWITCHER — sidebar nav between Testing / Lifecycle / AE / Inventory
    ──────────────────────────────────────────────────────────────────── */
 const VIEW_LOADED = {testing:true, lifecycle:false, ae:false, adintel:false, inventory:false, hreach:false};
+// Historic mode per view — the CURRENT Ads Analyse / Ad Intelligence entries
+// scope data to date >= 2025-01-01, the Historic ones show lifetime.  The
+// sidebar click below flips this based on the item's data-historic attribute
+// so a single view can serve both use-cases without duplicated renderers.
+const HISTORIC_CUTOFF = '2025-01-01';
+let historicMode = {ae:false, adintel:false};
+let _lastLoadedHistoric = {ae:null, adintel:null};   // last loaded mode per view
 document.querySelectorAll('.sb-item').forEach(it => {
   it.addEventListener('click', () => {
     const v = it.dataset.view;
+    const isHistoric = it.dataset.historic === '1';
+    // Flip mode BEFORE the view renders so it reads the right flag.
+    if (v in historicMode) historicMode[v] = isHistoric;
     document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
     it.classList.add('active');
     document.querySelectorAll('.view').forEach(vv => vv.style.display = 'none');
     const target = document.getElementById('view-' + v);
     if (target) { target.style.display = 'block'; }
+    // Toggle the "Historic (Lifetime)" banner on the view's page header
+    const banner = target?.querySelector('.historic-banner');
+    if (banner) banner.style.display = isHistoric ? 'inline-flex' : 'none';
     // Lazy-load per-view data
     if (v === 'lifecycle' && allAds.length) renderLifecycle();
     if (v === 'ae'        && allAds.length) renderAE();
-    if (v === 'adintel'   && !VIEW_LOADED.adintel) {
-      initAdIntel();
-      aiReloadOrders();   // first time: fetch the default last-30-day window
-      VIEW_LOADED.adintel = true;
+    if (v === 'adintel'){
+      // If historic-mode changed since last load, re-fetch with the new window.
+      const modeChanged = _lastLoadedHistoric.adintel !== null &&
+                          _lastLoadedHistoric.adintel !== isHistoric;
+      if (!VIEW_LOADED.adintel){
+        initAdIntel();
+        aiApplyHistoricPreset(isHistoric);
+        aiReloadOrders();
+        VIEW_LOADED.adintel = true;
+      } else if (modeChanged){
+        aiApplyHistoricPreset(isHistoric);
+        aiReloadOrders();
+      }
+      _lastLoadedHistoric.adintel = isHistoric;
     }
     if (v === 'inventory' && !VIEW_LOADED.inventory) { loadInventory(); VIEW_LOADED.inventory = true; }
     if (v === 'hreach' && !VIEW_LOADED.hreach) {
@@ -3221,6 +3244,33 @@ async function aiFetchOrders(fromIso, toIso, perfBudgetMs){
   return out;
 }
 
+// Applies the Ad Intelligence date range appropriate for the current mode.
+// Called by the sidebar routing so switching between Ad Intelligence and
+// Historic Ad Intelligence resets the DRP to its meaningful default before
+// aiReloadOrders() fires.
+function aiApplyHistoricPreset(isHistoric){
+  const iso = d => d.toISOString().slice(0,10);
+  if (isHistoric){
+    // Historic Ad Intelligence: lifetime pre-2025.  shopify_ad_attribution
+    // has only ~25 orders in this window today, but the query is honest
+    // (the dashboard doesn't secretly clamp to a smaller range).
+    const from = new Date('2020-01-01'), to = new Date('2024-12-31');
+    document.getElementById('aiDateFrom').value = iso(from);
+    document.getElementById('aiDateTo').value   = iso(to);
+    aiDrpState.from = from; aiDrpState.to = to; aiDrpState.preset = 'historic';
+  } else {
+    // Current Ad Intelligence: last 30 days, but never before the cutoff.
+    const today = new Date(); today.setHours(0,0,0,0);
+    const cutoff = new Date(HISTORIC_CUTOFF + 'T00:00:00');
+    let from = new Date(today); from.setDate(today.getDate() - 29);
+    if (from < cutoff) from = cutoff;
+    document.getElementById('aiDateFrom').value = iso(from);
+    document.getElementById('aiDateTo').value   = iso(today);
+    aiDrpState.from = from; aiDrpState.to = today; aiDrpState.preset = 'last30';
+  }
+  if (typeof aiDrpUpdateButton === 'function') aiDrpUpdateButton();
+}
+
 async function aiReloadOrders(){
   if (aiLoading) return;
   aiLoading = true;
@@ -4031,6 +4081,17 @@ function aeFiltered(){
   const dTo   = dToStr   ? new Date(dToStr   + 'T23:59:59') : null;
 
   let rows = aeRecategorise(allAds);
+  // Historic mode partitions the ad universe by ad_created: Historic Ads
+  // Analysis shows ads created before HISTORIC_CUTOFF (lifetime pre-2025),
+  // the regular Ads Analyse shows ads created on/after the cutoff. Ads
+  // without a created_date are treated as recent (kept in current, hidden
+  // in historic).
+  const _cutoff = new Date(HISTORIC_CUTOFF + 'T00:00:00');
+  rows = rows.filter(r => {
+    if (!r.ad_created) return !historicMode.ae;
+    const d = new Date(r.ad_created);
+    return historicMode.ae ? d < _cutoff : d >= _cutoff;
+  });
   if (acct)   rows = rows.filter(r => (r.account_name || '') === acct);
   if (status) rows = rows.filter(r => (r.ad_status || '').toUpperCase() === status);
   // Hide Discarded by default — matches old dashboard's implicit filter.
