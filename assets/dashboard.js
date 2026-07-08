@@ -2037,6 +2037,12 @@ let aeDeliverySet = null;
 // each row so the numbers reflect the selected dates.
 let aeWindowMetricsByAdId = {};
 let _aeWindowMetricsKey    = '';
+// Per-ad windowed Shopify metrics — same idea but sourced from
+// shopify_ad_attribution filtered by order_created_at inside the AE date
+// range.  Overlayed onto rows in aeApplyWindow so the Shopify orders/sales
+// columns move in step with the date picker.
+let aeWindowShopifyByAdId = {};
+let _aeWindowShopifyKey    = '';
 async function fetchAeWindowMetrics(){
   const from = document.getElementById('aeDateFrom').value || '';
   const to   = document.getElementById('aeDateTo').value   || '';
@@ -2093,6 +2099,54 @@ async function fetchAeWindowMetrics(){
   } catch (e){
     console.warn('[fetchAeWindowMetrics] network error', e);
     aeWindowMetricsByAdId = {};
+  }
+}
+// Fetch windowed Shopify metrics — pulls attribution rows in the AE date
+// range and aggregates by ad_id (orders count + sum(total_price)). Paginates
+// through shopify_ad_attribution because a wide window can exceed the
+// PostgREST anon row cap; sum happens client-side into aeWindowShopifyByAdId.
+async function fetchAeWindowShopify(){
+  const from = document.getElementById('aeDateFrom').value || '';
+  const to   = document.getElementById('aeDateTo').value   || '';
+  const key  = from + '|' + to;
+  if (!from || !to){
+    aeWindowShopifyByAdId = {}; _aeWindowShopifyKey = ''; return;
+  }
+  if (key === _aeWindowShopifyKey) return;
+  _aeWindowShopifyKey = key;
+  if (!SUPABASE_URL || !SUPABASE_ANON){ aeWindowShopifyByAdId = {}; return; }
+  try {
+    const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                     Prefer:'count=none'};
+    const cols = 'ad_id,total_price';
+    let offset = 0, BATCH = 5000;
+    const agg = {};
+    while (true){
+      const url = SUPABASE_URL + '/rest/v1/shopify_ad_attribution?select=' + cols +
+                  '&order_created_at=gte.' + from + 'T00:00:00' +
+                  '&order_created_at=lte.' + to   + 'T23:59:59' +
+                  '&has_match=eq.true&ad_id=not.is.null' +
+                  '&limit=' + BATCH + '&offset=' + offset;
+      const r = await fetch(url, {headers});
+      if (!r.ok) break;
+      const chunk = await r.json();
+      if (!Array.isArray(chunk) || !chunk.length) break;
+      for (const row of chunk){
+        const id = row.ad_id; if (!id) continue;
+        let a = agg[id];
+        if (!a){ a = agg[id] = {orders:0, sales:0}; }
+        a.orders += 1;
+        a.sales  += (+row.total_price || 0);
+      }
+      if (chunk.length < BATCH) break;
+      offset += BATCH;
+      // Cap to prevent runaway if the window is enormous (500k+ orders).
+      if (offset > 500000) break;
+    }
+    aeWindowShopifyByAdId = agg;
+  } catch (e){
+    console.warn('[fetchAeWindowShopify] network error', e);
+    aeWindowShopifyByAdId = {};
   }
 }
 // Cache: window key ("from|to") → Set<ad_id> so repeated ranges are instant.
@@ -2746,7 +2800,7 @@ async function drpApply(){
   drpClose();
   // Fetch both in parallel — delivery set gates which ads to show,
   // window metrics gates the values shown in each row's columns.
-  await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics()]);
+  await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics(), fetchAeWindowShopify()]);
   aePage = 0; renderAE();
 }
 async function drpClearDateRange(){
@@ -2756,7 +2810,7 @@ async function drpClearDateRange(){
   drpState.selecting = false; drpState.preset = 'lifetime';
   drpUpdateButton();
   drpRender();
-  await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics()]);
+  await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics(), fetchAeWindowShopify()]);
   aePage = 0; renderAE();
 }
 function initDateRangePicker(){
@@ -4157,24 +4211,45 @@ const CAT_CLASS = {
  * they're the ad's overall verdict, not "was this ad a winner on Jun 29?" */
 function aeApplyWindow(r){
   const w = aeWindowMetricsByAdId[r.ad_id];
-  if (!w) return r;
-  return Object.assign({}, r, {
-    impressions:     w.impressions,
-    reach:           w.reach,
-    amount_spent:    w.amount_spent,
-    frequency:       w.frequency,
-    cost_per_1000:   w.cost_per_1000,
-    ctr_pct:         w.ctr_pct,
-    roas_ma:         w.roas_ma,
-    cost_per_ftewv:  w.cost_per_ftewv,
-    cost_per_ncp:    w.cost_per_ncp,
-    conv_value:      w.conv_value,
-    purchases:       w.purchases,
-    link_clicks_raw: w.link_clicks_raw,
-    ftewv_count:     w.ftewv_count,
-    ncp_count:       w.ncp_count,
-    _isWindowed:     true,
-  });
+  const s = aeWindowShopifyByAdId[r.ad_id];
+  if (!w && !s) return r;
+  const out = Object.assign({}, r);
+  if (w){
+    Object.assign(out, {
+      impressions:     w.impressions,
+      reach:           w.reach,
+      amount_spent:    w.amount_spent,
+      frequency:       w.frequency,
+      cost_per_1000:   w.cost_per_1000,
+      ctr_pct:         w.ctr_pct,
+      roas_ma:         w.roas_ma,
+      cost_per_ftewv:  w.cost_per_ftewv,
+      cost_per_ncp:    w.cost_per_ncp,
+      conv_value:      w.conv_value,
+      purchases:       w.purchases,
+      link_clicks_raw: w.link_clicks_raw,
+      ftewv_count:     w.ftewv_count,
+      ncp_count:       w.ncp_count,
+      _isWindowed:     true,
+    });
+  }
+  // Shopify overlay: replace the lifetime shopify_orders / shopify_sales
+  // with the windowed aggregate. When the window has no matched orders for
+  // this ad, show 0 (not lifetime) so users see the honest windowed answer.
+  if (aeWindowShopifyKeyIsActive()){
+    out.shopify_orders = s ? s.orders : 0;
+    out.shopify_sales  = s ? s.sales  : 0;
+    // shopify_roas re-derives from the (possibly windowed) spend + sales
+    const spend = +out.amount_spent || 0;
+    out.shopify_roas = spend > 0 ? (out.shopify_sales / spend) : null;
+  }
+  return out;
+}
+// True when a real date range is active in AE and the windowed Shopify
+// fetch has completed. Used by aeApplyWindow to know whether to overlay
+// windowed Shopify totals or leave the lifetime values alone.
+function aeWindowShopifyKeyIsActive(){
+  return !!_aeWindowShopifyKey;
 }
 /* ─────────────────────────────────────────────────────────────
    HISTORIC INCREMENTAL REACH  (Ads Analyse → Historic Reach tab)
@@ -4411,7 +4486,12 @@ function renderAE(){
     if (footer) footer.textContent = 'Loading ae_table_view — filters will apply once the 15k-row fetch completes';
     return;
   }
-  const hasWindow = Object.keys(aeWindowMetricsByAdId).length > 0;
+  // Trigger overlay when either metric set OR shopify aggregate is loaded —
+  // the Shopify overlay is enough on its own to justify calling aeApplyWindow,
+  // since it zeroes-out shopify_orders / shopify_sales for ads with no matched
+  // orders in the window (otherwise they'd render lifetime totals).
+  const hasWindow = Object.keys(aeWindowMetricsByAdId).length > 0
+                    || aeWindowShopifyKeyIsActive();
   const rows = aeFiltered().map(r => hasWindow ? aeApplyWindow(r) : r);
 
   // KPIs honour the date range + account + status + multi-filter (but NOT
@@ -4732,7 +4812,7 @@ document.getElementById('aePageSize').addEventListener('change', () => { aePage 
   document.getElementById(id).addEventListener('change', async () => {
     clearTimeout(window._aeDeliveryDb);
     window._aeDeliveryDb = setTimeout(async () => {
-      await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics()]);
+      await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics(), fetchAeWindowShopify()]);
       aePage = 0; renderAE();
     }, 220);
   }));
