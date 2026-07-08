@@ -310,6 +310,7 @@
   .fk-master-cell.win  {color:var(--success-text); background:rgba(79,124,77,.07)}
   .fk-master-cell.pri  {color:var(--info-text);    background:rgba(53,92,122,.07)}
   .fk-master-cell.anl  {color:var(--accent-purple);background:rgba(123,79,191,.06)}
+  .fk-master-cell.awa  {color:var(--info-text);    background:rgba(53,92,122,.05)}
   .fk-master-cell.dis  {color:var(--error-text);   background:rgba(192,57,43,.06)}
   .fk-master-cell.f4   {color:var(--warning-text); background:rgba(181,117,20,.07);
     border-left:2px solid var(--border-primary)}
@@ -335,6 +336,7 @@
   .fk-cell.col-pri   .bar-fill{background:var(--info-mid)}
   .fk-cell.col-a1    .bar-fill{background:var(--accent-purple)}
   .fk-cell.col-a2    .bar-fill{background:var(--accent-pink)}
+  .fk-cell.col-ra    .bar-fill{background:var(--info-mid)}
   .fk-cell.col-disc  .bar-fill{background:var(--error-mid)}
   .fk-cell.col-f4    .bar-fill{background:var(--warning-mid)}
   /* Clickable funnel cells — hover lifts to signal interactivity */
@@ -345,6 +347,11 @@
   .fk-ctype{padding:14px 18px;display:flex;align-items:center;gap:10px;
     background:var(--bg-white);border-left:none}
   .fk-ctype .icon{font-size:18px}
+  /* Line-art PNG icons for creative types.  Constrained to a small square
+     with object-fit: contain so different source aspect ratios (clapper vs
+     square-frame vs camera) all render at the same visual weight. */
+  .fk-ctype .ct-icon{width:26px;height:26px;object-fit:contain;display:block;
+    filter:opacity(.78)}
   .fk-ctype .nm{font-family:'Space Grotesk',sans-serif;font-size:12.5px;font-weight:700;
     color:var(--text-primary)}
   .fk-ctype .ttl{font-size:10.5px;color:var(--text-tertiary);margin-top:2px}

@@ -1111,10 +1111,22 @@ document.getElementById('drClose').onclick       = closeDrawer;
 document.getElementById('drFooterClose').onclick = closeDrawer;
 
 /* ── Funnel breakdown (Creative Type × Category) ───────────────────── */
-const CTYPE_ICONS = { 'IFAD':'🎬', 'Graphic AD':'🖼️', 'VID':'📹', 'STATIC':'📷' };
+// Icons rendered next to each creative-type row in the funnel.  User-supplied
+// line-art PNGs pre-processed with transparent backgrounds in assets/icons/.
+// Kept as <img> refs (not inline SVG) because the source files are already
+// small (<10KB each after crop+alpha) and the browser caches them once.
+const CTYPE_ICONS = {
+  'IFAD':      '<img src="assets/icons/ifad.png" alt="" class="ct-icon">',
+  'Graphic AD':'<img src="assets/icons/gad.png"  alt="" class="ct-icon">',
+  'VID':       '<img src="assets/icons/vid.png"  alt="" class="ct-icon">',
+  'STATIC':    '<img src="assets/icons/gad.png"  alt="" class="ct-icon">',
+};
 const FUNNEL_SUB  = ['Incremental Winner','Winner','P0 analysis','P1 analysis','P2 analysis','Result Awaited','Discarded'];
 const FUNNEL_SUB_SHORT = ['Inc. Winner','Winner','P0','P1','P2','Awaited','Discarded'];
-const FUNNEL_COL_CLS  = ['col-incr','col-win','col-pri','col-a1','col-a2','col-disc'];
+// One class per FUNNEL_SUB slot — must stay in lockstep with FUNNEL_SUB order.
+// (Missing col-ra for Result Awaited was the reason the funnel grid over-
+// flowed into a broken second row after the buffer feature landed.)
+const FUNNEL_COL_CLS  = ['col-incr','col-win','col-pri','col-a1','col-a2','col-ra','col-disc'];
 function renderFunnel(rows){
   const body = document.getElementById('funnelBody'); if (!body) return;
   const ctypes = ['IFAD','Graphic AD','VID','STATIC'];
@@ -1137,14 +1149,18 @@ function renderFunnel(rows){
   const maxPerCat = {};
   for (const s of FUNNEL_SUB) maxPerCat[s] = Math.max(1, ...active.map(ct=>counts[ct][s]));
   const maxF4 = Math.max(1, ...active.map(ct=>counts[ct].f4));
-  const cols  = '180px 70px repeat(6,1fr) 130px';
+  // Grid columns: creative (180) · total (70) · 7 sub-cat columns · F4 (130)
+  // The 7th sub-cat is Result Awaited, added when the 14-day buffer landed.
+  const cols  = '180px 70px repeat(7,1fr) 130px';
   let html = '';
-  // Master row
+  // Master row — column spans must add up to 10 (matches the 10 grid columns).
+  //   creative+total(2) + Winner(2) + P0(1) + P1/P2(2) + Awaited(1) + Discarded(1) + F4(1) = 10
   html += `<div class="fk-row fk-master" style="grid-template-columns:${cols}">
     <div style="grid-column:span 2"></div>
     <div class="fk-master-cell win"  style="grid-column:span 2">Winner</div>
     <div class="fk-master-cell pri"  style="grid-column:span 1">P0 analysis</div>
     <div class="fk-master-cell anl"  style="grid-column:span 2">P1 / P2 analysis</div>
+    <div class="fk-master-cell awa"  style="grid-column:span 1">Awaited</div>
     <div class="fk-master-cell dis"  style="grid-column:span 1">Discarded</div>
     <div class="fk-master-cell f4">F4 Quality</div>
   </div>`;
