@@ -2068,6 +2068,12 @@ let _aeWindowMetricsKey    = '';
 // columns move in step with the date picker.
 let aeWindowShopifyByAdId = {};
 let _aeWindowShopifyKey    = '';
+// Per-ad windowed reach snapshot — pulled from primary_table + backfill_table
+// so the Prev/Latest/Incr reach columns follow the AE date picker rather than
+// showing the fixed latest/previous-day snapshot from ae_reach_recent.  Keys
+// on "from|to"; recomputed on every date-range change.
+let aeWindowReachByAdId = {};
+let _aeWindowReachKey    = '';
 async function fetchAeWindowMetrics(){
   const from = document.getElementById('aeDateFrom').value || '';
   const to   = document.getElementById('aeDateTo').value   || '';
@@ -2172,6 +2178,82 @@ async function fetchAeWindowShopify(){
   } catch (e){
     console.warn('[fetchAeWindowShopify] network error', e);
     aeWindowShopifyByAdId = {};
+  }
+}
+// Windowed reach fetch — pulls daily reach + spend rows for the AE date range
+// from primary_table + backfill_table, then per ad_id extracts:
+//   prev_reach     = reach on the earliest reporting day in the window
+//   latest_reach   = reach on the latest reporting day in the window
+//   latest_spend   = spend on that latest day (for the Cost/1k Incr calc)
+// The Incremental Reach column is populated with latest_reach (matches the
+// materialized-view semantic — "reach the ad delivered on its most recent
+// day inside the window").
+async function fetchAeWindowReach(){
+  const from = document.getElementById('aeDateFrom').value || '';
+  const to   = document.getElementById('aeDateTo').value   || '';
+  const key  = from + '|' + to;
+  if (!from || !to){
+    aeWindowReachByAdId = {}; _aeWindowReachKey = ''; return;
+  }
+  if (key === _aeWindowReachKey) return;
+  _aeWindowReachKey = key;
+  if (!SUPABASE_URL || !SUPABASE_ANON){ aeWindowReachByAdId = {}; return; }
+  try {
+    const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                     Prefer:'count=none'};
+    const cols = 'ad_id,date,reach,amount_spent_inr';
+    const fetchAll = async (tbl) => {
+      let out = [], offset = 0, BATCH = 5000;
+      while (true){
+        const url = SUPABASE_URL + '/rest/v1/' + tbl + '?select=' + cols +
+                    '&date=gte.' + from + '&date=lte.' + to +
+                    '&reach=not.is.null&reach=gt.0' +
+                    '&limit=' + BATCH + '&offset=' + offset;
+        const r = await fetch(url, {headers});
+        if (!r.ok) break;
+        const chunk = await r.json();
+        if (!Array.isArray(chunk) || !chunk.length) break;
+        out = out.concat(chunk);
+        if (chunk.length < BATCH) break;
+        offset += BATCH;
+        if (offset > 400000) break;
+      }
+      return out;
+    };
+    const [prim, back] = await Promise.all([
+      fetchAll('primary_table').catch(() => []),
+      fetchAll('backfill_table').catch(() => []),
+    ]);
+    // Merge with primary winning on overlap (freshest sync)
+    const bestByKey = new Map();
+    for (const r of back) bestByKey.set(r.ad_id + '|' + r.date, r);
+    for (const r of prim) bestByKey.set(r.ad_id + '|' + r.date, r);
+    // Per-ad reduce: track earliest + latest reporting day within the window
+    const agg = {};
+    for (const r of bestByKey.values()){
+      const id = r.ad_id; if (!id || !r.date) continue;
+      const d  = r.date.slice(0,10);
+      let a = agg[id];
+      if (!a){
+        a = agg[id] = {
+          prev_date: d, prev_reach: +r.reach || 0,
+          latest_date: d, latest_reach: +r.reach || 0,
+          latest_spend: +r.amount_spent_inr || 0,
+        };
+        continue;
+      }
+      if (d < a.prev_date){
+        a.prev_date = d; a.prev_reach = +r.reach || 0;
+      }
+      if (d > a.latest_date){
+        a.latest_date = d; a.latest_reach = +r.reach || 0;
+        a.latest_spend = +r.amount_spent_inr || 0;
+      }
+    }
+    aeWindowReachByAdId = agg;
+  } catch (e){
+    console.warn('[fetchAeWindowReach] network error', e);
+    aeWindowReachByAdId = {};
   }
 }
 // Cache: window key ("from|to") → Set<ad_id> so repeated ranges are instant.
@@ -2825,7 +2907,8 @@ async function drpApply(){
   drpClose();
   // Fetch both in parallel — delivery set gates which ads to show,
   // window metrics gates the values shown in each row's columns.
-  await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics(), fetchAeWindowShopify()]);
+  await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics(),
+                     fetchAeWindowShopify(), fetchAeWindowReach()]);
   aePage = 0; renderAE();
 }
 async function drpClearDateRange(){
@@ -2835,7 +2918,8 @@ async function drpClearDateRange(){
   drpState.selecting = false; drpState.preset = 'lifetime';
   drpUpdateButton();
   drpRender();
-  await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics(), fetchAeWindowShopify()]);
+  await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics(),
+                     fetchAeWindowShopify(), fetchAeWindowReach()]);
   aePage = 0; renderAE();
 }
 function initDateRangePicker(){
@@ -4267,9 +4351,10 @@ const CAT_CLASS = {
  * in the window. Category and F-flags stay lifetime-based on purpose —
  * they're the ad's overall verdict, not "was this ad a winner on Jun 29?" */
 function aeApplyWindow(r){
-  const w = aeWindowMetricsByAdId[r.ad_id];
-  const s = aeWindowShopifyByAdId[r.ad_id];
-  if (!w && !s) return r;
+  const w  = aeWindowMetricsByAdId[r.ad_id];
+  const s  = aeWindowShopifyByAdId[r.ad_id];
+  const rr = aeWindowReachByAdId[r.ad_id];
+  if (!w && !s && !rr && !_aeWindowReachKey) return r;
   const out = Object.assign({}, r);
   if (w){
     Object.assign(out, {
@@ -4299,6 +4384,26 @@ function aeApplyWindow(r){
     // shopify_roas re-derives from the (possibly windowed) spend + sales
     const spend = +out.amount_spent || 0;
     out.shopify_roas = spend > 0 ? (out.shopify_sales / spend) : null;
+  }
+  // Reach overlay: the Prev / Latest / Incr Reach + Cost/1k Incr columns
+  // switch from the ae_reach_recent snapshot to first/last-day-in-window
+  // values.  When the ad had no reporting days in the window, all four
+  // fields become null so cells render "—" instead of misleading lifetime
+  // numbers.
+  if (_aeWindowReachKey){
+    if (rr){
+      out.previous_reach     = rr.prev_reach;
+      out.latest_reach       = rr.latest_reach;
+      out.incremental_reach  = rr.latest_reach;
+      out.cost_per_1000_incremental_reach = rr.latest_reach > 0
+        ? (rr.latest_spend * 1000) / rr.latest_reach
+        : null;
+    } else {
+      out.previous_reach = null;
+      out.latest_reach   = null;
+      out.incremental_reach = null;
+      out.cost_per_1000_incremental_reach = null;
+    }
   }
   return out;
 }
@@ -4873,7 +4978,8 @@ document.getElementById('aePageSize').addEventListener('change', () => { aePage 
   document.getElementById(id).addEventListener('change', async () => {
     clearTimeout(window._aeDeliveryDb);
     window._aeDeliveryDb = setTimeout(async () => {
-      await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics(), fetchAeWindowShopify()]);
+      await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics(),
+                     fetchAeWindowShopify(), fetchAeWindowReach()]);
       aePage = 0; renderAE();
     }, 220);
   }));
