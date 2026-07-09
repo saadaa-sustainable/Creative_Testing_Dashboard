@@ -3204,10 +3204,42 @@ function aiDrpDayClick(node){
   }
   aiDrpRender();
 }
+// Class-only range highlight — same pattern as the AE picker's
+// drpUpdateRangeHighlight. Rewriting innerHTML on every mouseover (which
+// the previous aiDrpRender() call did) yanked the calendar's DOM out from
+// under the user's second click, so the range never completed. Toggling
+// classes on the existing cells keeps every click listener alive.
+function aiDrpUpdateRangeHighlight(){
+  let rFrom = aiDrpState.from;
+  let rTo   = aiDrpState.selecting && aiDrpState.hov ? aiDrpState.hov : aiDrpState.to;
+  if (rFrom && rTo && rFrom > rTo){ const t = rFrom; rFrom = rTo; rTo = t; }
+  const from = rFrom ? rFrom.getTime() : null;
+  const to   = rTo   ? rTo.getTime()   : null;
+  ['ai-drp-cal-l','ai-drp-cal-r'].forEach(id => {
+    const cal = aiDrpEl(id); if (!cal) return;
+    cal.querySelectorAll('.drp-day').forEach(cell => {
+      cell.classList.remove('range-start','range-end','in-range');
+      if (cell.classList.contains('other-month')) return;
+      const iso = cell.dataset.date; if (!iso) return;
+      const t = drpParseLocal(iso).getTime();
+      if (from !== null && t === from) cell.classList.add('range-start');
+      if (to   !== null && t === to)   cell.classList.add('range-end');
+      if (from !== null && to !== null && t > from && t < to) cell.classList.add('in-range');
+    });
+  });
+  const footerEl = aiDrpEl('ai-drp-footer-range');
+  if (footerEl){
+    if (aiDrpState.selecting && aiDrpState.from && !aiDrpState.to){
+      footerEl.textContent = drpDisplay(rFrom) + ' → click END date';
+    } else {
+      footerEl.textContent = drpDisplay(rFrom) + ' - ' + drpDisplay(rTo);
+    }
+  }
+}
 function aiDrpDayHover(node){
   if (!aiDrpState.selecting || !node || node.classList.contains('other-month') || node.classList.contains('disabled')) return;
   aiDrpState.hov = drpParseLocal(node.dataset.date);
-  aiDrpRender();
+  aiDrpUpdateRangeHighlight();
 }
 function aiDrpPreset(key){
   const now = new Date(); now.setHours(0,0,0,0);
