@@ -2180,14 +2180,16 @@ async function fetchAeWindowShopify(){
     aeWindowShopifyByAdId = {};
   }
 }
-// Windowed reach fetch — pulls daily reach + spend rows for the AE date range
-// from primary_table + backfill_table, then per ad_id extracts:
-//   prev_reach     = reach on the earliest reporting day in the window
-//   latest_reach   = reach on the latest reporting day in the window
-//   latest_spend   = spend on that latest day (for the Cost/1k Incr calc)
-// The Incremental Reach column is populated with latest_reach (matches the
-// materialized-view semantic — "reach the ad delivered on its most recent
-// day inside the window").
+// Windowed reach fetch — calls the get_reach_by_window RPC (same one the
+// removed Incremental Reach Analysis modal used) so the per-ad numbers here
+// are bit-for-bit identical to what that modal showed. Server aggregation
+// runs against ae_daily_agg_mat with a lifted statement_timeout and
+// returns:
+//   reach_first  = reach on the earliest day the ad had reach > 0 in window
+//   reach_last   = reach on the latest   day the ad had reach > 0 in window
+//   reach_incr   = GREATEST(reach_last − reach_first, 0) — capped, never neg
+//   reach_sum    = sum of daily reach across the window (for reach_peak too)
+//   spend_sum    = sum of spend across the window
 async function fetchAeWindowReach(){
   const from = document.getElementById('aeDateFrom').value || '';
   const to   = document.getElementById('aeDateTo').value   || '';
@@ -2199,65 +2201,32 @@ async function fetchAeWindowReach(){
   _aeWindowReachKey = key;
   if (!SUPABASE_URL || !SUPABASE_ANON){ aeWindowReachByAdId = {}; return; }
   try {
-    const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
-                     Prefer:'count=none'};
-    const cols = 'ad_id,date,reach,amount_spent_inr';
-    const fetchAll = async (tbl) => {
-      let out = [], offset = 0, BATCH = 5000;
-      while (true){
-        const url = SUPABASE_URL + '/rest/v1/' + tbl + '?select=' + cols +
-                    '&date=gte.' + from + '&date=lte.' + to +
-                    '&reach=not.is.null&reach=gt.0' +
-                    '&limit=' + BATCH + '&offset=' + offset;
-        const r = await fetch(url, {headers});
-        if (!r.ok) break;
-        const chunk = await r.json();
-        if (!Array.isArray(chunk) || !chunk.length) break;
-        out = out.concat(chunk);
-        if (chunk.length < BATCH) break;
-        offset += BATCH;
-        if (offset > 400000) break;
-      }
-      return out;
-    };
-    const [prim, back] = await Promise.all([
-      fetchAll('primary_table').catch(() => []),
-      fetchAll('backfill_table').catch(() => []),
-    ]);
-    // Merge with primary winning on overlap (freshest sync)
-    const bestByKey = new Map();
-    for (const r of back) bestByKey.set(r.ad_id + '|' + r.date, r);
-    for (const r of prim) bestByKey.set(r.ad_id + '|' + r.date, r);
-    // Per-ad reduce — matches the semantics of the old Incremental Reach
-    // Analysis modal (group_by = ad_id):
-    //   prev_reach    = reach on the FIRST reporting day in window
-    //   latest_reach  = reach on the LAST  reporting day in window
-    //   total_spend   = SUM(spend) across every reporting day in window
-    // The overlay computes incr = latest − prev and CPK = total × 1000 / incr.
-    const agg = {};
-    for (const r of bestByKey.values()){
-      const id = r.ad_id; if (!id || !r.date) continue;
-      const d  = r.date.slice(0,10);
-      const spend = +r.amount_spent_inr || 0;
-      const reach = +r.reach || 0;
-      let a = agg[id];
-      if (!a){
-        a = agg[id] = {
-          prev_date: d, prev_reach: reach,
-          latest_date: d, latest_reach: reach,
-          total_spend: spend,
-        };
-        continue;
-      }
-      a.total_spend += spend;
-      if (d < a.prev_date){
-        a.prev_date = d; a.prev_reach = reach;
-      }
-      if (d > a.latest_date){
-        a.latest_date = d; a.latest_reach = reach;
-      }
+    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_reach_by_window', {
+      method: 'POST',
+      headers: {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                'Content-Type':'application/json'},
+      body: JSON.stringify({from_date: from, to_date: to}),
+    });
+    if (!r.ok){
+      console.warn('[fetchAeWindowReach] RPC HTTP', r.status,
+                   await r.text().catch(()=>''));
+      aeWindowReachByAdId = {}; return;
     }
-    aeWindowReachByAdId = agg;
+    const rows = await r.json();
+    const out = {};
+    for (const row of rows){
+      if (!row.ad_id) continue;
+      out[row.ad_id] = {
+        reach_first: +row.reach_first || 0,
+        reach_last:  +row.reach_last  || 0,
+        reach_incr:  +row.reach_incr  || 0,   // already GREATEST(..., 0) by RPC
+        reach_sum:   +row.reach_sum   || 0,
+        reach_peak:  +row.reach_peak  || 0,
+        spend_sum:   +row.spend_sum   || 0,
+        days_active: +row.days_active || 0,
+      };
+    }
+    aeWindowReachByAdId = out;
   } catch (e){
     console.warn('[fetchAeWindowReach] network error', e);
     aeWindowReachByAdId = {};
@@ -4392,22 +4361,21 @@ function aeApplyWindow(r){
     const spend = +out.amount_spent || 0;
     out.shopify_roas = spend > 0 ? (out.shopify_sales / spend) : null;
   }
-  // Reach overlay — mirrors the old Incremental Reach Analysis modal so the
-  // columns behave exactly the way they did before the refactor:
-  //   Prev Reach     = reach on the earliest reporting day in the window
-  //   Latest Reach   = reach on the latest reporting day in the window
-  //   Incr. Reach    = Latest − Prev  (positive = growing, negative = falling)
-  //   Cost / 1k Incr = SUM(spend across the whole window) × 1000 / Incr Reach
-  // Ads with no reporting days in the window render "—" instead of the
-  // stale ae_reach_recent snapshot.
+  // Reach overlay — reads directly from get_reach_by_window RPC output so
+  // the columns are byte-identical to what the old Incremental Reach
+  // Analysis modal showed. rr.reach_incr is already GREATEST(last-first, 0)
+  // on the server side, so no client-side capping needed.
+  //   Prev Reach     = reach_first
+  //   Latest Reach   = reach_last
+  //   Incr. Reach    = reach_incr  (already capped at 0 by RPC)
+  //   Cost / 1k Incr = spend_sum × 1000 / reach_incr
   if (_aeWindowReachKey){
     if (rr){
-      out.previous_reach    = rr.prev_reach;
-      out.latest_reach      = rr.latest_reach;
-      const incr = (rr.latest_reach || 0) - (rr.prev_reach || 0);
-      out.incremental_reach = incr;
-      out.cost_per_1000_incremental_reach = incr > 0
-        ? (rr.total_spend * 1000) / incr
+      out.previous_reach    = rr.reach_first;
+      out.latest_reach      = rr.reach_last;
+      out.incremental_reach = rr.reach_incr;
+      out.cost_per_1000_incremental_reach = rr.reach_incr > 0
+        ? (rr.spend_sum * 1000) / rr.reach_incr
         : null;
     } else {
       out.previous_reach = null;
