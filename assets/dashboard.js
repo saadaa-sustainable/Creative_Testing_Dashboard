@@ -2228,26 +2228,33 @@ async function fetchAeWindowReach(){
     const bestByKey = new Map();
     for (const r of back) bestByKey.set(r.ad_id + '|' + r.date, r);
     for (const r of prim) bestByKey.set(r.ad_id + '|' + r.date, r);
-    // Per-ad reduce: track earliest + latest reporting day within the window
+    // Per-ad reduce — matches the semantics of the old Incremental Reach
+    // Analysis modal (group_by = ad_id):
+    //   prev_reach    = reach on the FIRST reporting day in window
+    //   latest_reach  = reach on the LAST  reporting day in window
+    //   total_spend   = SUM(spend) across every reporting day in window
+    // The overlay computes incr = latest − prev and CPK = total × 1000 / incr.
     const agg = {};
     for (const r of bestByKey.values()){
       const id = r.ad_id; if (!id || !r.date) continue;
       const d  = r.date.slice(0,10);
+      const spend = +r.amount_spent_inr || 0;
+      const reach = +r.reach || 0;
       let a = agg[id];
       if (!a){
         a = agg[id] = {
-          prev_date: d, prev_reach: +r.reach || 0,
-          latest_date: d, latest_reach: +r.reach || 0,
-          latest_spend: +r.amount_spent_inr || 0,
+          prev_date: d, prev_reach: reach,
+          latest_date: d, latest_reach: reach,
+          total_spend: spend,
         };
         continue;
       }
+      a.total_spend += spend;
       if (d < a.prev_date){
-        a.prev_date = d; a.prev_reach = +r.reach || 0;
+        a.prev_date = d; a.prev_reach = reach;
       }
       if (d > a.latest_date){
-        a.latest_date = d; a.latest_reach = +r.reach || 0;
-        a.latest_spend = +r.amount_spent_inr || 0;
+        a.latest_date = d; a.latest_reach = reach;
       }
     }
     aeWindowReachByAdId = agg;
@@ -4385,18 +4392,22 @@ function aeApplyWindow(r){
     const spend = +out.amount_spent || 0;
     out.shopify_roas = spend > 0 ? (out.shopify_sales / spend) : null;
   }
-  // Reach overlay: the Prev / Latest / Incr Reach + Cost/1k Incr columns
-  // switch from the ae_reach_recent snapshot to first/last-day-in-window
-  // values.  When the ad had no reporting days in the window, all four
-  // fields become null so cells render "—" instead of misleading lifetime
-  // numbers.
+  // Reach overlay — mirrors the old Incremental Reach Analysis modal so the
+  // columns behave exactly the way they did before the refactor:
+  //   Prev Reach     = reach on the earliest reporting day in the window
+  //   Latest Reach   = reach on the latest reporting day in the window
+  //   Incr. Reach    = Latest − Prev  (positive = growing, negative = falling)
+  //   Cost / 1k Incr = SUM(spend across the whole window) × 1000 / Incr Reach
+  // Ads with no reporting days in the window render "—" instead of the
+  // stale ae_reach_recent snapshot.
   if (_aeWindowReachKey){
     if (rr){
-      out.previous_reach     = rr.prev_reach;
-      out.latest_reach       = rr.latest_reach;
-      out.incremental_reach  = rr.latest_reach;
-      out.cost_per_1000_incremental_reach = rr.latest_reach > 0
-        ? (rr.latest_spend * 1000) / rr.latest_reach
+      out.previous_reach    = rr.prev_reach;
+      out.latest_reach      = rr.latest_reach;
+      const incr = (rr.latest_reach || 0) - (rr.prev_reach || 0);
+      out.incremental_reach = incr;
+      out.cost_per_1000_incremental_reach = incr > 0
+        ? (rr.total_spend * 1000) / incr
         : null;
     } else {
       out.previous_reach = null;
