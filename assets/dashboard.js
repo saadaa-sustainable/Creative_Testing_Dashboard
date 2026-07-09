@@ -210,7 +210,11 @@ function _ctCategory(impr, roas, cpncp, cpft, t, adCreated){
   const f3 = cpncp > 0 && cpncp <= t.f3;
   const f4 = cpft  > 0 && cpft  <= t.f4;
   let cat;
-  if      (f1 && (f2 || f3) && f4) cat = 'Incremental Winner';
+  // Incremental Winner is now the strictest tier — F1 AND ROAS AND Cost/NCP
+  // AND Cost/FTEWV must all pass (no OR anywhere). Winner keeps the OR-pair
+  // semantics for F2 (ROAS OR Cost/NCP); it's the "one metric is enough"
+  // bucket for scaling candidates that haven't cleared every gate yet.
+  if      (f1 && f2 && f3 && f4)   cat = 'Incremental Winner';
   else if (f1 && (f2 || f3))       cat = 'Winner';
   else if (f1 && f4)               cat = 'P0 analysis';
   else if (f1)                     cat = 'P1 analysis';
@@ -4109,7 +4113,9 @@ function aeCategorise(r, t){
   const p3 = (+r.cost_per_ncp   || 0) > 0 && (+r.cost_per_ncp   || Infinity) <= t.f3;
   const p4 = (+r.cost_per_ftewv || 0) > 0 && (+r.cost_per_ftewv || Infinity) <= t.f4;
   let cat;
-  if      (p1 && (p2 || p3) && p4) cat = 'Incremental Winner';
+  // Same stricter rule as _ctCategory — Incremental Winner requires ALL four
+  // filters (F1 + ROAS + Cost/NCP + Cost/FTEWV), not (F2 OR F3).
+  if      (p1 && p2 && p3 && p4)   cat = 'Incremental Winner';
   else if (p1 && (p2 || p3))       cat = 'Winner';
   else if (p1 && p4)               cat = 'P0 analysis';
   else if (p1)                     cat = 'P1 analysis';

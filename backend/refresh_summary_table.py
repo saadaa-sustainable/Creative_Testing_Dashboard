@@ -173,10 +173,12 @@ SELECT
     a.ad_id, a.ad_name, a.created_date, a.last_seen, a.days_active,
     a.total_impressions, a.total_spend, a.total_conv_value, a.total_ncp, a.total_ftewv,
     CASE
-        -- Incremental Winner = F1 AND (F2 OR F3) AND F4
+        -- Incremental Winner (strictest) = F1 AND ROAS AND Cost/NCP AND F4.
+        -- All four gates joint — one miss drops the ad to Winner (which
+        -- still uses the (F2 OR F3) OR-pair for its own qualification).
         WHEN a.total_impressions >= 50000
-         AND ((a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.2)
-              OR (a.total_ncp > 0 AND a.total_spend / a.total_ncp <= 525))
+         AND a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.2
+         AND a.total_ncp   > 0 AND a.total_spend / a.total_ncp   <= 525
          AND a.total_ftewv > 0 AND a.total_spend / a.total_ftewv <= 25
             THEN 'Incremental Winner'
         -- Winner = F1 AND (F2 OR F3)

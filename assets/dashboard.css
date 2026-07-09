@@ -524,6 +524,12 @@
     padding:10px 12px;background:var(--bg-page-alt);border-radius:8px}
   .def-legend > span{display:inline-flex;align-items:center;gap:6px}
   .def-or-badge{margin-left:auto;color:var(--text-tertiary);font-style:italic}
+  /* Inline "AND" pill inside the Incremental Winner F2 cell — signals that
+     both sub-filters (ROAS AND Cost/NCP) must clear, overriding the default
+     F2 = OR-pair semantics used by every other tier. */
+  .def-and-badge{display:inline-block;margin:0 2px;padding:1px 5px;border-radius:3px;
+    font-family:'Space Grotesk',sans-serif;font-size:8.5px;font-weight:800;
+    letter-spacing:.4px;background:var(--success-alt);color:#fff;vertical-align:2px}
 
   /* ── Modal (Winners popup) ────────────────────────────────────────── */
   #modal{position:fixed;inset:0;background:rgba(44,36,32,0.55);backdrop-filter:blur(4px);
