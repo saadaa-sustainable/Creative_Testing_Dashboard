@@ -24,7 +24,6 @@
   <div class="sb-item" data-view="lifecycle">Creative Lifecycle</div>
   <div class="sb-section">Analysis</div>
   <div class="sb-item" data-view="ae">Ads Analyse</div>
-  <div class="sb-item sb-subitem" data-view="hreach" title="Campaign / Adset-level historic incremental reach — group-first aggregation of primary_table + backfill_table">Historic Reach</div>
   <div class="sb-item" data-view="adintel">Ad Intelligence</div>
   <div class="sb-section">Catalog</div>
   <div class="sb-item" data-view="inventory">Inventory</div>
@@ -34,6 +33,7 @@
        post-2025-01-01 cap. The current (top) items scope to date >= 2025-01-01. -->
   <div class="sb-item" data-view="ae" data-historic="1" title="Lifetime ads analysis — no post-2025 cap">Historic Ads Analysis</div>
   <div class="sb-item" data-view="adintel" data-historic="1" title="Lifetime ad intelligence — includes pre-2025 attribution">Historic Ad Intelligence</div>
+  <div class="sb-item" data-view="hreach" title="Campaign / Adset-level historic incremental reach — group-first aggregation of primary_table + backfill_table">Historic Reach</div>
   <div class="sb-bottom"><span class="mono" id="dbStat">Idle</span></div>
 </aside>
 
@@ -563,7 +563,6 @@
       <div class="sub">4-filter category engine · live from ae_table_view · re-evaluated client-side when thresholds change</div>
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn ghost" id="aeBtnIncrReach" title="Aggregate incremental reach and cost-per-1k by ad name, campaign, ad set, or account">▲ Incremental Reach Analysis</button>
       <button class="btn ghost" id="aeBtnRefresh">↻ Refresh</button>
       <button class="btn"       id="aeBtnExport">Export CSV</button>
     </div>
@@ -791,6 +790,13 @@
             <th class="num" data-sort="impressions">Impressions</th>
             <th class="num" data-sort="reach">Reach</th>
             <th class="num" data-sort="reach_weight_pct">Reach Weight %</th>
+            <!-- Incremental reach snapshot from ae_reach_recent — latest daily
+                 reach vs the previous daily reach. Same numbers the old
+                 modal aggregated, but now readable per ad without a click. -->
+            <th class="num" data-sort="previous_reach"        title="Previous day's reach for this ad (ae_reach_recent)">Prev Reach</th>
+            <th class="num" data-sort="latest_reach"          title="Latest day's reach for this ad (ae_reach_recent)">Latest Reach</th>
+            <th class="num" data-sort="incremental_reach"     title="Latest reach − Previous reach — new users this ad hit yesterday">Incr. Reach</th>
+            <th class="num" data-sort="cost_per_1000_incremental_reach" title="Latest daily spend ÷ incremental reach × 1000 — cost per 1,000 newly-reached users">Cost / 1k Incr.</th>
             <th class="num" data-sort="frequency">Freq</th>
             <th class="num" data-sort="amount_spent">Spend</th>
             <th class="num" data-sort="cost_per_1000">Cost/1k</th>
@@ -1501,92 +1507,11 @@
   </div>
 </div>
 
-<!-- ═════════════════ MODAL (Incremental Reach group-by) ═════════════════ -->
-<div id="incrReachModal" role="dialog" aria-hidden="true"
-     style="position:fixed;inset:0;background:rgba(30,26,15,0.5);z-index:1400;
-            display:none;align-items:center;justify-content:center;padding:32px">
-  <div style="background:var(--bg-white);border-radius:14px;width:100%;max-width:1200px;
-              max-height:90vh;overflow:hidden;display:flex;flex-direction:column;
-              box-shadow:0 20px 60px rgba(0,0,0,.35)">
-    <div style="padding:16px 22px;border-bottom:1px solid var(--border-primary);
-                display:flex;align-items:center;gap:18px">
-      <div style="flex:1">
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;
-                    font-weight:700;color:var(--text-primary);letter-spacing:.4px;
-                    text-transform:uppercase">Incremental Reach Analysis</div>
-        <div id="incrReachSub" style="font-size:11px;color:var(--text-tertiary);
-                    margin-top:2px;font-family:'JetBrains Mono',monospace">
-          Incremental reach = reach on last reporting day − reach on first reporting day in window.
-          Cost / 1k = SUM(spend) ÷ SUM(incr reach) × 1000.
-        </div>
-      </div>
-      <button id="incrReachClose" class="btn ghost">✕</button>
-    </div>
-    <!-- Row 1: date presets + explicit range -->
-    <div style="padding:10px 22px;border-bottom:1px solid var(--border-soft);
-                background:var(--bg-page-alt);display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-      <span style="font-size:10.5px;color:var(--text-tertiary);
-                   letter-spacing:.5px;text-transform:uppercase">Window</span>
-      <div style="display:flex;gap:6px" id="incrReachDatePresets">
-        <button class="preset"        data-d="1">Yesterday</button>
-        <button class="preset active" data-d="7">Last 7d</button>
-        <button class="preset"        data-d="14">Last 14d</button>
-        <button class="preset"        data-d="30">Last 30d</button>
-      </div>
-      <span style="font-size:10.5px;color:var(--text-tertiary);
-                   letter-spacing:.5px;text-transform:uppercase;margin-left:6px">Custom</span>
-      <input id="incrReachDateFrom" type="date"
-             style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;
-                    background:var(--bg-white);font-size:11.5px;font-family:'JetBrains Mono',monospace">
-      <span style="font-size:11px;color:var(--text-tertiary)">→</span>
-      <input id="incrReachDateTo" type="date"
-             style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;
-                    background:var(--bg-white);font-size:11.5px;font-family:'JetBrains Mono',monospace">
-      <button id="incrReachDateApply" class="btn ghost"
-              style="padding:4px 10px;font-size:11px">Apply</button>
-    </div>
-    <!-- Row 2: group-by + search -->
-    <div style="padding:10px 22px;border-bottom:1px solid var(--border-soft);
-                background:var(--bg-page-alt);display:flex;align-items:center;gap:20px;flex-wrap:wrap">
-      <div style="display:flex;gap:6px" id="incrReachGroupBy">
-        <span style="font-size:10.5px;color:var(--text-tertiary);align-self:center;
-                     letter-spacing:.5px;text-transform:uppercase;margin-right:6px">Group by</span>
-        <button class="chip active" data-g="ad_name">Ad name</button>
-        <button class="chip"        data-g="ad_id" title="One row per unique ad_id — no roll-up">Ad ID</button>
-        <button class="chip"        data-g="campaign_name">Campaign</button>
-        <button class="chip"        data-g="adset_name">Ad set</button>
-        <button class="chip"        data-g="account_name">Account</button>
-      </div>
-      <div style="flex:1"></div>
-      <input id="incrReachSearch" type="search" placeholder="Search groups…"
-             style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;
-                    background:var(--bg-white);font-size:11.5px;width:280px;
-                    font-family:'Inter',sans-serif;outline:none">
-      <span id="incrReachCount" class="mono" style="font-size:11px;color:var(--text-tertiary)">—</span>
-    </div>
-    <div style="overflow:auto;flex:1">
-      <table class="tbl" id="incrReachTbl" style="margin:0;min-width:1240px">
-        <thead><tr>
-          <th data-irsort="grp" class="sortable">Group</th>
-          <th data-irsort="landing" class="sortable" id="incrReachLandingHdr">Landing page</th>
-          <th class="num sortable" data-irsort="n">Ads</th>
-          <th class="num sortable" data-irsort="days_active">Days</th>
-          <th class="num sortable" data-irsort="reach_first"
-              title="Reach on the first reporting day in the window">Reach D1</th>
-          <th class="num sortable" data-irsort="reach_last"
-              title="Reach on the last reporting day in the window">Reach D-last</th>
-          <th class="num sortable" data-irsort="reach_incr"
-              title="Reach D-last − Reach D1 — new users reached during the window">Incr. reach</th>
-          <th class="num sortable" data-irsort="spend_sum">Total spend</th>
-          <th class="num sortable" data-irsort="cost_per_1000"
-              title="Total spend ÷ incremental reach × 1000 — cost per 1,000 newly-reached users">Cost / 1k incr. reach</th>
-        </tr></thead>
-        <tbody id="incrReachBody"><tr><td colspan="9" style="padding:32px;text-align:center;
-              color:var(--text-tertiary)">Loading…</td></tr></tbody>
-      </table>
-    </div>
-  </div>
-</div>
+<!-- Incremental Reach Analysis modal removed — the per-ad reach delta
+     columns now live directly in the AE table (Prev / Latest / Incr /
+     Cost per 1k), and the group-by aggregated view moved to the
+     Historic Reach sidebar entry. -->
+
 
 <!-- ═════════════════ MODAL (Winners popup) ═════════════════ -->
 <div id="modal" role="dialog" aria-hidden="true">

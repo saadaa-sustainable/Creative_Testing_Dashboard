@@ -13,6 +13,7 @@ STEPS = [
     ("refresh_ae_table",               ["refresh_ae_table.py"],            1800),
     ("refresh_summary_table",          ["refresh_summary_table.py"],        900),
     ("refresh_ae_daily_agg",           ["refresh_ae_daily_agg.py"],         600),
+    ("refresh_ae_reach_recent",        ["refresh_ae_reach_recent.py"],      600),
     ("result_classifier",              ["result_classifier.py"],            900),
     ("results_sync",                   ["results_sync.py"],                1800),
     # Shopify attribution LAST — slow and network-flaky; isolates the long step at the end

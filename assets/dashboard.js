@@ -1478,6 +1478,8 @@ document.getElementById('btnRefresh').onclick = async ()=>{
   for (const r of allAds){
     const rr = reachRecentByAdId[r.ad_id];
     if (rr){
+      r.previous_reach                   = rr.previous_reach;
+      r.latest_reach                     = rr.latest_reach;
       r.incremental_reach                = rr.incremental_reach;
       r.cost_per_incremental_reach       = rr.cost_per_incremental_reach;
       r.cost_per_1000_incremental_reach  = rr.cost_per_1000_incremental_reach;
@@ -4682,6 +4684,10 @@ function renderAE(){
       numCell(impVal)+
       numCell(reachVal)+
       numCell(fmtNum2(r.reach_weight_pct))+
+      numCell(fmtInt(r.previous_reach))+
+      numCell(fmtInt(r.latest_reach))+
+      numCell(fmtInt(r.incremental_reach))+
+      numCell(fmtRs(r.cost_per_1000_incremental_reach))+
       numCell(freqVal)+
       numCell(spendVal)+
       numCell(fmtRs(r.cost_per_1000))+
@@ -4915,6 +4921,8 @@ document.getElementById('aeBtnRefresh').onclick = async () => {
   for (const r of allAds){
     const rr = reachRecentByAdId[r.ad_id];
     if (rr){
+      r.previous_reach                   = rr.previous_reach;
+      r.latest_reach                     = rr.latest_reach;
       r.incremental_reach                = rr.incremental_reach;
       r.cost_per_incremental_reach       = rr.cost_per_incremental_reach;
       r.cost_per_1000_incremental_reach  = rr.cost_per_1000_incremental_reach;
@@ -4940,265 +4948,12 @@ document.getElementById('aeBtnExport').onclick = () => {
   a.download = 'ads_analyse_' + (new Date().toISOString().slice(0,10)) + '.csv';
   a.click();
 };
-/* ────────────────────────────────────────────────────────────────────
-   INCREMENTAL REACH ANALYSIS — group-by drill
+/* Incremental Reach group-by modal was removed — the per-ad reach
+   columns (Prev / Latest / Incr / Cost per 1k) now render directly in
+   the AE table from the fields ae_reach_recent already merges onto
+   each row. The aggregated Campaign / Adset group-by view lives in
+   the sidebar under Historic > Historic Reach. */
 
-   Aggregates each ad's latest-day incremental reach (from
-   ae_reach_recent, merged onto allAds at load) across the group-by
-   key. Cost per 1,000 incremental reach is recomputed at the group
-   level so aggregate makes sense — SUM(latest_spend) / SUM(incr_reach)
-   * 1000 rather than a simple average of per-ad CPMs.
-
-   Filters follow the Ads Analyse "Filter by" state so the drill
-   reflects the same rows the user is looking at in the table.
-   ──────────────────────────────────────────────────────────────────── */
-let incrReachGroupKey = 'ad_name';
-let incrReachSearch   = '';
-let incrReachSort     = {key:'reach_incr', dir:'desc'};
-let incrReachData     = [];  // per-ad rows returned by the RPC
-let incrReachFrom     = '';
-let incrReachTo       = '';
-
-// ── Date preset helper ──────────────────────────────────────────────
-function _incrPresetDates(days){
-  // Yesterday inclusive, N days ending yesterday. Keeps the range
-  // stable across timezones — today's data is still being collected.
-  const t = new Date(); t.setHours(0,0,0,0);
-  const to = new Date(t); to.setDate(t.getDate() - 1);
-  const from = new Date(to); from.setDate(to.getDate() - (days - 1));
-  const iso = d => d.toISOString().slice(0,10);
-  return {from: iso(from), to: iso(to)};
-}
-
-// ── RPC fetch ───────────────────────────────────────────────────────
-async function _incrFetch(){
-  if (!SUPABASE_URL || !SUPABASE_ANON){ incrReachData = []; return; }
-  const body = document.getElementById('incrReachBody');
-  body.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;'+
-                   'color:var(--text-tertiary)">Loading window ' +
-                   incrReachFrom + ' → ' + incrReachTo + ' …</td></tr>';
-  const url = SUPABASE_URL + '/rest/v1/rpc/get_reach_by_window';
-  try {
-    const r = await fetch(url, {
-      method:'POST',
-      headers:{apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
-               'Content-Type':'application/json'},
-      body: JSON.stringify({from_date: incrReachFrom, to_date: incrReachTo})
-    });
-    if (!r.ok){
-      const errTxt = await r.text().catch(() => '');
-      body.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;'+
-                       'color:#B33A2A">RPC failed HTTP '+r.status+' — '+
-                       errTxt.slice(0,120)+'</td></tr>';
-      incrReachData = []; return;
-    }
-    incrReachData = await r.json();
-  } catch (e){
-    body.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;'+
-                     'color:#B33A2A">Network error: '+String(e).slice(0,120)+'</td></tr>';
-    incrReachData = [];
-  }
-}
-
-function _incrOpen(){
-  document.getElementById('incrReachModal').style.display = 'flex';
-  document.getElementById('incrReachModal').setAttribute('aria-hidden','false');
-  if (!incrReachFrom || !incrReachTo){
-    const p = _incrPresetDates(7);
-    incrReachFrom = p.from; incrReachTo = p.to;
-    document.getElementById('incrReachDateFrom').value = incrReachFrom;
-    document.getElementById('incrReachDateTo'  ).value = incrReachTo;
-  }
-  _incrRefetchAndRender();
-}
-function _incrClose(){
-  document.getElementById('incrReachModal').style.display = 'none';
-  document.getElementById('incrReachModal').setAttribute('aria-hidden','true');
-}
-
-async function _incrRefetchAndRender(){
-  await _incrFetch();
-  _incrRender();
-}
-
-// ── Aggregation + render ────────────────────────────────────────────
-function _incrRender(){
-  // Build a lookup: ad_id → ae row (for ad_name, campaign, adset, account, ad_link)
-  const aeByAdId = {};
-  for (const a of (allAds || [])){ if (a.ad_id) aeByAdId[a.ad_id] = a; }
-
-  const groups = new Map();
-  for (const row of (incrReachData || [])){
-    const meta = aeByAdId[row.ad_id];
-    if (!meta) continue;  // ad no longer in ae_table_view
-    const g = (meta[incrReachGroupKey] || '(unknown)').toString();
-    let acc = groups.get(g);
-    if (!acc){
-      acc = {grp:g, n:0, days_active:0, reach_first:0, reach_last:0,
-             reach_incr:0, reach_sum:0, reach_peak:0, spend_sum:0,
-             landing:'', landingCounts:{},
-             // Secondary label: when grouping by ad_id we show the ad_name
-             // beneath the ID so users can identify the ad without leaving
-             // the modal.
-             subLabel: incrReachGroupKey === 'ad_id' ? (meta.ad_name || '') : ''};
-      groups.set(g, acc);
-    }
-    acc.n           += 1;
-    acc.days_active  = Math.max(acc.days_active, +row.days_active || 0);
-    acc.reach_first += +row.reach_first || 0;
-    acc.reach_last  += +row.reach_last  || 0;
-    acc.reach_incr  += +row.reach_incr  || 0;
-    acc.reach_sum   += +row.reach_sum   || 0;
-    acc.reach_peak   = Math.max(acc.reach_peak, +row.reach_peak || 0);
-    acc.spend_sum   += +row.spend_sum   || 0;
-    // Track most-common landing URL for the group
-    const lp = meta.ad_link || '';
-    if (lp){
-      acc.landingCounts[lp] = (acc.landingCounts[lp] || 0) + 1;
-      if (!acc.landing || acc.landingCounts[lp] > acc.landingCounts[acc.landing]){
-        acc.landing = lp;
-      }
-    }
-  }
-  // Weighted CPM at group level: SUM(spend) / SUM(reach_incr) * 1000
-  for (const g of groups.values()){
-    g.cost_per_1000 = g.reach_incr > 0
-      ? (g.spend_sum * 1000) / g.reach_incr
-      : null;
-  }
-  let list = [...groups.values()];
-  // Search
-  const q = (incrReachSearch || '').toLowerCase().trim();
-  if (q) list = list.filter(g => g.grp.toLowerCase().includes(q));
-  // Sort
-  const dir = incrReachSort.dir === 'asc' ? 1 : -1;
-  list.sort((a,b) => {
-    const va = a[incrReachSort.key], vb = b[incrReachSort.key];
-    if (va == null && vb == null) return 0;
-    if (va == null) return 1;
-    if (vb == null) return -1;
-    if (typeof va === 'string') return dir * va.localeCompare(vb);
-    return dir * (va - vb);
-  });
-  // Sort indicator
-  document.querySelectorAll('#incrReachTbl th.sortable').forEach(th => {
-    th.classList.remove('sort-asc','sort-desc');
-    if (th.dataset.irsort === incrReachSort.key){
-      th.classList.add(incrReachSort.dir === 'asc' ? 'sort-asc' : 'sort-desc');
-    }
-  });
-  // Landing column is meaningful when the group's rows share a single URL.
-  // That's true for ad_id (one row per ad), ad_name (usually a single URL
-  // across duplicates), and campaign (usually a shared destination). For
-  // ad set or account, the URL varies too much and would mislead.
-  const lpHdr = document.getElementById('incrReachLandingHdr');
-  const lpVisible = incrReachGroupKey === 'ad_id' ||
-                    incrReachGroupKey === 'ad_name' ||
-                    incrReachGroupKey === 'campaign_name';
-  if (lpHdr) lpHdr.style.display = lpVisible ? '' : 'none';
-  // Body
-  const body = document.getElementById('incrReachBody');
-  if (!list.length){
-    body.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;'+
-                     'color:var(--text-tertiary)">No reach data in the selected window. '+
-                     'Try a wider range.</td></tr>';
-  } else {
-    body.innerHTML = list.slice(0, 500).map(g => {
-      const grpTitle = g.grp + (g.subLabel ? ' — ' + g.subLabel : '');
-      const grpHtml =
-        '<div style="font-weight:600;color:var(--text-primary);'+
-        'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'+
-        'max-width:320px" title="'+grpTitle.replace(/"/g,'&quot;')+'">'+
-        (incrReachGroupKey === 'ad_id'
-          ? '<span style="font-family:JetBrains Mono,monospace;font-size:11px">'+g.grp+'</span>'
-          : g.grp)+
-        '</div>'+
-        (g.subLabel
-          ? '<div style="font-size:10px;color:var(--text-tertiary);overflow:hidden;'+
-            'text-overflow:ellipsis;white-space:nowrap;max-width:320px" title="'+
-            g.subLabel.replace(/"/g,'&quot;')+'">'+g.subLabel+'</div>'
-          : '');
-      let lpCell = '';
-      if (lpVisible){
-        lpCell = '<td>' + (g.landing
-          ? '<a class="lp-url" href="'+g.landing+'" target="_blank" rel="noopener" '+
-            'title="'+g.landing.replace(/"/g,'&quot;')+'" style="font-size:11px">'+
-            (g.landing.replace(/^https?:\/\//,'').slice(0, 40) +
-              (g.landing.length > 47 ? '…' : ''))+'</a>'
-          : '<span style="color:var(--text-tertiary)">—</span>') + '</td>';
-      }
-      return '<tr>'+
-        '<td>'+grpHtml+'</td>'+
-        lpCell+
-        '<td class="num">'+fmtInt(g.n)+'</td>'+
-        '<td class="num">'+fmtInt(g.days_active)+'</td>'+
-        '<td class="num">'+fmtInt(g.reach_first)+'</td>'+
-        '<td class="num">'+fmtInt(g.reach_last)+'</td>'+
-        '<td class="num" style="color:#2E7755;font-weight:700">'+fmtInt(g.reach_incr)+'</td>'+
-        '<td class="num">'+fmtRs(g.spend_sum)+'</td>'+
-        '<td class="num">'+(g.cost_per_1000 == null ? '—' : '₹'+fmtNum2(g.cost_per_1000))+'</td>'+
-      '</tr>';
-    }).join('');
-  }
-  const totalIncr  = list.reduce((s,g) => s + (+g.reach_incr || 0), 0);
-  const totalSpend = list.reduce((s,g) => s + (+g.spend_sum   || 0), 0);
-  const overallCpm = totalIncr > 0 ? (totalSpend * 1000 / totalIncr) : null;
-  document.getElementById('incrReachCount').textContent =
-    fmtInt(list.length) + ' groups · Σ incr reach ' + fmtInt(totalIncr) +
-    (overallCpm != null ? ' · overall ₹' + fmtNum2(overallCpm) + ' / 1k' : '');
-  document.getElementById('incrReachSub').textContent =
-    incrReachFrom + ' → ' + incrReachTo + ' · grouped by ' +
-    ({'ad_name':'ad name','ad_id':'ad ID','campaign_name':'campaign',
-      'adset_name':'ad set','account_name':'account'})[incrReachGroupKey];
-}
-document.getElementById('aeBtnIncrReach').onclick = _incrOpen;
-document.getElementById('incrReachClose').onclick = _incrClose;
-document.getElementById('incrReachModal').addEventListener('click', e => {
-  if (e.target.id === 'incrReachModal') _incrClose();
-});
-document.getElementById('incrReachGroupBy').addEventListener('click', e => {
-  const b = e.target.closest('.chip'); if (!b) return;
-  document.querySelectorAll('#incrReachGroupBy .chip').forEach(x => x.classList.remove('active'));
-  b.classList.add('active');
-  incrReachGroupKey = b.dataset.g;
-  _incrRender();
-});
-document.getElementById('incrReachDatePresets').addEventListener('click', e => {
-  const b = e.target.closest('.preset'); if (!b) return;
-  document.querySelectorAll('#incrReachDatePresets .preset').forEach(x => x.classList.remove('active'));
-  b.classList.add('active');
-  const d = +b.dataset.d;
-  const p = _incrPresetDates(d);
-  incrReachFrom = p.from; incrReachTo = p.to;
-  document.getElementById('incrReachDateFrom').value = incrReachFrom;
-  document.getElementById('incrReachDateTo'  ).value = incrReachTo;
-  _incrRefetchAndRender();
-});
-document.getElementById('incrReachDateApply').onclick = () => {
-  const f = document.getElementById('incrReachDateFrom').value;
-  const t = document.getElementById('incrReachDateTo'  ).value;
-  if (!f || !t){ alert('Both dates required.'); return; }
-  if (f > t){ alert('From must be before To.'); return; }
-  document.querySelectorAll('#incrReachDatePresets .preset').forEach(x => x.classList.remove('active'));
-  incrReachFrom = f; incrReachTo = t;
-  _incrRefetchAndRender();
-};
-let _incrSearchDb = null;
-document.getElementById('incrReachSearch').addEventListener('input', e => {
-  clearTimeout(_incrSearchDb);
-  _incrSearchDb = setTimeout(() => { incrReachSearch = e.target.value; _incrRender(); }, 180);
-});
-document.getElementById('incrReachTbl').addEventListener('click', e => {
-  const th = e.target.closest('th.sortable'); if (!th) return;
-  const k = th.dataset.irsort;
-  if (incrReachSort.key === k){
-    incrReachSort.dir = incrReachSort.dir === 'asc' ? 'desc' : 'asc';
-  } else {
-    incrReachSort.key = k;
-    incrReachSort.dir = (k === 'grp' || k === 'landing') ? 'asc' : 'desc';
-  }
-  _incrRender();
-});
 
 /* ────────────────────────────────────────────────────────────────────
    INVENTORY — Shopify products via Admin GraphQL
@@ -5551,6 +5306,8 @@ document.getElementById('invExport').onclick = () => {
   for (const r of allAds){
     const rr = reachRecentByAdId[r.ad_id];
     if (rr){
+      r.previous_reach                   = rr.previous_reach;
+      r.latest_reach                     = rr.latest_reach;
       r.incremental_reach                = rr.incremental_reach;
       r.cost_per_incremental_reach       = rr.cost_per_incremental_reach;
       r.cost_per_1000_incremental_reach  = rr.cost_per_1000_incremental_reach;
