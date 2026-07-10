@@ -137,11 +137,21 @@ def get_conn():
     return psycopg2.connect(SUPABASE_DB_URL)
 
 
-def fetch_primary(conn, account_name: str | None = None, since_date: date | None = None):
+def fetch_primary(conn, account_name: str | None = None,
+                  since_date: date | None = None,
+                  date_field: str = "delivery"):
     """
-    Pull rows from primary_table for one account (or all accounts), restricted
-    to rows with date >= since_date when provided.
-    Returns list of dicts.
+    Pull rows from primary_table for one account (or all accounts).
+
+    date_field:
+      "delivery" — rows where the DAILY delivery date is >= since_date.
+                   This is what the dashboard needs for its default
+                   "ads delivered in last 30d" view.
+      "created"  — rows for ads whose ad_created_date is >= since_date.
+                   This is the "ads created in last 30d" precompute the
+                   dashboard's default field-selector points at; without
+                   it the frontend was falling back to fetchPrimaryAggregated
+                   and paying a 2-3s live SELECT on every fresh load.
     """
     cols = [
         "account_name",
@@ -176,7 +186,13 @@ def fetch_primary(conn, account_name: str | None = None, since_date: date | None
         where.append("account_name = %s")
         params.append(account_name)
     if since_date:
-        where.append("date >= %s")
+        if date_field == "created":
+            # Ads created in the window: pull every delivery row for those
+            # ads. Since ad_created gates the FIRST possible impression date,
+            # all daily rows for the ad live in the same window or later.
+            where.append("ad_created_date >= %s")
+        else:
+            where.append("date >= %s")
         params.append(since_date)
     where_sql = (" WHERE " + " AND ".join(where)) if where else ""
 
@@ -438,8 +454,9 @@ def write_result(conn, result: dict):
 
 
 def purge_old_results(conn, keep_per_account: int = 1):
-    """Keep only the N most recent rows per account — prevent table bloat.
-    Default is 1 (the current 30-day snapshot is the only one needed)."""
+    """Keep only the N most recent rows per (account_name, date_field) —
+    prevent table bloat while preserving both delivery- and created-scoped
+    snapshots per account."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -448,7 +465,7 @@ def purge_old_results(conn, keep_per_account: int = 1):
                 SELECT id FROM (
                     SELECT id,
                            ROW_NUMBER() OVER (
-                               PARTITION BY account_name
+                               PARTITION BY account_name, date_field
                                ORDER BY computed_at DESC
                            ) AS rn
                     FROM results_table
@@ -459,10 +476,53 @@ def purge_old_results(conn, keep_per_account: int = 1):
             (keep_per_account,),
         )
     conn.commit()
-    print(f"  Old rows purged — keeping latest {keep_per_account} per account")
+    print(f"  Old rows purged — keeping latest {keep_per_account} per (account, date_field)")
 
 
 # ── Main ─────────────────────────────────────────────────────────────
+def _sync_variant(conn, targets, since_date, today, date_field: str):
+    """One pass of per-account + All Accounts snapshotting for a specific
+    date_field. Called twice from run() — once for 'delivery' and once
+    for 'created'."""
+    label = f"[{date_field}]"
+    print(f"\n  ── date_field = {date_field} ──")
+    all_rows_combined = []
+    for acct in targets:
+        print(f"  {label} Fetching primary_table for: {acct}...")
+        rows = fetch_primary(conn, acct, since_date=since_date, date_field=date_field)
+        print(f"    {len(rows):,} rows fetched ({since_date.isoformat()} onwards)")
+        if not rows:
+            print(f"    No data — skipping")
+            continue
+        result = compute_results(rows, acct)
+        if result:
+            result["data_date_from"] = since_date.isoformat()
+            result["data_date_to"]   = today.isoformat()
+            result["date_field"]     = date_field
+            write_result(conn, result)
+            print(
+                f"    ✓ {date_field} row — "
+                f"{result['count_total_ads']} ads | "
+                f"Winner:{result['count_winner']} "
+                f"ITE:{result['count_ite']} "
+                f"Analyse:{result['count_analyse']} "
+                f"Discarded:{result['count_discarded']}"
+            )
+        all_rows_combined.extend(rows)
+
+    if len(targets) > 1 and all_rows_combined:
+        print(f"  {label} Computing All Accounts combined...")
+        combined = compute_results(all_rows_combined, "All Accounts")
+        if combined:
+            combined["data_date_from"] = since_date.isoformat()
+            combined["data_date_to"]   = today.isoformat()
+            combined["date_field"]     = date_field
+            write_result(conn, combined)
+            print(
+                f"    ✓ {date_field} All Accounts row — {combined['count_total_ads']} unique ads"
+            )
+
+
 def run(account_name: str | None = None, days_window: int = DEFAULT_DAYS_WINDOW):
     today = date.today()
     since_date = today - timedelta(days=days_window - 1)
@@ -473,46 +533,12 @@ def run(account_name: str | None = None, days_window: int = DEFAULT_DAYS_WINDOW)
     try:
         targets = [a["name"] for a in ACCOUNTS] if not account_name else [account_name]
 
-        all_rows_combined = []
-
-        for acct in targets:
-            print(f"  Fetching primary_table for: {acct}...")
-            rows = fetch_primary(conn, acct, since_date=since_date)
-            print(f"    {len(rows):,} rows fetched ({since_date.isoformat()} onwards)")
-
-            if not rows:
-                print(f"    No data — skipping")
-                continue
-
-            result = compute_results(rows, acct)
-            if result:
-                # Override data range to the requested window — keeps the frontend's
-                # date filter stable even if there are gap days with no delivery.
-                result["data_date_from"] = since_date.isoformat()
-                result["data_date_to"] = today.isoformat()
-                write_result(conn, result)
-                print(
-                    f"    ✓ Wrote results_table row — "
-                    f"{result['count_total_ads']} ads | "
-                    f"Winner:{result['count_winner']} "
-                    f"ITE:{result['count_ite']} "
-                    f"Analyse:{result['count_analyse']} "
-                    f"Discarded:{result['count_discarded']}"
-                )
-
-            all_rows_combined.extend(rows)
-
-        # ── Write combined "All Accounts" row ─────────────────────────
-        if len(targets) > 1 and all_rows_combined:
-            print("  Computing All Accounts combined...")
-            combined = compute_results(all_rows_combined, "All Accounts")
-            if combined:
-                combined["data_date_from"] = since_date.isoformat()
-                combined["data_date_to"] = today.isoformat()
-                write_result(conn, combined)
-                print(
-                    f"    ✓ All Accounts row written — {combined['count_total_ads']} unique ads"
-                )
+        # Snapshot both scopes back-to-back so the dashboard can hit the
+        # fast-path cache whether the field selector is on Delivery date
+        # or Created date. Two SELECTs against primary_table + two per-ad
+        # rollups; still much cheaper than a single live aggregation.
+        _sync_variant(conn, targets, since_date, today, "delivery")
+        _sync_variant(conn, targets, since_date, today, "created")
 
         purge_old_results(conn, keep_per_account=1)
         print(f"[results_sync] Done — {datetime.now().strftime('%H:%M:%S')}\n")

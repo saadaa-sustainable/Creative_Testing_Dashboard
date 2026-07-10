@@ -226,28 +226,43 @@ function _ctCategory(impr, roas, cpncp, cpft, t, adCreated){
   return {f1_pass:f1, f2_pass:f2, f3_pass:f3, f4_pass:f4, category:cat};
 }
 /* Fast-path: pre-computed per-ad rollup from results_table. The pipeline's
-   results_sync.py writes this row once per accounts_group with everything
+   results_sync.py writes one row per (account, date_field) with everything
    already aggregated, so the dashboard can render in 1 HTTP fetch instead
-   of paging primary_table. Returns null when no usable cache exists or its
-   window doesn't match the requested one. */
-async function fetchPrimaryFromCache(dateFrom, dateTo){
+   of paging primary_table. Two rows per All-Accounts snapshot exist:
+     date_field='delivery' → ads with impressions in the window
+     date_field='created'  → ads whose ad_created_date is in the window
+   Returns null when no usable cache exists or its window+field don't
+   match the requested one. */
+async function fetchPrimaryFromCache(dateFrom, dateTo, dateField){
   if (!SUPABASE_URL || !SUPABASE_ANON) return null;
   const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
                    Prefer:'count=none'};
   dbStat.innerHTML = 'Loading cached results_table <span class="spinner"></span>';
+  // Only 'delivery' and 'created' variants are precomputed. Other field
+  // selectors (first_seen, result) fall back to the live aggregator.
+  const cacheField = (dateField === 'created') ? 'created' : 'delivery';
   const url = SUPABASE_URL +
     '/rest/v1/results_table?account_name=eq.All%20Accounts' +
-    '&select=ads_json,data_date_from,data_date_to,computed_at' +
+    '&date_field=eq.' + cacheField +
+    '&select=ads_json,data_date_from,data_date_to,date_field,computed_at' +
     '&order=computed_at.desc&limit=1';
   const r = await fetch(url, {headers});
   if (!r.ok) return null;
   const j = await r.json();
   if (!Array.isArray(j) || !j.length) return null;
   const row = j[0];
-  // Cache window must match (or be a 1-day superset of) the requested window
-  // for us to trust it.
-  if (dateFrom && row.data_date_from !== dateFrom) return null;
-  if (dateTo   && row.data_date_to   !== dateTo  ) return null;
+  // Cache window must be a ±1-day match to the requested window. The
+  // pipeline runs in IST (`date.today()` in results_sync.py) while
+  // client browsers can be anywhere; allowing 1-day drift means the
+  // cache still hits for clients whose local "today" is off by a
+  // timezone boundary from the pipeline's snapshot.
+  const _driftDays = (a, b) => {
+    if (!a || !b) return 999;
+    const da = new Date(a+'T00:00:00Z'), db = new Date(b+'T00:00:00Z');
+    return Math.abs((da - db) / 86400000);
+  };
+  if (dateFrom && _driftDays(row.data_date_from, dateFrom) > 1) return null;
+  if (dateTo   && _driftDays(row.data_date_to,   dateTo)   > 1) return null;
   const ads = row.ads_json || [];
   // Map compact cache keys → the same row shape fetchPrimaryAggregated emits
   const t = (typeof aeReadThresholds === 'function')
@@ -287,6 +302,7 @@ async function fetchPrimaryFromCache(dateFrom, dateTo){
   }
   dbStat.innerHTML = 'Loaded <span class="mono">'+fmtInt(out.length)+
                      '</span> ads (results_table cache · ' +
+                     (row.date_field || 'delivery') + ' · ' +
                      row.data_date_from + ' → ' + row.data_date_to + ')';
   return out;
 }
@@ -1370,7 +1386,19 @@ function enrichPrimaryDates(){
    so Creative Testing aggregates only the daily rows in the new window
    (matches the OLD dashboard's behaviour). */
 async function refreshPrimaryForRange(){
-  primaryAds = await fetchPrimaryAggregated(state.dateFrom || '', state.dateTo || '');
+  // Try the precomputed cache first — hits when the (dateFrom, dateTo,
+  // dateField) triple matches a results_table snapshot (i.e. the last-30d
+  // window with either the 'delivery' or 'created' variant). Field-selector
+  // changes benefit here: swapping Delivery ↔ Created no longer forces a
+  // 2-3s live aggregation because the pipeline precomputes both.
+  let rows = null;
+  try {
+    rows = await fetchPrimaryFromCache(state.dateFrom || '', state.dateTo || '', state.dateField);
+  } catch (_){ rows = null; }
+  if (!rows || !rows.length){
+    rows = await fetchPrimaryAggregated(state.dateFrom || '', state.dateTo || '');
+  }
+  primaryAds = rows;
   enrichPrimaryDates();
   populateCampaignDropdown(primaryAds);
   rerender();
@@ -5658,11 +5686,11 @@ document.getElementById('invExport').onclick = () => {
 
   // Try the pre-computed cache (results_table.ads_json) first — one HTTP
   // fetch of a single JSONB blob instead of paging 260k+ rows from
-  // primary_table. The cache is refreshed by results_sync.py in the
-  // backend pipeline; if its window doesn't match the requested one
-  // (e.g. user has already clicked a different preset before this code
-  // runs) we fall back to the live aggregator.
-  const cachedPromise = fetchPrimaryFromCache(state.dateFrom || '', state.dateTo || '')
+  // primary_table. Two variants are precomputed: date_field='delivery'
+  // and 'created'; pass the current field-selector so we hit the right
+  // one. The dashboard defaults to state.dateField='created' so the
+  // 'created' variant matters on every fresh load.
+  const cachedPromise = fetchPrimaryFromCache(state.dateFrom || '', state.dateTo || '', state.dateField)
     .catch(() => null);
 
   // Kick off ae_table_view + thumbnails + reach-recent + freq-lifecycle in parallel
