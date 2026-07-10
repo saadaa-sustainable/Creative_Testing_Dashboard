@@ -2191,12 +2191,19 @@ async function fetchAeWindowShopify(){
 //   reach_sum    = sum of daily reach across the window (for reach_peak too)
 //   spend_sum    = sum of spend across the window
 async function fetchAeWindowReach(){
-  const from = document.getElementById('aeDateFrom').value || '';
-  const to   = document.getElementById('aeDateTo').value   || '';
+  // If no explicit date range is set, ask the RPC for the ad universe's
+  // lifetime bounds (2023-01-01 → today) so the Prev/Latest/Incr columns
+  // still describe MEANINGFUL numbers — every ad's first-ever reporting
+  // day vs its last-ever reporting day. Otherwise the columns fall back
+  // to ae_reach_recent's 2-day snapshot which confuses users into
+  // reading day-to-day fluctuations as "lifetime".
+  const inpFrom = document.getElementById('aeDateFrom').value || '';
+  const inpTo   = document.getElementById('aeDateTo').value   || '';
+  const _lifetimeFrom = '2023-01-01';
+  const _lifetimeTo   = new Date().toISOString().slice(0,10);
+  const from = inpFrom || _lifetimeFrom;
+  const to   = inpTo   || _lifetimeTo;
   const key  = from + '|' + to;
-  if (!from || !to){
-    aeWindowReachByAdId = {}; _aeWindowReachKey = ''; return;
-  }
   if (key === _aeWindowReachKey) return;
   _aeWindowReachKey = key;
   if (!SUPABASE_URL || !SUPABASE_ANON){ aeWindowReachByAdId = {}; return; }
@@ -4627,12 +4634,22 @@ function renderAE(){
     if (footer) footer.textContent = 'Loading ae_table_view — filters will apply once the 15k-row fetch completes';
     return;
   }
-  // Trigger overlay when either metric set OR shopify aggregate is loaded —
-  // the Shopify overlay is enough on its own to justify calling aeApplyWindow,
-  // since it zeroes-out shopify_orders / shopify_sales for ads with no matched
-  // orders in the window (otherwise they'd render lifetime totals).
+  // Lazy-trigger the windowed reach fetch once — with no explicit range
+  // it hits the RPC with the ad-lifetime bounds so the Prev/Latest/Incr
+  // columns describe the ad's entire life instead of the last 2 days
+  // from ae_reach_recent's snapshot. Fires once; the fetch cache-keys on
+  // "from|to" so identical no-window renders don't re-hit the RPC.
+  if (!_aeWindowReachKey){
+    fetchAeWindowReach().then(() => renderAE()).catch(()=>{});
+  }
+  // Trigger overlay when ANY of the three windowed maps is loaded — metrics,
+  // Shopify, or reach. Missing the reach check meant that when the user had
+  // no explicit window but the lifetime-reach fallback populated
+  // aeWindowReachByAdId, aeApplyWindow was skipped and the Prev/Latest/Incr
+  // columns fell through to ae_reach_recent's stale 2-day snapshot.
   const hasWindow = Object.keys(aeWindowMetricsByAdId).length > 0
-                    || aeWindowShopifyKeyIsActive();
+                    || aeWindowShopifyKeyIsActive()
+                    || !!_aeWindowReachKey;
   const rows = aeFiltered().map(r => hasWindow ? aeApplyWindow(r) : r);
 
   // KPIs honour the date range + account + status + multi-filter (but NOT
