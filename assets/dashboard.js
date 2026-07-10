@@ -1519,7 +1519,15 @@ document.querySelectorAll('.sb-item').forEach(it => {
     const v = it.dataset.view;
     const isHistoric = it.dataset.historic === '1';
     // Flip mode BEFORE the view renders so it reads the right flag.
-    if (v in historicMode) historicMode[v] = isHistoric;
+    if (v in historicMode){
+      // When the mode actually flips for AE, invalidate the reach cache so
+      // the RPC gets re-called with the new mode's default window
+      // (post-2025 vs pre-2025). Without this the stale key sticks.
+      if (v === 'ae' && historicMode.ae !== isHistoric){
+        _aeWindowReachKey = '';
+      }
+      historicMode[v] = isHistoric;
+    }
     document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
     it.classList.add('active');
     document.querySelectorAll('.view').forEach(vv => vv.style.display = 'none');
@@ -2191,18 +2199,22 @@ async function fetchAeWindowShopify(){
 //   reach_sum    = sum of daily reach across the window (for reach_peak too)
 //   spend_sum    = sum of spend across the window
 async function fetchAeWindowReach(){
-  // If no explicit date range is set, ask the RPC for the ad universe's
-  // lifetime bounds (2023-01-01 → today) so the Prev/Latest/Incr columns
-  // still describe MEANINGFUL numbers — every ad's first-ever reporting
-  // day vs its last-ever reporting day. Otherwise the columns fall back
-  // to ae_reach_recent's 2-day snapshot which confuses users into
-  // reading day-to-day fluctuations as "lifetime".
+  // If no explicit date range is set, feed the RPC the mode's default
+  // window so the Prev/Latest/Incr columns describe meaningful numbers.
+  //   Ads Analyse (current mode)  → HISTORIC_CUTOFF (2025-01-01) → today
+  //   Historic Ads Analysis        → 2023-01-01 → 2024-12-31
+  // Explicit date-picker values always override the default.
   const inpFrom = document.getElementById('aeDateFrom').value || '';
   const inpTo   = document.getElementById('aeDateTo').value   || '';
-  const _lifetimeFrom = '2023-01-01';
-  const _lifetimeTo   = new Date().toISOString().slice(0,10);
-  const from = inpFrom || _lifetimeFrom;
-  const to   = inpTo   || _lifetimeTo;
+  const isHist  = historicMode.ae;
+  const _todayIso    = new Date().toISOString().slice(0,10);
+  const _defaultFrom = isHist ? '2023-01-01' : HISTORIC_CUTOFF;
+  const _defaultTo   = isHist
+    ? (function(){ const c = new Date(HISTORIC_CUTOFF); c.setDate(c.getDate()-1);
+                   return c.toISOString().slice(0,10); })()   // 2024-12-31
+    : _todayIso;
+  const from = inpFrom || _defaultFrom;
+  const to   = inpTo   || _defaultTo;
   const key  = from + '|' + to;
   if (key === _aeWindowReachKey) return;
   _aeWindowReachKey = key;
