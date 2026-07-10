@@ -1506,7 +1506,7 @@ document.getElementById('btnExport').onclick = ()=>{
 /* ────────────────────────────────────────────────────────────────────
    VIEW SWITCHER — sidebar nav between Testing / Lifecycle / AE / Inventory
    ──────────────────────────────────────────────────────────────────── */
-const VIEW_LOADED = {testing:true, lifecycle:false, ae:false, adintel:false, inventory:false, hreach:false};
+const VIEW_LOADED = {testing:true, lifecycle:false, ae:false, adintel:false, inventory:false, hreach:false, ireach:false};
 // Historic mode per view — the CURRENT Ads Analyse / Ad Intelligence entries
 // scope data to date >= 2025-01-01, the Historic ones show lifetime.  The
 // sidebar click below flips this based on the item's data-historic attribute
@@ -1566,6 +1566,16 @@ document.querySelectorAll('.sb-item').forEach(it => {
       if (chip) chip.classList.add('active');
       _hreachApply();
       VIEW_LOADED.hreach = true;
+    }
+    if (v === 'ireach' && !VIEW_LOADED.ireach) {
+      // Same "seed to last-7d for a snappy first open" behaviour as hreach —
+      // user can widen to 30d/90d/YTD via the preset chips.
+      _ireachApplyPreset('last7');
+      document.querySelectorAll('#view-ireach .preset-row .preset').forEach(b => b.classList.remove('active'));
+      const chip = document.querySelector('#view-ireach .preset[data-p="last7"]');
+      if (chip) chip.classList.add('active');
+      _ireachApply();
+      VIEW_LOADED.ireach = true;
     }
     // Auto-close the mobile sidebar after selection
     if (window.innerWidth <= 900) document.getElementById('sidebar').classList.remove('open');
@@ -4636,6 +4646,221 @@ document.querySelectorAll('#hreachTbl thead th').forEach(th => {
   });
 });
 _hreachApplyPreset('last30');   // seed the inputs
+
+/* ────────────────────────────────────────────────────────────────────
+   INCREMENTAL ANALYSIS (post-2025) — Campaign / Adset-level reach delta
+   scoped to date >= HISTORIC_CUTOFF. Same math as _hreach* but with the
+   date floor enforced everywhere (preset math, min-date attribute on the
+   input, and a safety clamp in _ireachApply).
+   ──────────────────────────────────────────────────────────────────── */
+let ireachState = {
+  groupBy:'campaign_name', from:'', to:'',
+  search:'', sortKey:'incr_reach', sortDir:'desc',
+  rows:[],
+};
+
+function _ireachApplyPreset(p){
+  const today = new Date(); today.setHours(0,0,0,0);
+  // Use local-date components (not toISOString) so the input never shifts
+  // back a day for users in TZ > UTC (e.g. IST midnight → UTC 18:30 prev day).
+  const iso = d => d.getFullYear() + '-' +
+                   String(d.getMonth()+1).padStart(2,'0') + '-' +
+                   String(d.getDate()).padStart(2,'0');
+  const cutoff = new Date(HISTORIC_CUTOFF + 'T00:00:00');
+  let from = null;
+  if (p === 'last7')       { from = new Date(today); from.setDate(today.getDate()-6); }
+  else if (p === 'last30') { from = new Date(today); from.setDate(today.getDate()-29); }
+  else if (p === 'last90') { from = new Date(today); from.setDate(today.getDate()-89); }
+  else if (p === 'ytd')    { from = cutoff; }
+  else return;
+  if (from < cutoff) from = cutoff;
+  document.getElementById('ireachDateFrom').value = iso(from);
+  document.getElementById('ireachDateTo').value   = iso(today);
+}
+
+async function _ireachFetch(from, to){
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                   Prefer:'count=none'};
+  const cols = 'ad_id,date,campaign_name,adset_name,reach,amount_spent_inr';
+  const fetchAll = async (tbl) => {
+    let out = [], offset = 0, BATCH = 5000;
+    while (true){
+      const url = SUPABASE_URL + '/rest/v1/' + tbl + '?select=' + cols +
+                  '&date=gte.' + from + '&date=lte.' + to +
+                  '&order=date.asc&limit=' + BATCH + '&offset=' + offset;
+      const r = await fetch(url, {headers});
+      if (!r.ok) throw new Error(tbl + ' HTTP ' + r.status);
+      const j = await r.json();
+      if (!Array.isArray(j) || !j.length) break;
+      out = out.concat(j);
+      if (j.length < BATCH) break;
+      offset += BATCH;
+    }
+    return out;
+  };
+  // Post-2025 window is entirely in primary_table's active-sync range,
+  // but we still union backfill_table so a widened window (>15 days back)
+  // doesn't hit a coverage gap.
+  const [prim, back] = await Promise.all([
+    fetchAll('primary_table').catch(() => []),
+    fetchAll('backfill_table').catch(() => []),
+  ]);
+  const key = r => (r.ad_id || '') + '|' + (r.date || '');
+  const map = new Map();
+  for (const r of back) map.set(key(r), r);
+  for (const r of prim) map.set(key(r), r);
+  return Array.from(map.values());
+}
+
+function _ireachAggregate(rows, groupBy){
+  const perDay = new Map();
+  const perGrpAds = new Map();
+  for (const r of rows){
+    const grp = (r[groupBy] || '(none)').trim() || '(none)';
+    const d = (r.date || '').slice(0,10);
+    if (!d) continue;
+    const k = grp + '|' + d;
+    let bucket = perDay.get(k);
+    if (!bucket){ bucket = {reach:0, spend:0, ads:new Set()}; perDay.set(k, bucket); }
+    bucket.reach += (+r.reach || 0);
+    bucket.spend += (+r.amount_spent_inr || 0);
+    if (r.ad_id) bucket.ads.add(r.ad_id);
+    let ga = perGrpAds.get(grp);
+    if (!ga){ ga = new Set(); perGrpAds.set(grp, ga); }
+    if (r.ad_id) ga.add(r.ad_id);
+  }
+  const byGrp = new Map();
+  for (const [k, v] of perDay.entries()){
+    const [grp, d] = k.split('|');
+    let series = byGrp.get(grp);
+    if (!series){ series = []; byGrp.set(grp, series); }
+    series.push({date:d, reach:v.reach, spend:v.spend});
+  }
+  const out = [];
+  for (const [grp, series] of byGrp.entries()){
+    series.sort((a,b) => a.date < b.date ? -1 : 1);
+    const first = series[0], last = series[series.length-1];
+    let peak = 0, totalReach = 0, totalSpend = 0;
+    for (const s of series){
+      if (s.reach > peak) peak = s.reach;
+      totalReach += s.reach;
+      totalSpend += s.spend;
+    }
+    const incr = (last?.reach || 0) - (first?.reach || 0);
+    const cpk  = incr > 0 ? (totalSpend / incr) * 1000 : null;
+    out.push({
+      grp, n_ads:(perGrpAds.get(grp)?.size || 0),
+      days: series.length,
+      first_reach: first?.reach || 0,
+      last_reach : last?.reach  || 0,
+      peak_reach : peak,
+      total_reach: totalReach,
+      spend      : totalSpend,
+      incr_reach : incr,
+      cpk        : cpk,
+    });
+  }
+  return out;
+}
+
+function _ireachRender(){
+  const q = (ireachState.search || '').trim().toLowerCase();
+  let rows = ireachState.rows;
+  if (q) rows = rows.filter(r => r.grp.toLowerCase().includes(q));
+  const dir = ireachState.sortDir === 'asc' ? 1 : -1;
+  const k = ireachState.sortKey;
+  rows = rows.slice().sort((a,b) => {
+    const av = a[k], bv = b[k];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === 'string') return dir * av.localeCompare(bv);
+    return dir * (av - bv);
+  });
+  const body = document.getElementById('ireachBody');
+  if (!rows.length){
+    body.innerHTML = '<tr><td colspan="10" style="padding:32px;text-align:center;color:var(--text-tertiary)">No groups match the current filter.</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.slice(0, 1000).map(r => {
+    const neg = r.incr_reach < 0;
+    return '<tr>'+
+      '<td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+r.grp.replace(/"/g,'&quot;')+'">'+r.grp+'</td>'+
+      '<td class="num">'+fmtInt(r.n_ads)+'</td>'+
+      '<td class="num">'+fmtInt(r.days)+'</td>'+
+      '<td class="num">'+fmtInt(r.first_reach)+'</td>'+
+      '<td class="num">'+fmtInt(r.last_reach)+'</td>'+
+      '<td class="num">'+fmtInt(r.peak_reach)+'</td>'+
+      '<td class="num" style="color:'+(neg?'var(--error-text)':'var(--success-text)')+';font-weight:700">'+
+        (neg?'':'+')+fmtInt(r.incr_reach)+'</td>'+
+      '<td class="num">'+fmtInt(r.total_reach)+'</td>'+
+      '<td class="num">'+fmtRs(r.spend)+'</td>'+
+      '<td class="num">'+(r.cpk != null ? fmtRs(r.cpk) : '—')+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+async function _ireachApply(){
+  let from = document.getElementById('ireachDateFrom').value;
+  const to = document.getElementById('ireachDateTo').value;
+  if (!from || !to){
+    document.getElementById('ireachStatus').textContent = 'Pick a date range first.';
+    return;
+  }
+  // Enforce the post-2025 floor server-side too — user could type a
+  // lower date into the input despite the min= attribute.
+  if (from < HISTORIC_CUTOFF){
+    from = HISTORIC_CUTOFF;
+    document.getElementById('ireachDateFrom').value = from;
+  }
+  ireachState.from = from; ireachState.to = to;
+  const status = document.getElementById('ireachStatus');
+  status.innerHTML = 'Fetching daily rows from primary_table + backfill_table <span class="spinner"></span>';
+  const t0 = performance.now();
+  try {
+    const rows = await _ireachFetch(from, to);
+    const agg  = _ireachAggregate(rows, ireachState.groupBy);
+    ireachState.rows = agg;
+    const dt = ((performance.now()-t0)/1000).toFixed(1);
+    status.innerHTML = 'Aggregated <b>'+fmtInt(rows.length)+'</b> daily rows into <b>'+
+      fmtInt(agg.length)+'</b> '+
+      (ireachState.groupBy === 'campaign_name' ? 'campaigns' : 'adsets') +
+      ' · '+dt+'s';
+    _ireachRender();
+  } catch (e){
+    status.textContent = 'Error: ' + (e.message || e);
+    ireachState.rows = [];
+    _ireachRender();
+  }
+}
+
+document.getElementById('ireachGroupBy').addEventListener('click', e => {
+  const btn = e.target.closest('.lt-btn'); if (!btn) return;
+  document.querySelectorAll('#ireachGroupBy .lt-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ireachState.groupBy = btn.dataset.g;
+  if (ireachState.rows.length){ _ireachApply(); }
+});
+document.querySelector('#view-ireach .preset-row').addEventListener('click', e => {
+  const btn = e.target.closest('.preset'); if (!btn) return;
+  document.querySelectorAll('#view-ireach .preset-row .preset').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _ireachApplyPreset(btn.dataset.p);
+});
+document.getElementById('ireachApply').addEventListener('click', _ireachApply);
+document.getElementById('ireachSearch').addEventListener('input', e => {
+  ireachState.search = e.target.value;
+  _ireachRender();
+});
+document.querySelectorAll('#ireachTbl thead th').forEach(th => {
+  th.addEventListener('click', () => {
+    const k = th.dataset.irsort; if (!k) return;
+    if (ireachState.sortKey === k) ireachState.sortDir = ireachState.sortDir === 'asc' ? 'desc' : 'asc';
+    else { ireachState.sortKey = k; ireachState.sortDir = 'desc'; }
+    _ireachRender();
+  });
+});
+_ireachApplyPreset('last30');   // seed the inputs on first script eval
 
 function renderAE(){
   if (!allAds.length){
