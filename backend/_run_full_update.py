@@ -16,6 +16,12 @@ STEPS = [
     ("refresh_ae_reach_recent",        ["refresh_ae_reach_recent.py"],      600),
     ("result_classifier",              ["result_classifier.py"],            900),
     ("results_sync",                   ["results_sync.py"],                1800),
+    # Shopify sessions per landing-page — daily incremental via ShopifyQL.
+    # Fetcher auto-detects max(session_date) via PostgREST (falls back to
+    # 2025-01-01 if the table is empty) and pulls a 3-day overlap window
+    # into today so late-arriving data still lands.  Writes via PostgREST
+    # since the pooler URL isn't provisioned in every environment.
+    ("fetch_shopify_sessions",         ["fetch_shopify_sessions.py"],       1800),
     # Shopify attribution LAST — slow and network-flaky; isolates the long step at the end
     ("rebuild_attribution_orders",     ["rebuild_attribution_orders.py", "2026-06-15", "2099-12-31"],  3600),
     # Thumbnail refresh — Meta's fbcdn URLs expire in ~48-72h so we cycle the
