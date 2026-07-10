@@ -18,6 +18,13 @@ STEPS = [
     ("results_sync",                   ["results_sync.py"],                1800),
     # Shopify attribution LAST — slow and network-flaky; isolates the long step at the end
     ("rebuild_attribution_orders",     ["rebuild_attribution_orders.py", "2026-06-15", "2099-12-31"],  3600),
+    # Thumbnail refresh — Meta's fbcdn URLs expire in ~48-72h so we cycle the
+    # 2-day-and-older half of the table on every daily run.  Uses the
+    # default incremental mode (REFRESH_DAYS=2 in fetch_ad_thumbnails.py).
+    # 5-hour cap: Meta's rate limit throttles at ~1600/hr, and ~half the
+    # ~15k universe expires each day. If it hits the cap the remaining
+    # oldest-first ads pick up on tomorrow's pipeline run.
+    ("fetch_ad_thumbnails",            ["fetch_ad_thumbnails.py"],           18000),
 ]
 
 def log(msg):

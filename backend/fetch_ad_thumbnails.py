@@ -42,7 +42,10 @@ FIELDS = ("creative{id,thumbnail_url,image_url,object_type,video_id,"
           "object_story_spec,effective_object_story_id,"
           "instagram_permalink_url}")
 SLEEP_BETWEEN = 0.25
-REFRESH_DAYS  = 7
+# Meta signs fbcdn URLs for ~48-72h; refresh anything older than 2 days so
+# preview cells never fall off. Daily pipeline picks up whichever half of
+# the ad universe crossed the 2-day boundary since the last run.
+REFRESH_DAYS  = 2
 
 _RE = re.compile(r"(?:EAA[A-Za-z0-9]{30,}|IGQ[\w\-]{20,}|eyJ[\w\-.]{40,})")
 def scrub(s):
@@ -142,7 +145,22 @@ def main():
     ap.add_argument("--ad-id",       help="single ad_id (debug)")
     args = ap.parse_args()
 
-    conn = psycopg2.connect(DB_URL); cur = conn.cursor()
+    def _connect():
+        """Robust connect — Supabase pooler drops long-idle conns during Meta
+        rate-limit cooldowns; a naive reconnect can itself hit a transient
+        failure. Retry with exponential backoff (up to ~35 min total) so a
+        multi-hour scrape can survive intermittent pooler outages."""
+        delay = 2
+        for attempt in range(1, 12):
+            try:
+                return psycopg2.connect(DB_URL, connect_timeout=15)
+            except psycopg2.OperationalError as e:
+                print(f"  [db retry {attempt}] {type(e).__name__}: {str(e)[:80]} — sleeping {delay}s", flush=True)
+                time.sleep(delay)
+                delay = min(delay * 2, 300)
+        raise psycopg2.OperationalError("gave up after 11 reconnect attempts")
+
+    conn = _connect(); cur = conn.cursor()
 
     if args.ad_id:
         targets = [(args.ad_id, "")]
@@ -190,28 +208,38 @@ def main():
         fetched_at             = NOW(),
         last_error             = EXCLUDED.last_error
     """
+    def _write(params):
+        """Retry the UPSERT after a fresh reconnect if the pooler drops."""
+        nonlocal conn, cur
+        for attempt in range(3):
+            try:
+                cur.execute(upsert, params); conn.commit(); return
+            except psycopg2.Error as e:
+                print(f"  [!] db write {attempt+1}: {type(e).__name__} — reconnecting", flush=True)
+                try: conn.close()
+                except Exception: pass
+                conn = _connect(); cur = conn.cursor()
+        print("  [!] db write failed 3× — skipping row", flush=True)
+
     ok = err = no_thumb = 0
     t0 = time.time()
     for i, (ad_id, name) in enumerate(targets, 1):
         rec, error, usage = fetch(ad_id)
         if rec is None:
             err += 1
-            cur.execute(upsert, (ad_id, None, None, None, None, None,
-                                  None, None, None, None, error))
-            conn.commit()
+            _write((ad_id, None, None, None, None, None,
+                    None, None, None, None, error))
             if i % 50 == 0 or i == len(targets):
                 print(f"  [{i:>5}/{len(targets):>5}]  err   {ad_id}  {error}")
         else:
             if not rec["thumbnail_url"]: no_thumb += 1
             ok += 1
             vs = rec["video_source_url"]
-            cur.execute(upsert, (ad_id, rec["thumbnail_url"], rec["image_url"],
-                                  rec["creative_id"], rec["object_type"],
-                                  rec["video_id"], rec["instagram_permalink"],
-                                  rec["fb_permalink"],
-                                  vs, vs,   # value + trigger for fetched_at
-                                  None))
-            conn.commit()
+            _write((ad_id, rec["thumbnail_url"], rec["image_url"],
+                    rec["creative_id"], rec["object_type"],
+                    rec["video_id"], rec["instagram_permalink"],
+                    rec["fb_permalink"],
+                    vs, vs, None))
             if i % 50 == 0 or i == len(targets):
                 tt = rec["thumbnail_url"]
                 t_short = scrub(tt)[:60] if tt else '—'
