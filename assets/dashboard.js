@@ -4272,8 +4272,11 @@ function aiRenderTable(){
         '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+(r.utm_term    ||'').replace(/"/g,'&quot;')+'">'+(r.utm_term     || '—')+'</td>'+
         '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+(r.matched_value||'').replace(/"/g,'&quot;')+'">'+(r.matched_value|| '—')+'</td>'+
         '<td class="id-cell">'+(r.ad_id || '—')+'</td>'+
-        '<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis" title="'+(r.ad_name    ||'').replace(/"/g,'&quot;')+'">'+(r.ad_name    || '—')+'</td>'+
-        '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis" title="'+(r.campaign_name||'').replace(/"/g,'&quot;')+'">'+(r.campaign_name|| '—')+'</td>'+
+        // Ad Name & Campaign columns widened so long ad-copy titles land
+        // on a single visible line — the table already sits inside a
+        // horizontal-scroll wrapper so the extra width doesn't hurt.
+        '<td style="min-width:420px;max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(r.ad_name    ||'').replace(/"/g,'&quot;')+'">'+(r.ad_name    || '—')+'</td>'+
+        '<td style="min-width:280px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(r.campaign_name||'').replace(/"/g,'&quot;')+'">'+(r.campaign_name|| '—')+'</td>'+
         '<td><span class="ai-status '+stCls+'">'+st+'</span></td>'+
         '<td class="num">'+(prevR == null ? '—' : fmtInt(prevR))+'</td>'+
         '<td class="num">'+(lastR == null ? '—' : fmtInt(lastR))+'</td>'+
