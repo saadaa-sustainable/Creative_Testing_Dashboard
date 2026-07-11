@@ -563,11 +563,21 @@ function classifyProduct(adName){
 // Creative Focus is limited to the three canonical types (IFAD / GAD / VID);
 // everything else (BST, ADB, UGC, BR, Brand, ...) falls into Others so it can
 // be redirected to the Product-in-Focus taxonomy above.
+//
+// Uses the same marker set as detectCtype() so the Creative Focus counts
+// don't drift from the main CT filter — earlier this function only
+// recognised a standalone "VID" token, so ads named with the OSP/CPL/USP/
+// CSR/ITE convention (and even the older VRP/NNC/VIDEO/IGP set) landed
+// in OTHER and undercounted the VID bucket.
 function classifyCreative(adName){
-  const s = adName || '';
-  if (/(^|[^A-Za-z])VID([^A-Za-z]|$)/.test(s)) return 'VID';
-  if (/IFAD/i.test(s)) return 'IFAD';
-  if (/GAD/i.test(s))  return 'GAD';
+  const s = (adName || '').toUpperCase();
+  if (/IFAD/.test(s)) return 'IFAD';
+  if (/GAD/.test(s))  return 'GAD';
+  if (/(^|[^A-Z])VID([^A-Z]|$)/.test(s)
+      || s.includes('VRP') || s.includes('NNC') || s.includes('VIDEO')
+      || s.includes('IGP') || s.includes('NO-ID')
+      || s.includes('OSP') || s.includes('CPL') || s.includes('USP')
+      || s.includes('CSR') || s.includes('ITE')) return 'VID';
   return 'OTHER';
 }
 function renderFocusStrips(rows){
