@@ -215,9 +215,9 @@
   .fg-created-row .fg-input{flex:0 1 160px;min-width:0;padding:9px 10px}
   .ct-created-sep{color:var(--text-tertiary);font-weight:700;padding:0 2px}
   /* Tiny × button to clear the Created-Date range without taking much width */
-  .ct-clr-x{width:45Ropx;height:38px;border:1px solid var(--border-primary);
+  .ct-clr-x{width:70px;height:38px;border:1px solid var(--border-primary);
     border-radius:6px;background:var(--bg-white);color:var(--text-tertiary);
-    cursor:pointer;font-size:10px;line-height:1;padding:0;
+    cursor:pointer;font-size:9px;line-height:1;padding:0;
     transition:all .12s;flex-shrink:0}
   .ct-clr-x:hover{background:var(--bg-page-alt);color:var(--text-primary);
     border-color:var(--text-tertiary)}
@@ -394,6 +394,12 @@
   .focus-pill[data-c="ADB"]  .dot{background:var(--accent-pink)}
   .focus-pill[data-c="BR"]   .dot{background:var(--accent-sand)}
   .focus-pill[data-c="BST"]  .dot{background:var(--error-mid)}
+  /* Others pill: warm accent so the dot reads as its own bucket colour
+     instead of the default muted grey, plus a dashed border to signal
+     that it opens the reclassify modal instead of the usual bucket drill. */
+  .focus-pill[data-c="OTHER"] .dot{background:var(--accent-yellow)}
+  .focus-pill.focus-pill-other{border-style:dashed;border-color:var(--accent-yellow-soft, var(--accent-yellow))}
+  .focus-pill.focus-pill-other:hover{border-color:var(--accent-yellow); background:var(--accent-warm-tint, var(--bg-white))}
 
   /* ── Chart row ───────────────────────────────────────────────────── */
   .chart-row{display:grid;grid-template-columns:1fr 1.8fr 1fr;gap:12px;margin-bottom:14px}
