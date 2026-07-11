@@ -4982,6 +4982,21 @@ document.querySelector('#view-ireach .preset-row').addEventListener('click', e =
   _ireachApplyPreset(btn.dataset.p);
 });
 document.getElementById('ireachApply').addEventListener('click', _ireachApply);
+// Column-definitions modal for Incremental Analysis. Uses the same
+// modal-card shell as #defModal so ESC-to-close and backdrop-click-to-close
+// stay consistent with the rest of the dashboard's dialogs.
+(function(){
+  const modal = document.getElementById('ireachInfoModal');
+  if (!modal) return;
+  const open  = () => { modal.style.display = 'flex'; modal.setAttribute('aria-hidden','false'); };
+  const close = () => { modal.style.display = 'none'; modal.setAttribute('aria-hidden','true'); };
+  document.getElementById('ireachInfo')?.addEventListener('click', open);
+  document.getElementById('ireachInfoClose')?.addEventListener('click', close);
+  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && modal.style.display === 'flex') close();
+  });
+})();
 document.getElementById('ireachSearch').addEventListener('input', e => {
   ireachState.search = e.target.value;
   _ireachRender();

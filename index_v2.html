@@ -857,6 +857,7 @@
       <div class="sub">Campaign / Adset-level daily reach aggregation for ads dated on/after 2025-01-01</div>
     </div>
     <div style="display:flex;gap:8px">
+      <button class="btn ghost" id="ireachInfo" type="button" title="What each column means">ⓘ Column definitions</button>
       <button class="btn ghost" id="ireachApply" type="button">↻ Apply</button>
     </div>
   </div>
@@ -1539,6 +1540,109 @@
         Thresholds are set in <code>refresh_summary_table.py</code>. To tune them, edit the
         constants in the script and rerun the full update; the funnel flags <code>f1_pass</code> –
         <code>f4_pass</code> on each ad in <code>ae_table_view</code> get recomputed on every refresh.
+      </p>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════════ MODAL — Incremental Analysis column definitions ═════════════════
+     Explains every column in view-ireach (and the identical Historic Reach
+     view) with the exact aggregation logic behind it.  Uses the same modal
+     shell classes as #defModal so the styling and dismiss behaviour stay
+     consistent. -->
+<div id="ireachInfoModal" role="dialog" aria-hidden="true"
+     style="position:fixed;inset:0;background:rgba(44,36,32,0.55);backdrop-filter:blur(4px);
+            z-index:110;display:none;align-items:center;justify-content:center;padding:24px">
+  <div class="modal-card" style="max-width:900px">
+    <div class="mc-hdr">
+      <div>
+        <div class="ttl">Incremental Analysis — Column definitions</div>
+        <div class="sub">Group-first daily reach aggregation · post-2025-01-01</div>
+      </div>
+      <button class="mc-close" id="ireachInfoClose" type="button">✕</button>
+    </div>
+    <div class="mc-body">
+
+      <div class="def-note" style="margin:0 0 14px 0">
+        <span class="def-note-icon">◆</span>
+        <span>All reach numbers come from <b>primary_table + backfill_table</b>
+        summed <b>at the group level per day</b>, then metrics are computed on
+        those daily totals.  Every ad's contribution is preserved even when
+        an individual ad's reach didn't move day-over-day.</span>
+      </div>
+
+      <table class="tbl" style="width:100%">
+        <thead>
+          <tr>
+            <th style="width:180px;text-align:left">Column</th>
+            <th style="text-align:left">What it shows</th>
+            <th style="width:280px;text-align:left">Formula</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Group</b></td>
+            <td>Campaign name (default) or adset name — toggle at top-left picks which.</td>
+            <td class="mono">campaign_name · or · adset_name</td>
+          </tr>
+          <tr>
+            <td><b>Ads</b></td>
+            <td>Unique ad_ids that had any reach in the group during the window.</td>
+            <td class="mono">COUNT(DISTINCT ad_id)</td>
+          </tr>
+          <tr>
+            <td><b>Days delivered</b></td>
+            <td>Days on which the group had any aggregated reach ≥ 1 inside the window.</td>
+            <td class="mono">COUNT(DISTINCT date) where group_reach &gt; 0</td>
+          </tr>
+          <tr>
+            <td><b>Reach D1</b></td>
+            <td>Group's aggregated reach on the <b>first</b> delivered day of the window.</td>
+            <td class="mono">SUM(reach) on day 1<br>GROUP BY group</td>
+          </tr>
+          <tr>
+            <td><b>Reach D-last</b></td>
+            <td>Group's aggregated reach on the <b>last</b> delivered day of the window.</td>
+            <td class="mono">SUM(reach) on last day<br>GROUP BY group</td>
+          </tr>
+          <tr>
+            <td><b>Peak reach</b></td>
+            <td>Maximum single-day aggregated reach across the whole window.</td>
+            <td class="mono">MAX(daily group_reach)</td>
+          </tr>
+          <tr>
+            <td><b>Incr. reach</b></td>
+            <td>Group-level delta between the last and first delivered days.
+                Not a sum of per-ad increments — that's the deliberate design.</td>
+            <td class="mono">Reach D-last − Reach D1</td>
+          </tr>
+          <tr>
+            <td><b>Σ daily reach</b></td>
+            <td>Sum of every day's aggregated reach across the window
+                (i.e. delivered impressions equivalent at the reach floor).</td>
+            <td class="mono">SUM(daily group_reach)</td>
+          </tr>
+          <tr>
+            <td><b>Spend</b></td>
+            <td>Total INR spend attributed to ads in this group during the window.</td>
+            <td class="mono">SUM(amount_spent_inr)</td>
+          </tr>
+          <tr>
+            <td><b>Cost / 1k incr.</b></td>
+            <td>Effective cost per 1 000 units of incremental reach.
+                Blank when Incr. reach ≤ 0.</td>
+            <td class="mono">Spend ÷ Incr. reach × 1 000</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="def-prose" style="margin-top:18px;color:var(--text-secondary);font-size:11.5px">
+        Data source: union of <code>primary_table</code> and
+        <code>backfill_table</code>, primary wins on <code>(ad_id, date)</code>
+        conflicts.  Window is capped at <b>2025-01-01</b> on the low end; older
+        aggregation lives in the <b>Historic Reach</b> view under the Historic
+        section of the sidebar.
       </p>
 
     </div>
