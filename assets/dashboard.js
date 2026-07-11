@@ -39,9 +39,7 @@ let state = {acct:'', status:'', campaign:'', content:'', tier:'',
              // on their respective per-ad date fields.
              dateField:'created',
              exclCopy:true,                  // hide ads whose name contains "copy"
-             ctFormat:false,                 // only ads with name starting CLP-/CTP-
              search:'', searchMode:'contains'};
-const CT_FORMAT_RE = /^(CLP-|CTP-)/i;
 const IS_COPY_RE   = /copy/i;
 
 function detectCtype(name){
@@ -459,11 +457,6 @@ function filtered(rows){
   // ON by default, matching the old dashboard.
   if (state.exclCopy){
     r = r.filter(x => !IS_COPY_RE.test(String(x.ad_name || '')));
-  }
-  // CT Format — restrict to ads whose name starts with "CLP-" or "CTP-"
-  // (the Creative-Testing-sheet naming convention).
-  if (state.ctFormat){
-    r = r.filter(x => CT_FORMAT_RE.test(String(x.ad_name || '')));
   }
   // Ad-date filter — the top range filters ads by one of four date fields
   // (dateField selector next to the presets). 'delivery' is a no-op here
@@ -1562,15 +1555,9 @@ function _ctToggleSync(btnId, on, labels){
 }
 // Initial UI state (defaults set in `state` above)
 _ctToggleSync('fExclCopy', state.exclCopy, {on:'Excl. copy', off:'Incl. copy'});
-_ctToggleSync('fCtFormat', state.ctFormat, {on:'CT Format only', off:'CT Format'});
 document.getElementById('fExclCopy').addEventListener('click', () => {
   state.exclCopy = !state.exclCopy;
   _ctToggleSync('fExclCopy', state.exclCopy, {on:'Excl. copy', off:'Incl. copy'});
-  rerender();
-});
-document.getElementById('fCtFormat').addEventListener('click', () => {
-  state.ctFormat = !state.ctFormat;
-  _ctToggleSync('fCtFormat', state.ctFormat, {on:'CT Format only', off:'CT Format'});
   rerender();
 });
 
