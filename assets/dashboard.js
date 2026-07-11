@@ -4915,8 +4915,11 @@ function _ireachRender(){
   }
   body.innerHTML = rows.slice(0, 1000).map(r => {
     const neg = r.incr_reach < 0;
+    // Group cell relies on the parent table's table-layout:fixed + colgroup
+    // width to truncate. overflow/ellipsis/nowrap is still needed so long
+    // campaign names don't wrap to a second line and blow up the row height.
     return '<tr>'+
-      '<td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+r.grp.replace(/"/g,'&quot;')+'">'+r.grp+'</td>'+
+      '<td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+r.grp.replace(/"/g,'&quot;')+'">'+r.grp+'</td>'+
       '<td class="num">'+fmtInt(r.n_ads)+'</td>'+
       '<td class="num">'+fmtInt(r.days)+'</td>'+
       '<td class="num">'+fmtInt(r.first_reach)+'</td>'+

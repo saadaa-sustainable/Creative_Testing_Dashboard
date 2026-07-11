@@ -993,6 +993,13 @@
   /* AE table — wide layout with horizontal scroll, sticky header */
   .ae-tbl{width:100%;table-layout:auto;border-collapse:separate;border-spacing:0;
     min-width:4400px}
+  /* Reach / Incremental tables share .ae-tbl for the sticky header + hover
+     styling but only have 10 columns, so they don't need the 4400px min-width
+     that the ~50-col Ads Analyse table depends on. Override both the table's
+     min-width and the per-numeric-th 100px floor so the fixed-layout
+     colgroup widths are respected. */
+  #ireachTbl, #hreachTbl{ min-width:0 !important }
+  #ireachTbl thead th.num, #hreachTbl thead th.num{ min-width:0 !important }
   .ae-tbl thead th{position:sticky;top:0;background:var(--bg-page-alt);z-index:2;
     font-size:9.5px !important;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;
     color:var(--text-secondary);padding:9px 10px;cursor:pointer;user-select:none;

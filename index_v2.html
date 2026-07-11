@@ -892,8 +892,25 @@
       2025-01-01 on the low end; older data lives in <b>Historic Reach</b>.</span>
     </div>
     <div style="font-size:11px;color:var(--text-tertiary)" id="ireachStatus">Ready — click Apply to load.</div>
-    <div style="overflow:auto;max-height:calc(100vh - 340px);margin-top:12px">
-      <table class="tbl ae-tbl" id="ireachTbl" style="margin:0">
+    <!-- max-height stretched from ~340px chrome offset down to ~200px so the
+         panel fills much more of the viewport (roughly +140px of visible
+         rows). table-layout:fixed pins the numeric columns at their declared
+         widths so the Group column never gets squeezed off-screen by a
+         wide viewport, and long campaign names ellipsis-truncate cleanly. -->
+    <div style="overflow:auto;max-height:calc(100vh - 200px);margin-top:12px">
+      <table class="tbl ae-tbl" id="ireachTbl" style="margin:0;table-layout:fixed;width:100%">
+        <colgroup>
+          <col style="width:34%">
+          <col style="width:60px">
+          <col style="width:78px">
+          <col style="width:90px">
+          <col style="width:100px">
+          <col style="width:92px">
+          <col style="width:98px">
+          <col style="width:110px">
+          <col style="width:110px">
+          <col style="width:118px">
+        </colgroup>
         <thead><tr>
           <th data-irsort="grp">Group</th>
           <th class="num" data-irsort="n_ads">Ads</th>
