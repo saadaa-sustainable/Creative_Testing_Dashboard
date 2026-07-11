@@ -4,6 +4,16 @@
 const params      = new URLSearchParams(window.location.search);
 const SUPABASE_URL  = params.get('supabaseUrl')  || '';
 const SUPABASE_ANON = params.get('supabaseAnon') || '';
+// Saada_Shopify_Data project (siymyhhrpzzbowfqtauf) — dashboarding needs
+// direct read access to the sessions rollup for the Landing Page Focus
+// overlay. RLS is disabled on public.sessions so this anon key can only
+// call the get_sessions_by_lp RPC that we've explicitly granted; it can't
+// exfiltrate individual rows over PostgREST beyond what the RPC returns.
+// The same key already ships in sync_orders_via_rest.py.
+const SHOPIFY_URL  = params.get('shopifyUrl') ||
+  'https://siymyhhrpzzbowfqtauf.supabase.co';
+const SHOPIFY_ANON = params.get('shopifyAnon') ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpeW15aGhycHp6Ym93ZnF0YXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMTQwODEsImV4cCI6MjA5Mzg5MDA4MX0.ocx4jlY3KeXdF_-5JI3_SDcLekmk8hrfWXba7EXEDgo';
 const dbStat = document.getElementById('dbStat');
 
 const fmtInt = n => (n==null||isNaN(n)) ? '—' : Math.round(+n).toLocaleString('en-IN');
@@ -1260,6 +1270,57 @@ function lpUrlSlug(url){
     return parts[parts.length - 1] || u.hostname;
   }catch(e){ return url; }
 }
+
+/* Normalise a full ad_link URL down to just the pathname so it can be
+   matched against Shopify's landing_page_path (which is the raw path only,
+   no querystring or host). Falls back to the raw string when URL parsing
+   fails. Home = "/". */
+function lpNormaliseToPath(url){
+  if (!url) return '';
+  try {
+    const u = new URL(url);
+    return u.pathname || '/';
+  } catch (e){
+    // ad_link occasionally comes in as a bare path or malformed URL.
+    const q = String(url).indexOf('?');
+    return (q >= 0 ? String(url).slice(0, q) : String(url)) || '';
+  }
+}
+
+/* Cache of last-fetched sessions rollup so switching filters doesn't
+   re-RPC on every rerender. Key: `${from}|${to}`; value: {path -> row}. */
+let _lpSessionsCache = { key: '', map: null };
+async function fetchLandingPageSessions(from, to){
+  if (!from || !to) return null;
+  const key = from + '|' + to;
+  if (_lpSessionsCache.key === key && _lpSessionsCache.map) return _lpSessionsCache.map;
+  try {
+    const r = await fetch(SHOPIFY_URL + '/rest/v1/rpc/get_sessions_by_lp', {
+      method: 'POST',
+      headers: {
+        'apikey':        SHOPIFY_ANON,
+        'Authorization': 'Bearer ' + SHOPIFY_ANON,
+        'Content-Type':  'application/json',
+        // PostgREST caps RPC arrays at 1000 rows by default. The RPC is
+        // hard-limited to 5000 server-side (top landing pages by
+        // sessions); tell PostgREST to send all of them.
+        'Range':         '0-4999',
+      },
+      body: JSON.stringify({from_date: from, to_date: to}),
+    });
+    if (!r.ok) return null;
+    const rows = await r.json();
+    if (!Array.isArray(rows)) return null;
+    const map = Object.create(null);
+    for (const row of rows){
+      if (row && row.landing_page_path) map[row.landing_page_path] = row;
+    }
+    _lpSessionsCache = { key, map };
+    return map;
+  } catch (e){
+    return null;
+  }
+}
 function renderLandingPageFocus(rows){
   const host = document.getElementById('landingPageFocus');
   if (!host) return;
@@ -1276,7 +1337,7 @@ function renderLandingPageFocus(rows){
   }
   const list = Object.values(byUrl).map(b => {
     const top = Object.entries(b.codes).sort((a,b) => b[1] - a[1])[0];
-    return {...b, code: top ? top[0] : lpUrlSlug(b.url)};
+    return {...b, code: top ? top[0] : lpUrlSlug(b.url), path: lpNormaliseToPath(b.url)};
   }).sort((a,b) => b.count - a.count || b.spend - a.spend);
   const total = list.reduce((s,b) => s + b.count, 0);
   document.getElementById('lpFocusTotal').textContent =
@@ -1285,22 +1346,40 @@ function renderLandingPageFocus(rows){
     host.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--text-tertiary);font-size:12.5px">No ads have a landing-page URL in the current filter.</div>';
     return;
   }
+  // Try the cached rollup synchronously so first paint already carries the
+  // Sessions column filled. If it's stale (window changed), we still paint
+  // with dashes and the async fetch below will re-render when it lands.
+  const winKey = (state.dateFrom || '') + '|' + (state.dateTo || '');
+  const cachedMap = (_lpSessionsCache.key === winKey) ? _lpSessionsCache.map : null;
   const top = list.slice(0, 40);   // cap visible rows
+  const rowHtml = (b) => {
+    const s = cachedMap ? cachedMap[b.path] : null;
+    const sess = s ? fmtInt(s.sessions) : '—';
+    // CVR: sessions_that_reached_checkout / sessions.  Blank when we have
+    // no session data to avoid implying 0% conversion.
+    let cvr = '—';
+    if (s && s.sessions > 0 && s.sessions_that_reached_checkout != null){
+      cvr = ((s.sessions_that_reached_checkout / s.sessions) * 100).toFixed(2) + '%';
+    }
+    return '<tr data-lp-url="'+b.url.replace(/"/g,'&quot;')+'">'+
+      '<td><span class="lp-code" title="most common product token across ads at this URL">'+b.code+'</span></td>'+
+      '<td><a class="lp-link" href="'+b.url+'" target="_blank" rel="noopener">'+b.url+'</a></td>'+
+      '<td class="num">'+fmtRs(b.spend)+'</td>'+
+      '<td class="num">'+fmtInt(b.count)+'</td>'+
+      '<td class="num" data-lp-sess>'+sess+'</td>'+
+      '<td class="num" data-lp-cvr>'+cvr+'</td>'+
+    '</tr>';
+  };
   host.innerHTML = '<table class="lp-tbl">'+
     '<thead><tr>'+
       '<th style="width:90px">Product</th>'+
       '<th>Landing Page</th>'+
       '<th class="num" style="width:110px">Spend</th>'+
       '<th class="num" style="width:80px">Ads</th>'+
+      '<th class="num" style="width:110px" title="Sum of Shopify sessions on this landing-page path in the current window">Sessions</th>'+
+      '<th class="num" style="width:80px" title="Sessions that reached checkout / total sessions">Checkout %</th>'+
     '</tr></thead>'+
-    '<tbody>'+
-      top.map(b => '<tr data-lp-url="'+b.url.replace(/"/g,'&quot;')+'">'+
-        '<td><span class="lp-code" title="most common product token across ads at this URL">'+b.code+'</span></td>'+
-        '<td><a class="lp-link" href="'+b.url+'" target="_blank" rel="noopener">'+b.url+'</a></td>'+
-        '<td class="num">'+fmtRs(b.spend)+'</td>'+
-        '<td class="num">'+fmtInt(b.count)+'</td>'+
-      '</tr>').join('')+
-    '</tbody></table>';
+    '<tbody>'+ top.map(rowHtml).join('') +'</tbody></table>';
   // Row click → bucket modal filtered to that URL (ignore clicks on the link itself)
   host.querySelectorAll('tr[data-lp-url]').forEach(tr => {
     tr.addEventListener('click', e => {
@@ -1308,6 +1387,30 @@ function renderLandingPageFocus(rows){
       openLandingPageBucket(tr.dataset.lpUrl);
     });
   });
+  // Async overlay — if we didn't already paint with a cached map (or if the
+  // date window changed), refresh the Sessions/Checkout% columns in place
+  // once the RPC comes back. Only touches the two data-lp-* cells so any
+  // sort/scroll state on the table is preserved.
+  if (!cachedMap && state.dateFrom && state.dateTo){
+    fetchLandingPageSessions(state.dateFrom, state.dateTo).then(map => {
+      if (!map) return;
+      host.querySelectorAll('tr[data-lp-url]').forEach(tr => {
+        const url  = tr.dataset.lpUrl || '';
+        const path = lpNormaliseToPath(url);
+        const s = map[path];
+        const sc = tr.querySelector('[data-lp-sess]');
+        const cc = tr.querySelector('[data-lp-cvr]');
+        if (sc) sc.textContent = s ? fmtInt(s.sessions) : '—';
+        if (cc){
+          if (s && s.sessions > 0 && s.sessions_that_reached_checkout != null){
+            cc.textContent = ((s.sessions_that_reached_checkout / s.sessions) * 100).toFixed(2) + '%';
+          } else {
+            cc.textContent = '—';
+          }
+        }
+      });
+    });
+  }
 }
 function openLandingPageBucket(url){
   bucketState.landingUrl = url;
