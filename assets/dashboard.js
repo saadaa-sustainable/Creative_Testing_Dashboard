@@ -3754,6 +3754,17 @@ async function aiReloadOrders(){
     rows = await aiFetchOrders(newFrom, newTo, null) || [];
   }
   aiOrders = rows || [];
+  // Enrich each order with the ad's reach snapshot so sort + render can
+  // read prev_reach / latest_reach / reach_delta from the row directly.
+  // Same reachRecentByAdId map the Ads Analyse view uses.
+  for (const r of aiOrders){
+    const rr = r.ad_id ? reachRecentByAdId[r.ad_id] : null;
+    if (rr){
+      r.prev_reach   = +rr.previous_reach || 0;
+      r.latest_reach = +rr.latest_reach   || 0;
+      r.reach_delta  = r.latest_reach - r.prev_reach;
+    }
+  }
   aiLoaded = true; aiLoading = false;
   document.getElementById('aiStatus').textContent =
     'Loaded ' + fmtInt(aiOrders.length) + ' rows in ' + ((performance.now()-t0)/1000).toFixed(1) + 's';
@@ -4203,7 +4214,7 @@ function aiRenderTable(){
   const slice = rows.slice(offset, offset + pageSize);
   const tb = document.querySelector('#aiTbl tbody');
   if (!slice.length){
-    tb.innerHTML = '<tr><td colspan="14" style="padding:30px;text-align:center;color:var(--text-tertiary)">No rows match the current filter.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="17" style="padding:30px;text-align:center;color:var(--text-tertiary)">No rows match the current filter.</td></tr>';
   } else {
     tb.innerHTML = slice.map(r => {
       const step  = aiStep(r);
@@ -4217,6 +4228,21 @@ function aiRenderTable(){
       const date = (r.order_created_at || '').slice(0,16).replace('T',' ');
       const st   = r.ad_id ? (aiAdStatusMap[r.ad_id] || 'UNKNOWN') : '—';
       const stCls= st === 'ACTIVE' ? 'active' : '';
+      // Reach columns come from the same ae_reach_recent snapshot the
+      // Ads Analyse view uses (enriched onto the row at fetch time).
+      // Δ Reach = latest - prev, keeping the sign so drops (negative)
+      // are visible — that's the debug signal for "why does Incr.
+      // Reach read zero" (either both anchor days had the same reach,
+      // or the RPC clamps a negative to zero).
+      const prevR = (r.prev_reach   != null) ? +r.prev_reach   : null;
+      const lastR = (r.latest_reach != null) ? +r.latest_reach : null;
+      const deltR = (r.reach_delta  != null) ? +r.reach_delta  : null;
+      const deltCell = deltR == null ? '—' :
+                       (deltR < 0 ?
+                         '<span style="color:var(--error-text)">'+fmtInt(deltR)+'</span>' :
+                         (deltR === 0 ?
+                           '<span style="color:var(--text-tertiary)">0</span>' :
+                           '<span style="color:var(--success-text)">+'+fmtInt(deltR)+'</span>'));
       return '<tr>'+
         '<td class="id-cell">'+date+'</td>'+
         '<td class="id-cell">'+(r.order_id || '—').replace('gid://shopify/Order/','')+'</td>'+
@@ -4232,6 +4258,9 @@ function aiRenderTable(){
         '<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis" title="'+(r.ad_name    ||'').replace(/"/g,'&quot;')+'">'+(r.ad_name    || '—')+'</td>'+
         '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis" title="'+(r.campaign_name||'').replace(/"/g,'&quot;')+'">'+(r.campaign_name|| '—')+'</td>'+
         '<td><span class="ai-status '+stCls+'">'+st+'</span></td>'+
+        '<td class="num">'+(prevR == null ? '—' : fmtInt(prevR))+'</td>'+
+        '<td class="num">'+(lastR == null ? '—' : fmtInt(lastR))+'</td>'+
+        '<td class="num">'+deltCell+'</td>'+
       '</tr>';
     }).join('');
   }
