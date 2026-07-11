@@ -560,6 +560,25 @@ function classifyProduct(adName){
   if (has('HP')  || has('HOME'))                      return 'Home page';
   return 'Others';
 }
+// Manual per-ad ctype overrides. Populated from public.ad_ctype_overrides
+// once at load; the Reclassify Others modal writes new entries here and to
+// the DB. When an ad has an override, it wins over marker detection so
+// the team can send a mis-named or unmarked ad to whichever Creative
+// Focus bucket they intended.
+let ctypeOverrideByAdId = Object.create(null);
+async function fetchCtypeOverrides(){
+  if (!SUPABASE_URL || !SUPABASE_ANON) return {};
+  const url = SUPABASE_URL + '/rest/v1/ad_ctype_overrides?select=ad_id,ctype';
+  const r = await fetch(url, {headers:{apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON}});
+  if (!r.ok) return {};
+  const rows = await r.json();
+  const out = Object.create(null);
+  if (Array.isArray(rows)) for (const row of rows){
+    if (row.ad_id) out[row.ad_id] = row.ctype;
+  }
+  return out;
+}
+
 // Creative Focus is limited to the three canonical types (IFAD / GAD / VID);
 // everything else (BST, ADB, UGC, BR, Brand, ...) falls into Others so it can
 // be redirected to the Product-in-Focus taxonomy above.
@@ -569,7 +588,11 @@ function classifyProduct(adName){
 // recognised a standalone "VID" token, so ads named with the OSP/CPL/USP/
 // CSR/ITE convention (and even the older VRP/NNC/VIDEO/IGP set) landed
 // in OTHER and undercounted the VID bucket.
-function classifyCreative(adName){
+//
+// If the ad has a manual override (stored in ad_ctype_overrides), it wins
+// so a name-less ad the team reclassified stays where they put it.
+function classifyCreative(adName, adId){
+  if (adId && ctypeOverrideByAdId[adId]) return ctypeOverrideByAdId[adId];
   const s = (adName || '').toUpperCase();
   if (/IFAD/.test(s)) return 'IFAD';
   if (/GAD/.test(s))  return 'GAD';
@@ -585,7 +608,7 @@ function renderFocusStrips(rows){
   const c = {IFAD:0,GAD:0,VID:0,OTHER:0};
   for (const r of rows){
     p[classifyProduct(r.ad_name)] += 1;
-    c[classifyCreative(r.ad_name)] += 1;
+    c[classifyCreative(r.ad_name, r.ad_id)] += 1;
   }
   const prodKeys = ['Home page','Category page','Collection page','Product page','Others'];
   document.querySelectorAll('#prodStrip .focus-pill').forEach((el, i) => {
@@ -594,8 +617,10 @@ function renderFocusStrips(rows){
     el.dataset.btype = 'product'; el.dataset.bval = k;
     el.classList.toggle('disabled', (p[k]||0) === 0);
   });
-  const creativeKeys = ['IFAD','GAD','VID'];
-  const creativeLabels = ['IFAD','GAD','VID'];
+  // Creative strip: IFAD, GAD, VID, then the OTHER pill which opens the
+  // reclassify modal instead of a bucket drill.
+  const creativeKeys = ['IFAD','GAD','VID','OTHER'];
+  const creativeLabels = ['IFAD','GAD','VID','Others'];
   document.querySelectorAll('#creativeStrip .focus-pill').forEach((el, i) => {
     const k = creativeKeys[i];
     el.querySelector('b').textContent = fmtInt(c[k] || 0);
@@ -769,7 +794,7 @@ function bucketRows(){
   if (bucketState.type === 'product')
     return rows.filter(r => classifyProduct(r.ad_name) === bucketState.val);
   if (bucketState.type === 'creative')
-    return rows.filter(r => classifyCreative(r.ad_name) === bucketState.val);
+    return rows.filter(r => classifyCreative(r.ad_name, r.ad_id) === bucketState.val);
   if (bucketState.type === 'funnel'){
     // Funnel cell click — filter by (creative type × category). Empty
     // funnelCtype means "all creative types". funnelCat '__F4__' means
@@ -969,11 +994,111 @@ function bindFocusStrip(stripId){
   document.getElementById(stripId).addEventListener('click', e=>{
     const pill = e.target.closest('.focus-pill'); if(!pill) return;
     if (pill.classList.contains('disabled')) return;
+    // Creative Focus Others pill routes to the reclassify modal instead
+    // of the standard bucket drill — that's the whole point of having
+    // it visible in the strip.
+    if (stripId === 'creativeStrip' && pill.dataset.bval === 'OTHER'){
+      openReclassifyModal(); return;
+    }
     openBucketModal(pill.dataset.btype, pill.dataset.bval, pill.dataset.blabel);
   });
 }
 bindFocusStrip('prodStrip');
 bindFocusStrip('creativeStrip');
+
+/* ────────────────────────────────────────────────────────────────────
+   Reclassify Others modal — lets the user assign a specific
+   IFAD/GAD/VID bucket to any ad currently classified as OTHER, and
+   persists the assignment in public.ad_ctype_overrides so the strip
+   counts follow it on every subsequent render.
+   ──────────────────────────────────────────────────────────────────── */
+function openReclassifyModal(){
+  const modal = document.getElementById('otherReclassifyModal');
+  if (!modal) return;
+  const rows = filtered(primaryAds).filter(r =>
+    classifyCreative(r.ad_name, r.ad_id) === 'OTHER');
+  const body = document.getElementById('otherReclassifyBody');
+  const status = document.getElementById('otherReclassifyStatus');
+  status.textContent = fmtInt(rows.length) + ' ad(s) currently in Others · pick a bucket to reclassify';
+  if (!rows.length){
+    body.innerHTML = '<tr><td colspan="3" style="padding:24px;text-align:center;color:var(--text-tertiary)">No Others in the current filter. Everything already classified as IFAD, GAD, or VID.</td></tr>';
+  } else {
+    // Sort by ad_name so recurring name patterns cluster together.
+    rows.sort((a,b) => (a.ad_name||'').localeCompare(b.ad_name||''));
+    body.innerHTML = rows.map(r => {
+      const current = ctypeOverrideByAdId[r.ad_id] || '';
+      const opt = (v, l) => '<option value="'+v+'"'+(v===current?' selected':'')+'>'+l+'</option>';
+      return '<tr data-ad-id="'+(r.ad_id||'').replace(/"/g,'&quot;')+'">'+
+        '<td style="padding:8px 12px;font-size:12px;color:var(--text-mid);max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(r.ad_name||'').replace(/"/g,'&quot;')+'">'+(r.ad_name||'—')+'</td>'+
+        '<td style="padding:8px 12px;font-size:12px;color:var(--text-tertiary)">'+(r.account_name||'—')+'</td>'+
+        '<td style="padding:8px 12px">'+
+          '<select class="fg-select reclassify-sel" data-ad-id="'+(r.ad_id||'').replace(/"/g,'&quot;')+'" style="width:100%;padding:6px 10px;font-size:12px">'+
+            opt('', '— Auto (marker) —') +
+            opt('IFAD', 'IFAD') +
+            opt('GAD',  'GAD')  +
+            opt('VID',  'VID')  +
+          '</select>'+
+        '</td>'+
+      '</tr>';
+    }).join('');
+  }
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+}
+function closeReclassifyModal(){
+  const modal = document.getElementById('otherReclassifyModal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  modal.setAttribute('aria-hidden', 'true');
+}
+async function _persistOverride(adId, ctype){
+  if (!SUPABASE_URL || !SUPABASE_ANON || !adId) return false;
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                   'Content-Type':'application/json',
+                   Prefer:'resolution=merge-duplicates,return=minimal'};
+  if (!ctype){
+    // Empty selection → clear the override (fall back to marker detection).
+    const r = await fetch(SUPABASE_URL + '/rest/v1/ad_ctype_overrides?ad_id=eq.' + encodeURIComponent(adId),
+                          {method:'DELETE', headers});
+    return r.ok;
+  }
+  const r = await fetch(SUPABASE_URL + '/rest/v1/ad_ctype_overrides?on_conflict=ad_id',
+                        {method:'POST', headers,
+                         body: JSON.stringify([{ad_id: adId, ctype: ctype}])});
+  return r.ok;
+}
+document.getElementById('otherReclassifyClose')?.addEventListener('click', closeReclassifyModal);
+document.getElementById('otherReclassifyModal')?.addEventListener('click', e => {
+  if (e.target.id === 'otherReclassifyModal') closeReclassifyModal();
+});
+document.addEventListener('keydown', e => {
+  const modal = document.getElementById('otherReclassifyModal');
+  if (e.key === 'Escape' && modal && modal.style.display === 'flex') closeReclassifyModal();
+});
+// Delegate change events on the dropdowns so we don't have to re-bind
+// every time the modal re-renders.
+document.getElementById('otherReclassifyBody')?.addEventListener('change', async e => {
+  const sel = e.target.closest('.reclassify-sel'); if (!sel) return;
+  const adId = sel.dataset.adId; const val = sel.value;
+  const status = document.getElementById('otherReclassifyStatus');
+  sel.disabled = true;
+  const ok = await _persistOverride(adId, val);
+  sel.disabled = false;
+  if (!ok){
+    status.textContent = 'Save failed — try again';
+    return;
+  }
+  if (val) ctypeOverrideByAdId[adId] = val;
+  else delete ctypeOverrideByAdId[adId];
+  // Re-render the strip so the counts move immediately; the row itself
+  // no longer belongs to Others when a non-empty value is picked, so we
+  // strike it out to make that visible without closing the modal.
+  const tr = sel.closest('tr');
+  if (tr && val){ tr.style.opacity = '0.5'; tr.querySelector('td:first-child').style.textDecoration = 'line-through'; }
+  else if (tr){ tr.style.opacity = ''; tr.querySelector('td:first-child').style.textDecoration = ''; }
+  status.textContent = 'Saved · ' + (val ? ('now ' + val) : 'reset to Auto');
+  rerender();
+});
 
 /* Creative Type Funnel cells — click any cell to open the bucket modal
    pre-filtered by that (creative_type × category) intersection. */
@@ -5815,13 +5940,17 @@ document.getElementById('invExport').onclick = () => {
   const cachedPromise = fetchPrimaryFromCache(state.dateFrom || '', state.dateTo || '', state.dateField)
     .catch(() => null);
 
-  // Kick off ae_table_view + thumbnails + reach-recent + freq-lifecycle in parallel
-  const [cached, freshAllAds, freshThumbs, freshReach, freshFreq] = await Promise.all([
-    cachedPromise, fetchAds(), fetchThumbnails(), fetchReachRecent(), fetchFreqLifecycle()
+  // Kick off ae_table_view + thumbnails + reach-recent + freq-lifecycle
+  // + ctype-overrides in parallel. Overrides is a small table (< dozens of
+  // rows expected) so it never gates the load.
+  const [cached, freshAllAds, freshThumbs, freshReach, freshFreq, freshOverrides] = await Promise.all([
+    cachedPromise, fetchAds(), fetchThumbnails(), fetchReachRecent(), fetchFreqLifecycle(),
+    fetchCtypeOverrides()
   ]);
   allAds = freshAllAds; thumbsByAdId = freshThumbs;
   reachRecentByAdId = freshReach;
   freqLifecycleByAdId = freshFreq;
+  ctypeOverrideByAdId = freshOverrides || {};
   // Merge the reach-recent snapshot into each ae row by ad_id so renderAE
   // can display incremental_reach / cost_per_incremental_reach inline.
   for (const r of allAds){

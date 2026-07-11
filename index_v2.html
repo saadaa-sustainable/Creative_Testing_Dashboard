@@ -238,11 +238,13 @@
       </div>
     </div>
     <div class="panel">
-      <h3>Creative Focus <span class="h-sub">IFAD · GAD · VID only</span></h3>
+      <h3>Creative Focus <span class="h-sub">IFAD · GAD · VID · click Others to reclassify</span></h3>
       <div class="focus-strip" id="creativeStrip">
         <div class="focus-pill" data-c="IFAD"><span class="dot"></span><b>—</b>&nbsp;IFAD</div>
         <div class="focus-pill" data-c="GAD"><span class="dot"></span><b>—</b>&nbsp;GAD</div>
         <div class="focus-pill" data-c="VID"><span class="dot"></span><b>—</b>&nbsp;Video</div>
+        <div class="focus-pill focus-pill-other" data-c="OTHER"
+             title="Ads whose name has no IFAD/GAD/VID marker · click to reclassify"><span class="dot"></span><b>—</b>&nbsp;Others</div>
       </div>
     </div>
   </div>
@@ -1640,6 +1642,47 @@
         section of the sidebar.
       </p>
 
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════════ MODAL — Reclassify OTHER ads into IFAD / GAD / VID ═════════════════
+     Opens when the Others pill in the Creative Focus strip is clicked.
+     Every row is an ad that currently falls into OTHER; the per-row
+     dropdown writes a manual override to public.ad_ctype_overrides so
+     the strip counts follow it on the next rerender. -->
+<div id="otherReclassifyModal" role="dialog" aria-hidden="true"
+     style="position:fixed;inset:0;background:rgba(44,36,32,0.55);backdrop-filter:blur(4px);
+            z-index:110;display:none;align-items:center;justify-content:center;padding:24px">
+  <div class="modal-card" style="max-width:960px;width:100%">
+    <div class="mc-hdr">
+      <div>
+        <div class="ttl">Reclassify Others</div>
+        <div class="sub">Ads with no IFAD / GAD / VID marker in the name · pick a bucket per row</div>
+      </div>
+      <button class="mc-close" id="otherReclassifyClose" type="button">✕</button>
+    </div>
+    <div class="mc-body">
+      <div class="def-note" style="margin:0 0 12px 0">
+        <span class="def-note-icon">◆</span>
+        <span>Manual override wins over the marker-based classifier — the ad
+        stays in its chosen bucket even if its name is later edited or the
+        marker list changes.  Reset to Auto to fall back to marker detection.</span>
+      </div>
+      <div id="otherReclassifyStatus"
+           style="font-size:11px;color:var(--text-tertiary);margin-bottom:8px">—</div>
+      <div style="overflow:auto;max-height:calc(100vh - 280px);border:1px solid var(--border-primary);border-radius:8px">
+        <table class="tbl" id="otherReclassifyTbl" style="width:100%;margin:0">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:8px 12px">Ad name</th>
+              <th style="width:180px;text-align:left;padding:8px 12px">Account</th>
+              <th style="width:180px;text-align:left;padding:8px 12px">Reclassify to</th>
+            </tr>
+          </thead>
+          <tbody id="otherReclassifyBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
