@@ -3754,17 +3754,7 @@ async function aiReloadOrders(){
     rows = await aiFetchOrders(newFrom, newTo, null) || [];
   }
   aiOrders = rows || [];
-  // Enrich each order with the ad's reach snapshot so sort + render can
-  // read prev_reach / latest_reach / reach_delta from the row directly.
-  // Same reachRecentByAdId map the Ads Analyse view uses.
-  for (const r of aiOrders){
-    const rr = r.ad_id ? reachRecentByAdId[r.ad_id] : null;
-    if (rr){
-      r.prev_reach   = +rr.previous_reach || 0;
-      r.latest_reach = +rr.latest_reach   || 0;
-      r.reach_delta  = r.latest_reach - r.prev_reach;
-    }
-  }
+  aiEnrichReach();
   aiLoaded = true; aiLoading = false;
   document.getElementById('aiStatus').textContent =
     'Loaded ' + fmtInt(aiOrders.length) + ' rows in ' + ((performance.now()-t0)/1000).toFixed(1) + 's';
@@ -4203,7 +4193,34 @@ function aiRenderKpis(){
   set('S4','Step 4'); set('S5','Step 5'); set('none','__none__');
 }
 
+/* Merge reachRecentByAdId (from public.ae_reach_recent) onto every order
+   in aiOrders that has an ad_id. Idempotent — only stamps rows that
+   don't already carry prev_reach. Called from aiReloadOrders() and from
+   aiRenderTable() so a late-arriving reach map still fills the cells. */
+function aiEnrichReach(){
+  if (!aiOrders || !aiOrders.length) return 0;
+  if (!reachRecentByAdId || !Object.keys(reachRecentByAdId).length) return 0;
+  let hits = 0;
+  for (const r of aiOrders){
+    if (r.prev_reach !== undefined) continue;   // already stamped
+    const rr = r.ad_id ? reachRecentByAdId[r.ad_id] : null;
+    if (!rr) continue;
+    // Coerce to numbers; keep 0 as 0 (not falsy → not treated as missing)
+    const p = (rr.previous_reach == null || rr.previous_reach === '')
+              ? null : Number(rr.previous_reach);
+    const l = (rr.latest_reach   == null || rr.latest_reach   === '')
+              ? null : Number(rr.latest_reach);
+    if (p == null && l == null) continue;
+    r.prev_reach   = p != null ? p : 0;
+    r.latest_reach = l != null ? l : 0;
+    r.reach_delta  = r.latest_reach - r.prev_reach;
+    hits++;
+  }
+  return hits;
+}
+
 function aiRenderTable(){
+  aiEnrichReach();   // idempotent — top-up in case reach map loaded late
   const rows = aiFiltered();
   const pageSize = +document.getElementById('aiPageSize').value || 100;
   const totalRows = rows.length;
