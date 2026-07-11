@@ -23,8 +23,22 @@ That's it. No client_id/secret/refresh_token to manage.
 2. Grant Google Ads scope to your gcloud login. This opens a browser once:
 
    ```
-   gcloud auth application-default login --scopes=https://www.googleapis.com/auth/adwords,openid,https://www.googleapis.com/auth/userinfo.email
+   gcloud auth application-default login --scopes=https://www.googleapis.com/auth/adwords,https://www.googleapis.com/auth/cloud-platform,openid,https://www.googleapis.com/auth/userinfo.email
    ```
+
+   > `cloud-platform` is required by gcloud even though the Ads API
+   > only reads via the `adwords` scope. Without it the command
+   > rejects with "cloud-platform scope is required".
+   >
+   > Google is deprecating the `adwords` scope on gcloud's built-in
+   > OAuth client. If a future run of this command fails with
+   > "scopes will be blocked", create a client ID for yourself under
+   > **Google Cloud Console → APIs & Services → Credentials → Create
+   > OAuth client ID (Desktop app)**, download the JSON, and point
+   > gcloud at it once via `gcloud auth application-default login
+   > --client-id-file=<path>`. Nothing changes downstream — the ADC
+   > file will still hold the resulting refresh token in the same
+   > location the scripts read from.
 
 3. Verify the credentials reach the API:
 

@@ -55,7 +55,7 @@ if adc is None:
     print(f"  ADC file                     : NOT FOUND at {_adc_path()}")
     print()
     print("[!] gcloud ADC missing. Run this once and re-run the probe:")
-    print("    gcloud auth application-default login --scopes=https://www.googleapis.com/auth/adwords,openid,https://www.googleapis.com/auth/userinfo.email")
+    print("    gcloud auth application-default login --scopes=https://www.googleapis.com/auth/adwords,https://www.googleapis.com/auth/cloud-platform,openid,https://www.googleapis.com/auth/userinfo.email")
     sys.exit(1)
 
 # ADC must be user-consented (has refresh_token). Service-account ADC won't work here.
@@ -63,7 +63,7 @@ if not adc.get("refresh_token"):
     print(f"  ADC file                     : found, but no refresh_token")
     print()
     print("[!] ADC is a service account — Google Ads needs a user OAuth grant.")
-    print("    Run:  gcloud auth application-default login --scopes=https://www.googleapis.com/auth/adwords,openid,https://www.googleapis.com/auth/userinfo.email")
+    print("    Run:  gcloud auth application-default login --scopes=https://www.googleapis.com/auth/adwords,https://www.googleapis.com/auth/cloud-platform,openid,https://www.googleapis.com/auth/userinfo.email")
     sys.exit(1)
 
 print(f"  ADC file                     : loaded  ({_adc_path()})")

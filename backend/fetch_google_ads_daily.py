@@ -45,7 +45,7 @@ def _adc_path():
 _adc_p = _adc_path()
 if not _adc_p or not _adc_p.is_file():
     sys.exit(f"gcloud ADC not found at {_adc_p}. Run:\n"
-             "  gcloud auth application-default login --scopes=https://www.googleapis.com/auth/adwords,openid,https://www.googleapis.com/auth/userinfo.email")
+             "  gcloud auth application-default login --scopes=https://www.googleapis.com/auth/adwords,https://www.googleapis.com/auth/cloud-platform,openid,https://www.googleapis.com/auth/userinfo.email")
 try:
     _adc = json.loads(_adc_p.read_text(encoding="utf-8"))
 except Exception as e:
