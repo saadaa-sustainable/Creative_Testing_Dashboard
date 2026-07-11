@@ -1478,6 +1478,11 @@
   }
 
   @media (max-width: 900px){
+    /* Clip any position:fixed element that sits off-screen (the ad drawer,
+       modals) so they don't extend the page's scrollWidth on tablets/phones.
+       Without this, an off-screen drawer with right:-100vw contributes to
+       document.scrollWidth and forces horizontal page scroll. */
+    html, body{overflow-x:clip}
     /* Hamburger mode — sidebar hides fully, use the #sbToggle button.
        !important needed because the base #sbToggle{display:none} rule
        is defined AFTER this media block in the CSS file. */
@@ -1490,6 +1495,12 @@
     #sbToggle{display:flex !important}
     /* AE filter grid: 2 columns */
     .ae-filter-grid{grid-template-columns:repeat(2,1fr)}
+    /* Creative Testing filter grid: drop from 5 cols to 2 so nothing
+       forces horizontal scroll on tablet-sized viewports. */
+    .filter-grid{grid-template-columns:1fr 1fr}
+    .fg-field.wide{grid-column:span 2}
+    /* Chart strip: three charts stack into a single column */
+    .chart-row{grid-template-columns:1fr}
     /* Ad Analyse KPI cards row: keep auto-fit but bump min */
     #aeCats{grid-template-columns:repeat(auto-fit, minmax(160px, 1fr))}
     /* Frequency 5/6 bucket layout: 3 columns */
@@ -1503,6 +1514,16 @@
     /* Drawer full width, iframe shorter */
     #drawer{width:100vw; right:-100vw}
     .dr-iframe, .dr-video{height:420px; max-height:50vh}
+    /* Page-hdr heading + right-hand button cluster stacks so the
+       button row doesn't overlap the h1 on narrow viewports. */
+    .page-hdr{flex-direction:column; align-items:flex-start; gap:10px}
+    /* Funnel becomes horizontally scrollable inside its card so the
+       many-column layout doesn't blow out the page width. */
+    .funnel-card{overflow-x:auto}
+    /* Landing Page Focus table gets a horizontal scroll wrapper so
+       long URLs + numeric columns can extend beyond the viewport
+       instead of forcing the page to scroll. */
+    #landingPageFocus{overflow-x:auto}
   }
 
   @media (max-width: 640px){
@@ -1514,6 +1535,13 @@
     }
     .freq-totals{grid-template-columns:repeat(2, 1fr)}
     .ae-filter-grid{grid-template-columns:1fr}
+    /* Creative Testing filter grid collapses to single column */
+    .filter-grid{grid-template-columns:1fr; padding:10px 12px}
+    .fg-field.wide{grid-column:span 1}
+    /* Filter-top row keeps flex-wrap: fine here since presets are pill-shaped */
+    .filter-top{padding:10px 12px; gap:8px}
+    /* Tighter page-hdr with smaller headings */
+    .page-hdr{margin-bottom:12px; gap:8px}
     /* Page headers shrink so they don't wrap to 3 lines */
     .heading, h1.heading{font-size:20px}
     .sub{font-size:11px}
@@ -1522,10 +1550,20 @@
     .kpi .k-val{font-size:20px}
     .kpi .k-lbl{font-size:10px}
     /* Modal fills the screen edge-to-edge with 4px gutter */
-    #bucketModal, #incrReachModal, #modal{padding:4px}
+    #bucketModal, #incrReachModal, #modal, #ireachInfoModal{padding:4px}
+    /* Ireach info modal table can horizontally scroll if the definitions
+       don't fit — the important thing is nothing pushes the page wider. */
+    #ireachInfoModal .mc-body{overflow-x:auto}
     /* Drawer footer buttons shrink so all three fit in a row */
     .dr-footer{padding:10px 12px; gap:6px}
     .dr-footer .btn, .dr-footer a.btn{font-size:11px; padding:6px 10px}
+    /* CT view: main content padding tightens so no wasted horizontal space */
+    #main{padding:60px 8px 32px}
+    /* Multi-Filter: the field-op-value row stacks into a column so it
+       fits phone width without wrapping mid-input. */
+    .ct-mfilter .ae-mfrow, .ae-mfilter-row{grid-template-columns:1fr}
+    /* Chart cards get more vertical breathing room on phones */
+    .chart-card{padding:12px 12px}
     /* Freq drill table remains horizontally scrollable — no changes
        needed since it already lives inside .freq-drill-tbl with a
        min-width; the parent overflow:auto handles the rest. */
