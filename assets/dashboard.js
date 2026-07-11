@@ -46,7 +46,11 @@ function detectCtype(name){
   const n = (name||'').toUpperCase();
   if(n.includes('IFAD'))  return 'IFAD';
   if(n.includes('GAD'))   return 'Graphic AD';
-  if(n.includes('VRP')||n.includes('NNC')||n.includes('VIDEO')||n.includes('IGP')||n.includes('NO-ID')||/^VID-AD/.test(n)) return 'VID';
+  // VID markers — legacy tokens (VRP, NNC, VIDEO, IGP, NO-ID, VID-AD prefix)
+  // plus the naming-convention tokens the CT team added later: OSP, CPL,
+  // USP, CSR, ITE. Any ad name containing one of these is a video creative.
+  if(n.includes('VRP')||n.includes('NNC')||n.includes('VIDEO')||n.includes('IGP')||n.includes('NO-ID')||/^VID-AD/.test(n)
+     ||n.includes('OSP')||n.includes('CPL')||n.includes('USP')||n.includes('CSR')||n.includes('ITE')) return 'VID';
   if(n.includes('STATIC')||n.includes('_ST_')||n.includes('+ST+')) return 'STATIC';
   return 'VID';
 }

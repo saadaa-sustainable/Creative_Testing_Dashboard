@@ -777,8 +777,10 @@ function detectCtype(name){
   if(n.includes('IFAD')) return 'IFAD';
   
   if(n.includes('GAD'))  return 'Graphic AD';
-  // VID markers — VRP / NNC / VIDEO / IGP / VID-AD prefix / NO-ID (Saadaa convention)
-  if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || n.includes('NO-ID') || /^VID-AD/.test(n)) return 'VID';
+  // VID markers — legacy tokens (VRP, NNC, VIDEO, IGP, NO-ID, VID-AD prefix)
+  // plus the newer CT-team convention tokens: OSP, CPL, USP, CSR, ITE.
+  if(n.includes('VRP') || n.includes('NNC') || n.includes('VIDEO') || n.includes('IGP') || n.includes('NO-ID') || /^VID-AD/.test(n)
+     || n.includes('OSP') || n.includes('CPL') || n.includes('USP') || n.includes('CSR') || n.includes('ITE')) return 'VID';
   if(n.includes('STATIC') || n.includes('_ST_') || n.includes('+ST+')) return 'STATIC';
   // Default when no marker is present: VID (matches Python detect_ctype).
   return 'VID';
@@ -1363,7 +1365,10 @@ function renderCreatives(ads){
     const explicitVid = nameUpper.includes('VRP') || nameUpper.includes('NNC') ||
                         nameUpper.includes('VIDEO') || nameUpper.includes('IGP') ||
                         nameUpper.includes('NO-ID') ||
-                        /^VID-AD/.test(nameUpper);
+                        /^VID-AD/.test(nameUpper) ||
+                        nameUpper.includes('OSP') || nameUpper.includes('CPL') ||
+                        nameUpper.includes('USP') || nameUpper.includes('CSR') ||
+                        nameUpper.includes('ITE');
     if(m.ctype === 'VID' && !hasVideoSignal && !explicitVid){
       m.ctype = 'Graphic AD';
     } else if(m.ctype !== 'IFAD' && m.ctype !== 'Graphic AD' && hasVideoSignal){
@@ -1639,7 +1644,10 @@ function renderResults(ads){
     const explicitVid = nameUpper.includes('VRP') || nameUpper.includes('NNC') ||
                         nameUpper.includes('VIDEO') || nameUpper.includes('IGP') ||
                         nameUpper.includes('NO-ID') ||
-                        /^VID-AD/.test(nameUpper);
+                        /^VID-AD/.test(nameUpper) ||
+                        nameUpper.includes('OSP') || nameUpper.includes('CPL') ||
+                        nameUpper.includes('USP') || nameUpper.includes('CSR') ||
+                        nameUpper.includes('ITE');
     if(m.ctype === 'VID' && !hasVideoSignal && !explicitVid){
       m.ctype = 'Graphic AD';
     } else if(m.ctype !== 'IFAD' && m.ctype !== 'Graphic AD' && hasVideoSignal){
@@ -2120,7 +2128,10 @@ function ctExportCSV(){
     const explicitVid = nameUpper.includes('VRP') || nameUpper.includes('NNC') ||
                         nameUpper.includes('VIDEO') || nameUpper.includes('IGP') ||
                         nameUpper.includes('NO-ID') ||
-                        /^VID-AD/.test(nameUpper);
+                        /^VID-AD/.test(nameUpper) ||
+                        nameUpper.includes('OSP') || nameUpper.includes('CPL') ||
+                        nameUpper.includes('USP') || nameUpper.includes('CSR') ||
+                        nameUpper.includes('ITE');
     if(m.ctype === 'VID' && !hasVideoSignal && !explicitVid){
       m.ctype = 'Graphic AD';
     } else if(m.ctype !== 'IFAD' && m.ctype !== 'Graphic AD' && hasVideoSignal){
@@ -3187,6 +3198,41 @@ function selectAnalysisEngine(el){
   _lockBodyScroll();
   if(!aeLoaded) aeReload();
 }
+
+/* Deep-link from index_v2.html — if URL hash is "#ae", auto-open the AE panel
+   once the engine tab is rendered. Same for #lifecycle (Lifecycle/Fatigue panel).
+   If ?embed=1 is present, also inject CSS to hide redundant chrome (back button,
+   acct-sel tabs) so the iframe inside v2 doesn't show duplicated navigation. */
+(function _autoOpenFromHash(){
+  var qs = new URLSearchParams(location.search);
+  if (qs.get('embed') === '1'){
+    var st = document.createElement('style');
+    st.textContent =
+      '/* Hide redundant chrome when embedded inside index_v2.html iframe */' +
+      '#aeSidebar .aes-item[data-key="back"]{display:none !important}' +
+      '#analysisEnginePanel button[onclick="aeGoBack()"]{display:none !important}' +
+      '#analysisEnginePanel button[onclick*="GoBack"]{display:none !important}' +
+      'body{overflow-x:hidden}';
+    document.head.appendChild(st);
+  }
+  function trigger(){
+    var hash = (location.hash || '').toLowerCase();
+    if (hash === '#ae'){
+      var el = document.getElementById('aSelTabEngine');
+      if (el && typeof selectAnalysisEngine === 'function') selectAnalysisEngine(el);
+    } else if (hash === '#lifecycle' || hash === '#fatigue'){
+      var el = document.getElementById('aSelTabFatigue') || document.getElementById('aSelTabLifecycle');
+      if (el && typeof selectFatigue === 'function') selectFatigue(el);
+      else if (el && typeof selectLifecycle === 'function') selectLifecycle(el);
+    }
+  }
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', trigger);
+  } else {
+    setTimeout(trigger, 100);   // give other init code a tick
+  }
+  window.addEventListener('hashchange', trigger);
+})();
 
 function selectLifecycle(el){
   document.querySelectorAll('.acct-sel-tab').forEach(t=>{t.style.background='var(--surface2)';t.style.border='1px solid var(--border)';t.style.transform='none';t.style.boxShadow='none';});

@@ -107,15 +107,17 @@ def detect_product(name: str) -> str:
 
 
 def detect_ctype(name: str) -> str:
-    """Mirror the JS detectCtype() in index.html. IFAD and GAD are independent
-    buckets; NO-ID names are an explicit VID marker (Saadaa convention).
-    Ads without any of these markers default to VID."""
+    """Mirror the JS detectCtype() in dashboard.js. IFAD and GAD are
+    independent buckets; NO-ID names are an explicit VID marker (Saadaa
+    convention). OSP, CPL, USP, CSR, ITE are the newer naming-convention
+    VID markers the CT team added. Ads without any marker default to VID."""
     n = name.upper()
     if "IFAD" in n:
         return "IFAD"
     if "GAD" in n:
         return "Graphic AD"
-    if any(k in n for k in ("VRP", "NNC", "VIDEO", "IGP", "NO-ID")):
+    if any(k in n for k in ("VRP", "NNC", "VIDEO", "IGP", "NO-ID",
+                             "OSP", "CPL", "USP", "CSR", "ITE")):
         return "VID"
     if any(k in n for k in ("STATIC", "_ST_", "+ST+")):
         return "STATIC"
