@@ -1,80 +1,116 @@
 """
-Verifies the Google Ads MCC credentials in .env can reach the API.
+Verify Google Ads API connectivity using:
+  * developer token   → from backend/.env  (GOOGLE_ADS_DEVELOPER_TOKEN)
+  * OAuth credentials → gcloud Application Default Credentials
+                        (~/.config/gcloud/application_default_credentials.json
+                         on POSIX, %APPDATA%\\gcloud\\... on Windows)
 
-Prints the list of child (client) accounts under the MCC. Writes
-nothing to any database. Run this FIRST before wiring the daily
-fetcher into the pipeline.
+We DON'T ask the user for client_id/client_secret/refresh_token — the
+gcloud ADC file already contains a working user-consented OAuth grant,
+so we read that directly and pass it to the Google Ads client. If the
+ADC hasn't been consented for the adwords scope yet, this script prints
+the exact command to run.
 
-Requires: pip install google-ads
+Read-only. No DB writes.
 """
-import os, sys
+import os, sys, json, pathlib
 from dotenv import load_dotenv
 
 try: sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
 except Exception: pass
 load_dotenv()
 
-DEV_TOKEN   = (os.environ.get("GOOGLE_ADS_DEVELOPER_TOKEN") or "").strip()
-CLIENT_ID   = (os.environ.get("GOOGLE_ADS_CLIENT_ID") or "").strip()
-CLIENT_SEC  = (os.environ.get("GOOGLE_ADS_CLIENT_SECRET") or "").strip()
-REFRESH_TOK = (os.environ.get("GOOGLE_ADS_REFRESH_TOKEN") or "").strip()
-MCC_ID      = (os.environ.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID") or "").strip()
+DEV_TOKEN = (os.environ.get("GOOGLE_ADS_DEVELOPER_TOKEN") or "").strip()
+LOGIN_CID = (os.environ.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID") or "").strip()
 
-def _redact(v):  # never print raw secrets
+def _redact(v):
     return (v[:4] + "…" + v[-4:]) if v and len(v) > 10 else ("<UNSET>" if not v else "<short>")
 
-print("[credential audit]")
-print(f"  GOOGLE_ADS_DEVELOPER_TOKEN     : {'SET' if DEV_TOKEN else 'MISSING'}  {_redact(DEV_TOKEN)}")
-print(f"  GOOGLE_ADS_CLIENT_ID           : {'SET' if CLIENT_ID else 'MISSING'}  {_redact(CLIENT_ID)}")
-print(f"  GOOGLE_ADS_CLIENT_SECRET       : {'SET' if CLIENT_SEC else 'MISSING'}  {_redact(CLIENT_SEC)}")
-print(f"  GOOGLE_ADS_REFRESH_TOKEN       : {'SET' if REFRESH_TOK else 'MISSING'}  {_redact(REFRESH_TOK)}")
-print(f"  GOOGLE_ADS_LOGIN_CUSTOMER_ID   : {'SET' if MCC_ID else 'MISSING'}  {MCC_ID or '<UNSET>'}")
+def _adc_path():
+    if os.name == "nt":
+        appdata = os.environ.get("APPDATA")
+        return pathlib.Path(appdata) / "gcloud" / "application_default_credentials.json" if appdata else None
+    return pathlib.Path.home() / ".config" / "gcloud" / "application_default_credentials.json"
 
-missing = [k for k, v in [
-    ("DEVELOPER_TOKEN", DEV_TOKEN),
-    ("CLIENT_ID", CLIENT_ID),
-    ("CLIENT_SECRET", CLIENT_SEC),
-    ("REFRESH_TOKEN", REFRESH_TOK),
-    ("LOGIN_CUSTOMER_ID", MCC_ID),
-] if not v]
-if missing:
+def _load_adc():
+    p = _adc_path()
+    if not p or not p.is_file():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+print("[credential audit]")
+print(f"  GOOGLE_ADS_DEVELOPER_TOKEN   : {'SET' if DEV_TOKEN else 'MISSING'}  {_redact(DEV_TOKEN)}")
+print(f"  GOOGLE_ADS_LOGIN_CUSTOMER_ID : {LOGIN_CID if LOGIN_CID else '<optional / auto-detect>'}")
+
+if not DEV_TOKEN:
     print()
-    print("[!] Cannot connect — set the missing vars first:")
-    for m in missing: print(f"    GOOGLE_ADS_{m}")
-    print()
-    print("See backend/GOOGLE_ADS_SETUP.md for what each value is and where to get it.")
+    print("[!] Add GOOGLE_ADS_DEVELOPER_TOKEN=<your token> to backend/.env")
     sys.exit(1)
+
+adc = _load_adc()
+if adc is None:
+    print(f"  ADC file                     : NOT FOUND at {_adc_path()}")
+    print()
+    print("[!] gcloud ADC missing. Run this once and re-run the probe:")
+    print("    gcloud auth application-default login --scopes=https://www.googleapis.com/auth/adwords,openid,https://www.googleapis.com/auth/userinfo.email")
+    sys.exit(1)
+
+# ADC must be user-consented (has refresh_token). Service-account ADC won't work here.
+if not adc.get("refresh_token"):
+    print(f"  ADC file                     : found, but no refresh_token")
+    print()
+    print("[!] ADC is a service account — Google Ads needs a user OAuth grant.")
+    print("    Run:  gcloud auth application-default login --scopes=https://www.googleapis.com/auth/adwords,openid,https://www.googleapis.com/auth/userinfo.email")
+    sys.exit(1)
+
+print(f"  ADC file                     : loaded  ({_adc_path()})")
+print(f"  ADC client_id                : {_redact(adc.get('client_id',''))}")
+print(f"  ADC refresh_token            : {_redact(adc.get('refresh_token',''))}")
+print()
 
 try:
     from google.ads.googleads.client import GoogleAdsClient
+    from google.ads.googleads.errors import GoogleAdsException
 except ImportError:
-    print()
-    print("[!] google-ads Python client not installed. Install with:")
-    print("    pip install google-ads")
+    print("[!] google-ads not installed. Run: pip install google-ads")
     sys.exit(1)
 
-config = {
-    "developer_token":     DEV_TOKEN,
-    "client_id":           CLIENT_ID,
-    "client_secret":       CLIENT_SEC,
-    "refresh_token":       REFRESH_TOK,
-    "login_customer_id":   MCC_ID,
-    "use_proto_plus":      True,
+# Build the client config from ADC + dev token. Google Ads client accepts
+# {client_id, client_secret, refresh_token} in the same shape ADC uses.
+cfg = {
+    "developer_token": DEV_TOKEN,
+    "client_id":       adc.get("client_id"),
+    "client_secret":   adc.get("client_secret"),
+    "refresh_token":   adc.get("refresh_token"),
+    "use_proto_plus":  True,
 }
+if LOGIN_CID:
+    cfg["login_customer_id"] = LOGIN_CID
 
-print()
 print("[*] Connecting to Google Ads API …")
 try:
-    client = GoogleAdsClient.load_from_dict(config)
+    client = GoogleAdsClient.load_from_dict(cfg)
     svc = client.get_service("CustomerService")
     resource_names = svc.list_accessible_customers().resource_names
+except GoogleAdsException as e:
+    print(f"[!] Google Ads API error: {e.error.code().name}")
+    for err in e.failure.errors:
+        print(f"    {err.message}")
+    print()
+    print("Common causes:")
+    print("  * developer token still in Test Access mode (works only against test accounts)")
+    print("  * user account not linked to any Google Ads customer")
+    print("  * ADC scope missing — re-run: gcloud auth application-default login \\")
+    print("      --scopes=https://www.googleapis.com/auth/adwords,openid,https://www.googleapis.com/auth/userinfo.email")
+    sys.exit(1)
 except Exception as e:
     print(f"[!] Connection failed: {type(e).__name__}: {str(e)[:220]}")
     sys.exit(1)
 
-print(f"[ok] MCC {MCC_ID} has {len(resource_names)} accessible customer(s):")
-
-# For each accessible customer, resolve to a friendly (id, descriptive_name).
+print(f"[ok] {len(resource_names)} accessible customer(s):")
 ga = client.get_service("GoogleAdsService")
 for rn in resource_names:
     cid = rn.split("/")[-1]
@@ -89,8 +125,12 @@ for rn in resource_names:
             tag = " [MCC]" if c.manager else ""
             print(f"    {c.id:>12}  {c.descriptive_name}{tag}"
                   f"   ccy={c.currency_code}  tz={c.time_zone}")
+    except GoogleAdsException as e:
+        first_err = next(iter(e.failure.errors), None)
+        msg = first_err.message if first_err else str(e)
+        print(f"    {cid:>12}  <no read access: {msg[:100]}>")
     except Exception as e:
         print(f"    {cid:>12}  <cannot introspect: {type(e).__name__}>")
 
 print()
-print("[done] Credentials look good. Next: run fetch_google_ads_daily.py --dry-run")
+print("[done] Credentials look good. Next: fetch_google_ads_daily.py --dry-run")

@@ -1,49 +1,56 @@
-# Google Ads API — MCC account setup
+# Google Ads API — setup (gcloud + developer token)
 
-Add these lines to `backend/.env`. Every value comes from your Google Ads
-Manager (MCC) console; nothing here is invented.
+You don't need to share OAuth client credentials. The pipeline uses:
+- your **developer token** from `.env`
+- **your own Google account** via gcloud Application Default Credentials
+
+That's it. No client_id/secret/refresh_token to manage.
+
+## One-time setup
+
+1. Add just this line to `backend/.env`:
+
+   ```
+   GOOGLE_ADS_DEVELOPER_TOKEN=<the token you were shared>
+   ```
+
+   Optional (only if you have MCC access):
+
+   ```
+   GOOGLE_ADS_LOGIN_CUSTOMER_ID=<10-digit MCC id, no dashes>
+   ```
+
+2. Grant Google Ads scope to your gcloud login. This opens a browser once:
+
+   ```
+   gcloud auth application-default login --scopes=https://www.googleapis.com/auth/adwords,openid,https://www.googleapis.com/auth/userinfo.email
+   ```
+
+3. Verify the credentials reach the API:
+
+   ```
+   python backend/_probe_google_ads_connect.py
+   ```
+
+   It prints your accessible customer(s) and exits. Nothing is written to
+   any database.
+
+## Daily fetch
+
+Once the probe passes:
 
 ```
-# Google Ads API v18+
-# Get this from  https://developers.google.com/google-ads/api/docs/first-call/dev-token
-GOOGLE_ADS_DEVELOPER_TOKEN=
-
-# OAuth2 client credentials — Google Cloud Console → APIs & Services →
-# Credentials → OAuth 2.0 Client IDs → download JSON, copy client_id + secret.
-GOOGLE_ADS_CLIENT_ID=
-GOOGLE_ADS_CLIENT_SECRET=
-
-# Long-lived refresh token — one-time flow, easiest via the google-ads-python
-# generate_user_credentials.py helper, or `oauth2l fetch --scope adwords`.
-GOOGLE_ADS_REFRESH_TOKEN=
-
-# MCC account ID (10 digits, no dashes) — the manager that owns the sub-accounts
-# you want to query. Every request will be routed through this account.
-GOOGLE_ADS_LOGIN_CUSTOMER_ID=
-
-# Optional — a specific customer_id to query first. Leave blank to auto-list
-# every child account under the MCC.
-GOOGLE_ADS_CUSTOMER_ID=
+python backend/fetch_google_ads_daily.py --dry-run          # fetch summary, no DB writes
+python backend/fetch_google_ads_daily.py --since 2025-01-01 # initial backfill
+python backend/fetch_google_ads_daily.py                    # daily incremental (default)
 ```
 
-## Verifying
+Grain: one row per (customer_id, ad_id, date). Metrics use Google Ads'
+native last-click attribution (the `conversions` / `conversions_value`
+columns). Table `public.google_ads_daily` is auto-created on first run.
 
-Once the env vars are in place, run:
+## Refreshing OAuth
 
-```
-python backend/_probe_google_ads_connect.py
-```
-
-It prints the MCC's child accounts. No data is written to Supabase.
-
-## Pipeline integration
-
-After the probe passes, `fetch_google_ads_daily.py` will pull one day of
-ad-level performance data (impressions, clicks, cost, conversions,
-conversion value) for every child account and upsert into
-`public.google_ads_daily` in the Meta Ads Supabase project. Attribution
-is Google Ads' native last-click model (the "conversions" column with
-default attribution).
-
-The fetcher will be added to `_run_full_update.py` after the initial
-run confirms the schema is what we want.
+gcloud refresh tokens are long-lived but not forever. If a run fails with
+`invalid_grant` or `insufficient authentication scopes`, redo step 2 in the
+one-time setup above.

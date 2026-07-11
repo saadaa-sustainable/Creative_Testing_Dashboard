@@ -27,20 +27,35 @@ try: sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
 except Exception: pass
 load_dotenv()
 
-DEV_TOKEN   = (os.environ.get("GOOGLE_ADS_DEVELOPER_TOKEN") or "").strip()
-CLIENT_ID   = (os.environ.get("GOOGLE_ADS_CLIENT_ID") or "").strip()
-CLIENT_SEC  = (os.environ.get("GOOGLE_ADS_CLIENT_SECRET") or "").strip()
-REFRESH_TOK = (os.environ.get("GOOGLE_ADS_REFRESH_TOKEN") or "").strip()
-MCC_ID      = (os.environ.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID") or "").strip()
-DB_URL      = (os.environ.get("SUPABASE_DB_URL") or "").strip()
+import json, pathlib
+DEV_TOKEN = (os.environ.get("GOOGLE_ADS_DEVELOPER_TOKEN") or "").strip()
+MCC_ID    = (os.environ.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID") or "").strip()  # optional
+DB_URL    = (os.environ.get("SUPABASE_DB_URL") or "").strip()
 
 for name, v in [("GOOGLE_ADS_DEVELOPER_TOKEN", DEV_TOKEN),
-                ("GOOGLE_ADS_CLIENT_ID", CLIENT_ID),
-                ("GOOGLE_ADS_CLIENT_SECRET", CLIENT_SEC),
-                ("GOOGLE_ADS_REFRESH_TOKEN", REFRESH_TOK),
-                ("GOOGLE_ADS_LOGIN_CUSTOMER_ID", MCC_ID),
                 ("SUPABASE_DB_URL", DB_URL)]:
     if not v: sys.exit(f"Missing {name} in .env — see backend/GOOGLE_ADS_SETUP.md")
+
+def _adc_path():
+    if os.name == "nt":
+        appdata = os.environ.get("APPDATA")
+        return pathlib.Path(appdata) / "gcloud" / "application_default_credentials.json" if appdata else None
+    return pathlib.Path.home() / ".config" / "gcloud" / "application_default_credentials.json"
+
+_adc_p = _adc_path()
+if not _adc_p or not _adc_p.is_file():
+    sys.exit(f"gcloud ADC not found at {_adc_p}. Run:\n"
+             "  gcloud auth application-default login --scopes=https://www.googleapis.com/auth/adwords,openid,https://www.googleapis.com/auth/userinfo.email")
+try:
+    _adc = json.loads(_adc_p.read_text(encoding="utf-8"))
+except Exception as e:
+    sys.exit(f"Failed to parse ADC: {e}")
+if not _adc.get("refresh_token"):
+    sys.exit("ADC has no refresh_token — re-run gcloud auth application-default login with the adwords scope.")
+
+CLIENT_ID   = _adc.get("client_id")
+CLIENT_SEC  = _adc.get("client_secret")
+REFRESH_TOK = _adc.get("refresh_token")
 
 try:
     from google.ads.googleads.client import GoogleAdsClient
@@ -223,14 +238,18 @@ def main():
     ap.add_argument("--dry-run",   action="store_true", help="Fetch + summarise, don't write to DB")
     args = ap.parse_args()
 
-    client = GoogleAdsClient.load_from_dict({
-        "developer_token":     DEV_TOKEN,
-        "client_id":           CLIENT_ID,
-        "client_secret":       CLIENT_SEC,
-        "refresh_token":       REFRESH_TOK,
-        "login_customer_id":   MCC_ID,
-        "use_proto_plus":      True,
-    })
+    _cfg = {
+        "developer_token":  DEV_TOKEN,
+        "client_id":        CLIENT_ID,
+        "client_secret":    CLIENT_SEC,
+        "refresh_token":    REFRESH_TOK,
+        "use_proto_plus":   True,
+    }
+    # login_customer_id is only required when the caller is an MCC. For
+    # direct-access accounts we omit it.
+    if MCC_ID:
+        _cfg["login_customer_id"] = MCC_ID
+    client = GoogleAdsClient.load_from_dict(_cfg)
 
     conn = get_conn()
     ensure_schema(conn)
@@ -254,9 +273,27 @@ def main():
 
     if args.customer:
         accounts = [(args.customer, args.customer, "INR")]
-    else:
-        print(f"[*] listing MCC child accounts …")
+    elif MCC_ID:
+        print(f"[*] listing MCC {MCC_ID} child accounts …")
         accounts = list_child_accounts(client, MCC_ID)
+    else:
+        # No MCC configured — fall back to whichever direct-access customers
+        # the OAuth grant can see via list_accessible_customers.
+        print(f"[*] no MCC set — listing direct-access customers …")
+        svc = client.get_service("CustomerService")
+        rns = svc.list_accessible_customers().resource_names
+        accounts = []
+        ga = client.get_service("GoogleAdsService")
+        for rn in rns:
+            cid = rn.split("/")[-1]
+            try:
+                rows = ga.search(customer_id=cid, query=
+                    "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.manager FROM customer LIMIT 1")
+                for row in rows:
+                    if row.customer.manager: continue   # skip MCCs
+                    accounts.append((str(row.customer.id), row.customer.descriptive_name, row.customer.currency_code))
+            except GoogleAdsException:
+                continue
     print(f"[*] window {since_d} → {until_d}   accounts={len(accounts)}   dry_run={args.dry_run}")
 
     total_rows = 0; total_upserts = 0
