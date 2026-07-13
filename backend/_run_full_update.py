@@ -16,6 +16,11 @@ STEPS = [
     #  now compute the primary+backfill dedup inline in their RPC
     #  bodies, so no matview refresh needed.)
     ("refresh_ae_reach_recent",        ["refresh_ae_reach_recent.py"],      600),
+    # new_incr_table = per-ad daily reach series with running cumulative +
+    # honest day-over-day delta.  Reconstructed from primary_table + backfill
+    # (no Meta calls).  321k rows / ~26MB, TRUNCATE+INSERT via the DB RPC —
+    # 5-min ceiling is comfortable.
+    ("refresh_new_incr_table",         ["refresh_new_incr_table.py"],       300),
     # Campaign + Adset UNIQUE reach at group level, straight from Meta's
     # /insights (level=campaign / level=adset). Meta returns the deduped
     # audience per group per day — you can't get this by summing ad-level
