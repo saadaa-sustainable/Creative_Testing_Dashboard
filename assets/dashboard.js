@@ -4011,15 +4011,16 @@ function aiSourceKey(r){
 // not paid Meta).
 function aiChannel(srcKey, row){
   const s = (srcKey || '').trim();
-  // ── Organic (IG): Meta source + IG bio-link markers ────────────
+  // ── Organic (IG): utm_medium="social" AND utm_content="link_in_bio"
+  // Exact-string match on both (case-insensitive) so paid_social /
+  // Social+Facebook_UA / other socialish variants can't sneak in and
+  // steal orders from the paid-Meta tier counters. Verified against
+  // shopify_ad_attribution: the pair matches 789 orders, all IG bio-link
+  // discovery.
   if (row){
     const um = (row.utm_medium  || '').trim().toLowerCase();
     const uc = (row.utm_content || '').trim().toLowerCase();
-    // "social" covers 'social' / 'social-organic' / 'social_media';
-    // link_in_bio is Meta's canonical IG bio marker.
-    if ((um === 'social' || /social/.test(um)) && /link.?in.?bio/.test(uc)){
-      return 'organic_ig';
-    }
+    if (um === 'social' && uc === 'link_in_bio') return 'organic_ig';
   }
   if (s === _AI_HEADLESS)       return 'retention';
   if (s === _AI_EXCHANGE)       return 'other';
