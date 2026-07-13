@@ -893,8 +893,10 @@
       the campaign/adset on that date), then incremental is computed on those daily
       aggregates — not by summing ad-level increments. Window is capped at
       2025-01-01 on the low end; older data lives in <b>Historic Reach</b>.
-      Source: union of <code>primary_table</code> + <code>backfill_table</code>
-      with primary winning on <code>(ad_id, date)</code> conflicts.</span>
+      Source: materialized views <code>public.ireach_campaign_daily</code> +
+      <code>public.ireach_adset_daily</code>, rebuilt nightly from the deduped
+      union of <code>primary_table</code> + <code>backfill_table</code>
+      (primary wins on <code>(ad_id, date)</code>).</span>
     </div>
     <div style="font-size:11px;color:var(--text-tertiary)" id="ireachStatus">Ready — click Apply to load.</div>
     <div id="ireachAudit" style="font-size:11px;color:var(--text-tertiary);
@@ -2007,6 +2009,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=asset_id_col"></script>
+<script src="assets/dashboard.js?v=ireach_matviews"></script>
 </body>
 </html>

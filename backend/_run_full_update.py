@@ -14,6 +14,9 @@ STEPS = [
     ("refresh_summary_table",          ["refresh_summary_table.py"],        900),
     ("refresh_ae_daily_agg",           ["refresh_ae_daily_agg.py"],         600),
     ("refresh_ae_reach_recent",        ["refresh_ae_reach_recent.py"],      600),
+    # Campaign + Adset daily reach agg (drives Incremental Analysis).
+    # Same dedup logic as ae_reach_recent; rebuilt once per pipeline run.
+    ("refresh_ireach_daily",           ["refresh_ireach_daily.py"],         600),
     ("result_classifier",              ["result_classifier.py"],            900),
     ("results_sync",                   ["results_sync.py"],                1800),
     # Shopify sessions per landing-page — daily incremental via ShopifyQL.

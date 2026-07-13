@@ -5065,18 +5065,24 @@ function _ireachApplyPreset(p){
   document.getElementById('ireachDateTo').value   = iso(today);
 }
 
+// Fetch pre-aggregated campaign / adset daily rows from the server-side
+// matviews (public.ireach_campaign_daily / public.ireach_adset_daily).
+// These are ~18k / ~54k rows total — tiny compared to the ~450k raw
+// daily-ad rows the old client-side dedup path pulled. Server-side
+// already handles the (ad_id, date) primary-wins dedup, so no audit
+// counter to surface any more.
 async function _ireachFetch(from, to){
   const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
                    Prefer:'count=none'};
-  const cols = 'ad_id,date,campaign_name,adset_name,reach,amount_spent_inr';
-  const fetchAll = async (tbl) => {
+  const fetchAll = async (view, grpCol) => {
     let out = [], offset = 0, BATCH = 5000;
     while (true){
-      const url = SUPABASE_URL + '/rest/v1/' + tbl + '?select=' + cols +
+      const url = SUPABASE_URL + '/rest/v1/' + view +
+                  '?select=' + grpCol + ',date,reach_daily,spend_daily,n_ads' +
                   '&date=gte.' + from + '&date=lte.' + to +
                   '&order=date.asc&limit=' + BATCH + '&offset=' + offset;
       const r = await fetch(url, {headers});
-      if (!r.ok) throw new Error(tbl + ' HTTP ' + r.status);
+      if (!r.ok) throw new Error(view + ' HTTP ' + r.status);
       const j = await r.json();
       if (!Array.isArray(j) || !j.length) break;
       out = out.concat(j);
@@ -5085,68 +5091,39 @@ async function _ireachFetch(from, to){
     }
     return out;
   };
-  const [prim, back] = await Promise.all([
-    fetchAll('primary_table').catch(() => []),
-    fetchAll('backfill_table').catch(() => []),
+  const [camp, adset] = await Promise.all([
+    fetchAll('ireach_campaign_daily', 'campaign_name').catch(() => []),
+    fetchAll('ireach_adset_daily',    'adset_name'   ).catch(() => []),
   ]);
-  // Dedup on (ad_id, date) with PRIMARY winning — mirrors the server-side
-  // logic in refresh_ae_daily_agg (DISTINCT ON (ad_id, date) ORDER BY
-  // ad_id, date, pri where primary has pri=1, backfill has pri=2).
-  // Track how many rows collided so we can surface the audit inline.
-  const key = r => (r.ad_id || '') + '|' + (r.date || '');
-  const map = new Map();
-  let backOnly = 0, overlap = 0, reachDiff = 0;
-  for (const r of back){ map.set(key(r), r); backOnly++; }
-  for (const r of prim){
-    const k = key(r);
-    if (map.has(k)){
-      const b = map.get(k);
-      overlap++; backOnly--;
-      if ((+b.reach || 0) !== (+r.reach || 0)) reachDiff++;
-    }
-    map.set(k, r);   // primary wins
-  }
-  const merged = Array.from(map.values());
   return {
-    rows:  merged,
-    audit: {
-      primary_rows:  prim.length,
-      backfill_rows: back.length,
-      merged_rows:   merged.length,
-      overlap_rows:  overlap,
-      backfill_only: backOnly,
-      primary_only:  prim.length - overlap,
-      reach_diff_in_overlap: reachDiff,
-    }
+    camp, adset,
+    audit: { camp_rows: camp.length, adset_rows: adset.length }
   };
 }
 
-// Aggregate the same deduped daily rows into a per-group summary for a
-// given groupBy field. Returns [{grp, n_ads, days, first_reach, last_reach,
-// peak_reach, total_reach, spend, incr_reach, cpk}, ...].
-function _ireachAggregate(rows, groupBy){
-  const perDay = new Map();
-  const perGrpAds = new Map();
-  for (const r of rows){
-    const grp = ((r[groupBy] || '(none)') + '').trim() || '(none)';
-    const d = (r.date || '').slice(0,10);
-    if (!d) continue;
-    const k = grp + '|' + d;
-    let bucket = perDay.get(k);
-    if (!bucket){ bucket = {reach:0, spend:0}; perDay.set(k, bucket); }
-    bucket.reach += (+r.reach || 0);
-    bucket.spend += (+r.amount_spent_inr || 0);
-    let ga = perGrpAds.get(grp);
-    if (!ga){ ga = new Set(); perGrpAds.set(grp, ga); }
-    if (r.ad_id) ga.add(r.ad_id);
-  }
+// Aggregate pre-aggregated daily group rows into a per-group summary.
+// Each input row is already {group, date, reach_daily, spend_daily, n_ads}
+// so we just walk the series to pick first / last / peak / totals.
+function _ireachAggregateFromDaily(rows, grpCol){
   const byGrp = new Map();
-  for (const [k, v] of perDay.entries()){
-    const i = k.indexOf('|');           // grp may itself contain "|"; split on FIRST only
-    const grp = k.slice(0, i), d = k.slice(i+1);
+  const maxAds = new Map();
+  for (const r of rows){
+    const grp = ((r[grpCol] || '(none)') + '').trim() || '(none)';
+    const d   = (r.date || '').slice(0, 10);
+    if (!d) continue;
     let series = byGrp.get(grp);
     if (!series){ series = []; byGrp.set(grp, series); }
-    series.push({date:d, reach:v.reach, spend:v.spend});
+    series.push({
+      date:  d,
+      reach: +r.reach_daily || 0,
+      spend: +r.spend_daily || 0,
+    });
+    // n_ads per day is the DISTINCT count on that day; take MAX across
+    // days as the group's "ads active in window" — matches how the
+    // old client path counted unique ad_ids.
+    const cur = maxAds.get(grp) || 0;
+    const nd  = +r.n_ads || 0;
+    if (nd > cur) maxAds.set(grp, nd);
   }
   const out = [];
   for (const [grp, series] of byGrp.entries()){
@@ -5161,8 +5138,9 @@ function _ireachAggregate(rows, groupBy){
     const incr = (last?.reach || 0) - (first?.reach || 0);
     const cpk  = incr > 0 ? (totalSpend / incr) * 1000 : null;
     out.push({
-      grp, n_ads:(perGrpAds.get(grp)?.size || 0),
-      days: series.length,
+      grp,
+      n_ads: maxAds.get(grp) || 0,
+      days:  series.length,
       first_reach: first?.reach || 0,
       last_reach : last?.reach  || 0,
       peak_reach : peak,
@@ -5246,18 +5224,11 @@ function _ireachRenderAudit(){
   const el = document.getElementById('ireachAudit');
   if (!a || !el){ if (el) el.style.display = 'none'; return; }
   el.style.display = '';
-  const noteCls = a.reach_diff_in_overlap > 0 ? 'ireach-audit-note' : '';
   el.innerHTML =
-    '<span>Dedup audit · '+
-      'primary <b>'+fmtInt(a.primary_rows)+'</b> · '+
-      'backfill <b>'+fmtInt(a.backfill_rows)+'</b> · '+
-      'overlap <b>'+fmtInt(a.overlap_rows)+'</b> · '+
-      'merged <b>'+fmtInt(a.merged_rows)+'</b>'+
-      (a.reach_diff_in_overlap > 0
-        ? ' · <span class="'+noteCls+'">'+fmtInt(a.reach_diff_in_overlap)+
-          ' overlap rows with reach mismatch (primary wins)</span>'
-        : '')+
-    '</span>';
+    '<span>Source · <b>public.ireach_campaign_daily</b> ('+
+      fmtInt(a.camp_rows)+' daily rows) + <b>public.ireach_adset_daily</b> ('+
+      fmtInt(a.adset_rows)+' daily rows) · dedup and grain rebuilt server-side by '+
+      'refresh_ireach_daily.py</span>';
 }
 
 async function _ireachApply(){
@@ -5273,15 +5244,16 @@ async function _ireachApply(){
   }
   ireachState.from = from; ireachState.to = to;
   const status = document.getElementById('ireachStatus');
-  status.innerHTML = 'Fetching daily rows from primary_table + backfill_table <span class="spinner"></span>';
+  status.innerHTML = 'Fetching from ireach_campaign_daily + ireach_adset_daily <span class="spinner"></span>';
   const t0 = performance.now();
   try {
-    const { rows, audit } = await _ireachFetch(from, to);
+    const { camp, adset, audit } = await _ireachFetch(from, to);
     ireachState.audit = audit;
-    ireachState.camp.rows  = _ireachAggregate(rows, 'campaign_name');
-    ireachState.adset.rows = _ireachAggregate(rows, 'adset_name');
+    ireachState.camp.rows  = _ireachAggregateFromDaily(camp,  'campaign_name');
+    ireachState.adset.rows = _ireachAggregateFromDaily(adset, 'adset_name');
     const dt = ((performance.now()-t0)/1000).toFixed(1);
-    status.innerHTML = 'Aggregated <b>'+fmtInt(rows.length)+'</b> deduped daily rows into <b>'+
+    status.innerHTML = 'Aggregated <b>'+fmtInt(camp.length + adset.length)+
+      '</b> pre-deduped daily rows into <b>'+
       fmtInt(ireachState.camp.rows.length)+'</b> campaigns and <b>'+
       fmtInt(ireachState.adset.rows.length)+'</b> adsets · '+dt+'s';
     _ireachRender();
