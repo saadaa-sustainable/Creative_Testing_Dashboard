@@ -3895,8 +3895,15 @@ function aiFiltered(){
   else if (tier === 'G1' || tier === 'G2' || tier === 'G3' || tier === 'G4')
                                 rows = rows.filter(r => aiGoogleStep(r) === tier);
   else if (tier)                rows = rows.filter(r => aiStep(r) === tier);
+  // Row-level channel filter — takes precedence when set. Used by the
+  // Organic (IG) card where the channel is defined by (source, medium,
+  // content) together, so a source-based aiUtmSourceSel filter can't
+  // express it accurately.
+  if (aiChannelFilter){
+    rows = rows.filter(r => aiChannel(aiSourceKey(r), r) === aiChannelFilter);
+  }
   // Multi-select utm_source — empty Set means "all"
-  if (aiUtmSourceSel.size) rows = rows.filter(r => aiUtmSourceSel.has(aiSourceKey(r)));
+  else if (aiUtmSourceSel.size) rows = rows.filter(r => aiUtmSourceSel.has(aiSourceKey(r)));
   if (med) rows = rows.filter(r => r.utm_medium === med);
   if (cam) rows = rows.filter(r => (r.utm_campaign || '').toLowerCase().includes(cam));
   if (cnt) rows = rows.filter(r => (r.utm_content  || '').toLowerCase().includes(cnt));
@@ -4011,16 +4018,21 @@ function aiSourceKey(r){
 // not paid Meta).
 function aiChannel(srcKey, row){
   const s = (srcKey || '').trim();
-  // ── Organic (IG): utm_medium="social" AND utm_content="link_in_bio"
-  // Exact-string match on both (case-insensitive) so paid_social /
-  // Social+Facebook_UA / other socialish variants can't sneak in and
-  // steal orders from the paid-Meta tier counters. Verified against
-  // shopify_ad_attribution: the pair matches 789 orders, all IG bio-link
-  // discovery.
+  // ── Organic (IG): all three fields must match exactly ──────────
+  //   utm_source  = 'ig'
+  //   utm_medium  = 'social'
+  //   utm_content = 'link_in_bio'
+  // Verified against shopify_ad_attribution: the triple matches 789
+  // orders (₹12.4 L), which is the entire IG bio-link discovery pool.
+  // Requiring the source to be 'ig' too prevents any future paid Meta
+  // rows with the same medium/content combo from being misclassified.
   if (row){
-    const um = (row.utm_medium  || '').trim().toLowerCase();
-    const uc = (row.utm_content || '').trim().toLowerCase();
-    if (um === 'social' && uc === 'link_in_bio') return 'organic_ig';
+    const usrc = (row.utm_source  || '').trim().toLowerCase();
+    const um   = (row.utm_medium  || '').trim().toLowerCase();
+    const uc   = (row.utm_content || '').trim().toLowerCase();
+    if (usrc === 'ig' && um === 'social' && uc === 'link_in_bio') {
+      return 'organic_ig';
+    }
   }
   if (s === _AI_HEADLESS)       return 'retention';
   if (s === _AI_EXCHANGE)       return 'other';
@@ -4040,6 +4052,10 @@ function aiChannel(srcKey, row){
 let aiOpenChannel = '';
 let aiDisplayMode = 'count';   // 'count' | 'pct' — swaps KPI primary value with chip
 let aiTierMode    = 'meta';    // 'meta' | 'google' — which tier cascade the KPI row shows
+/* Optional row-level channel filter. Set by clicking a channel KPI card
+   when the channel is defined by multi-field logic (currently just
+   Organic (IG)). '' means no channel filter is active. */
+let aiChannelFilter = '';
 
 // Canonical bucket list — must stay in sync with aiChannel + the HTML
 // dom ids under #aiChannelRow. Adding a new bucket = 3 edits: aiChannel,
@@ -4434,21 +4450,24 @@ function initAdIntel(){
     const card = e.target.closest('.kpi'); if (!card) return;
     const channel = card.dataset.channel;
     if (aiOpenChannel === channel){
-      // Same card clicked again → clear the filter + close drilldown
+      // Same card clicked again → clear both filter modes + close drill
       aiUtmSourceSel.clear();
+      aiChannelFilter = '';
       aiCloseChannelDrill();
     } else {
-      // Set filter to every source key that maps to this channel.
-      //   ''                       -> truly-blank rows (under Other)
-      //   '__headless_retention__' -> blank source + non-blank content
-      //                               (under Retention)
-      // Both sentinels get added when their channel is clicked so
-      // those orders survive the filter.
       aiUtmSourceSel.clear();
-      if (channel !== 'all'){
+      aiChannelFilter = '';
+      if (channel === 'organic_ig'){
+        // Row-level channel filter — the (source, medium, content) triple
+        // can't be expressed via aiUtmSourceSel alone since source='ig'
+        // by itself would also let paid Meta rows through.
+        aiChannelFilter = 'organic_ig';
+      } else if (channel !== 'all'){
+        // Source-key filter — good enough for channels defined by
+        // utm_source alone.
         for (const r of aiOrders){
           const key = aiSourceKey(r);
-          if (aiChannel(key) === channel) aiUtmSourceSel.add(key);
+          if (aiChannel(key, r) === channel) aiUtmSourceSel.add(key);
         }
       }
       aiRenderChannelDrill(channel);
@@ -4461,6 +4480,7 @@ function initAdIntel(){
   });
   document.getElementById('aiChannelDrillClose').addEventListener('click', () => {
     aiUtmSourceSel.clear();
+    aiChannelFilter = '';
     aiCloseChannelDrill();
     aiRenderSourceMs(aiBuildSourceCounts());
     aiPage = 0;
