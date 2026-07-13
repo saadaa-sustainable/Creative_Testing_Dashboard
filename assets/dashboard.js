@@ -4109,7 +4109,11 @@ function aiRenderChannelDrill(channel){
                  ai:'AI', organic:'Organic (Direct)', loyalty:'Loyalty',
                  other:'Other', all:'All channels'};
   panel.style.display = 'block';
-  ttl.textContent = nice[channel] + ' · utm_source breakdown';
+  // For Organic (IG) we group by utm_content (since all rows share
+  // utm_source=ig anyway); re-label everything so the header, subtitle
+  // and column all agree on what the values actually are.
+  const groupField = channel === 'organic_ig' ? 'utm_content' : 'utm_source';
+  ttl.textContent = nice[channel] + ' · ' + groupField + ' breakdown';
   // Group rows in this channel by the row-level source key so the two
   // synthetic sources ('' -> "(blank)" and __headless_retention__ ->
   // "headless_retention") appear as first-class entries in the table.
@@ -4140,7 +4144,7 @@ function aiRenderChannelDrill(channel){
   const list = Array.from(groups.values())
     .sort((a,b) => b.orders - a.orders);
   sub.textContent = fmtInt(totalOrders) + ' orders · ' + fmtRs(totalSales) +
-                    ' · ' + list.length + ' unique utm_source values';
+                    ' · ' + list.length + ' unique ' + groupField + ' values';
   if (!list.length){
     body.innerHTML = '<div class="ai-empty-hint">No orders in this channel for the current window.</div>';
     return;
@@ -4149,7 +4153,7 @@ function aiRenderChannelDrill(channel){
   const barCls = channel === 'all' ? 'other' : channel;
   body.innerHTML = '<table class="ai-src-tbl">'+
     '<thead><tr>'+
-      '<th style="width:180px">utm_source</th>'+
+      '<th style="width:180px">' + groupField + '</th>'+
       '<th class="num" style="width:100px">Orders</th>'+
       '<th class="num" style="width:130px">Sales</th>'+
       '<th class="num" style="width:80px">AOV</th>'+
@@ -4176,11 +4180,19 @@ function aiRenderChannelDrill(channel){
         '</div></td>'+
       '</tr>';
     }).join('') + '</tbody></table>';
-  // Row click → set utm_source filter to just this value and close the drill
+  // Row click behaviour depends on how the drilldown is grouped.
+  // For source-based channels: add the source key to aiUtmSourceSel.
+  // For Organic (IG) (grouped by utm_content): keep the row-level
+  // aiChannelFilter — the utm_content values are the drilldown's
+  // key domain, not utm_source, so pushing them into aiUtmSourceSel
+  // would filter to zero rows.
   body.querySelectorAll('tr[data-drill-src]').forEach(tr => {
     tr.addEventListener('click', () => {
-      // data-drill-src carries the exact synthetic key already, so we
-      // can just add it to the Set — no translation needed.
+      if (channel === 'organic_ig'){
+        // No-op for the Organic (IG) case — the aiChannelFilter set
+        // during the card click already narrows the table correctly.
+        return;
+      }
       const key = tr.dataset.drillSrc;
       aiUtmSourceSel.clear();
       aiUtmSourceSel.add(key);
