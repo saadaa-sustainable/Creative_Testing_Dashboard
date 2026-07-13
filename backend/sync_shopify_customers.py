@@ -115,14 +115,19 @@ def _addr(a):
     if not a: return None
     return {k: v for k, v in a.items() if v is not None}
 
-def _fetch(since_updated: str | None, limit: int | None):
-    """Yield customer dicts (Shopify shape → row dict) until pagination
-    ends or the caller's --limit is reached."""
+def _fetch(since_updated: str | None, limit: int | None,
+            batch_sink=None, batch_size: int = 500):
+    """Iterate customers and either return the full list (batch_sink=None)
+    or hand them to batch_sink in chunks of batch_size (streaming path).
+    Streaming keeps memory bounded on ~400k+ catalogues and surfaces
+    progress in the DB as rows land."""
     out = []
     cursor = None
     page = 0
     query = f"updated_at:>={since_updated}" if since_updated else None
     t0 = time.time()
+    total_fetched = 0
+    total_upserted = 0
     while True:
         page += 1
         r = requests.post(GRAPHQL, headers=HDRS,
@@ -167,19 +172,38 @@ def _fetch(since_updated: str | None, limit: int | None):
             }
             if row["id"]:
                 out.append(row)
-                if limit and len(out) >= limit: break
-        if limit and len(out) >= limit:
+                total_fetched += 1
+                if limit and total_fetched >= limit: break
+        # Flush every batch_size customers when streaming so the DB sees
+        # progress and memory stays bounded.
+        if batch_sink and len(out) >= batch_size:
+            n = batch_sink(out)
+            total_upserted += (n or len(out))
+            out = []
+        if limit and total_fetched >= limit:
             say(f"[hit --limit {limit}] stopping pagination"); break
         pi = cus.get("pageInfo") or {}
         if not pi.get("hasNextPage"):
             break
         cursor = pi.get("endCursor")
-        say(f"    page {page:3d}  running total={len(out):,}"
-            + (f"  ({since_updated}+)" if since_updated else ""))
+        if page % 10 == 0 or page < 5:
+            say(f"    page {page:4d}  fetched {total_fetched:,}"
+                + (f"  upserted {total_upserted:,}" if batch_sink else "")
+                + (f"  ({since_updated}+)" if since_updated else ""))
         # Shopify GraphQL is throttled by cost buckets — sleep 0.25s
         # between pages so we stay well under the limit.
         time.sleep(0.25)
-    say(f"[ok] fetched {len(out):,} customers in {time.time()-t0:.1f}s ({page} pages)")
+    # Flush the final partial batch
+    if batch_sink and out:
+        n = batch_sink(out)
+        total_upserted += (n or len(out))
+        out = []
+    dt = time.time() - t0
+    if batch_sink:
+        say(f"[ok] streamed {total_fetched:,} customers in {dt:.1f}s "
+            f"({page} pages)  ·  {total_upserted:,} upserted")
+        return None
+    say(f"[ok] fetched {total_fetched:,} customers in {dt:.1f}s ({page} pages)")
     return out
 
 # ─── DB write paths ───────────────────────────────────────────────────
@@ -277,11 +301,14 @@ def main():
     if args.since: say(f"[*] filter: updated_at >= {args.since}")
     if args.limit: say(f"[*] limit:  {args.limit}")
 
-    rows = _fetch(args.since, args.limit)
     if args.dry_run:
+        # Old behaviour — accumulate into memory + summarise
+        rows = _fetch(args.since, args.limit)
         say(f"[dry-run] would upsert {len(rows):,} rows — skipping DB write")
         return
-    _upsert(rows)
+    # Streaming path — upserts every 500 rows so a 400k+ catalogue can
+    # complete without buffering the whole thing in memory.
+    _fetch(args.since, args.limit, batch_sink=_upsert, batch_size=500)
 
 if __name__ == "__main__":
     main()
