@@ -5628,7 +5628,52 @@ let SHOPIFY_DOMAIN  = _readShopifyCfg().domain;
 let SHOPIFY_TOKEN   = _readShopifyCfg().token;
 let SHOPIFY_API_VER = _readShopifyCfg().apiVer;
 let invProducts = [];
-let invState = {status:'', search:'', excludeOOS:false, excludeNoImg:false};
+// Multi-facet filter state — every dropdown is client-side.
+let invState = {
+  status:'', search:'', excludeNoImg:false,
+  lifecycle:'',     // '', 'npd', 'active', 'discontinued'
+  stock:'',         // '', 'in_stock', 'low_stock', 'out_of_stock'
+  category:'',      // free-string exact match
+  type:'',          // free-string exact match on product_type
+};
+
+// Discontinued / NPD constants shared with the reference project. NPD =
+// created ≤45 days ago; anything else with a "discontinued" tag is
+// pushed into the third bucket. Everything else is Active.
+const INV_NPD_MAX_DAYS  = 45;
+const INV_DISC_TAGS     = new Set(['discontinued','disc','discontinue','disc.']);
+const INV_LOW_BREAK_MAX = 10;   // ≤10 units → low
+const INV_SIZE_ORDER_TABLE = ['XS','S','M','L','XL','2XL','3XL','4XL','5XL'];
+
+function invLifecycle(p){
+  const tags = (p.tags || []).map(t => (t || '').toLowerCase().trim());
+  if (tags.some(t => INV_DISC_TAGS.has(t))) return 'discontinued';
+  const t = p.createdAt ? Date.parse(p.createdAt) : NaN;
+  if (isFinite(t)){
+    const days = (Date.now() - t) / 86400000;
+    if (days <= INV_NPD_MAX_DAYS) return 'npd';
+  }
+  return 'active';
+}
+function invStockStatus(p){
+  // Derived from sizes_json — the JSON blob populated by
+  // sync_shopify_products.py. When no size variants exist we fall back
+  // to totalInventory so bedsheets etc. still classify sensibly.
+  const sz = p.sizes || null;
+  if (sz && typeof sz === 'object' && Object.keys(sz).length){
+    const vals = Object.values(sz).map(v => Number(v) || 0);
+    const zeros = vals.filter(v => v === 0).length;
+    const total = vals.reduce((a,b) => a + b, 0);
+    if (zeros === vals.length)        return 'out_of_stock';
+    if (zeros >= vals.length / 2)     return 'broken_stock';   // mostly zeroes
+    if (total <= INV_LOW_BREAK_MAX)   return 'low_stock';
+    return 'in_stock';
+  }
+  const tot = Number(p.totalInventory);
+  if (!isFinite(tot) || tot <= 0)      return 'out_of_stock';
+  if (tot <= INV_LOW_BREAK_MAX)        return 'low_stock';
+  return 'in_stock';
+}
 
 const INV_QUERY = `
   query InvPage($after: String) {
@@ -5684,7 +5729,7 @@ async function loadInventory(){
   invProducts = [];
   const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
                    Prefer:'count=none'};
-  const cols = 'id,title,status,vendor,product_type,handle,image_url,'+
+  const cols = 'id,title,status,vendor,product_type,handle,image_url,tags,'+
                'variant_count,total_inventory,price_min,price_max,'+
                'created_at_shop,updated_at_shop,synced_at,sizes_json';
   let offset = 0, BATCH = 1000, lastSynced = null;
@@ -5717,6 +5762,8 @@ async function loadInventory(){
             maxVariantPrice: {amount: p.price_max},
           },
           variantsCount: {count: p.variant_count},
+          // Tags used by invLifecycle() to detect discontinued products.
+          tags: Array.isArray(p.tags) ? p.tags : (p.tags ? [p.tags] : []),
           // Per-size stock breakdown (populated by sync_shopify_products.py
           // from Shopify GraphQL variants.selectedOptions). Missing on
           // pre-migration rows — render code treats null/{} identically.
@@ -5767,29 +5814,66 @@ async function loadInventory(){
     }
   } catch (e){ /* DoQ overlay is best-effort — table still works without it */ }
 
+  invPopulateFilterOptions();
   renderInventoryKpis();
   renderInventoryTable();
 }
 
+function _invLcSet(prefix, items){
+  // items = list of products already classified into one lifecycle bucket
+  const t = items.length;
+  const inS  = items.filter(p => invStockStatus(p) === 'in_stock').length;
+  const lowS = items.filter(p => { const s = invStockStatus(p);
+                                    return s === 'low_stock' || s === 'broken_stock'; }).length;
+  const outS = items.filter(p => invStockStatus(p) === 'out_of_stock').length;
+  const inPct  = t ? Math.round(inS  / t * 100) : 0;
+  const lowPct = t ? Math.round(lowS / t * 100) : 0;
+  const outPct = t ? Math.round(outS / t * 100) : 0;
+  document.getElementById(prefix + 'Cnt').textContent = fmtInt(t);
+  document.getElementById(prefix + 'In').style.width  = inPct  + '%';
+  document.getElementById(prefix + 'Low').style.width = lowPct + '%';
+  document.getElementById(prefix + 'Out').style.width = outPct + '%';
+  document.getElementById(prefix + 'InPct').textContent  = inPct  + '%';
+  document.getElementById(prefix + 'OutPct').textContent = outPct + '%';
+}
+
 function renderInventoryKpis(){
-  const tot   = invProducts.length;
-  const act   = invProducts.filter(p => (p.status||'').toUpperCase() === 'ACTIVE').length;
-  const draft = invProducts.filter(p => (p.status||'').toUpperCase() === 'DRAFT').length;
-  const arch  = invProducts.filter(p => (p.status||'').toUpperCase() === 'ARCHIVED').length;
-  const variants = invProducts.reduce((s,p) => s + (p.variantsCount?.count || 0), 0);
-  const oos   = invProducts.filter(p => (p.totalInventory || 0) <= 0).length;
-  document.getElementById('invKpTotal' ).textContent = fmtInt(tot);
-  document.getElementById('invKpActive').textContent = fmtInt(act);
-  document.getElementById('invKpDraft' ).textContent = fmtInt(draft);
-  document.getElementById('invKpArch'  ).textContent = fmtInt(arch);
-  document.getElementById('invKpVar'   ).textContent = fmtInt(variants);
-  document.getElementById('invKpOOS'   ).textContent = fmtInt(oos);
+  // All KPIs computed on the CURRENT FILTER'd set so numbers stay in
+  // sync with the visible table. Lifecycle summary cards use the full
+  // dataset — that's the "big picture" panel at the top.
+  const filt = invFiltered();
+  document.getElementById('invKpTotal').textContent = fmtInt(filt.length);
+  document.getElementById('invKpNpd'  ).textContent = fmtInt(filt.filter(p => invLifecycle(p) === 'npd').length);
+  document.getElementById('invKpIn'   ).textContent = fmtInt(filt.filter(p => invStockStatus(p) === 'in_stock').length);
+  const lowSet = filt.filter(p => { const s = invStockStatus(p);
+                                    return s === 'low_stock' || s === 'broken_stock'; });
+  document.getElementById('invKpLow'  ).textContent = fmtInt(lowSet.length);
+  document.getElementById('invKpOOS'  ).textContent = fmtInt(filt.filter(p => invStockStatus(p) === 'out_of_stock').length);
+
+  // Lifecycle summary cards use the FULL dataset (before filters) so
+  // the top-of-page tally always shows the total shape of the catalogue.
+  const npd  = invProducts.filter(p => invLifecycle(p) === 'npd');
+  const act  = invProducts.filter(p => invLifecycle(p) === 'active');
+  const disc = invProducts.filter(p => invLifecycle(p) === 'discontinued');
+  _invLcSet('invLcNpd',  npd);
+  _invLcSet('invLcAct',  act);
+  _invLcSet('invLcDisc', disc);
 }
 
 function invFiltered(){
   let rows = invProducts.slice();
-  if (invState.status) rows = rows.filter(p => (p.status||'').toUpperCase() === invState.status);
-  if (invState.excludeOOS) rows = rows.filter(p => (p.totalInventory || 0) > 0);
+  if (invState.status)    rows = rows.filter(p => (p.status||'').toUpperCase() === invState.status);
+  if (invState.category)  rows = rows.filter(p => (p.productType||'').trim() === invState.category);
+  if (invState.type)      rows = rows.filter(p => (p.productType||'').trim() === invState.type);
+  if (invState.lifecycle) rows = rows.filter(p => invLifecycle(p) === invState.lifecycle);
+  if (invState.stock){
+    if (invState.stock === 'low_stock'){
+      rows = rows.filter(p => { const s = invStockStatus(p);
+                                return s === 'low_stock' || s === 'broken_stock'; });
+    } else {
+      rows = rows.filter(p => invStockStatus(p) === invState.stock);
+    }
+  }
   if (invState.excludeNoImg) rows = rows.filter(p => p.featuredImage?.url);
   if (invState.search){
     const q = invState.search.toLowerCase().trim();
@@ -5798,89 +5882,136 @@ function invFiltered(){
   return rows;
 }
 
-/* Canonical size order for the Inventory badges. Matches the ordering
-   used by sync_shopify_products.py so the frontend agrees with the
-   backend's stored key sequence. */
-const INV_SIZE_ORDER = ['XS','S','M','L','XL','2XL','3XL','4XL','5XL'];
-const INV_LOW_THRESHOLD = 10;
-
-function invSizeBadges(sizes){
-  if (!sizes || typeof sizes !== 'object') return '';
-  const keys = Object.keys(sizes);
-  if (!keys.length) return '<span class="inv-sz-empty">—</span>';
-  // Preserve canonical ordering; unknown sizes (e.g. FREE, OS) sink to the end.
-  const known   = INV_SIZE_ORDER.filter(s => sizes[s] != null);
-  const unknown = keys.filter(s => !INV_SIZE_ORDER.includes(s));
-  return [...known, ...unknown].map(s => {
+// One <td> per canonical size. Colour by qty vs LOW_BREAK_MAX.  Products
+// that don't carry a given size get a muted "—".
+function invSizeCells(sizes){
+  return INV_SIZE_ORDER_TABLE.map(s => {
+    const has = sizes && Object.prototype.hasOwnProperty.call(sizes, s);
+    if (!has) return '<td class="num inv-sz-cell inv-sz-none">—</td>';
     const q  = Number(sizes[s]) || 0;
     const cls = q === 0 ? 'inv-sz-out' :
-                q <= INV_LOW_THRESHOLD ? 'inv-sz-low' : 'inv-sz-in';
-    // qty shown after the size letter, formatted compact (1.2k, 340, 8)
-    const qStr = q >= 1000 ? (q/1000).toFixed(1).replace(/\.0$/,'')+'k' : String(q);
-    return '<span class="inv-sz-badge '+cls+'" title="'+s+' · '+q.toLocaleString('en-IN')+' units">'+
-           '<b>'+s+'</b><i>'+qStr+'</i></span>';
+                q <= INV_LOW_BREAK_MAX ? 'inv-sz-low' : 'inv-sz-in';
+    return '<td class="num inv-sz-cell '+cls+'" title="'+s+' · '+q.toLocaleString('en-IN')+' units">'+
+             fmtInt(q) +
+           '</td>';
   }).join('');
 }
+
+// Populate the Category + Type dropdowns from the loaded data. Called
+// once on load and again after any Refresh.
+function invPopulateFilterOptions(){
+  const cats  = new Set();
+  const types = new Set();
+  for (const p of invProducts){
+    if (p.productType) cats.add(p.productType);
+    if (p.productType) types.add(p.productType);
+  }
+  const catSel  = document.getElementById('invCategory');
+  const typeSel = document.getElementById('invType');
+  if (catSel){
+    const cur = catSel.value;
+    catSel.innerHTML = '<option value="">All Categories</option>' +
+      [...cats].sort().map(c => '<option value="'+c.replace(/"/g,'&quot;')+'">'+c+'</option>').join('');
+    catSel.value = cur;
+  }
+  if (typeSel){
+    const cur = typeSel.value;
+    typeSel.innerHTML = '<option value="">All Types</option>' +
+      [...types].sort().map(c => '<option value="'+c.replace(/"/g,'&quot;')+'">'+c+'</option>').join('');
+    typeSel.value = cur;
+  }
+}
+
+const INV_LC_BADGE = {
+  npd:          { cls:'lc-npd-pill',  label:'🌱 NPD' },
+  active:       { cls:'lc-act-pill',  label:'Active' },
+  discontinued: { cls:'lc-disc-pill', label:'Discontinued' },
+};
+const INV_STOCK_BADGE = {
+  in_stock:     { cls:'ss-in',    label:'In stock' },
+  low_stock:    { cls:'ss-low',   label:'Low' },
+  broken_stock: { cls:'ss-low',   label:'Broken' },
+  out_of_stock: { cls:'ss-out',   label:'Out' },
+};
 
 function renderInventoryTable(){
   const rows = invFiltered();
   const tbody = document.querySelector('#invTbl tbody');
   tbody.innerHTML = rows.map(p => {
-    const st = (p.status || '').toUpperCase();
-    const cls = st === 'ACTIVE' ? 's-active' : st === 'DRAFT' ? 's-draft' : 's-archived';
     const img = p.featuredImage?.url
       ? '<img class="thumb" loading="lazy" src="' + p.featuredImage.url + '">'
       : '<div class="thumb-ph">no img</div>';
     const minP = +p.priceRangeV2?.minVariantPrice?.amount || 0;
     const maxP = +p.priceRangeV2?.maxVariantPrice?.amount || 0;
     const priceTxt = minP === maxP ? fmtRs(minP) : fmtRs(minP) + ' – ' + fmtRs(maxP);
-    // DoQ / OOS cells — "—" when the product had no SKU-tag match in
-    // product_doq_daily (mostly bedsheets / no SKU-shaped tags).
     const dq  = p.doq_daily != null ? fmtInt(p.doq_daily) : '—';
     const d30 = p.doq_30    != null ? (+p.doq_30).toFixed(2) : '—';
     const d45 = p.doq_45    != null ? (+p.doq_45).toFixed(2) : '—';
     const oo  = p.oos_30    != null ? fmtInt(p.oos_30) : '—';
+    const lc  = invLifecycle(p);
+    const ss  = invStockStatus(p);
+    const lcB = INV_LC_BADGE[lc] || INV_LC_BADGE.active;
+    const ssB = INV_STOCK_BADGE[ss] || INV_STOCK_BADGE.in_stock;
+    const daysOld = p.createdAt ? Math.floor((Date.now() - Date.parse(p.createdAt)) / 86400000) : null;
+    const lcSub = (lc === 'npd' && daysOld != null) ? ' <span class="lc-sub">'+daysOld+'d</span>' : '';
     return '<tr>'+
       '<td>'+img+'</td>'+
       '<td class="title-cell">'+
         '<div class="title">'+ (p.title || '—') +'</div>'+
         '<div class="handle">'+ (p.handle || '') +'</div>'+
       '</td>'+
-      '<td><span class="status-pill '+cls+'">'+st+'</span></td>'+
-      '<td>'+(p.vendor || '—')+'</td>'+
+      '<td><span class="lc-pill '+lcB.cls+'">'+lcB.label+'</span>'+lcSub+'</td>'+
       '<td>'+(p.productType || '—')+'</td>'+
-      '<td class="num">'+fmtInt(p.variantsCount?.count)+'</td>'+
+      '<td><span class="ss-pill '+ssB.cls+'">'+ssB.label+'</span></td>'+
       '<td class="num">'+fmtInt(p.totalInventory)+'</td>'+
       '<td class="num">'+dq +'</td>'+
       '<td class="num">'+d30+'</td>'+
       '<td class="num">'+d45+'</td>'+
       '<td class="num">'+oo +'</td>'+
-      '<td class="inv-sz-cell">'+invSizeBadges(p.sizes)+'</td>'+
+      invSizeCells(p.sizes) +
       '<td class="num">'+priceTxt+'</td>'+
-      '<td style="font-family:JetBrains Mono;font-size:11px">'+(p.createdAt ? p.createdAt.slice(0,10) : '—')+'</td>'+
     '</tr>';
   }).join('');
   const tot = invProducts.length;
-  if (rows.length !== tot){
-    document.getElementById('invFooter').textContent =
-      'Showing ' + rows.length.toLocaleString() + ' of ' + tot.toLocaleString() + ' products';
+  const footer = document.getElementById('invFooter');
+  if (footer){
+    footer.textContent = 'Showing ' + rows.length.toLocaleString() +
+                          ' of ' + tot.toLocaleString() + ' products';
   }
 }
 
-document.getElementById('invStatusRow').addEventListener('click', e => {
-  const btn = e.target.closest('.preset'); if (!btn) return;
-  document.querySelectorAll('#invStatusRow .preset').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  invState.status = btn.dataset.s;
-  renderInventoryTable();
+// Filter change wiring — every dropdown just updates state + re-renders.
+function _invBindSelect(id, key){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('change', () => { invState[key] = el.value; renderInventoryKpis(); renderInventoryTable(); });
+}
+_invBindSelect('invLifecycle', 'lifecycle');
+_invBindSelect('invStock',     'stock');
+_invBindSelect('invCategory',  'category');
+_invBindSelect('invStatus',    'status');
+_invBindSelect('invType',      'type');
+
+document.getElementById('invResetFilters')?.addEventListener('click', () => {
+  invState.lifecycle = invState.stock = invState.category = invState.status = invState.type = '';
+  invState.search = ''; invState.excludeNoImg = false;
+  ['invLifecycle','invStock','invCategory','invStatus','invType'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const s = document.getElementById('invSearch'); if (s) s.value = '';
+  const c = document.getElementById('invExcludeNoImg'); if (c) c.checked = false;
+  renderInventoryKpis(); renderInventoryTable();
 });
+
 let invSearchDb = null;
 document.getElementById('invSearch').addEventListener('input', e => {
   clearTimeout(invSearchDb);
-  invSearchDb = setTimeout(() => { invState.search = e.target.value; renderInventoryTable(); }, 200);
+  invSearchDb = setTimeout(() => { invState.search = e.target.value; renderInventoryKpis(); renderInventoryTable(); }, 200);
 });
-document.getElementById('invExcludeOOS' ).addEventListener('change', e => { invState.excludeOOS  = e.target.checked; renderInventoryTable(); });
-document.getElementById('invExcludeNoImg').addEventListener('change', e => { invState.excludeNoImg = e.target.checked; renderInventoryTable(); });
+document.getElementById('invExcludeNoImg').addEventListener('change', e => {
+  invState.excludeNoImg = e.target.checked;
+  renderInventoryKpis(); renderInventoryTable();
+});
 document.getElementById('invRefresh').onclick = () => { VIEW_LOADED.inventory = false; loadInventory(); VIEW_LOADED.inventory = true; };
 
 // ── Shopify config panel ─────────────────────────────────────────────

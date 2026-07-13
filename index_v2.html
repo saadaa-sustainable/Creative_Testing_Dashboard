@@ -1340,45 +1340,122 @@
               font-family:'JetBrains Mono',monospace"></div>
   </div>
 
-  <!-- Status filter pills -->
-  <div class="filter-top" style="align-items:center">
-    <div class="preset-row" id="invStatusRow">
-      <button class="preset active" data-s="">All</button>
-      <button class="preset" data-s="ACTIVE">Active</button>
-      <button class="preset" data-s="DRAFT">Draft</button>
-      <button class="preset" data-s="ARCHIVED">Archived</button>
+  <!-- Multi-filter bar: lifecycle, stock health, status, category, type +
+       reset. Every dropdown is client-side; no re-fetch. -->
+  <div class="filter-top inv-filters" style="align-items:center;flex-wrap:wrap;gap:12px">
+    <div class="inv-flt">
+      <label class="inv-flt-lbl">Lifecycle</label>
+      <select class="fg-select" id="invLifecycle">
+        <option value="">All</option>
+        <option value="npd">🌱 NPD (≤45 days)</option>
+        <option value="active">Active</option>
+        <option value="discontinued">Discontinued</option>
+      </select>
     </div>
-    <div style="display:flex;gap:10px;align-items:center;font-size:12px;color:var(--text-secondary)">
-      <label style="display:flex;gap:6px;align-items:center;cursor:pointer">
-        <input type="checkbox" id="invExcludeOOS"> Exclude out-of-stock
-      </label>
-      <label style="display:flex;gap:6px;align-items:center;cursor:pointer">
-        <input type="checkbox" id="invExcludeNoImg"> Exclude no image
-      </label>
+    <div class="inv-flt">
+      <label class="inv-flt-lbl">Stock</label>
+      <select class="fg-select" id="invStock">
+        <option value="">All</option>
+        <option value="in_stock">In Stock</option>
+        <option value="low_stock">Low / Broken</option>
+        <option value="out_of_stock">Out of Stock</option>
+      </select>
+    </div>
+    <div class="inv-flt">
+      <label class="inv-flt-lbl">Category</label>
+      <select class="fg-select" id="invCategory">
+        <option value="">All Categories</option>
+      </select>
+    </div>
+    <div class="inv-flt">
+      <label class="inv-flt-lbl">Status</label>
+      <select class="fg-select" id="invStatus">
+        <option value="">All</option>
+        <option value="ACTIVE">Active</option>
+        <option value="DRAFT">Draft</option>
+        <option value="ARCHIVED">Archived</option>
+      </select>
+    </div>
+    <div class="inv-flt">
+      <label class="inv-flt-lbl">Type</label>
+      <select class="fg-select" id="invType">
+        <option value="">All Types</option>
+      </select>
+    </div>
+    <button class="btn ghost" id="invResetFilters" type="button" title="Clear every filter">↻ Reset</button>
+    <span style="flex:1"></span>
+    <label style="display:flex;gap:6px;align-items:center;cursor:pointer;font-size:12px;color:var(--text-secondary)">
+      <input type="checkbox" id="invExcludeNoImg"> Exclude no image
+    </label>
+  </div>
+
+  <!-- Lifecycle summary cards — one per bucket with in/low/out bar -->
+  <div class="inv-lc-row" id="invLcSummary">
+    <div class="inv-lc-card lc-npd">
+      <div class="inv-lc-title">🌱 NPD Products</div>
+      <div class="inv-lc-val" id="invLcNpdCnt">—</div>
+      <div class="inv-lc-bar">
+        <div class="inv-lc-seg lc-in"  id="invLcNpdIn"  style="width:0%"></div>
+        <div class="inv-lc-seg lc-low" id="invLcNpdLow" style="width:0%"></div>
+        <div class="inv-lc-seg lc-out" id="invLcNpdOut" style="width:0%"></div>
+      </div>
+      <div class="inv-lc-meta"><span><i class="dot in"></i>In <b id="invLcNpdInPct">0%</b></span>
+        <span><i class="dot out"></i>OOS <b id="invLcNpdOutPct">0%</b></span></div>
+    </div>
+    <div class="inv-lc-card lc-active">
+      <div class="inv-lc-title">Active Products</div>
+      <div class="inv-lc-val" id="invLcActCnt">—</div>
+      <div class="inv-lc-bar">
+        <div class="inv-lc-seg lc-in"  id="invLcActIn"  style="width:0%"></div>
+        <div class="inv-lc-seg lc-low" id="invLcActLow" style="width:0%"></div>
+        <div class="inv-lc-seg lc-out" id="invLcActOut" style="width:0%"></div>
+      </div>
+      <div class="inv-lc-meta"><span><i class="dot in"></i>In <b id="invLcActInPct">0%</b></span>
+        <span><i class="dot out"></i>OOS <b id="invLcActOutPct">0%</b></span></div>
+    </div>
+    <div class="inv-lc-card lc-disc">
+      <div class="inv-lc-title">Discontinued Products</div>
+      <div class="inv-lc-val" id="invLcDiscCnt">—</div>
+      <div class="inv-lc-bar">
+        <div class="inv-lc-seg lc-in"  id="invLcDiscIn"  style="width:0%"></div>
+        <div class="inv-lc-seg lc-low" id="invLcDiscLow" style="width:0%"></div>
+        <div class="inv-lc-seg lc-out" id="invLcDiscOut" style="width:0%"></div>
+      </div>
+      <div class="inv-lc-meta"><span><i class="dot in"></i>In <b id="invLcDiscInPct">0%</b></span>
+        <span><i class="dot out"></i>OOS <b id="invLcDiscOutPct">0%</b></span></div>
     </div>
   </div>
 
-  <!-- KPI strip -->
+  <!-- 5-card KPI row (mirrors the Landing_Page reference) -->
   <div class="kpi-row" id="invKpis">
-    <div class="kpi"><div class="k-lbl">Total products</div><div class="k-val mono" id="invKpTotal">—</div><div class="k-sub">all statuses</div></div>
-    <div class="kpi"><div class="k-lbl">Active</div><div class="k-val mono" id="invKpActive">—</div><div class="k-sub">published</div></div>
-    <div class="kpi"><div class="k-lbl">Draft</div><div class="k-val mono" id="invKpDraft">—</div><div class="k-sub">unpublished</div></div>
-    <div class="kpi"><div class="k-lbl">Archived</div><div class="k-val mono" id="invKpArch">—</div><div class="k-sub">hidden</div></div>
-    <div class="kpi"><div class="k-lbl">Total variants</div><div class="k-val mono" id="invKpVar">—</div><div class="k-sub">SKUs</div></div>
-    <div class="kpi"><div class="k-lbl">Out of stock</div><div class="k-val mono" id="invKpOOS">—</div><div class="k-sub">variants with 0</div></div>
+    <div class="kpi"><div class="k-lbl">Products</div>
+      <div class="k-val mono" id="invKpTotal">—</div>
+      <div class="k-sub">in current filter</div></div>
+    <div class="kpi"><div class="k-lbl">🌱 NPD</div>
+      <div class="k-val mono" id="invKpNpd">—</div>
+      <div class="k-sub">≤45 days old</div></div>
+    <div class="kpi"><div class="k-lbl">In Stock</div>
+      <div class="k-val mono" id="invKpIn">—</div>
+      <div class="k-sub">fully available</div></div>
+    <div class="kpi"><div class="k-lbl">Low / Broken</div>
+      <div class="k-val mono" id="invKpLow">—</div>
+      <div class="k-sub">≤10 units or broken sizes</div></div>
+    <div class="kpi"><div class="k-lbl">Out of Stock</div>
+      <div class="k-val mono" id="invKpOOS">—</div>
+      <div class="k-sub">zero units</div></div>
   </div>
 
-  <!-- Product table -->
-  <div class="funnel-card" style="padding:0;overflow:auto;max-height:calc(100vh - 360px)">
-    <table class="tbl inv-tbl" id="invTbl" style="margin:0">
+  <!-- Product table — sizes now get their own numeric columns so every
+       size ladder is aligned across rows. Horizontal scroll if needed. -->
+  <div class="funnel-card inv-tbl-wrap" style="padding:0;overflow:auto;max-height:calc(100vh - 380px)">
+    <table class="tbl inv-tbl" id="invTbl" style="margin:0;min-width:1900px">
       <thead><tr>
         <th style="width:64px">Image</th>
-        <th>Title</th>
-        <th>Status</th>
-        <th>Vendor</th>
-        <th>Type</th>
-        <th class="num">Variants</th>
-        <th class="num">Total inventory</th>
+        <th style="min-width:280px">Title</th>
+        <th>Lifecycle</th>
+        <th>Category</th>
+        <th>Stock</th>
+        <th class="num">Total</th>
         <!-- DoQ metrics — sourced from BigQuery via product_doq_daily,
              matched to Shopify products by SKU-prefix tag.
              Daily qty = ordered units on the latest BQ snapshot day.
@@ -1389,12 +1466,19 @@
         <th class="num" title="Average daily ordered quantity, last 30 days">DoQ 30d</th>
         <th class="num" title="Average daily ordered quantity, last 45 days">DoQ 45d</th>
         <th class="num" title="Days out-of-stock in the last 30 days (worst variant)">OOS 30d</th>
-        <!-- Per-size stock badges. Green = in-stock (>10), amber = low
-             (1-10), red = out (0). Only sizes the product actually
-             carries appear as badges. -->
-        <th title="Per-size stock — green in-stock, amber low, red out">Sizes</th>
-        <th class="num">Price range (₹)</th>
-        <th>Created</th>
+        <!-- One column per canonical size. Cells colour-code by qty:
+             green (>10), amber (1–10), red (0), muted "—" when the
+             product doesn't carry that size. -->
+        <th class="num inv-sz-col">XS</th>
+        <th class="num inv-sz-col">S</th>
+        <th class="num inv-sz-col">M</th>
+        <th class="num inv-sz-col">L</th>
+        <th class="num inv-sz-col">XL</th>
+        <th class="num inv-sz-col">2XL</th>
+        <th class="num inv-sz-col">3XL</th>
+        <th class="num inv-sz-col">4XL</th>
+        <th class="num inv-sz-col">5XL</th>
+        <th class="num">Price (₹)</th>
       </tr></thead>
       <tbody></tbody>
     </table>
@@ -1845,6 +1929,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=inv_sizes"></script>
+<script src="assets/dashboard.js?v=inv_lifecycle"></script>
 </body>
 </html>

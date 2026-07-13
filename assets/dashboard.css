@@ -697,19 +697,62 @@
     display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);
     border:1px solid var(--border-warm);font-size:10px}
   .inv-tbl .title-cell{max-width:340px}
-  /* Per-size stock badges — one pill per size the product actually
-     carries. Colour follows the current qty (in / low ≤10 / out).
-     Kept compact so a whole size ladder fits inline next to DoQ / OOS. */
-  .inv-tbl .inv-sz-cell{padding:6px 8px;line-height:1.3}
-  .inv-sz-badge{display:inline-flex;align-items:center;gap:4px;padding:1px 6px;
-    margin:1px 3px 1px 0;border-radius:5px;font-size:10.5px;
-    font-family:'JetBrains Mono',monospace;font-weight:600;border:1px solid transparent}
-  .inv-sz-badge b{font-weight:700;letter-spacing:.2px}
-  .inv-sz-badge i{font-style:normal;font-weight:500;opacity:.9}
-  .inv-sz-in { color:var(--success-text); background:var(--success-bg);  border-color:#cfd8c5 }
-  .inv-sz-low{ color:var(--warning-text); background:var(--warning-bg);  border-color:var(--warning-border) }
-  .inv-sz-out{ color:var(--error-text);   background:var(--error-bg);    border-color:var(--error-border, #f0c9c9) }
-  .inv-sz-empty{color:var(--text-tertiary);font-size:11px}
+  /* ── Per-size columns ────────────────────────────────────────────────
+     One <td> per canonical size (XS through 5XL). Colour reflects the
+     current stock at that size — green (>10), amber (1–10), red (0),
+     muted "—" when the product doesn't carry that size. */
+  .inv-tbl th.inv-sz-col{min-width:52px;max-width:64px;text-align:right}
+  .inv-tbl td.inv-sz-cell{font-family:'JetBrains Mono',monospace;
+    font-weight:600;font-size:12px;padding:6px 8px;text-align:right}
+  .inv-tbl td.inv-sz-in { color:var(--success-text); background:var(--success-bg) }
+  .inv-tbl td.inv-sz-low{ color:var(--warning-text); background:var(--warning-bg) }
+  .inv-tbl td.inv-sz-out{ color:var(--error-text);   background:var(--error-bg)   }
+  .inv-tbl td.inv-sz-none{ color:var(--text-tertiary); font-weight:400; opacity:.55 }
+
+  /* ── Lifecycle + Stock pills for the table cells ─────────────────── */
+  .lc-pill, .ss-pill{display:inline-flex;align-items:center;padding:3px 9px;
+    border-radius:999px;font-size:11px;font-weight:600;border:1px solid transparent}
+  .lc-pill.lc-npd-pill  { color:var(--success-text); background:var(--success-bg); border-color:#cfd8c5 }
+  .lc-pill.lc-act-pill  { color:var(--info-text, var(--text-primary));  background:var(--info-bg,   var(--bg-page-alt)); border-color:var(--border-primary) }
+  .lc-pill.lc-disc-pill { color:var(--text-tertiary); background:var(--bg-muted);   border-color:var(--border-warm) }
+  .lc-pill .lc-sub, .lc-sub{margin-left:6px;font-size:10px;color:var(--text-tertiary);font-family:'JetBrains Mono',monospace}
+  .ss-pill.ss-in { color:var(--success-text); background:var(--success-bg); border-color:#cfd8c5 }
+  .ss-pill.ss-low{ color:var(--warning-text); background:var(--warning-bg); border-color:var(--warning-border) }
+  .ss-pill.ss-out{ color:var(--error-text);   background:var(--error-bg);   border-color:var(--error-border, #f0c9c9) }
+
+  /* ── Filter bar layout (wraps to two lines on tablet/mobile) ─────── */
+  .inv-filters .inv-flt{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .inv-filters .inv-flt-lbl{font-family:'Space Grotesk',sans-serif;font-size:9.5px;
+    font-weight:700;color:var(--text-secondary);letter-spacing:.7px;text-transform:uppercase}
+  .inv-filters .inv-flt .fg-select{min-height:32px;padding:5px 8px;font-size:12px;min-width:130px}
+
+  /* ── Lifecycle summary cards (NPD / Active / Discontinued) ─────── */
+  .inv-lc-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
+  .inv-lc-card{background:var(--bg-white);border:1px solid var(--border-primary);
+    border-radius:12px;padding:14px 18px;border-top:3px solid var(--border-warm)}
+  .inv-lc-card.lc-npd   {border-top-color:var(--success-mid)}
+  .inv-lc-card.lc-active{border-top-color:var(--info-mid, var(--text-primary))}
+  .inv-lc-card.lc-disc  {border-top-color:var(--error-mid)}
+  .inv-lc-title{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;
+    letter-spacing:.6px;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px}
+  .inv-lc-val{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;
+    color:var(--text-primary);line-height:1.05;margin-bottom:10px}
+  .inv-lc-bar{display:flex;height:6px;border-radius:99px;overflow:hidden;
+    background:var(--bg-muted);margin-bottom:8px}
+  .inv-lc-seg{height:100%}
+  .inv-lc-seg.lc-in { background:var(--success-mid) }
+  .inv-lc-seg.lc-low{ background:var(--warning-mid) }
+  .inv-lc-seg.lc-out{ background:var(--error-mid) }
+  .inv-lc-meta{display:flex;gap:16px;font-size:11px;color:var(--text-secondary);
+    font-family:'JetBrains Mono',monospace}
+  .inv-lc-meta b{color:var(--text-primary);font-weight:700}
+  .inv-lc-meta .dot{display:inline-block;width:6px;height:6px;border-radius:50%;
+    margin-right:4px;vertical-align:middle}
+  .inv-lc-meta .dot.in { background:var(--success-mid) }
+  .inv-lc-meta .dot.out{ background:var(--error-mid)   }
+  @media (max-width: 900px){
+    .inv-lc-row{grid-template-columns:1fr; gap:8px}
+  }
   .inv-tbl .title-cell .title{font-weight:600;color:var(--text-primary);
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .inv-tbl .title-cell .handle{font-size:11px;color:var(--text-tertiary);margin-top:2px}
