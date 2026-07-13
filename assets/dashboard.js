@@ -605,6 +605,92 @@ async function fetchAssetIds(){
   return out;
 }
 
+/* Persist a manual asset_id edit to public.ad_asset_ids. Empty string
+   clears the row (DELETE); otherwise upsert. Returns true on success.
+
+   Called by the inline editor on the Asset ID cells in both Ads Analyse
+   and Ad Intelligence. Also updates the client-side assetIdByAdId map
+   so subsequent renders show the fresh value without a page reload. */
+async function persistAssetId(adId, assetId){
+  if (!adId || !SUPABASE_URL || !SUPABASE_ANON) return false;
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                   'Content-Type':'application/json',
+                   Prefer:'resolution=merge-duplicates,return=minimal'};
+  const clean = (assetId || '').trim();
+  try {
+    if (!clean){
+      const r = await fetch(SUPABASE_URL + '/rest/v1/ad_asset_ids?ad_id=eq.' + encodeURIComponent(adId),
+                            {method:'DELETE', headers});
+      if (!r.ok) return false;
+      delete assetIdByAdId[adId];
+    } else {
+      const r = await fetch(SUPABASE_URL + '/rest/v1/ad_asset_ids?on_conflict=ad_id',
+                            {method:'POST', headers,
+                             body: JSON.stringify([{ad_id: String(adId),
+                                                    asset_id: clean,
+                                                    source_url: 'inline-edit'}])});
+      if (!r.ok) return false;
+      assetIdByAdId[adId] = clean;
+    }
+    return true;
+  } catch (e){ return false; }
+}
+
+/* Wire a <td> so a single click swaps its text for an <input>. The
+   input auto-selects, saves on Enter / blur, cancels on Escape.
+   Callers pass the ad_id and an onSaved(newVal, td) hook to refresh
+   any denormalised row state (e.g. r.asset_id) or re-render neighbours.
+   Called from the Ads Analyse click handler and the Ad Intelligence
+   click handler; nothing else needs to know about the mechanics. */
+function installAssetIdCellEditor(td, adId, opts){
+  if (!td || td.dataset.assetEditorBound === '1') return;
+  td.dataset.assetEditorBound = '1';
+  td.title = 'Click to edit asset ID';
+  td.style.cursor = 'text';
+  td.addEventListener('click', e => {
+    if (td.querySelector('input')) return;    // already editing
+    e.stopPropagation();                       // don't trigger row-level nav
+    const current = (assetIdByAdId[adId] || '').trim();
+    const originalHtml = td.innerHTML;
+    td.innerHTML = '';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = current;
+    input.placeholder = 'Asset ID';
+    input.style.cssText = 'width:100%;box-sizing:border-box;padding:3px 6px;'+
+                         'font-family:JetBrains Mono,monospace;font-size:11.5px;'+
+                         'border:1px solid var(--accent-yellow);border-radius:4px;'+
+                         'background:var(--bg-white);color:var(--text-primary);outline:none';
+    td.appendChild(input);
+    input.focus(); input.select();
+    let done = false;
+    const finish = async (save) => {
+      if (done) return;
+      done = true;
+      if (!save){
+        td.innerHTML = originalHtml;
+        return;
+      }
+      const val = input.value;
+      td.innerHTML = '<span style="color:var(--text-tertiary)">saving…</span>';
+      const ok = await persistAssetId(adId, val);
+      if (!ok){
+        td.innerHTML = '<span style="color:var(--error-text)" title="save failed — try again">✗ '+
+                        (val || '—').replace(/</g,'&lt;')+'</span>';
+        return;
+      }
+      const cleaned = (val || '').trim();
+      td.textContent = cleaned || '—';
+      if (opts && typeof opts.onSaved === 'function') opts.onSaved(cleaned, td);
+    };
+    input.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter'){ ev.preventDefault(); finish(true); }
+      else if (ev.key === 'Escape'){ ev.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', () => finish(true));
+  });
+}
+
 // Creative Focus is limited to the three canonical types (IFAD / GAD / VID);
 // everything else (BST, ADB, UGC, BR, Brand, ...) falls into Others so it can
 // be redirected to the Product-in-Focus taxonomy above.
@@ -4347,8 +4433,12 @@ function aiRenderTable(){
         '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+(r.matched_value||'').replace(/"/g,'&quot;')+'">'+(r.matched_value|| '—')+'</td>'+
         '<td class="id-cell">'+(r.ad_id || '—')+'</td>'+
         // Asset ID from manual ad_asset_ids mapping. Blank when the
-        // Sheet hasn't been imported for this ad yet.
-        '<td class="id-cell">'+(r.ad_id && assetIdByAdId[r.ad_id] || '—')+'</td>'+
+        // Sheet hasn't been imported for this ad yet.  Editable inline
+        // via installAssetIdCellEditor (wired in the delegated handler
+        // just after render).
+        '<td class="id-cell ai-asset-cell" data-ad-id="'+(r.ad_id||'')+'">'+
+          (r.ad_id && assetIdByAdId[r.ad_id] || '—')+
+        '</td>'+
         // Ad Name & Campaign columns widened so long ad-copy titles land
         // on a single visible line — the table already sits inside a
         // horizontal-scroll wrapper so the extra width doesn't hurt.
@@ -4358,6 +4448,19 @@ function aiRenderTable(){
       '</tr>';
     }).join('');
   }
+  // Wire the inline asset-id editor on every Asset ID cell in this
+  // page's slice. Idempotent — the editor bails if already bound.
+  document.querySelectorAll('#aiTbl tbody .ai-asset-cell[data-ad-id]').forEach(td => {
+    const adId = td.dataset.adId;
+    if (!adId) return;
+    installAssetIdCellEditor(td, adId, {
+      onSaved: (val) => {
+        // Keep the row-level copy in sync so sort by asset_id still works
+        const r = aiOrders.find(x => String(x.ad_id) === String(adId));
+        if (r) r.asset_id = val;
+      }
+    });
+  });
   document.getElementById('aiRowInfo').textContent  = fmtInt(totalRows) + ' rows';
   document.getElementById('aiPageInfo').textContent = 'Page ' + (aiPage + 1) + ' / ' + totalPages;
   document.getElementById('aiPrevPage').disabled    = aiPage === 0;
@@ -5488,9 +5591,11 @@ function renderAE(){
       thumbCell+
       '<td class="ad-cell" title="'+(r.ad_name||'')+'"><span style="font-weight:600;color:var(--text-primary)">'+(r.ad_name||'—')+'</span></td>'+
       '<td class="id-cell">'+(r.ad_id||'—')+'</td>'+
-      // Asset ID from manual ad_asset_ids mapping. Blank while the
-      // Sheet import is pending.
-      '<td class="id-cell">'+((r.ad_id && assetIdByAdId[r.ad_id]) || '—')+'</td>'+
+      // Asset ID from manual ad_asset_ids mapping. Editable inline —
+      // click the cell, type + Enter to save (Escape to cancel).
+      '<td class="id-cell ae-asset-cell" data-ad-id="'+(r.ad_id||'')+'">'+
+        ((r.ad_id && assetIdByAdId[r.ad_id]) || '—')+
+      '</td>'+
       '<td class="camp-cell" title="'+(r.campaign_name||'')+'">'+(r.campaign_name||'—')+'</td>'+
       '<td class="id-cell">'+(r.adset_id||'—')+'</td>'+
       '<td>'+dailyBtn+'</td>'+
@@ -5605,6 +5710,21 @@ function renderAE(){
   document.getElementById('aePageInfo').textContent  = 'Page ' + (aePage + 1) + ' / ' + totalPages;
   document.getElementById('aePrevPage').disabled     = aePage === 0;
   document.getElementById('aeNextPage').disabled     = aePage >= totalPages - 1;
+
+  // Bind the inline Asset ID editor on every visible AE row.  Idempotent
+  // — installAssetIdCellEditor bails on cells it already owns.
+  document.querySelectorAll('#aeMain tbody .ae-asset-cell[data-ad-id]').forEach(td => {
+    const adId = td.dataset.adId;
+    if (!adId) return;
+    installAssetIdCellEditor(td, adId, {
+      onSaved: (val) => {
+        // Update the allAds cache so header-driven sort by asset_id
+        // reflects the new value on the next re-sort/render.
+        const r = allAds.find(x => String(x.ad_id) === String(adId));
+        if (r) r.asset_id = val;
+      }
+    });
+  });
 }
 
 /* Wiring */
