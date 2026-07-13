@@ -4908,21 +4908,23 @@ document.querySelectorAll('#hreachTbl thead th').forEach(th => {
 _hreachApplyPreset('last30');   // seed the inputs
 
 /* ────────────────────────────────────────────────────────────────────
-   INCREMENTAL ANALYSIS (post-2025) — Campaign / Adset-level reach delta
-   scoped to date >= HISTORIC_CUTOFF. Same math as _hreach* but with the
-   date floor enforced everywhere (preset math, min-date attribute on the
-   input, and a safety clamp in _ireachApply).
+   INCREMENTAL ANALYSIS (post-2025) — Campaign + Adset reach deltas
+   scoped to date >= HISTORIC_CUTOFF. Fetches primary_table +
+   backfill_table once, dedups on (ad_id, date) with primary winning
+   (matches the ae_daily_agg_mat logic verified via SQL audit), then
+   aggregates the same daily rows into BOTH campaign-level and
+   adset-level tables simultaneously.
    ──────────────────────────────────────────────────────────────────── */
 let ireachState = {
-  groupBy:'campaign_name', from:'', to:'',
-  search:'', sortKey:'incr_reach', sortDir:'desc',
-  rows:[],
+  from:'', to:'',
+  search:'',
+  camp:  { sortKey:'incr_reach', sortDir:'desc', rows:[] },
+  adset: { sortKey:'incr_reach', sortDir:'desc', rows:[] },
+  audit: null,
 };
 
 function _ireachApplyPreset(p){
   const today = new Date(); today.setHours(0,0,0,0);
-  // Use local-date components (not toISOString) so the input never shifts
-  // back a day for users in TZ > UTC (e.g. IST midnight → UTC 18:30 prev day).
   const iso = d => d.getFullYear() + '-' +
                    String(d.getMonth()+1).padStart(2,'0') + '-' +
                    String(d.getDate()).padStart(2,'0');
@@ -4958,40 +4960,65 @@ async function _ireachFetch(from, to){
     }
     return out;
   };
-  // Post-2025 window is entirely in primary_table's active-sync range,
-  // but we still union backfill_table so a widened window (>15 days back)
-  // doesn't hit a coverage gap.
   const [prim, back] = await Promise.all([
     fetchAll('primary_table').catch(() => []),
     fetchAll('backfill_table').catch(() => []),
   ]);
+  // Dedup on (ad_id, date) with PRIMARY winning — mirrors the server-side
+  // logic in refresh_ae_daily_agg (DISTINCT ON (ad_id, date) ORDER BY
+  // ad_id, date, pri where primary has pri=1, backfill has pri=2).
+  // Track how many rows collided so we can surface the audit inline.
   const key = r => (r.ad_id || '') + '|' + (r.date || '');
   const map = new Map();
-  for (const r of back) map.set(key(r), r);
-  for (const r of prim) map.set(key(r), r);
-  return Array.from(map.values());
+  let backOnly = 0, overlap = 0, reachDiff = 0;
+  for (const r of back){ map.set(key(r), r); backOnly++; }
+  for (const r of prim){
+    const k = key(r);
+    if (map.has(k)){
+      const b = map.get(k);
+      overlap++; backOnly--;
+      if ((+b.reach || 0) !== (+r.reach || 0)) reachDiff++;
+    }
+    map.set(k, r);   // primary wins
+  }
+  const merged = Array.from(map.values());
+  return {
+    rows:  merged,
+    audit: {
+      primary_rows:  prim.length,
+      backfill_rows: back.length,
+      merged_rows:   merged.length,
+      overlap_rows:  overlap,
+      backfill_only: backOnly,
+      primary_only:  prim.length - overlap,
+      reach_diff_in_overlap: reachDiff,
+    }
+  };
 }
 
+// Aggregate the same deduped daily rows into a per-group summary for a
+// given groupBy field. Returns [{grp, n_ads, days, first_reach, last_reach,
+// peak_reach, total_reach, spend, incr_reach, cpk}, ...].
 function _ireachAggregate(rows, groupBy){
   const perDay = new Map();
   const perGrpAds = new Map();
   for (const r of rows){
-    const grp = (r[groupBy] || '(none)').trim() || '(none)';
+    const grp = ((r[groupBy] || '(none)') + '').trim() || '(none)';
     const d = (r.date || '').slice(0,10);
     if (!d) continue;
     const k = grp + '|' + d;
     let bucket = perDay.get(k);
-    if (!bucket){ bucket = {reach:0, spend:0, ads:new Set()}; perDay.set(k, bucket); }
+    if (!bucket){ bucket = {reach:0, spend:0}; perDay.set(k, bucket); }
     bucket.reach += (+r.reach || 0);
     bucket.spend += (+r.amount_spent_inr || 0);
-    if (r.ad_id) bucket.ads.add(r.ad_id);
     let ga = perGrpAds.get(grp);
     if (!ga){ ga = new Set(); perGrpAds.set(grp, ga); }
     if (r.ad_id) ga.add(r.ad_id);
   }
   const byGrp = new Map();
   for (const [k, v] of perDay.entries()){
-    const [grp, d] = k.split('|');
+    const i = k.indexOf('|');           // grp may itself contain "|"; split on FIRST only
+    const grp = k.slice(0, i), d = k.slice(i+1);
     let series = byGrp.get(grp);
     if (!series){ series = []; byGrp.set(grp, series); }
     series.push({date:d, reach:v.reach, spend:v.spend});
@@ -5023,12 +5050,15 @@ function _ireachAggregate(rows, groupBy){
   return out;
 }
 
-function _ireachRender(){
-  const q = (ireachState.search || '').trim().toLowerCase();
-  let rows = ireachState.rows;
+// Render either the camp or adset table. Both share this fn — the
+// scope arg is 'camp' or 'adset' and picks the state slot + DOM ids.
+function _ireachRenderScope(scope){
+  const st  = ireachState[scope];
+  const q   = (ireachState.search || '').trim().toLowerCase();
+  const dir = st.sortDir === 'asc' ? 1 : -1;
+  const k   = st.sortKey;
+  let rows = st.rows;
   if (q) rows = rows.filter(r => r.grp.toLowerCase().includes(q));
-  const dir = ireachState.sortDir === 'asc' ? 1 : -1;
-  const k = ireachState.sortKey;
   rows = rows.slice().sort((a,b) => {
     const av = a[k], bv = b[k];
     if (av == null && bv == null) return 0;
@@ -5037,16 +5067,17 @@ function _ireachRender(){
     if (typeof av === 'string') return dir * av.localeCompare(bv);
     return dir * (av - bv);
   });
-  const body = document.getElementById('ireachBody');
+  const bodyId  = scope === 'camp' ? 'ireachBodyCamp'  : 'ireachBodyAdset';
+  const countId = scope === 'camp' ? 'ireachCampCount' : 'ireachAdsetCount';
+  const body = document.getElementById(bodyId);
+  const cntEl = document.getElementById(countId);
+  if (cntEl) cntEl.textContent = fmtInt(rows.length) + (scope === 'camp' ? ' campaigns' : ' adsets');
   if (!rows.length){
-    body.innerHTML = '<tr><td colspan="10" style="padding:32px;text-align:center;color:var(--text-tertiary)">No groups match the current filter.</td></tr>';
+    body.innerHTML = '<tr><td colspan="10" style="padding:24px;text-align:center;color:var(--text-tertiary)">No groups match the current filter.</td></tr>';
     return;
   }
   body.innerHTML = rows.slice(0, 1000).map(r => {
     const neg = r.incr_reach < 0;
-    // Group cell relies on the parent table's table-layout:fixed + colgroup
-    // width to truncate. overflow/ellipsis/nowrap is still needed so long
-    // campaign names don't wrap to a second line and blow up the row height.
     return '<tr>'+
       '<td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+r.grp.replace(/"/g,'&quot;')+'">'+r.grp+'</td>'+
       '<td class="num">'+fmtInt(r.n_ads)+'</td>'+
@@ -5062,6 +5093,29 @@ function _ireachRender(){
     '</tr>';
   }).join('');
 }
+function _ireachRender(){
+  _ireachRenderScope('camp');
+  _ireachRenderScope('adset');
+  _ireachRenderAudit();
+}
+function _ireachRenderAudit(){
+  const a = ireachState.audit;
+  const el = document.getElementById('ireachAudit');
+  if (!a || !el){ if (el) el.style.display = 'none'; return; }
+  el.style.display = '';
+  const noteCls = a.reach_diff_in_overlap > 0 ? 'ireach-audit-note' : '';
+  el.innerHTML =
+    '<span>Dedup audit · '+
+      'primary <b>'+fmtInt(a.primary_rows)+'</b> · '+
+      'backfill <b>'+fmtInt(a.backfill_rows)+'</b> · '+
+      'overlap <b>'+fmtInt(a.overlap_rows)+'</b> · '+
+      'merged <b>'+fmtInt(a.merged_rows)+'</b>'+
+      (a.reach_diff_in_overlap > 0
+        ? ' · <span class="'+noteCls+'">'+fmtInt(a.reach_diff_in_overlap)+
+          ' overlap rows with reach mismatch (primary wins)</span>'
+        : '')+
+    '</span>';
+}
 
 async function _ireachApply(){
   let from = document.getElementById('ireachDateFrom').value;
@@ -5070,8 +5124,6 @@ async function _ireachApply(){
     document.getElementById('ireachStatus').textContent = 'Pick a date range first.';
     return;
   }
-  // Enforce the post-2025 floor server-side too — user could type a
-  // lower date into the input despite the min= attribute.
   if (from < HISTORIC_CUTOFF){
     from = HISTORIC_CUTOFF;
     document.getElementById('ireachDateFrom').value = from;
@@ -5081,29 +5133,23 @@ async function _ireachApply(){
   status.innerHTML = 'Fetching daily rows from primary_table + backfill_table <span class="spinner"></span>';
   const t0 = performance.now();
   try {
-    const rows = await _ireachFetch(from, to);
-    const agg  = _ireachAggregate(rows, ireachState.groupBy);
-    ireachState.rows = agg;
+    const { rows, audit } = await _ireachFetch(from, to);
+    ireachState.audit = audit;
+    ireachState.camp.rows  = _ireachAggregate(rows, 'campaign_name');
+    ireachState.adset.rows = _ireachAggregate(rows, 'adset_name');
     const dt = ((performance.now()-t0)/1000).toFixed(1);
-    status.innerHTML = 'Aggregated <b>'+fmtInt(rows.length)+'</b> daily rows into <b>'+
-      fmtInt(agg.length)+'</b> '+
-      (ireachState.groupBy === 'campaign_name' ? 'campaigns' : 'adsets') +
-      ' · '+dt+'s';
+    status.innerHTML = 'Aggregated <b>'+fmtInt(rows.length)+'</b> deduped daily rows into <b>'+
+      fmtInt(ireachState.camp.rows.length)+'</b> campaigns and <b>'+
+      fmtInt(ireachState.adset.rows.length)+'</b> adsets · '+dt+'s';
     _ireachRender();
   } catch (e){
     status.textContent = 'Error: ' + (e.message || e);
-    ireachState.rows = [];
+    ireachState.camp.rows = ireachState.adset.rows = [];
+    ireachState.audit = null;
     _ireachRender();
   }
 }
 
-document.getElementById('ireachGroupBy').addEventListener('click', e => {
-  const btn = e.target.closest('.lt-btn'); if (!btn) return;
-  document.querySelectorAll('#ireachGroupBy .lt-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  ireachState.groupBy = btn.dataset.g;
-  if (ireachState.rows.length){ _ireachApply(); }
-});
 document.querySelector('#view-ireach .preset-row').addEventListener('click', e => {
   const btn = e.target.closest('.preset'); if (!btn) return;
   document.querySelectorAll('#view-ireach .preset-row .preset').forEach(b => b.classList.remove('active'));
@@ -5130,12 +5176,22 @@ document.getElementById('ireachSearch').addEventListener('input', e => {
   ireachState.search = e.target.value;
   _ireachRender();
 });
-document.querySelectorAll('#ireachTbl thead th').forEach(th => {
-  th.addEventListener('click', () => {
-    const k = th.dataset.irsort; if (!k) return;
-    if (ireachState.sortKey === k) ireachState.sortDir = ireachState.sortDir === 'asc' ? 'desc' : 'asc';
-    else { ireachState.sortKey = k; ireachState.sortDir = 'desc'; }
-    _ireachRender();
+// Sort click handler — one per table. Each <th> carries data-ir-tbl
+// (camp/adset) + data-irsort (which key). Toggling asc/desc is scoped
+// to that table's state so sorting Adset by Reach D1 doesn't disturb
+// the Campaign table's current sort.
+['ireachTblCamp','ireachTblAdset'].forEach(tblId => {
+  const tbl = document.getElementById(tblId);
+  if (!tbl) return;
+  tbl.querySelectorAll('thead th').forEach(th => {
+    th.addEventListener('click', () => {
+      const key   = th.dataset.irsort; if (!key) return;
+      const scope = th.dataset.irTbl || 'camp';
+      const st = ireachState[scope];
+      if (st.sortKey === key) st.sortDir = st.sortDir === 'asc' ? 'desc' : 'asc';
+      else { st.sortKey = key; st.sortDir = 'desc'; }
+      _ireachRenderScope(scope);
+    });
   });
 });
 _ireachApplyPreset('last30');   // seed the inputs on first script eval

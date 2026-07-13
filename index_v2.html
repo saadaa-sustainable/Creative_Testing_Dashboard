@@ -861,11 +861,6 @@
 
   <div class="funnel-card" style="padding:16px 18px">
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
-      <div class="life-toggle" id="ireachGroupBy">
-        <button class="lt-btn active" data-g="campaign_name" type="button">Campaign</button>
-        <button class="lt-btn"        data-g="adset_name"    type="button">Adset</button>
-      </div>
-      <span class="preset-sep">|</span>
       <div class="preset-row" style="margin:0">
         <button class="preset" data-p="last7">Last 7d</button>
         <button class="preset active" data-p="last30">Last 30d</button>
@@ -877,9 +872,9 @@
         <input class="fg-input preset-date" id="ireachDateTo"   type="date">
       </div>
       <span style="flex:1"></span>
-      <input id="ireachSearch" type="search" placeholder="Search groups…"
+      <input id="ireachSearch" type="search" placeholder="Search groups (both tables)…"
              style="padding:7px 12px;border:1px solid var(--border);border-radius:6px;
-                    background:var(--bg-white);font-size:12px;width:220px;
+                    background:var(--bg-white);font-size:12px;width:260px;
                     font-family:'Inter',sans-serif;outline:none">
     </div>
     <div class="def-note" style="margin:0 0 12px 0">
@@ -887,48 +882,86 @@
       <span>Reach is aggregated at the <b>group level per day</b> (sum of ad reaches within
       the campaign/adset on that date), then incremental is computed on those daily
       aggregates — not by summing ad-level increments. Window is capped at
-      2025-01-01 on the low end; older data lives in <b>Historic Reach</b>.</span>
+      2025-01-01 on the low end; older data lives in <b>Historic Reach</b>.
+      Source: union of <code>primary_table</code> + <code>backfill_table</code>
+      with primary winning on <code>(ad_id, date)</code> conflicts.</span>
     </div>
     <div style="font-size:11px;color:var(--text-tertiary)" id="ireachStatus">Ready — click Apply to load.</div>
-    <!-- max-height stretched from ~340px chrome offset down to ~200px so the
-         panel fills much more of the viewport (roughly +140px of visible
-         rows). table-layout:fixed pins the numeric columns at their declared
-         widths so the Group column never gets squeezed off-screen by a
-         wide viewport, and long campaign names ellipsis-truncate cleanly. -->
-    <div style="overflow:auto;max-height:calc(100vh - 200px);margin-top:12px">
-      <table class="tbl ae-tbl" id="ireachTbl" style="margin:0;table-layout:fixed;width:100%">
-        <colgroup>
-          <col style="width:34%">
-          <col style="width:60px">
-          <col style="width:78px">
-          <col style="width:90px">
-          <col style="width:100px">
-          <col style="width:92px">
-          <col style="width:98px">
-          <col style="width:110px">
-          <col style="width:110px">
-          <col style="width:118px">
-        </colgroup>
-        <thead><tr>
-          <th data-irsort="grp">Group</th>
-          <th class="num" data-irsort="n_ads">Ads</th>
-          <th class="num" data-irsort="days">Days delivered</th>
-          <th class="num" data-irsort="first_reach"
-              title="Aggregated daily reach on the first day of the window">Reach D1</th>
-          <th class="num" data-irsort="last_reach"
-              title="Aggregated daily reach on the last day of the window">Reach D-last</th>
-          <th class="num" data-irsort="peak_reach"
-              title="Peak aggregated daily reach anywhere in the window">Peak reach</th>
-          <th class="num" data-irsort="incr_reach"
-              title="Reach D-last − Reach D1 at the group level (not sum of per-ad increments)">Incr. reach</th>
-          <th class="num" data-irsort="total_reach"
-              title="Total delivered impressions equivalent — sum of daily aggregated reach">Σ daily reach</th>
-          <th class="num" data-irsort="spend">Spend</th>
-          <th class="num" data-irsort="cpk"
-              title="Total spend ÷ incremental reach × 1000">Cost / 1k incr.</th>
-        </tr></thead>
-        <tbody id="ireachBody"><tr><td colspan="10" style="padding:32px;text-align:center;color:var(--text-tertiary)">Pick a window and click Apply.</td></tr></tbody>
-      </table>
+    <div id="ireachAudit" style="font-size:11px;color:var(--text-tertiary);
+         margin:6px 0 12px;font-family:'JetBrains Mono',monospace;display:none"></div>
+
+    <!-- ═════ Campaign-level table ═════ -->
+    <div class="ireach-sec">
+      <div class="ireach-sec-hdr">
+        <span class="ireach-sec-ttl">Campaign level</span>
+        <span class="ireach-sec-sub" id="ireachCampCount">—</span>
+      </div>
+      <div style="overflow:auto;max-height:calc(50vh - 140px);margin-top:6px">
+        <table class="tbl ae-tbl" id="ireachTblCamp" style="margin:0;table-layout:fixed;width:100%">
+          <colgroup>
+            <col style="width:34%"><col style="width:60px"><col style="width:78px">
+            <col style="width:90px"><col style="width:100px"><col style="width:92px">
+            <col style="width:98px"><col style="width:110px"><col style="width:110px">
+            <col style="width:118px">
+          </colgroup>
+          <thead><tr>
+            <th data-irsort="grp" data-ir-tbl="camp">Campaign</th>
+            <th class="num" data-irsort="n_ads"       data-ir-tbl="camp">Ads</th>
+            <th class="num" data-irsort="days"        data-ir-tbl="camp">Days delivered</th>
+            <th class="num" data-irsort="first_reach" data-ir-tbl="camp"
+                title="Aggregated daily reach on the first day of the window">Reach D1</th>
+            <th class="num" data-irsort="last_reach"  data-ir-tbl="camp"
+                title="Aggregated daily reach on the last day of the window">Reach D-last</th>
+            <th class="num" data-irsort="peak_reach"  data-ir-tbl="camp"
+                title="Peak aggregated daily reach anywhere in the window">Peak reach</th>
+            <th class="num" data-irsort="incr_reach"  data-ir-tbl="camp"
+                title="Reach D-last − Reach D1 at the group level (not sum of per-ad increments)">Incr. reach</th>
+            <th class="num" data-irsort="total_reach" data-ir-tbl="camp"
+                title="Total delivered impressions equivalent — sum of daily aggregated reach">Σ daily reach</th>
+            <th class="num" data-irsort="spend"       data-ir-tbl="camp">Spend</th>
+            <th class="num" data-irsort="cpk"         data-ir-tbl="camp"
+                title="Total spend ÷ incremental reach × 1000">Cost / 1k incr.</th>
+          </tr></thead>
+          <tbody id="ireachBodyCamp"><tr><td colspan="10" style="padding:24px;text-align:center;color:var(--text-tertiary)">Pick a window and click Apply.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═════ Adset-level table ═════ -->
+    <div class="ireach-sec" style="margin-top:18px">
+      <div class="ireach-sec-hdr">
+        <span class="ireach-sec-ttl">Adset level</span>
+        <span class="ireach-sec-sub" id="ireachAdsetCount">—</span>
+      </div>
+      <div style="overflow:auto;max-height:calc(50vh - 140px);margin-top:6px">
+        <table class="tbl ae-tbl" id="ireachTblAdset" style="margin:0;table-layout:fixed;width:100%">
+          <colgroup>
+            <col style="width:34%"><col style="width:60px"><col style="width:78px">
+            <col style="width:90px"><col style="width:100px"><col style="width:92px">
+            <col style="width:98px"><col style="width:110px"><col style="width:110px">
+            <col style="width:118px">
+          </colgroup>
+          <thead><tr>
+            <th data-irsort="grp" data-ir-tbl="adset">Adset</th>
+            <th class="num" data-irsort="n_ads"       data-ir-tbl="adset">Ads</th>
+            <th class="num" data-irsort="days"        data-ir-tbl="adset">Days delivered</th>
+            <th class="num" data-irsort="first_reach" data-ir-tbl="adset"
+                title="Aggregated daily reach on the first day of the window">Reach D1</th>
+            <th class="num" data-irsort="last_reach"  data-ir-tbl="adset"
+                title="Aggregated daily reach on the last day of the window">Reach D-last</th>
+            <th class="num" data-irsort="peak_reach"  data-ir-tbl="adset"
+                title="Peak aggregated daily reach anywhere in the window">Peak reach</th>
+            <th class="num" data-irsort="incr_reach"  data-ir-tbl="adset"
+                title="Reach D-last − Reach D1 at the group level (not sum of per-ad increments)">Incr. reach</th>
+            <th class="num" data-irsort="total_reach" data-ir-tbl="adset"
+                title="Total delivered impressions equivalent — sum of daily aggregated reach">Σ daily reach</th>
+            <th class="num" data-irsort="spend"       data-ir-tbl="adset">Spend</th>
+            <th class="num" data-irsort="cpk"         data-ir-tbl="adset"
+                title="Total spend ÷ incremental reach × 1000">Cost / 1k incr.</th>
+          </tr></thead>
+          <tbody id="ireachBodyAdset"><tr><td colspan="10" style="padding:24px;text-align:center;color:var(--text-tertiary)">Pick a window and click Apply.</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div><!-- /view-ireach -->
@@ -1931,6 +1964,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=inv_sz_num"></script>
+<script src="assets/dashboard.js?v=ireach_two_tbl"></script>
 </body>
 </html>

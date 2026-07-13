@@ -1072,8 +1072,17 @@
      that the ~50-col Ads Analyse table depends on. Override both the table's
      min-width and the per-numeric-th 100px floor so the fixed-layout
      colgroup widths are respected. */
-  #ireachTbl, #hreachTbl{ min-width:0 !important }
-  #ireachTbl thead th.num, #hreachTbl thead th.num{ min-width:0 !important }
+  #ireachTblCamp, #ireachTblAdset, #hreachTbl{ min-width:0 !important }
+  #ireachTblCamp thead th.num, #ireachTblAdset thead th.num, #hreachTbl thead th.num{ min-width:0 !important }
+  /* Incremental Analysis: per-scope section header + audit strip */
+  .ireach-sec-hdr{display:flex;align-items:baseline;gap:12px;
+    padding:6px 2px 8px;border-bottom:1px solid var(--border-primary)}
+  .ireach-sec-ttl{font-family:'Space Grotesk',sans-serif;font-weight:700;
+    font-size:13px;color:var(--text-primary);letter-spacing:.3px}
+  .ireach-sec-sub{font-family:'JetBrains Mono',monospace;font-size:11px;
+    color:var(--text-tertiary)}
+  #ireachAudit b{color:var(--text-primary);font-weight:700}
+  #ireachAudit .ireach-audit-note{color:var(--warning-text)}
   .ae-tbl thead th{position:sticky;top:0;background:var(--bg-page-alt);z-index:2;
     font-size:9.5px !important;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;
     color:var(--text-secondary);padding:9px 10px;cursor:pointer;user-select:none;
