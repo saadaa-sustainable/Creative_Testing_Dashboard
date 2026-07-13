@@ -30,6 +30,11 @@ STEPS = [
     # 30 min covers the ~10-15k customer catalogue at 100/page
     # (~1s each with a 0.25s inter-page throttle).
     ("sync_shopify_customers",         ["sync_shopify_customers.py"],       1800),
+    # Asset ID mapping — pull the CTP-Asset_Sheet_v1 Google Sheet's
+    # External tab and upsert ad_id → asset_id into public.ad_asset_ids.
+    # Sheet is publicly readable (anyone with link); no OAuth needed.
+    # ~15k rows fetch in a few seconds so 5 min is a generous cap.
+    ("import_asset_id_sheet",          ["import_asset_id_sheet.py"],         300),
     # Shopify attribution LAST — slow and network-flaky; isolates the long step at the end
     ("rebuild_attribution_orders",     ["rebuild_attribution_orders.py", "2026-06-15", "2099-12-31"],  3600),
     # Thumbnail refresh — Meta's fbcdn URLs expire in ~48-72h so we cycle the
