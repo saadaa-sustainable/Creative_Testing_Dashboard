@@ -12,7 +12,9 @@ STEPS = [
     ("apply_ctp_unique_ids",           ["apply_ctp_unique_ids.py"],         900),
     ("refresh_ae_table",               ["refresh_ae_table.py"],            1800),
     ("refresh_summary_table",          ["refresh_summary_table.py"],        900),
-    ("refresh_ae_daily_agg",           ["refresh_ae_daily_agg.py"],         600),
+    # (ae_daily_agg_mat retired 2026-07-13; its three consumers
+    #  now compute the primary+backfill dedup inline in their RPC
+    #  bodies, so no matview refresh needed.)
     ("refresh_ae_reach_recent",        ["refresh_ae_reach_recent.py"],      600),
     # Campaign + Adset daily reach agg (drives Incremental Analysis).
     # Same dedup logic as ae_reach_recent; rebuilt once per pipeline run.
