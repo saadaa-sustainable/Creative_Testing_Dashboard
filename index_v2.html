@@ -1466,18 +1466,20 @@
         <th class="num" title="Average daily ordered quantity, last 30 days">DoQ 30d</th>
         <th class="num" title="Average daily ordered quantity, last 45 days">DoQ 45d</th>
         <th class="num" title="Days out-of-stock in the last 30 days (worst variant)">OOS 30d</th>
-        <!-- One column per canonical size. Cells colour-code by qty:
+        <!-- One column per canonical size. Header shows the size letter
+             as a small chip; the cell below shows units available for
+             that product at that size. Colour-coded by qty:
              green (>10), amber (1–10), red (0), muted "—" when the
              product doesn't carry that size. -->
-        <th class="num inv-sz-col">XS</th>
-        <th class="num inv-sz-col">S</th>
-        <th class="num inv-sz-col">M</th>
-        <th class="num inv-sz-col">L</th>
-        <th class="num inv-sz-col">XL</th>
-        <th class="num inv-sz-col">2XL</th>
-        <th class="num inv-sz-col">3XL</th>
-        <th class="num inv-sz-col">4XL</th>
-        <th class="num inv-sz-col">5XL</th>
+        <th class="inv-sz-col"><span class="sz-lbl">XS</span></th>
+        <th class="inv-sz-col"><span class="sz-lbl">S</span></th>
+        <th class="inv-sz-col"><span class="sz-lbl">M</span></th>
+        <th class="inv-sz-col"><span class="sz-lbl">L</span></th>
+        <th class="inv-sz-col"><span class="sz-lbl">XL</span></th>
+        <th class="inv-sz-col"><span class="sz-lbl">2XL</span></th>
+        <th class="inv-sz-col"><span class="sz-lbl">3XL</span></th>
+        <th class="inv-sz-col"><span class="sz-lbl">4XL</span></th>
+        <th class="inv-sz-col"><span class="sz-lbl">5XL</span></th>
         <th class="num">Price (₹)</th>
       </tr></thead>
       <tbody></tbody>
@@ -1929,6 +1931,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=inv_lifecycle"></script>
+<script src="assets/dashboard.js?v=inv_sz_chips"></script>
 </body>
 </html>

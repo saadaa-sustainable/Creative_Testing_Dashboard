@@ -698,16 +698,25 @@
     border:1px solid var(--border-warm);font-size:10px}
   .inv-tbl .title-cell{max-width:340px}
   /* ── Per-size columns ────────────────────────────────────────────────
-     One <td> per canonical size (XS through 5XL). Colour reflects the
-     current stock at that size — green (>10), amber (1–10), red (0),
-     muted "—" when the product doesn't carry that size. */
-  .inv-tbl th.inv-sz-col{min-width:52px;max-width:64px;text-align:right}
+     One <td> per canonical size (XS through 5XL). Header cells are
+     styled as small size chips so they read as size labels at a
+     glance. Body cells hold the per-product stock, colour-coded:
+       green (>10)  ·  amber (1–10)  ·  red (0)  ·  muted "—" when the
+       product doesn't carry that size. */
+  .inv-tbl th.inv-sz-col{min-width:56px;max-width:68px;text-align:center;
+    padding:8px 6px 6px;background:var(--bg-page-alt) !important}
+  .inv-tbl th.inv-sz-col .sz-lbl{display:inline-block;padding:2px 8px;
+    border-radius:5px;border:1px solid var(--border-primary);
+    background:var(--bg-white);color:var(--text-primary);
+    font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
+    letter-spacing:.4px;line-height:1.35}
   .inv-tbl td.inv-sz-cell{font-family:'JetBrains Mono',monospace;
-    font-weight:600;font-size:12px;padding:6px 8px;text-align:right}
+    font-weight:700;font-size:13px;padding:8px 8px;text-align:center;
+    border-left:1px solid rgba(0,0,0,.04)}
   .inv-tbl td.inv-sz-in { color:var(--success-text); background:var(--success-bg) }
   .inv-tbl td.inv-sz-low{ color:var(--warning-text); background:var(--warning-bg) }
   .inv-tbl td.inv-sz-out{ color:var(--error-text);   background:var(--error-bg)   }
-  .inv-tbl td.inv-sz-none{ color:var(--text-tertiary); font-weight:400; opacity:.55 }
+  .inv-tbl td.inv-sz-none{ color:var(--text-tertiary); font-weight:400; opacity:.5 }
 
   /* ── Lifecycle + Stock pills for the table cells ─────────────────── */
   .lc-pill, .ss-pill{display:inline-flex;align-items:center;padding:3px 9px;
