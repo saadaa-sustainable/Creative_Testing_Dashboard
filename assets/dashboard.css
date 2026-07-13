@@ -713,9 +713,12 @@
   .inv-tbl td.inv-sz-cell{font-family:'JetBrains Mono',monospace;
     font-weight:700;font-size:13px;padding:8px 8px;text-align:center;
     border-left:1px solid rgba(0,0,0,.04)}
-  .inv-tbl td.inv-sz-in { color:var(--success-text); background:var(--success-bg) }
-  .inv-tbl td.inv-sz-low{ color:var(--warning-text); background:var(--warning-bg) }
-  .inv-tbl td.inv-sz-out{ color:var(--error-text);   background:var(--error-bg)   }
+  /* Text-only colour on the qty — no cell background, per user request.
+     Kept the muted "—" as a low-opacity tertiary so absent sizes still
+     read as "not applicable" rather than "zero". */
+  .inv-tbl td.inv-sz-in { color:var(--success-text) }
+  .inv-tbl td.inv-sz-low{ color:var(--warning-text) }
+  .inv-tbl td.inv-sz-out{ color:var(--error-text)   }
   .inv-tbl td.inv-sz-none{ color:var(--text-tertiary); font-weight:400; opacity:.5 }
 
   /* ── Lifecycle + Stock pills for the table cells ─────────────────── */
