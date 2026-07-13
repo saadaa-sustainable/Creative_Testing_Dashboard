@@ -23,6 +23,60 @@ const fmtRoas= n => (n==null||isNaN(n)) ? '—' : (+n).toFixed(2)+'x';
 // anywhere else outside renderAE()'s local scope.
 const fmtNum2 = v => (v==null||v===''||isNaN(+v)) ? '—' : (+v).toLocaleString('en-IN',{minimumFractionDigits:2, maximumFractionDigits:2});
 
+/* ─────────────────────────────────────────────────────────────
+   exportVisibleTableCsv — one exporter for every section.
+   • Reads column labels + row-keys from the given table's <thead>
+     (data-sort / data-aisort → row key; falls back to _colN).
+   • Skips any <th> that CSS has hidden (display:none) — this makes
+     the Ads Analyse column-picker automatically reshape the CSV.
+   • Uses the caller-supplied filtered rows so pagination / sort /
+     status filters are already baked in.
+   • opts.deriveRow(r) can return an enriched row (e.g. resolve
+     Ad Intelligence's step label + ad_status).
+   ───────────────────────────────────────────────────────────── */
+function exportVisibleTableCsv(tableSel, rows, opts){
+  opts = opts || {};
+  const table = document.querySelector(tableSel);
+  if (!table){ console.warn('[export] table not found:', tableSel); return; }
+  const ths = Array.from(table.querySelectorAll('thead th'));
+  const cols = [];
+  ths.forEach((th, i) => {
+    const style = getComputedStyle(th);
+    if (style.display === 'none' || style.visibility === 'hidden') return;
+    const key   = th.dataset.sort || th.dataset.aisort || null;
+    // First text node so header-embedded badges (✎ / arrows / spans)
+    // don't leak into the CSV label.
+    const label = (th.childNodes[0]?.nodeValue || th.textContent || '')
+                    .replace(/\s+/g, ' ').trim() || ('col ' + (i + 1));
+    cols.push({ key, label });
+  });
+  const esc = v => {
+    if (v == null) return '';
+    // Preserve numeric zero and false — only blank on null/undefined.
+    const s = String(v).replace(/"/g, '""');
+    return /[",\n\r]/.test(s) ? '"' + s + '"' : s;
+  };
+  const lines = [cols.map(c => esc(c.label)).join(',')];
+  for (const raw of rows){
+    const r = opts.deriveRow ? opts.deriveRow(raw) : raw;
+    lines.push(cols.map(c => {
+      if (opts.getValue){
+        const v = opts.getValue(r, c);
+        if (v !== undefined) return esc(v);
+      }
+      return esc(c.key ? r[c.key] : '');
+    }).join(','));
+  }
+  // BOM so Excel opens UTF-8 CSVs with accented / rupee glyphs correctly.
+  const blob = new Blob(['﻿' + lines.join('\n')], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const stamp = new Date().toISOString().slice(0,16).replace('T','_').replace(':','');
+  a.download = (opts.filenamePrefix || 'export') + '_' + stamp + '.csv';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+}
+
 let allAds      = [];   // ae_table_view rows → drives Ads Analyse + Lifecycle
 let primaryAds  = [];   // primary_table aggregated per ad → drives Creative Testing
                         // (matches the old dashboard exactly, including its
@@ -645,9 +699,8 @@ async function persistAssetId(adId, assetId){
 function installAssetIdCellEditor(td, adId, opts){
   if (!td || td.dataset.assetEditorBound === '1') return;
   td.dataset.assetEditorBound = '1';
-  td.title = 'Click to edit asset ID';
-  td.style.cursor = 'text';
   td.addEventListener('click', e => {
+    if (!window.assetEditMode) return;         // gated behind Edit Asset ID toggle
     if (td.querySelector('input')) return;    // already editing
     e.stopPropagation();                       // don't trigger row-level nav
     const current = (assetIdByAdId[adId] || '').trim();
@@ -690,6 +743,49 @@ function installAssetIdCellEditor(td, adId, opts){
     input.addEventListener('blur', () => finish(true));
   });
 }
+
+/* Global toggle: flip asset-id editability on/off across BOTH tables
+   (Ads Analyse + Ad Intelligence). Buttons in each toolbar call this;
+   the flag lives on window so every editor sees the same state. */
+window.assetEditMode = false;
+function setAssetEditMode(on){
+  window.assetEditMode = !!on;
+  document.body.classList.toggle('asset-edit-on', window.assetEditMode);
+  ['aeEditAssetBtn','aiEditAssetBtn'].forEach(id => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.classList.toggle('active', window.assetEditMode);
+    b.textContent = window.assetEditMode ? '✓ Editing Asset ID' : '✎ Edit Asset ID';
+    b.title = window.assetEditMode
+      ? 'Editing is ON — click any Asset ID cell to edit. Click again to lock.'
+      : 'Turn on to click-edit Asset ID cells';
+  });
+  ['aeEditAssetBadge','aiEditAssetBadge'].forEach(id => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.classList.toggle('active', window.assetEditMode);
+    b.title = window.assetEditMode
+      ? 'Editing ON — click a cell to edit. Click badge again to lock.'
+      : 'Click to enable Asset ID editing';
+  });
+  document.querySelectorAll('.ae-asset-cell, .ai-asset-cell').forEach(td => {
+    td.style.cursor = window.assetEditMode ? 'text' : '';
+    td.title = window.assetEditMode ? 'Click to edit asset ID' : '';
+  });
+}
+// Wire the in-header pencil badges as soon as the DOM is ready — they live in
+// static markup so we can bind unconditionally. Stops propagation so the click
+// doesn't also fire the column-sort handler on the surrounding <th>.
+document.addEventListener('DOMContentLoaded', () => {
+  ['aeEditAssetBadge','aiEditAssetBadge'].forEach(id => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      setAssetEditMode(!window.assetEditMode);
+    });
+  });
+});
 
 // Creative Focus is limited to the three canonical types (IFAD / GAD / VID);
 // everything else (BST, ADB, UGC, BR, Brand, ...) falls into Others so it can
@@ -1859,17 +1955,43 @@ document.getElementById('btnRefresh').onclick = async ()=>{
   aeApplyCurrentThresholds();
   rerender();
 };
-document.getElementById('btnExport').onclick = ()=>{
+document.getElementById('btnExport').onclick = () => {
+  // Creative Testing doesn't render a single ad-level table on this
+  // view (it's KPI + bucket cards), so there's no <thead> to mirror.
+  // We synthesise a stable header set and reuse the exporter with an
+  // ad-hoc "table" — a hidden fragment lives only long enough for the
+  // helper to read its headers, so filters + escaping stay consistent
+  // across every section.
   const rows = filtered(primaryAds);
-  const cols = ['ad_id','ad_name','account_name','category','amount_spent','roas_ma',
-                'ftewv_count','ncp_count','shopify_orders','shopify_sales','shopify_top_tier'];
-  const lines = [cols.join(',')];
-  for (const r of rows) lines.push(cols.map(c=>JSON.stringify(r[c]??'')).join(','));
-  const blob = new Blob([lines.join('\n')],{type:'text/csv'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'creative_testing_v2_'+(new Date().toISOString().slice(0,10))+'.csv';
-  a.click();
+  const cols = [
+    ['ad_id',           'Ad ID'          ],
+    ['ad_name',         'Ad Name'        ],
+    ['asset_id',        'Asset ID'       ],
+    ['account_name',    'Account'        ],
+    ['category',        'Category'       ],
+    ['amount_spent',    'Spend'          ],
+    ['roas_ma',         'ROAS'           ],
+    ['ftewv_count',     'FTEWV'          ],
+    ['ncp_count',       'NCP'            ],
+    ['shopify_orders',  'Shop Orders'    ],
+    ['shopify_sales',   'Shop Sales'     ],
+    ['shopify_top_tier','Shop Top Tier'  ],
+  ];
+  const tmp = document.createElement('table');
+  tmp.style.display = 'none';
+  tmp.id = '_ctExportTmp_' + Date.now();
+  tmp.innerHTML = '<thead><tr>' +
+    cols.map(([k,l]) => '<th data-sort="'+k+'">'+l+'</th>').join('') +
+    '</tr></thead>';
+  document.body.appendChild(tmp);
+  try {
+    exportVisibleTableCsv('#' + tmp.id, rows, {
+      filenamePrefix: 'creative_testing_v2',
+      deriveRow: r => ({ ...r, asset_id: assetIdByAdId[r.ad_id] || '' }),
+    });
+  } finally {
+    tmp.remove();
+  }
 };
 
 /* ────────────────────────────────────────────────────────────────────
@@ -2407,20 +2529,14 @@ document.getElementById('lifeRefresh').onclick = async () => {
   renderLifecycle();
 };
 document.getElementById('lifeExport').onclick = () => {
+  // Same 14-day cutoff the view uses; column set is driven by the
+  // visible <thead> of #lifeBufferTbl so hidden columns stay out.
   const today = new Date(); today.setHours(0,0,0,0);
   const rows = allAds.filter(a => {
     if (!a.ad_created) return false;
     return Math.floor((today - new Date(a.ad_created)) / 86400000) >= 14;
   });
-  const cols = ['ad_id','ad_name','ad_created','ad_status','category',
-                'f1_pass','f2_pass','f3_pass','f4_pass',
-                'impressions','reach','frequency','ltv_frequency',
-                'amount_spent','roas_ma','ftewv_count','ncp_count'];
-  const lines = [cols.join(',')];
-  rows.forEach(r => lines.push(cols.map(c => JSON.stringify(r[c] ?? '')).join(',')));
-  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'lifecycle_14day_buffer_' + (new Date().toISOString().slice(0,10)) + '.csv'; a.click();
+  exportVisibleTableCsv('#lifeBufferTbl', rows, { filenamePrefix: 'lifecycle_14day_buffer' });
 };
 
 /* ────────────────────────────────────────────────────────────────────
@@ -3784,7 +3900,13 @@ async function aiFetchOrders(fromIso, toIso, perfBudgetMs){
   const cols = ['order_id','order_created_at','total_price',
                 'utm_source','utm_medium','utm_campaign','utm_content','utm_term',
                 'matched_tier','matched_value','has_match',
-                'ad_id','ad_name','campaign_name','adset_id'].join(',');
+                'ad_id','ad_name','campaign_name','adset_id',
+                // customer_id + customer_num_orders + contact_email were
+                // added by shopify_ad_attribution_add_customer_cols
+                // migration (2026-07-14) and populated by
+                // backfill_customer_info.py.  Show as "—" while the
+                // backfill is still catching up on historical rows.
+                'customer_id','customer_num_orders','contact_email'].join(',');
   const BATCH = 1000;
   let offset = 0, out = [], pages = 0;
   const t0 = performance.now();
@@ -4432,6 +4554,13 @@ function aiRenderTable(){
         '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+(r.utm_term    ||'').replace(/"/g,'&quot;')+'">'+(r.utm_term     || '—')+'</td>'+
         '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+(r.matched_value||'').replace(/"/g,'&quot;')+'">'+(r.matched_value|| '—')+'</td>'+
         '<td class="id-cell">'+(r.ad_id || '—')+'</td>'+
+        // Customer ID + lifetime orders — populated by backfill_customer_info.py
+        // (and rebuild_attribution_orders.py for new syncs). "—" while the
+        // backfill is still catching up.
+        '<td class="id-cell" title="'+(r.contact_email || '').replace(/"/g,'&quot;')+'">'+
+          (r.customer_id || '—')+
+        '</td>'+
+        '<td class="num">'+(r.customer_num_orders != null ? fmtInt(r.customer_num_orders) : '—')+'</td>'+
         // Asset ID from manual ad_asset_ids mapping. Blank when the
         // Sheet hasn't been imported for this ad yet.  Editable inline
         // via installAssetIdCellEditor (wired in the delegated handler
@@ -4472,6 +4601,9 @@ function initAdIntel(){
   // Filter wiring — every change re-renders (no re-fetch unless date changes)
   ['aiTierSel','aiUtmMedium','aiAdStatus'].forEach(id =>
     document.getElementById(id).addEventListener('change', () => { aiPage = 0; aiRenderTable(); }));
+  // Edit Asset ID toggle — same global flag as the AE-side button.
+  const aiEditBtn = document.getElementById('aiEditAssetBtn');
+  if (aiEditBtn) aiEditBtn.onclick = () => setAssetEditMode(!window.assetEditMode);
   // utm_source multi-select popover
   const msBtn  = document.getElementById('aiUtmSourceBtn');
   const msPanel= document.getElementById('aiUtmSourcePanel');
@@ -4533,32 +4665,31 @@ function initAdIntel(){
   // Refresh / Export
   document.getElementById('aiRefresh').onclick = () => { aiLoaded = false; aiReloadOrders(); };
   document.getElementById('aiExport').onclick = () => {
+    // Export the filtered order list in visible column order.  Enrich
+    // each row with the canonical Step-N label (matching what the UI
+    // renders) and the resolved ad_status pulled from aiAdStatusMap,
+    // plus the current Asset ID so the "Asset ID" column isn't blank.
+    // These fields aren't on the raw DB row.
     const rows = aiFiltered();
-    // Column order for the CSV. matched_tier is written as the CANONICAL
-    // Step N label (via aiStep) so legacy DB values (T1_ad_id, T2_ad_name,
-    // T3, T0_template) come out normalised — matching what the UI shows.
-    // The step-wise breakdown is the sole source of truth for matching, so
-    // the raw DB value is not exported.
-    const cols = ['order_created_at','order_id','total_price','matched_tier',
-                  'utm_source','utm_medium','utm_campaign','utm_content','utm_term',
-                  'matched_value','ad_id','ad_name','campaign_name','ad_status'];
-    const csv = [cols.join(',')];
-    for (const r of rows){
-      const step = aiStep(r);
-      const stepLabel = step === '__none__' ? 'Unmatched' : step;
-      const status = r.ad_id ? (aiAdStatusMap[r.ad_id] || 'UNKNOWN') : '';
-      const rowOut = {
-        ...r,
-        matched_tier: stepLabel,   // Step 1 / Step 2 / Step 3 / Step 4 / Step 5 / Unmatched
-        ad_status:    status,
-      };
-      csv.push(cols.map(c => JSON.stringify(rowOut[c] ?? '')).join(','));
-    }
-    const blob = new Blob([csv.join('\n')], {type:'text/csv'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'ad_intelligence_' + new Date().toISOString().slice(0,10) + '.csv';
-    a.click();
+    exportVisibleTableCsv('#aiTbl', rows, {
+      filenamePrefix: 'ad_intelligence',
+      deriveRow: r => {
+        const step  = aiStep(r);
+        return {
+          ...r,
+          matched_tier: step === '__none__' ? 'Unmatched' : step,
+          ad_status:    r.ad_id ? (aiAdStatusMap[r.ad_id] || 'UNKNOWN') : '',
+          asset_id:     r.ad_id ? (assetIdByAdId[r.ad_id] || '') : '',
+        };
+      },
+      // Column labels in the AI table include "Date" / "Order" which
+      // don't match the DB field names — map them here.
+      getValue: (r, c) => {
+        if (c.label === 'Date')  return (r.order_created_at || '').slice(0,16).replace('T',' ');
+        if (c.label === 'Order') return (r.order_id || '').replace('gid://shopify/Order/','');
+        // undefined = fall through to the default key-based lookup.
+      },
+    });
   };
   // KPI cards click → filter to that tier (both Meta and Google rows share
   // the same handler; card.dataset.tier carries the tier key already)
@@ -5015,7 +5146,10 @@ function _hreachAggregate(rows, groupBy){
       totalReach += s.reach;
       totalSpend += s.spend;
     }
-    const incr = (last?.reach || 0) - (first?.reach || 0);
+    // Reach is a cumulative unique count and can never regress — clamp
+    // the (last - first) delta at 0 so a mid-window dip in Meta's daily
+    // unique-reach number doesn't render as a nonsensical negative.
+    const incr = Math.max(0, (last?.reach || 0) - (first?.reach || 0));
     const cpk  = incr > 0 ? (totalSpend / incr) * 1000 : null;
     out.push({
       grp, n_ads:(perGrpAds.get(grp)?.size || 0),
@@ -5052,7 +5186,7 @@ function _hreachRender(){
     return;
   }
   body.innerHTML = rows.slice(0, 1000).map(r => {
-    const neg = r.incr_reach < 0;
+    // incr_reach is clamped ≥ 0 upstream — always render as a positive delta
     return '<tr>'+
       '<td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+r.grp.replace(/"/g,'&quot;')+'">'+r.grp+'</td>'+
       '<td class="num">'+fmtInt(r.n_ads)+'</td>'+
@@ -5060,8 +5194,8 @@ function _hreachRender(){
       '<td class="num">'+fmtInt(r.first_reach)+'</td>'+
       '<td class="num">'+fmtInt(r.last_reach)+'</td>'+
       '<td class="num">'+fmtInt(r.peak_reach)+'</td>'+
-      '<td class="num" style="color:'+(neg?'var(--error-text)':'var(--success-text)')+';font-weight:700">'+
-        (neg?'':'+')+fmtInt(r.incr_reach)+'</td>'+
+      '<td class="num" style="color:var(--success-text);font-weight:700">'+
+        '+'+fmtInt(r.incr_reach)+'</td>'+
       '<td class="num">'+fmtInt(r.total_reach)+'</td>'+
       '<td class="num">'+fmtRs(r.spend)+'</td>'+
       '<td class="num">'+(r.cpk != null ? fmtRs(r.cpk) : '—')+'</td>'+
@@ -5233,7 +5367,11 @@ function _ireachAggregateFromDaily(rows, grpCol){
       totalReach += s.reach;
       totalSpend += s.spend;
     }
-    const incr = (last?.reach || 0) - (first?.reach || 0);
+    // Reach is a cumulative unique count and can never regress — clamp
+    // the (last - first) delta at 0. Meta's per-day unique-reach numbers
+    // can dip on quiet days; showing a negative delta would misread that
+    // as reach being "taken back" from the audience.
+    const incr = Math.max(0, (last?.reach || 0) - (first?.reach || 0));
     const cpk  = incr > 0 ? (totalSpend / incr) * 1000 : null;
     out.push({
       grp,
@@ -5284,7 +5422,7 @@ function _ireachRenderScope(scope){
   // 261 adsets × ~1KB HTML each is still ~260KB, well under any DOM
   // limits, and lets the user Ctrl-F any group name.
   body.innerHTML = rows.map(r => {
-    const neg = r.incr_reach < 0;
+    // incr_reach is clamped ≥ 0 upstream — always render as a positive delta
     return '<tr>'+
       '<td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+r.grp.replace(/"/g,'&quot;')+'">'+r.grp+'</td>'+
       '<td class="num">'+fmtInt(r.n_ads)+'</td>'+
@@ -5292,8 +5430,8 @@ function _ireachRenderScope(scope){
       '<td class="num">'+fmtInt(r.first_reach)+'</td>'+
       '<td class="num">'+fmtInt(r.last_reach)+'</td>'+
       '<td class="num">'+fmtInt(r.peak_reach)+'</td>'+
-      '<td class="num" style="color:'+(neg?'var(--error-text)':'var(--success-text)')+';font-weight:700">'+
-        (neg?'':'+')+fmtInt(r.incr_reach)+'</td>'+
+      '<td class="num" style="color:var(--success-text);font-weight:700">'+
+        '+'+fmtInt(r.incr_reach)+'</td>'+
       '<td class="num">'+fmtInt(r.total_reach)+'</td>'+
       '<td class="num">'+fmtRs(r.spend)+'</td>'+
       '<td class="num">'+(r.cpk != null ? fmtRs(r.cpk) : '—')+'</td>'+
@@ -5782,6 +5920,123 @@ document.getElementById('aeDateField').addEventListener('change', async () => {
   aePage = 0; renderAE();
 });
 document.getElementById('aePageSize').addEventListener('change', () => { aePage = 0; renderAE(); });
+
+/* Column visibility picker — Shopify-style. State lives in localStorage
+   under 'aeHiddenCols' as an array of column labels (the visible header
+   text). We hide by injecting CSS nth-child rules that target both the
+   <th> and matching <td> in every row, so nothing in the renderer needs
+   to change. */
+(function initAeColpicker(){
+  const KEY = 'aeHiddenCols_v1';
+  const wrap    = document.getElementById('aeColpickWrap');
+  const btn     = document.getElementById('aeColpickBtn');
+  const panel   = document.getElementById('aeColpickPanel');
+  const listEl  = document.getElementById('aeColpickList');
+  const search  = document.getElementById('aeColpickSearch');
+  const styleEl = document.getElementById('aeColHideStyle');
+  const cntEl   = document.getElementById('aeColpickCount');
+  if (!wrap || !btn || !panel || !styleEl) return;
+
+  const loadHidden = () => {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || '[]')); }
+    catch(_) { return new Set(); }
+  };
+  const saveHidden = (set) =>
+    localStorage.setItem(KEY, JSON.stringify(Array.from(set)));
+
+  function _collectCols(){
+    // Return [{idx, label}] for every <th> in the AE table, 1-based to
+    // line up with CSS nth-child indexing.
+    const ths = document.querySelectorAll('#aeMain thead th');
+    return Array.from(ths).map((th, i) => ({
+      idx: i + 1,
+      // Strip any nested widget text (e.g. the ✎ badge in the Asset ID
+      // header) — use the first text node so we get "Asset ID" not
+      // "Asset ID ✎".
+      label: (th.childNodes[0]?.nodeValue || th.textContent || '').trim()
+             || ('col ' + (i + 1)),
+    }));
+  }
+
+  function _applyHide(){
+    const cols = _collectCols();
+    const hidden = loadHidden();
+    // Build one rule per hidden col — table structure lines up thead↔tbody.
+    const rules = [];
+    for (const c of cols){
+      if (hidden.has(c.label)){
+        rules.push(
+          '#aeMain thead th:nth-child(' + c.idx + '),' +
+          '#aeMain tbody td:nth-child(' + c.idx + ')' +
+          '{display:none !important}'
+        );
+      }
+    }
+    styleEl.textContent = rules.join('\n');
+    if (cntEl){
+      const visibleCount = cols.length - hidden.size;
+      cntEl.textContent = '(' + visibleCount + '/' + cols.length + ')';
+    }
+  }
+
+  function _renderList(){
+    const cols = _collectCols();
+    const hidden = loadHidden();
+    const q = (search.value || '').trim().toLowerCase();
+    const shown = cols.filter(c => !q || c.label.toLowerCase().includes(q));
+    if (!shown.length){
+      listEl.innerHTML = '<div class="ae-colpick-empty">No columns match.</div>';
+      return;
+    }
+    listEl.innerHTML = shown.map(c => {
+      const checked = hidden.has(c.label) ? '' : 'checked';
+      const safe    = c.label.replace(/</g, '&lt;');
+      return '<label class="ae-colpick-item">' +
+        '<input type="checkbox" data-col-label="' + safe.replace(/"/g,'&quot;') + '" ' + checked + '>' +
+        '<span class="lbl" title="' + safe.replace(/"/g,'&quot;') + '">' + safe + '</span>' +
+      '</label>';
+    }).join('');
+    listEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const label = cb.dataset.colLabel;
+        const set = loadHidden();
+        if (cb.checked) set.delete(label);
+        else            set.add(label);
+        saveHidden(set);
+        _applyHide();
+      });
+    });
+  }
+
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = panel.classList.toggle('open');
+    panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (open){ _renderList(); setTimeout(() => search.focus(), 30); }
+  });
+  document.addEventListener('click', e => {
+    if (!panel.classList.contains('open')) return;
+    if (wrap.contains(e.target)) return;
+    panel.classList.remove('open'); panel.setAttribute('aria-hidden','true');
+  });
+  search.addEventListener('input', _renderList);
+
+  document.getElementById('aeColpickAll').addEventListener('click', () => {
+    saveHidden(new Set()); _applyHide(); _renderList();
+  });
+  document.getElementById('aeColpickNone').addEventListener('click', () => {
+    const cols = _collectCols();
+    saveHidden(new Set(cols.map(c => c.label))); _applyHide(); _renderList();
+  });
+  document.getElementById('aeColpickReset').addEventListener('click', () => {
+    localStorage.removeItem(KEY); _applyHide(); _renderList();
+  });
+
+  // Apply on page load. The CSS rules are document-scoped so they hit
+  // every current + future <td>/<th> in the table — no re-hook needed
+  // for subsequent renderAE() calls.
+  _applyHide();
+})();
 // Manual date-input edits rebuild the delivery Set too (debounced)
 ['aeDateFrom','aeDateTo'].forEach(id =>
   document.getElementById(id).addEventListener('change', async () => {
@@ -5800,6 +6055,8 @@ document.getElementById('aeCategory').addEventListener('change', e => {
 
 // Clear buttons
 document.getElementById('aeClearDates').onclick = () => drpClearDateRange();
+// Edit Asset ID toggle — same flag for AE + AI. See setAssetEditMode.
+document.getElementById('aeEditAssetBtn').onclick = () => setAssetEditMode(!window.assetEditMode);
 document.getElementById('aeClearFilters').onclick = async () => {
   document.getElementById('aeAcct').value      = '';
   document.getElementById('aeStatus').value    = '';
@@ -5882,18 +6139,23 @@ document.getElementById('aeBtnRefresh').onclick = async () => {
   renderAE();
 };
 document.getElementById('aeBtnExport').onclick = () => {
+  // Exports exactly what the table currently shows: filter-selected rows,
+  // in the sort order they're displayed, and only the columns the user
+  // hasn't hidden via the ▤ Columns picker.  Enriches each row with the
+  // computed asset_id, reach snapshot, and shopify metrics that the
+  // renderer merges in but that aren't stored on the raw ae_table_view
+  // row, so those columns don't come out blank.
   const rows = aeFiltered();
-  const cols = ['ad_id','ad_name','account_name','campaign_name','adset_id','adset_name',
-                'ad_created','ad_status','category',
-                'impressions','reach','frequency','amount_spent','roas_ma',
-                'ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp',
-                'shopify_orders','shopify_sales','shopify_roas'];
-  const lines = [cols.join(',')];
-  rows.forEach(r => lines.push(cols.map(c => JSON.stringify(r[c] ?? '')).join(',')));
-  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'ads_analyse_' + (new Date().toISOString().slice(0,10)) + '.csv';
-  a.click();
+  exportVisibleTableCsv('#aeMain', rows, {
+    filenamePrefix: 'ads_analyse',
+    deriveRow: r => ({
+      ...r,
+      asset_id:              assetIdByAdId[r.ad_id] || '',
+      previous_reach:        (aeWindowReachByAdId[r.ad_id] || {}).reach_first ?? r.previous_reach,
+      latest_reach:          (aeWindowReachByAdId[r.ad_id] || {}).reach_last  ?? r.latest_reach,
+      incremental_reach:     (aeWindowReachByAdId[r.ad_id] || {}).reach_incr  ?? r.incremental_reach,
+    }),
+  });
 };
 /* Incremental Reach group-by modal was removed — the per-ad reach
    columns (Prev / Latest / Incr / Cost per 1k) now render directly in
@@ -6378,12 +6640,11 @@ document.getElementById('invCfgClear').onclick = () => {
 document.getElementById('invExport').onclick = () => {
   const rows = invFiltered();
   if (!rows.length) return;
-  const cols = ['id','title','handle','status','vendor','productType','totalInventory','createdAt'];
-  const lines = [cols.join(',')];
-  rows.forEach(p => lines.push(cols.map(c => JSON.stringify(p[c] ?? '')).join(',')));
-  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'inventory_' + (new Date().toISOString().slice(0,10)) + '.csv'; a.click();
+  // Match whatever the Inventory table is currently showing — every
+  // filter facet (status / lifecycle / stock / category / type) is
+  // already baked into invFiltered().  Column order + labels come from
+  // the visible <thead>.
+  exportVisibleTableCsv('#invTbl', rows, { filenamePrefix: 'inventory' });
 };
 
 (async ()=>{

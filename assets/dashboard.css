@@ -847,6 +847,84 @@
   .ae-fbtn.primary{background:#C0603A;color:#FFF;border-color:#A0512E}
   .ae-fbtn.primary:hover{background:#A0512E;border-color:#8A4326}
 
+  /* Edit-Asset-ID toggle: highlight the buttons + editable cells when the
+     mode is ON so it's clear which column is currently click-editable. */
+  #aeEditAssetBtn.active,
+  #aiEditAssetBtn.active{
+    background:#C0603A;color:#FFF;border-color:#A0512E;
+    box-shadow:inset 0 0 0 1px #FFF3;
+  }
+  /* Column picker — Shopify-style checkbox list. Popover anchored to the
+     Columns button; scrollable when the AE table has many columns. */
+  .ae-colpick-wrap{position:relative;display:inline-block}
+  .ae-colpick-panel{
+    position:absolute;top:calc(100% + 6px);right:0;
+    width:280px;max-height:420px;
+    background:var(--bg-white);border:1px solid var(--border-mid);
+    border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);
+    z-index:60;padding:10px;
+    display:none;flex-direction:column;gap:8px;
+  }
+  .ae-colpick-panel.open{display:flex}
+  .ae-colpick-hdr{display:flex;gap:6px;align-items:center}
+  .ae-colpick-hdr input[type="search"]{
+    flex:1;padding:6px 9px;font-size:12px;
+    border:1px solid var(--border-mid);border-radius:6px;
+    background:var(--bg-page-alt);color:var(--text-primary);outline:none;
+    min-width:0;
+  }
+  .ae-colpick-hdr input[type="search"]:focus{border-color:#C0603A}
+  .ae-colpick-mini{
+    padding:5px 8px;font-size:10.5px;font-weight:600;
+    border:1px solid var(--border-mid);border-radius:5px;
+    background:var(--bg-white);color:var(--text-secondary);
+    cursor:pointer;white-space:nowrap;
+  }
+  .ae-colpick-mini:hover{background:#FFF7E6;border-color:#C0603A;color:#C0603A}
+  .ae-colpick-list{
+    overflow-y:auto;max-height:340px;
+    display:flex;flex-direction:column;gap:2px;
+    padding-right:2px;
+  }
+  .ae-colpick-item{
+    display:flex;align-items:center;gap:8px;
+    padding:6px 8px;border-radius:6px;
+    font-size:12.5px;color:var(--text-primary);
+    cursor:pointer;user-select:none;
+  }
+  .ae-colpick-item:hover{background:var(--bg-page-alt)}
+  .ae-colpick-item input[type="checkbox"]{
+    width:15px;height:15px;flex-shrink:0;cursor:pointer;
+    accent-color:#C0603A;
+  }
+  .ae-colpick-item .lbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ae-colpick-empty{padding:16px 8px;font-size:12px;color:var(--text-tertiary);text-align:center}
+
+  /* Pencil badge lives inside the Asset ID column header — impossible to miss */
+  .asset-edit-badge{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:20px;height:20px;margin-left:6px;
+    border:1px solid var(--border-mid);border-radius:5px;
+    background:var(--bg-white);color:var(--text-secondary);
+    font-size:12px;line-height:1;cursor:pointer;
+    vertical-align:middle;padding:0;
+    transition:background .12s, border-color .12s, color .12s;
+  }
+  .asset-edit-badge:hover{background:#FFF7E6;border-color:#C0603A;color:#C0603A}
+  .asset-edit-badge.active{background:#C0603A;border-color:#A0512E;color:#FFF}
+  th:has(.asset-edit-badge){white-space:nowrap}
+  body.asset-edit-on .ae-asset-cell,
+  body.asset-edit-on .ai-asset-cell{
+    background:linear-gradient(#FFF7E6,#FFF7E6);
+    outline:1px dashed #C0603A;
+    outline-offset:-2px;
+    cursor:text;
+  }
+  body.asset-edit-on .ae-asset-cell:hover,
+  body.asset-edit-on .ai-asset-cell:hover{
+    background:linear-gradient(#FFECC5,#FFECC5);
+  }
+
   /* ── Date Range Picker (DRP) ─────────────────────────────────────── */
   .drp-wrap{position:relative}
   .drp-btn{

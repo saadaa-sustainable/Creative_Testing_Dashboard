@@ -6,7 +6,7 @@
 <title>Creative Testing v2 — Analytics</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<link rel="stylesheet" href="assets/dashboard.css">
+<link rel="stylesheet" href="assets/dashboard.css?v=ae_column_picker">
 </head>
 <body>
 
@@ -679,6 +679,8 @@
       <div class="ae-actions-row">
         <button class="ae-fbtn" id="aeClearDates"   type="button">Clear Dates</button>
         <button class="ae-fbtn" id="aeClearFilters" type="button">Clear Filters</button>
+        <button class="ae-fbtn" id="aeEditAssetBtn" type="button"
+                title="Turn on to click-edit Asset ID cells">✎ Edit Asset ID</button>
       </div>
     </div>
   </div>
@@ -756,11 +758,30 @@
         <option>1000</option>
       </select>
       <div class="ae-pager-right">
+        <!-- Column visibility picker — Shopify-style checkbox list.
+             Panel is populated on first open from the table headers. -->
+        <div class="ae-colpick-wrap" id="aeColpickWrap">
+          <button class="btn ghost" id="aeColpickBtn" type="button"
+                  style="padding:5px 10px;font-size:11px"
+                  title="Show / hide columns">▤ Columns <span id="aeColpickCount" class="mono" style="color:var(--text-tertiary);margin-left:4px"></span></button>
+          <div class="ae-colpick-panel" id="aeColpickPanel" aria-hidden="true">
+            <div class="ae-colpick-hdr">
+              <input type="search" id="aeColpickSearch" placeholder="Search columns…" autocomplete="off">
+              <button class="ae-colpick-mini" id="aeColpickAll"   type="button">All</button>
+              <button class="ae-colpick-mini" id="aeColpickNone"  type="button">None</button>
+              <button class="ae-colpick-mini" id="aeColpickReset" type="button">Reset</button>
+            </div>
+            <div class="ae-colpick-list" id="aeColpickList"></div>
+          </div>
+        </div>
         <button class="btn ghost" id="aePrevPage" type="button" style="padding:5px 10px;font-size:11px">‹ Prev</button>
         <span id="aePageInfo" class="mono" style="min-width:120px;text-align:center">Page 1 / 1</span>
         <button class="btn ghost" id="aeNextPage" type="button" style="padding:5px 10px;font-size:11px">Next ›</button>
       </div>
     </div>
+
+    <!-- Dynamic style tag — JS injects nth-child rules here to hide columns -->
+    <style id="aeColHideStyle"></style>
 
     <div class="ae-tbl-wrap">
       <table class="tbl ae-tbl" id="aeMain">
@@ -771,7 +792,10 @@
             <th data-sort="ad_id" class="col-adid">Ad ID</th>
             <!-- Manual mapping from ad_asset_ids. Blank until the sheet
                  is imported; sorts alphabetically. -->
-            <th data-sort="asset_id" class="col-adid">Asset ID</th>
+            <th data-sort="asset_id" class="col-adid">Asset ID
+              <button class="asset-edit-badge" id="aeEditAssetBadge" type="button"
+                      title="Click to enable/disable Asset ID editing">✎</button>
+            </th>
             <th data-sort="campaign_name" class="col-camp">Campaign</th>
             <th data-sort="adset_id" class="col-adsetid">Ad Set ID</th>
             <th data-nosort="1">Attribution</th>
@@ -1106,6 +1130,8 @@
         <button class="lt-btn"        data-mode="pct"   type="button">%</button>
       </div>
       <button class="btn ghost" id="aiRefresh">↻ Refresh</button>
+      <button class="btn ghost" id="aiEditAssetBtn"
+              title="Turn on to click-edit Asset ID cells">✎ Edit Asset ID</button>
       <button class="btn" id="aiExport">Export CSV</button>
     </div>
   </div>
@@ -1344,10 +1370,19 @@
           <th data-aisort="utm_term">utm_term</th>
           <th data-aisort="matched_value">matched_value</th>
           <th data-aisort="ad_id">Ad ID</th>
+          <!-- Customer identity — populated by backfill_customer_info.py
+               and by future rebuild_attribution_orders.py runs. Historical
+               rows without a customer show "—". -->
+          <th data-aisort="customer_id"        title="Shopify customer numeric id (from Order.customer)">Customer ID</th>
+          <th class="num" data-aisort="customer_num_orders"
+                                              title="Lifetime Shopify order count for this customer at attribution time">Orders</th>
           <!-- Manual mapping from ad_asset_ids. Blank until the sheet
                is imported; sorts alphabetically since asset ids are
                opaque strings ("Sep-682" style). -->
-          <th data-aisort="asset_id">Asset ID</th>
+          <th data-aisort="asset_id">Asset ID
+            <button class="asset-edit-badge" id="aiEditAssetBadge" type="button"
+                    title="Click to enable/disable Asset ID editing">✎</button>
+          </th>
           <th data-aisort="ad_name">Ad Name</th>
           <th data-aisort="campaign_name">Campaign</th>
           <th data-aisort="ad_status">Ad Status</th>
@@ -2008,6 +2043,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=asset_id_edit"></script>
+<script src="assets/dashboard.js?v=ai_customer_cols"></script>
 </body>
 </html>
