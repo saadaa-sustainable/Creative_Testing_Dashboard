@@ -16,9 +16,13 @@ STEPS = [
     #  now compute the primary+backfill dedup inline in their RPC
     #  bodies, so no matview refresh needed.)
     ("refresh_ae_reach_recent",        ["refresh_ae_reach_recent.py"],      600),
-    # Campaign + Adset daily reach agg (drives Incremental Analysis).
-    # Same dedup logic as ae_reach_recent; rebuilt once per pipeline run.
-    ("refresh_ireach_daily",           ["refresh_ireach_daily.py"],         600),
+    # Campaign + Adset UNIQUE reach at group level, straight from Meta's
+    # /insights (level=campaign / level=adset). Meta returns the deduped
+    # audience per group per day — you can't get this by summing ad-level
+    # reach from primary_table because that overcounts by 10-60%.
+    # Daily incremental picks up the last 15 days on every run so a
+    # slow-to-arrive backfill day still lands.
+    ("fetch_meta_ireach_daily",        ["fetch_meta_ireach_daily.py"],     1800),
     ("result_classifier",              ["result_classifier.py"],            900),
     ("results_sync",                   ["results_sync.py"],                1800),
     # Shopify sessions per landing-page — daily incremental via ShopifyQL.

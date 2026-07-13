@@ -889,14 +889,13 @@
     </div>
     <div class="def-note" style="margin:0 0 12px 0">
       <span class="def-note-icon">◆</span>
-      <span>Reach is aggregated at the <b>group level per day</b> (sum of ad reaches within
-      the campaign/adset on that date), then incremental is computed on those daily
-      aggregates — not by summing ad-level increments. Window is capped at
-      2025-01-01 on the low end; older data lives in <b>Historic Reach</b>.
-      Source: materialized views <code>public.ireach_campaign_daily</code> +
-      <code>public.ireach_adset_daily</code>, rebuilt nightly from the deduped
-      union of <code>primary_table</code> + <code>backfill_table</code>
-      (primary wins on <code>(ad_id, date)</code>).</span>
+      <span>Reach is the <b>unique audience per group per day</b>, pulled straight
+      from Meta's <code>/insights?level=campaign|adset</code>. That's Meta's own
+      dedup — you can't get it by summing <code>primary_table.reach</code>, which
+      overcounts because the same user seeing two ads in the same campaign gets
+      counted twice. Incremental reach is <code>reach_last − reach_first</code>
+      across the window at the group level. Window capped at 2025-01-01 on the
+      low end; older data lives in <b>Historic Reach</b>.</span>
     </div>
     <div style="font-size:11px;color:var(--text-tertiary)" id="ireachStatus">Ready — click Apply to load.</div>
     <div id="ireachAudit" style="font-size:11px;color:var(--text-tertiary);
@@ -2009,6 +2008,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ireach_matviews"></script>
+<script src="assets/dashboard.js?v=ireach_meta"></script>
 </body>
 </html>

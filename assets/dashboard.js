@@ -5077,8 +5077,10 @@ async function _ireachFetch(from, to){
   const fetchAll = async (view, grpCol) => {
     let out = [], offset = 0, BATCH = 5000;
     while (true){
+      // n_ads is no longer available server-side (Meta's group-level
+      // insights don't expose an ad count). Ads column shows "—".
       const url = SUPABASE_URL + '/rest/v1/' + view +
-                  '?select=' + grpCol + ',date,reach_daily,spend_daily,n_ads' +
+                  '?select=' + grpCol + ',date,reach_daily,spend_daily' +
                   '&date=gte.' + from + '&date=lte.' + to +
                   '&order=date.asc&limit=' + BATCH + '&offset=' + offset;
       const r = await fetch(url, {headers});
@@ -5106,7 +5108,6 @@ async function _ireachFetch(from, to){
 // so we just walk the series to pick first / last / peak / totals.
 function _ireachAggregateFromDaily(rows, grpCol){
   const byGrp = new Map();
-  const maxAds = new Map();
   for (const r of rows){
     const grp = ((r[grpCol] || '(none)') + '').trim() || '(none)';
     const d   = (r.date || '').slice(0, 10);
@@ -5118,12 +5119,6 @@ function _ireachAggregateFromDaily(rows, grpCol){
       reach: +r.reach_daily || 0,
       spend: +r.spend_daily || 0,
     });
-    // n_ads per day is the DISTINCT count on that day; take MAX across
-    // days as the group's "ads active in window" — matches how the
-    // old client path counted unique ad_ids.
-    const cur = maxAds.get(grp) || 0;
-    const nd  = +r.n_ads || 0;
-    if (nd > cur) maxAds.set(grp, nd);
   }
   const out = [];
   for (const [grp, series] of byGrp.entries()){
@@ -5139,7 +5134,10 @@ function _ireachAggregateFromDaily(rows, grpCol){
     const cpk  = incr > 0 ? (totalSpend / incr) * 1000 : null;
     out.push({
       grp,
-      n_ads: maxAds.get(grp) || 0,
+      // n_ads intentionally null — Meta's group-level insights don't
+      // expose an ad count and we deliberately avoid re-introducing
+      // primary_table as a source to compute it. Renderer displays "—".
+      n_ads: null,
       days:  series.length,
       first_reach: first?.reach || 0,
       last_reach : last?.reach  || 0,
