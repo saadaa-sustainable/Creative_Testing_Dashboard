@@ -128,17 +128,42 @@ def _fetch(since_updated: str | None, limit: int | None,
     t0 = time.time()
     total_fetched = 0
     total_upserted = 0
+    def _post_with_retry(cursor_val):
+        """Retry the GraphQL POST on transient network / TLS / throttle
+        failures. Shopify's edge occasionally drops TLS mid-stream on
+        long backfills; a single-shot POST loses the whole run."""
+        delay = 5
+        for attempt in range(1, 8):
+            try:
+                r = requests.post(GRAPHQL, headers=HDRS,
+                                  json={"query": QUERY, "variables":
+                                        {"after": cursor_val, "query": query}},
+                                  timeout=60)
+            except (requests.exceptions.SSLError,
+                    requests.exceptions.ConnectionError,
+                    requests.exceptions.Timeout) as e:
+                say(f"    [net {attempt}] {type(e).__name__}: {str(e)[:120]} — sleeping {delay}s")
+                time.sleep(delay); delay = min(delay * 2, 120); continue
+            if r.status_code == 429 or r.status_code in (502, 503, 504):
+                say(f"    [http {r.status_code} {attempt}] Shopify busy — sleeping {delay}s")
+                time.sleep(delay); delay = min(delay * 2, 120); continue
+            if r.status_code != 200:
+                raise RuntimeError(f"Shopify HTTP {r.status_code}: {scrub(r.text)[:300]}")
+            return r
+        raise RuntimeError("Shopify request exhausted retries")
     while True:
         page += 1
-        r = requests.post(GRAPHQL, headers=HDRS,
-                          json={"query": QUERY, "variables":
-                                {"after": cursor, "query": query}},
-                          timeout=60)
-        if r.status_code != 200:
-            raise RuntimeError(f"Shopify HTTP {r.status_code}: {scrub(r.text)[:300]}")
+        r = _post_with_retry(cursor)
         j = r.json()
         if "errors" in j:
-            raise RuntimeError(f"GraphQL errors: {scrub(json.dumps(j['errors']))[:400]}")
+            # THROTTLED shows up here too — treat as retriable
+            errs = j.get("errors") or []
+            if any(("throttled" in (e.get("message","").lower()))
+                   or ("THROTTLED" == ((e.get("extensions") or {}).get("code","")).upper())
+                   for e in errs):
+                say(f"    [throttled] backing off 10s and retrying page {page}")
+                time.sleep(10); page -= 1; continue
+            raise RuntimeError(f"GraphQL errors: {scrub(json.dumps(errs))[:400]}")
         cus = (j.get("data") or {}).get("customers") or {}
         edges = cus.get("edges") or []
         for e in edges:
