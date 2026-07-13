@@ -22,6 +22,14 @@ STEPS = [
     # into today so late-arriving data still lands.  Writes via PostgREST
     # since the pooler URL isn't provisioned in every environment.
     ("fetch_shopify_sessions",         ["fetch_shopify_sessions.py"],       1800),
+    # Shopify customers mirror — pull the full customer directory into
+    # public.customers on the Saada_Shopify_Data project. Idempotent
+    # upsert by customer id; on the first run it walks the whole
+    # catalogue, subsequent runs re-fetch every customer so tags /
+    # amount_spent / addresses / marketing consent stay fresh. Ceiling
+    # 30 min covers the ~10-15k customer catalogue at 100/page
+    # (~1s each with a 0.25s inter-page throttle).
+    ("sync_shopify_customers",         ["sync_shopify_customers.py"],       1800),
     # Shopify attribution LAST — slow and network-flaky; isolates the long step at the end
     ("rebuild_attribution_orders",     ["rebuild_attribution_orders.py", "2026-06-15", "2099-12-31"],  3600),
     # Thumbnail refresh — Meta's fbcdn URLs expire in ~48-72h so we cycle the
