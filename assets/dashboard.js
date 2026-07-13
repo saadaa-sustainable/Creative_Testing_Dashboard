@@ -5016,20 +5016,24 @@ function aeApplyWindow(r){
   //   Latest Reach   = reach_last
   //   Incr. Reach    = reach_incr  (already capped at 0 by RPC)
   //   Cost / 1k Incr = spend_sum × 1000 / reach_incr
-  if (_aeWindowReachKey){
-    if (rr){
-      out.previous_reach    = rr.reach_first;
-      out.latest_reach      = rr.reach_last;
-      out.incremental_reach = rr.reach_incr;
-      out.cost_per_1000_incremental_reach = rr.reach_incr > 0
-        ? (rr.spend_sum * 1000) / rr.reach_incr
-        : null;
-    } else {
-      out.previous_reach = null;
-      out.latest_reach   = null;
-      out.incremental_reach = null;
-      out.cost_per_1000_incremental_reach = null;
-    }
+  if (_aeWindowReachKey && rr){
+    out.previous_reach    = rr.reach_first;
+    out.latest_reach      = rr.reach_last;
+    out.incremental_reach = Math.max(0, rr.reach_incr || 0);
+    out.cost_per_1000_incremental_reach = rr.reach_incr > 0
+      ? (rr.spend_sum * 1000) / rr.reach_incr
+      : null;
+  }
+  // If `rr` is missing (ad has no reach in the current window, OR the
+  // fetch hasn't resolved yet on the first paint) fall through and keep
+  // out.previous_reach / latest_reach / incremental_reach from the
+  // ae_reach_recent merge that Object.assign copied at line 4981.
+  // Clamp the fallback incremental_reach at 0 — the base view can emit
+  // negatives when Meta's per-day unique reach dips, but users read a
+  // negative as "reach was taken back," which never happens.
+  if (typeof out.incremental_reach === 'number' && out.incremental_reach < 0){
+    out.incremental_reach = 0;
+    out.cost_per_1000_incremental_reach = null;
   }
   return out;
 }
