@@ -2,7 +2,21 @@
 
 Called by _run_full_update.py after refresh_ae_daily_agg. Uses direct
 psycopg2 with a lifted statement_timeout so the ~1M-row UNION over
-primary_table + backfill_table can complete (typically ~10s)."""
+primary_table + backfill_table can complete (typically ~10s).
+
+View definition (see migration ae_reach_recent_dedup, 2026-07-13):
+  * UNION primary_table + backfill_table
+  * DISTINCT ON (ad_id, date) with primary winning — same dedup as
+    ae_daily_agg_mat, so consumers stay in agreement
+  * row_number() DESC over date → pick each ad's latest & previous
+    delivered days
+  * incremental_reach = latest_reach - previous_reach (signed;
+    negative means reach dropped between the two anchor days)
+
+The prior UNION-ALL-without-dedup version made latest_date and
+previous_date land on the same day for ~40% of ads whenever the
+overlap window covered both tables, spuriously zeroing out
+incremental_reach across the dashboard's Ads Analyse view."""
 from __future__ import annotations
 import os, sys, time, psycopg2
 from dotenv import load_dotenv
