@@ -3950,24 +3950,37 @@ function aiTierClass(t){
   return 'none';
 }
 
-/* Classify a raw utm_source (or synthetic key) into one of the four channels.
-   Meta       — any source starting with "meta" (meta, meta_ads,
-                 meta-featuredofferings, metald_1, meta-sitelink, …),
-                 plus facebook / fb / instagram / ig / igshopping.
-   Google     — google / gads / google_ads / adwords / any "google*".
-   Retention  — kwikengage/kwikchat/kwikchatbot/any kwik*, plus
-                 wa, sagepilot(-ai), email, rcs. Also catches the
-                 synthetic key HEADLESS_RETENTION (blank utm_source
-                 but a non-blank utm_content — an order that carries
-                 a retention marker even though the source tag is
-                 missing).
-   Other      — everything else (direct, chatgpt.com, robylon,
-                 fealtyx, nector, truly-blank orders, etc.). */
+/* Classify a raw utm_source (+ optional row for cross-utm checks) into one
+   of nine channel buckets. Order matters — the first matching branch wins.
+     organic_ig    Meta rows where utm_medium=social AND utm_content=link_in_bio
+                    (Instagram bio-link discovery — non-paid, so it's split
+                    out of Meta so paid-Meta KPIs stay clean).
+     meta          any source starting with "meta" (meta, meta_ads,
+                    meta-featuredofferings, metald_1, meta-sitelink, …)
+                    plus facebook / fb / instagram / ig / igshopping.
+     google        google / gads / google_ads / adwords / any "google*".
+     retention     kwikengage/kwikchat/kwikchatbot/any kwik*, plus wa,
+                    sagepilot(-ai), email, rcs. Also catches the synthetic
+                    key HEADLESS_RETENTION (blank utm_source but non-blank
+                    utm_content — retention marker sans source tag).
+     brand_collab  fealtyx / brand-collab*
+     ai            chatgpt(.com) / openai* / perplexity(.ai) / claude(.ai) /
+                    gemini* / bing-chat.
+     organic       (direct)/none/blank utm_source — the true direct bucket
+                    aka Organic (Direct).
+     loyalty       nector / loyalty*.
+     other         everything else (exchange orders, robylon, one-offs). */
 const _AI_HEADLESS = '__headless_retention__';   // synthetic source keys
 const _AI_EXCHANGE = '__exchange__';
 const _AI_META_RE      = /^(meta[\w\-]*|facebook|fb|instagram|ig|igshopping)$/i;
 const _AI_GOOGLE_RE    = /^(google[\w\-]*|gads|adwords)$/i;
 const _AI_RETENTION_RE = /^(kwik[\w\-]*|wa|sagepilot(?:[-_]?ai)?|email|rcs)$/i;
+// Newer sub-buckets split out of the old "Other" pool.
+const _AI_BRANDCOLLAB_RE = /^(fealtyx[\w\-]*|brand.?collab[\w\-]*)$/i;
+const _AI_AI_RE          = /^(chatgpt(?:\.com)?|openai(?:[\w\-]*)|perplexity(?:\.ai)?|claude(?:\.ai)?|gemini(?:[\w\-]*)|bing.?chat)$/i;
+const _AI_LOYALTY_RE     = /^(nector[\w\-]*|loyalty[\w\-]*)$/i;
+// Organic markers used by the utm-source-blank branch (see aiChannel).
+const _AI_DIRECT_MARKERS = new Set(['', '(direct)', 'direct', 'none', '(none)']);
 
 /* Row → synthetic source key used by the filter, drilldown and multi-select.
       utm_source populated                 -> the raw source string
@@ -3992,14 +4005,33 @@ function aiSourceKey(r){
   if (isFinite(price) && price === 0) return _AI_EXCHANGE;
   return '';
 }
-function aiChannel(srcKey){
+// Optional row arg lets us peek at utm_medium + utm_content when the
+// source alone is ambiguous (e.g. Meta rows whose utm_medium=social AND
+// utm_content=link_in_bio are the Instagram bio-link → Organic (IG),
+// not paid Meta).
+function aiChannel(srcKey, row){
   const s = (srcKey || '').trim();
+  // ── Organic (IG): Meta source + IG bio-link markers ────────────
+  if (row){
+    const um = (row.utm_medium  || '').trim().toLowerCase();
+    const uc = (row.utm_content || '').trim().toLowerCase();
+    // "social" covers 'social' / 'social-organic' / 'social_media';
+    // link_in_bio is Meta's canonical IG bio marker.
+    if ((um === 'social' || /social/.test(um)) && /link.?in.?bio/.test(uc)){
+      return 'organic_ig';
+    }
+  }
   if (s === _AI_HEADLESS)       return 'retention';
   if (s === _AI_EXCHANGE)       return 'other';
-  if (!s)                       return 'other';
+  // Blank source → Organic (Direct). No utm marker at all.
+  if (!s || _AI_DIRECT_MARKERS.has(s.toLowerCase()))
+                                return 'organic';
   if (_AI_META_RE.test(s))      return 'meta';
   if (_AI_GOOGLE_RE.test(s))    return 'google';
   if (_AI_RETENTION_RE.test(s)) return 'retention';
+  if (_AI_BRANDCOLLAB_RE.test(s)) return 'brand_collab';
+  if (_AI_AI_RE.test(s))          return 'ai';
+  if (_AI_LOYALTY_RE.test(s))     return 'loyalty';
   return 'other';
 }
 
@@ -4008,32 +4040,38 @@ let aiOpenChannel = '';
 let aiDisplayMode = 'count';   // 'count' | 'pct' — swaps KPI primary value with chip
 let aiTierMode    = 'meta';    // 'meta' | 'google' — which tier cascade the KPI row shows
 
+// Canonical bucket list — must stay in sync with aiChannel + the HTML
+// dom ids under #aiChannelRow. Adding a new bucket = 3 edits: aiChannel,
+// this list, and the <div class="kpi ai-ch-card" data-channel="…">.
+const AI_CHANNELS = ['meta','organic_ig','google','retention',
+                     'brand_collab','ai','organic','loyalty','other'];
+
 function aiRenderChannels(){
-  const chs = {all:{n:0,sp:0}, meta:{n:0,sp:0}, google:{n:0,sp:0},
-               retention:{n:0,sp:0}, other:{n:0,sp:0}};
+  const chs = {all:{n:0,sp:0}};
+  for (const k of AI_CHANNELS) chs[k] = {n:0, sp:0};
   for (const r of aiOrders){
-    const c = aiChannel(aiSourceKey(r));   // uses row-level key so
-    const sp = +r.total_price || 0;         // headless_retention counts under Retention
+    // Pass row so Organic (IG) detection can peek at utm_medium + utm_content.
+    const c = aiChannel(aiSourceKey(r), r);
+    const sp = +r.total_price || 0;
     chs.all.n += 1;      chs.all.sp += sp;
-    chs[c].n  += 1;      chs[c].sp  += sp;
+    if (chs[c]){ chs[c].n += 1; chs[c].sp += sp; }
   }
   const total = chs.all.n || 0;
   const set = (id, k) => {
-    const n = chs[k].n;
+    if (!document.getElementById('aiCh-'+id)) return;
+    const n = chs[k]?.n || 0;
     const pctStr = k === 'all' ? '100%'
                  : (total > 0 ? ((n / total * 100).toFixed(1) + '%') : '—');
     const countStr = fmtInt(n);
-    // Depending on display mode, swap which value is primary (big) vs
-    // secondary (chip).
-    const primary   = aiDisplayMode === 'pct' ? pctStr : countStr;
+    const primary   = aiDisplayMode === 'pct' ? pctStr   : countStr;
     const secondary = aiDisplayMode === 'pct' ? countStr : pctStr;
     document.getElementById('aiCh-'+id     ).textContent = primary;
-    document.getElementById('aiCh-'+id+'-sp').textContent = fmtRs(chs[k].sp);
+    document.getElementById('aiCh-'+id+'-sp').textContent = fmtRs(chs[k]?.sp || 0);
     const pcEl = document.getElementById('aiCh-'+id+'-pc');
     if (pcEl) pcEl.textContent = secondary;
   };
-  set('all','all'); set('meta','meta'); set('google','google');
-  set('retention','retention'); set('other','other');
+  set('all','all');
+  for (const k of AI_CHANNELS) set(k, k);
   // Reflect currently-open drilldown selection
   document.querySelectorAll('#aiChannelRow .kpi').forEach(card => {
     card.classList.toggle('selected', card.dataset.channel === aiOpenChannel);
@@ -4049,7 +4087,9 @@ function aiRenderChannelDrill(channel){
   const body  = document.getElementById('aiChannelDrillBody');
   const ttl   = document.getElementById('aiChannelDrillTtl');
   const sub   = document.getElementById('aiChannelDrillSub');
-  const nice  = {meta:'Meta', google:'Google', retention:'Retention',
+  const nice  = {meta:'Meta', organic_ig:'Organic (IG)', google:'Google',
+                 retention:'Retention', brand_collab:'Brand Collab',
+                 ai:'AI', organic:'Organic (Direct)', loyalty:'Loyalty',
                  other:'Other', all:'All channels'};
   panel.style.display = 'block';
   ttl.textContent = nice[channel] + ' · utm_source breakdown';
@@ -4060,10 +4100,16 @@ function aiRenderChannelDrill(channel){
   let totalOrders = 0, totalSales = 0;
   for (const r of aiOrders){
     const key = aiSourceKey(r);
-    const c   = aiChannel(key);
+    const c   = aiChannel(key, r);   // row-aware so Organic (IG) is honored
     if (channel !== 'all' && c !== channel) continue;
-    if (!groups.has(key)) groups.set(key, {key:key, orders:0, sales:0});
-    const g = groups.get(key);
+    // For Organic (IG) we group on the utm_content marker rather than the
+    // (already Meta-classified) source so the drilldown shows "link_in_bio"
+    // as a first-class row instead of collapsing everything into "meta".
+    const dispKey = c === 'organic_ig'
+                    ? ((r.utm_content || '').trim().toLowerCase() || '(blank)')
+                    : key;
+    if (!groups.has(dispKey)) groups.set(dispKey, {key:dispKey, orders:0, sales:0});
+    const g = groups.get(dispKey);
     g.orders += 1;
     g.sales  += +r.total_price || 0;
     totalOrders += 1;
@@ -4147,7 +4193,8 @@ function aiRenderKpis(){
     const sales   = {G1:0,G2:0,G3:0,G4:0,'__none__':0};
     // Scope to Google-channel orders only, so the % denominator makes sense
     for (const r of aiOrders){
-      if (aiChannel(aiSourceKey(r)) !== 'google') continue;
+      // Row-aware so Organic (IG) doesn't spill into Meta / Google tiers.
+      if (aiChannel(aiSourceKey(r), r) !== 'google') continue;
       const k = aiGoogleStep(r);
       buckets[k] += 1;
       sales[k]   += (+r.total_price || 0);
@@ -4169,9 +4216,11 @@ function aiRenderKpis(){
   }
   const buckets = {'Step 1':0,'Step 2':0,'Step 3':0,'Step 4':0,'Step 5':0,'__none__':0};
   const sales   = {'Step 1':0,'Step 2':0,'Step 3':0,'Step 4':0,'Step 5':0,'__none__':0};
-  // Scope to Meta-channel orders only, so the % denominator makes sense
+  // Scope to Meta-channel orders only, so the % denominator makes sense.
+  // Row-aware call excludes Organic (IG) — those aren't paid Meta orders
+  // and shouldn't inflate the Meta tier counts.
   for (const r of aiOrders){
-    if (aiChannel(aiSourceKey(r)) !== 'meta') continue;
+    if (aiChannel(aiSourceKey(r), r) !== 'meta') continue;
     const k = aiStep(r);
     buckets[k] += 1;
     sales[k]   += (+r.total_price || 0);

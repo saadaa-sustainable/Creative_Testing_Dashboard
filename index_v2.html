@@ -1113,7 +1113,7 @@
          plus wa, sagepilot, email, rcs — every retention-marketing tool.
        Other is everything else (direct, null, chatgpt.com, fealtyx, etc.).
        Click any card to open the utm_source breakdown drilldown below. -->
-  <div class="kpi-row" id="aiChannelRow" style="grid-template-columns:repeat(5,1fr)">
+  <div class="kpi-row" id="aiChannelRow" style="grid-template-columns:repeat(auto-fit, minmax(140px, 1fr))">
     <div class="kpi ai-ch-card" data-channel="all">
       <div class="k-lbl">Total Orders</div>
       <div class="k-val mono"><span id="aiCh-all">—</span><span class="k-pct muted" id="aiCh-all-pc">100%</span></div>
@@ -1124,6 +1124,14 @@
       <div class="k-val mono"><span id="aiCh-meta">—</span><span class="k-pct" id="aiCh-meta-pc">—</span></div>
       <div class="k-sub">sales <b id="aiCh-meta-sp">—</b></div>
     </div>
+    <!-- Organic (IG) — Meta orders where utm_medium=social AND
+         utm_content=link_in_bio, i.e. the Instagram bio link. Split out
+         of Meta because it's non-paid discovery. -->
+    <div class="kpi ai-ch-card" data-channel="organic_ig">
+      <div class="k-lbl">Organic (IG)</div>
+      <div class="k-val mono"><span id="aiCh-organic_ig">—</span><span class="k-pct" id="aiCh-organic_ig-pc">—</span></div>
+      <div class="k-sub">sales <b id="aiCh-organic_ig-sp">—</b></div>
+    </div>
     <div class="kpi ai-ch-card" data-channel="google">
       <div class="k-lbl">Google</div>
       <div class="k-val mono"><span id="aiCh-google">—</span><span class="k-pct" id="aiCh-google-pc">—</span></div>
@@ -1133,6 +1141,27 @@
       <div class="k-lbl">Retention</div>
       <div class="k-val mono"><span id="aiCh-retention">—</span><span class="k-pct" id="aiCh-retention-pc">—</span></div>
       <div class="k-sub">sales <b id="aiCh-retention-sp">—</b></div>
+    </div>
+    <!-- ── Sub-buckets split out of the old "Other" pool ──────────── -->
+    <div class="kpi ai-ch-card" data-channel="brand_collab">
+      <div class="k-lbl">Brand Collab</div>
+      <div class="k-val mono"><span id="aiCh-brand_collab">—</span><span class="k-pct" id="aiCh-brand_collab-pc">—</span></div>
+      <div class="k-sub">sales <b id="aiCh-brand_collab-sp">—</b></div>
+    </div>
+    <div class="kpi ai-ch-card" data-channel="ai">
+      <div class="k-lbl">AI</div>
+      <div class="k-val mono"><span id="aiCh-ai">—</span><span class="k-pct" id="aiCh-ai-pc">—</span></div>
+      <div class="k-sub">sales <b id="aiCh-ai-sp">—</b></div>
+    </div>
+    <div class="kpi ai-ch-card" data-channel="organic">
+      <div class="k-lbl">Organic (Direct)</div>
+      <div class="k-val mono"><span id="aiCh-organic">—</span><span class="k-pct" id="aiCh-organic-pc">—</span></div>
+      <div class="k-sub">sales <b id="aiCh-organic-sp">—</b></div>
+    </div>
+    <div class="kpi ai-ch-card" data-channel="loyalty">
+      <div class="k-lbl">Loyalty</div>
+      <div class="k-val mono"><span id="aiCh-loyalty">—</span><span class="k-pct" id="aiCh-loyalty-pc">—</span></div>
+      <div class="k-sub">sales <b id="aiCh-loyalty-sp">—</b></div>
     </div>
     <div class="kpi ai-ch-card" data-channel="other">
       <div class="k-lbl">Other</div>
@@ -1971,6 +2000,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ireach_toggle"></script>
+<script src="assets/dashboard.js?v=ai_ch_split"></script>
 </body>
 </html>
