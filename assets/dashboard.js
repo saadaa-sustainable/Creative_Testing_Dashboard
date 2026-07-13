@@ -3973,8 +3973,11 @@ function aiTierClass(t){
      brand_collab  fealtyx / brand-collab*
      ai            chatgpt(.com) / openai* / perplexity(.ai) / claude(.ai) /
                     gemini* / bing-chat.
-     organic       (direct)/none/blank utm_source — the true direct bucket
-                    aka Organic (Direct).
+     organic       utm_source explicitly tagged '(direct)' / 'direct' /
+                    'none' / '(none)' — the intentional-direct bucket
+                    aka Organic (Direct). Truly-blank utm_source falls
+                    through to `other` (per team decision — blank rows
+                    are un-attributed, not organic).
      loyalty       nector / loyalty*.
      other         everything else (exchange orders, robylon, one-offs). */
 const _AI_HEADLESS = '__headless_retention__';   // synthetic source keys
@@ -3986,8 +3989,11 @@ const _AI_RETENTION_RE = /^(kwik[\w\-]*|wa|sagepilot(?:[-_]?ai)?|email|rcs)$/i;
 const _AI_BRANDCOLLAB_RE = /^(fealtyx[\w\-]*|brand.?collab[\w\-]*)$/i;
 const _AI_AI_RE          = /^(chatgpt(?:\.com)?|openai(?:[\w\-]*)|perplexity(?:\.ai)?|claude(?:\.ai)?|gemini(?:[\w\-]*)|bing.?chat)$/i;
 const _AI_LOYALTY_RE     = /^(nector[\w\-]*|loyalty[\w\-]*)$/i;
-// Organic markers used by the utm-source-blank branch (see aiChannel).
-const _AI_DIRECT_MARKERS = new Set(['', '(direct)', 'direct', 'none', '(none)']);
+// Explicit direct markers — only rows carrying one of these utm_source
+// values count as Organic (Direct). Truly-blank utm_source (empty string
+// after aiSourceKey normalisation) is treated as Other so the Organic
+// card only reflects intentional "direct" tagging.
+const _AI_DIRECT_MARKERS = new Set(['(direct)', 'direct', 'none', '(none)']);
 
 /* Row → synthetic source key used by the filter, drilldown and multi-select.
       utm_source populated                 -> the raw source string
@@ -4036,8 +4042,10 @@ function aiChannel(srcKey, row){
   }
   if (s === _AI_HEADLESS)       return 'retention';
   if (s === _AI_EXCHANGE)       return 'other';
-  // Blank source → Organic (Direct). No utm marker at all.
-  if (!s || _AI_DIRECT_MARKERS.has(s.toLowerCase()))
+  // Truly-blank utm_source (no marker at all) → Other. Only explicit
+  // "(direct)" / "direct" / "none" markers roll into Organic (Direct).
+  if (!s)                       return 'other';
+  if (_AI_DIRECT_MARKERS.has(s.toLowerCase()))
                                 return 'organic';
   if (_AI_META_RE.test(s))      return 'meta';
   if (_AI_GOOGLE_RE.test(s))    return 'google';
