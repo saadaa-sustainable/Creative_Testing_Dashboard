@@ -3754,7 +3754,6 @@ async function aiReloadOrders(){
     rows = await aiFetchOrders(newFrom, newTo, null) || [];
   }
   aiOrders = rows || [];
-  aiEnrichReach();
   aiLoaded = true; aiLoading = false;
   document.getElementById('aiStatus').textContent =
     'Loaded ' + fmtInt(aiOrders.length) + ' rows in ' + ((performance.now()-t0)/1000).toFixed(1) + 's';
@@ -4193,34 +4192,7 @@ function aiRenderKpis(){
   set('S4','Step 4'); set('S5','Step 5'); set('none','__none__');
 }
 
-/* Merge reachRecentByAdId (from public.ae_reach_recent) onto every order
-   in aiOrders that has an ad_id. Idempotent — only stamps rows that
-   don't already carry prev_reach. Called from aiReloadOrders() and from
-   aiRenderTable() so a late-arriving reach map still fills the cells. */
-function aiEnrichReach(){
-  if (!aiOrders || !aiOrders.length) return 0;
-  if (!reachRecentByAdId || !Object.keys(reachRecentByAdId).length) return 0;
-  let hits = 0;
-  for (const r of aiOrders){
-    if (r.prev_reach !== undefined) continue;   // already stamped
-    const rr = r.ad_id ? reachRecentByAdId[r.ad_id] : null;
-    if (!rr) continue;
-    // Coerce to numbers; keep 0 as 0 (not falsy → not treated as missing)
-    const p = (rr.previous_reach == null || rr.previous_reach === '')
-              ? null : Number(rr.previous_reach);
-    const l = (rr.latest_reach   == null || rr.latest_reach   === '')
-              ? null : Number(rr.latest_reach);
-    if (p == null && l == null) continue;
-    r.prev_reach   = p != null ? p : 0;
-    r.latest_reach = l != null ? l : 0;
-    r.reach_delta  = r.latest_reach - r.prev_reach;
-    hits++;
-  }
-  return hits;
-}
-
 function aiRenderTable(){
-  aiEnrichReach();   // idempotent — top-up in case reach map loaded late
   const rows = aiFiltered();
   const pageSize = +document.getElementById('aiPageSize').value || 100;
   const totalRows = rows.length;
@@ -4231,7 +4203,7 @@ function aiRenderTable(){
   const slice = rows.slice(offset, offset + pageSize);
   const tb = document.querySelector('#aiTbl tbody');
   if (!slice.length){
-    tb.innerHTML = '<tr><td colspan="17" style="padding:30px;text-align:center;color:var(--text-tertiary)">No rows match the current filter.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="14" style="padding:30px;text-align:center;color:var(--text-tertiary)">No rows match the current filter.</td></tr>';
   } else {
     tb.innerHTML = slice.map(r => {
       const step  = aiStep(r);
@@ -4245,21 +4217,6 @@ function aiRenderTable(){
       const date = (r.order_created_at || '').slice(0,16).replace('T',' ');
       const st   = r.ad_id ? (aiAdStatusMap[r.ad_id] || 'UNKNOWN') : '—';
       const stCls= st === 'ACTIVE' ? 'active' : '';
-      // Reach columns come from the same ae_reach_recent snapshot the
-      // Ads Analyse view uses (enriched onto the row at fetch time).
-      // Δ Reach = latest - prev, keeping the sign so drops (negative)
-      // are visible — that's the debug signal for "why does Incr.
-      // Reach read zero" (either both anchor days had the same reach,
-      // or the RPC clamps a negative to zero).
-      const prevR = (r.prev_reach   != null) ? +r.prev_reach   : null;
-      const lastR = (r.latest_reach != null) ? +r.latest_reach : null;
-      const deltR = (r.reach_delta  != null) ? +r.reach_delta  : null;
-      const deltCell = deltR == null ? '—' :
-                       (deltR < 0 ?
-                         '<span style="color:var(--error-text)">'+fmtInt(deltR)+'</span>' :
-                         (deltR === 0 ?
-                           '<span style="color:var(--text-tertiary)">0</span>' :
-                           '<span style="color:var(--success-text)">+'+fmtInt(deltR)+'</span>'));
       return '<tr>'+
         '<td class="id-cell">'+date+'</td>'+
         '<td class="id-cell">'+(r.order_id || '—').replace('gid://shopify/Order/','')+'</td>'+
@@ -4278,9 +4235,6 @@ function aiRenderTable(){
         '<td style="min-width:420px;max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(r.ad_name    ||'').replace(/"/g,'&quot;')+'">'+(r.ad_name    || '—')+'</td>'+
         '<td style="min-width:280px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(r.campaign_name||'').replace(/"/g,'&quot;')+'">'+(r.campaign_name|| '—')+'</td>'+
         '<td><span class="ai-status '+stCls+'">'+st+'</span></td>'+
-        '<td class="num">'+(prevR == null ? '—' : fmtInt(prevR))+'</td>'+
-        '<td class="num">'+(lastR == null ? '—' : fmtInt(lastR))+'</td>'+
-        '<td class="num">'+deltCell+'</td>'+
       '</tr>';
     }).join('');
   }
