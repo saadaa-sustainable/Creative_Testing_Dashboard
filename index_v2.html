@@ -769,6 +769,9 @@
             <th data-nosort="1" class="col-thumb">Preview</th>
             <th data-sort="ad_name" class="col-adname">Ad Name</th>
             <th data-sort="ad_id" class="col-adid">Ad ID</th>
+            <!-- Manual mapping from ad_asset_ids. Blank until the sheet
+                 is imported; sorts alphabetically. -->
+            <th data-sort="asset_id" class="col-adid">Asset ID</th>
             <th data-sort="campaign_name" class="col-camp">Campaign</th>
             <th data-sort="adset_id" class="col-adsetid">Ad Set ID</th>
             <th data-nosort="1">Attribution</th>
@@ -1340,6 +1343,10 @@
           <th data-aisort="utm_term">utm_term</th>
           <th data-aisort="matched_value">matched_value</th>
           <th data-aisort="ad_id">Ad ID</th>
+          <!-- Manual mapping from ad_asset_ids. Blank until the sheet
+               is imported; sorts alphabetically since asset ids are
+               opaque strings ("Sep-682" style). -->
+          <th data-aisort="asset_id">Asset ID</th>
           <th data-aisort="ad_name">Ad Name</th>
           <th data-aisort="campaign_name">Campaign</th>
           <th data-aisort="ad_status">Ad Status</th>
@@ -2000,6 +2007,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ai_blank_verified"></script>
+<script src="assets/dashboard.js?v=asset_id_col"></script>
 </body>
 </html>

@@ -579,6 +579,32 @@ async function fetchCtypeOverrides(){
   return out;
 }
 
+/* Manual ad_id → asset_id mapping. Populated from an external Google
+   Sheet (import script pending). The Ads Analyse + Ad Intelligence
+   tables both stamp the asset_id column from this map at render time. */
+let assetIdByAdId = Object.create(null);
+async function fetchAssetIds(){
+  if (!SUPABASE_URL || !SUPABASE_ANON) return {};
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                   Prefer:'count=none'};
+  const out = Object.create(null);
+  let offset = 0, BATCH = 5000;
+  while (true){
+    const url = SUPABASE_URL + '/rest/v1/ad_asset_ids?select=ad_id,asset_id'
+              + '&limit=' + BATCH + '&offset=' + offset;
+    const r = await fetch(url, {headers});
+    if (!r.ok) break;
+    const rows = await r.json();
+    if (!Array.isArray(rows) || !rows.length) break;
+    for (const row of rows){
+      if (row.ad_id && row.asset_id) out[String(row.ad_id)] = String(row.asset_id);
+    }
+    if (rows.length < BATCH) break;
+    offset += BATCH;
+  }
+  return out;
+}
+
 // Creative Focus is limited to the three canonical types (IFAD / GAD / VID);
 // everything else (BST, ADB, UGC, BR, Brand, ...) falls into Others so it can
 // be redirected to the Product-in-Focus taxonomy above.
@@ -3754,6 +3780,11 @@ async function aiReloadOrders(){
     rows = await aiFetchOrders(newFrom, newTo, null) || [];
   }
   aiOrders = rows || [];
+  // Stamp asset_id on every row so the existing sort-by-header path
+  // (reads a[aiSortKey]) can order by the new Asset ID column.
+  for (const r of aiOrders){
+    r.asset_id = (r.ad_id && assetIdByAdId[r.ad_id]) || '';
+  }
   aiLoaded = true; aiLoading = false;
   document.getElementById('aiStatus').textContent =
     'Loaded ' + fmtInt(aiOrders.length) + ' rows in ' + ((performance.now()-t0)/1000).toFixed(1) + 's';
@@ -4289,7 +4320,7 @@ function aiRenderTable(){
   const slice = rows.slice(offset, offset + pageSize);
   const tb = document.querySelector('#aiTbl tbody');
   if (!slice.length){
-    tb.innerHTML = '<tr><td colspan="14" style="padding:30px;text-align:center;color:var(--text-tertiary)">No rows match the current filter.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="15" style="padding:30px;text-align:center;color:var(--text-tertiary)">No rows match the current filter.</td></tr>';
   } else {
     tb.innerHTML = slice.map(r => {
       const step  = aiStep(r);
@@ -4315,6 +4346,9 @@ function aiRenderTable(){
         '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+(r.utm_term    ||'').replace(/"/g,'&quot;')+'">'+(r.utm_term     || '—')+'</td>'+
         '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+(r.matched_value||'').replace(/"/g,'&quot;')+'">'+(r.matched_value|| '—')+'</td>'+
         '<td class="id-cell">'+(r.ad_id || '—')+'</td>'+
+        // Asset ID from manual ad_asset_ids mapping. Blank when the
+        // Sheet hasn't been imported for this ad yet.
+        '<td class="id-cell">'+(r.ad_id && assetIdByAdId[r.ad_id] || '—')+'</td>'+
         // Ad Name & Campaign columns widened so long ad-copy titles land
         // on a single visible line — the table already sits inside a
         // horizontal-scroll wrapper so the extra width doesn't hurt.
@@ -5484,6 +5518,9 @@ function renderAE(){
       thumbCell+
       '<td class="ad-cell" title="'+(r.ad_name||'')+'"><span style="font-weight:600;color:var(--text-primary)">'+(r.ad_name||'—')+'</span></td>'+
       '<td class="id-cell">'+(r.ad_id||'—')+'</td>'+
+      // Asset ID from manual ad_asset_ids mapping. Blank while the
+      // Sheet import is pending.
+      '<td class="id-cell">'+((r.ad_id && assetIdByAdId[r.ad_id]) || '—')+'</td>'+
       '<td class="camp-cell" title="'+(r.campaign_name||'')+'">'+(r.campaign_name||'—')+'</td>'+
       '<td class="id-cell">'+(r.adset_id||'—')+'</td>'+
       '<td>'+dailyBtn+'</td>'+
@@ -6277,16 +6314,18 @@ document.getElementById('invExport').onclick = () => {
   // Kick off ae_table_view + thumbnails + reach-recent + freq-lifecycle
   // + ctype-overrides in parallel. Overrides is a small table (< dozens of
   // rows expected) so it never gates the load.
-  const [cached, freshAllAds, freshThumbs, freshReach, freshFreq, freshOverrides] = await Promise.all([
+  const [cached, freshAllAds, freshThumbs, freshReach, freshFreq, freshOverrides, freshAssetIds] = await Promise.all([
     cachedPromise, fetchAds(), fetchThumbnails(), fetchReachRecent(), fetchFreqLifecycle(),
-    fetchCtypeOverrides()
+    fetchCtypeOverrides(), fetchAssetIds()
   ]);
   allAds = freshAllAds; thumbsByAdId = freshThumbs;
   reachRecentByAdId = freshReach;
   freqLifecycleByAdId = freshFreq;
   ctypeOverrideByAdId = freshOverrides || {};
-  // Merge the reach-recent snapshot into each ae row by ad_id so renderAE
-  // can display incremental_reach / cost_per_incremental_reach inline.
+  assetIdByAdId       = freshAssetIds || {};
+  // Merge the reach-recent snapshot + manual asset_id mapping into each
+  // ae row by ad_id so renderAE can display them inline and the header
+  // sort by data-sort="asset_id" hits r.asset_id directly.
   for (const r of allAds){
     const rr = reachRecentByAdId[r.ad_id];
     if (rr){
@@ -6297,6 +6336,7 @@ document.getElementById('invExport').onclick = () => {
       r.cost_per_1000_incremental_reach  = rr.cost_per_1000_incremental_reach;
       r.latest_spend                     = rr.latest_spend;
     }
+    r.asset_id = (r.ad_id && assetIdByAdId[r.ad_id]) || '';
   }
 
   if (cached && cached.length){
