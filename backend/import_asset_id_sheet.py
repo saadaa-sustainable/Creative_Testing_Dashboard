@@ -139,18 +139,55 @@ def main():
         else:                            dist["Other"]      += 1
     print(f"[*] rough bucket distribution: {dist}")
 
+    # Cross-check every (ad_id, asset_id) pair against summary_table:
+    # the asset_id string must appear in that SPECIFIC ad's ad_name,
+    # otherwise the sheet row is stale or misfiled. Prevents entries
+    # like a Video asset "Sep-682" being kept for an ad whose name
+    # doesn't contain "Sep-682" at all.
+    import psycopg2
+    from psycopg2.extras import execute_values, execute_batch
+    if not args.dry_run and not DB_URL:
+        sys.exit("Missing SUPABASE_DB_URL")
+
+    conn = psycopg2.connect(DB_URL, connect_timeout=15) if not args.dry_run else None
+    kept = {}
+    if conn:
+        with conn.cursor() as cur:
+            # Load one row per ad_id from summary_table into a memo so the
+            # per-row cross-check runs in Python rather than 7k SQL calls.
+            ad_ids = list(dedup.keys())
+            name_by_id = {}
+            for i in range(0, len(ad_ids), 5000):
+                chunk = tuple(ad_ids[i:i+5000])
+                cur.execute("SELECT ad_id::text, ad_name FROM public.summary_table "
+                            "WHERE ad_id::text IN %s", (chunk,))
+                for r in cur.fetchall():
+                    name_by_id[r[0]] = (r[1] or '')
+            for aid, ast in dedup.items():
+                nm = name_by_id.get(aid, '')
+                if ast and nm and ast.lower() in nm.lower():
+                    kept[aid] = ast
+        print(f"[*] per-row summary_table check kept "
+              f"{len(kept):,} of {len(dedup):,} mappings "
+              f"(dropped {len(dedup)-len(kept):,} whose asset_id string "
+              f"wasn't in the ad's own ad_name)")
+    else:
+        kept = dedup
+
     if args.dry_run:
         print("[dry-run] would upsert; skipping DB write")
         return
 
-    # Upsert into public.ad_asset_ids
-    import psycopg2
-    from psycopg2.extras import execute_values
     src_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit#gid={gid}"
-    tuples = [(aid, ast, src_url) for aid, ast in dedup.items()]
-    conn = psycopg2.connect(DB_URL, connect_timeout=15)
+    tuples = [(aid, ast, src_url) for aid, ast in kept.items()]
     try:
         with conn.cursor() as cur:
+            # Remove any ad_ids whose sheet mapping no longer clears the
+            # per-row check so the DB stays in sync with the truth.
+            cur.execute("DELETE FROM public.ad_asset_ids "
+                        "WHERE ad_id NOT IN %s",
+                        (tuple(kept.keys()) if kept else ("",),))
+            deleted = cur.rowcount
             execute_values(cur, """
                 INSERT INTO public.ad_asset_ids (ad_id, asset_id, source_url)
                 VALUES %s
@@ -160,6 +197,8 @@ def main():
                   assigned_at = NOW();
             """, tuples, page_size=500)
         conn.commit()
+        if deleted:
+            print(f"[ok] pruned {deleted:,} stale rows (no longer in sheet or failed the cross-check)")
     finally:
         conn.close()
     print(f"[ok] upserted {len(tuples):,} rows into public.ad_asset_ids")

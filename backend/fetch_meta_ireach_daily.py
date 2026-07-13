@@ -97,12 +97,15 @@ def _get(url, params=None):
 
 def _fetch_insights(account_id, level, since, until):
     """Yield rows for one account at `level` (campaign|adset) across the
-    [since, until] window. Handles pagination + chunking."""
+    [since, until] window. Handles pagination + chunking. Per-chunk
+    failures (400 Invalid parameter, timeouts, etc.) skip the chunk
+    with a log line instead of blowing up the whole backfill — this
+    protects against edge dates where Meta rejects a specific window
+    for one account level (e.g. an account that didn't exist yet)."""
     fields = ("account_id,account_name," +
               ("campaign_id,campaign_name," if level == "campaign" else
                "campaign_id,campaign_name,adset_id,adset_name,") +
               "reach,spend,impressions,frequency")
-    # Chunk the window so a single large-range call doesn't 500.
     d_since = date.fromisoformat(since)
     d_until = date.fromisoformat(until)
     cursor  = d_since
@@ -118,16 +121,19 @@ def _fetch_insights(account_id, level, since, until):
             "access_token":  TOKEN,
             "limit":         PAGE_LIMIT,
         }
-        page = 0
         next_url, next_params = url, params
-        while next_url:
-            page += 1
-            j = _get(next_url, next_params)
-            for row in j.get("data", []) or []:
-                yield row
-            paging = (j.get("paging") or {}).get("next")
-            next_url, next_params = paging, None
-            if not paging: break
+        try:
+            while next_url:
+                j = _get(next_url, next_params)
+                for row in j.get("data", []) or []:
+                    yield row
+                paging = (j.get("paging") or {}).get("next")
+                next_url, next_params = paging, None
+                if not paging: break
+        except RuntimeError as e:
+            # Meta returned a non-retriable 4xx for THIS chunk.
+            # Skip and move on so the rest of the backfill still lands.
+            _say(f"    [!] chunk {cursor} → {chunk_end}  skipped: {str(e)[:200]}")
         cursor = chunk_end + timedelta(days=1)
 
 def _to_row_camp(r, account):
