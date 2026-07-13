@@ -861,6 +861,13 @@
 
   <div class="funnel-card" style="padding:16px 18px">
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+      <!-- Toggle: which grouping to show. Both aggregations are computed
+           on Apply; the toggle just flips which table is visible. -->
+      <div class="life-toggle" id="ireachScope">
+        <button class="lt-btn active" data-scope="camp"  type="button">Campaign</button>
+        <button class="lt-btn"        data-scope="adset" type="button">Adset</button>
+      </div>
+      <span class="preset-sep">|</span>
       <div class="preset-row" style="margin:0">
         <button class="preset" data-p="last7">Last 7d</button>
         <button class="preset active" data-p="last30">Last 30d</button>
@@ -872,7 +879,7 @@
         <input class="fg-input preset-date" id="ireachDateTo"   type="date">
       </div>
       <span style="flex:1"></span>
-      <input id="ireachSearch" type="search" placeholder="Search groups (both tables)…"
+      <input id="ireachSearch" type="search" placeholder="Search groups…"
              style="padding:7px 12px;border:1px solid var(--border);border-radius:6px;
                     background:var(--bg-white);font-size:12px;width:260px;
                     font-family:'Inter',sans-serif;outline:none">
@@ -891,12 +898,12 @@
          margin:6px 0 12px;font-family:'JetBrains Mono',monospace;display:none"></div>
 
     <!-- ═════ Campaign-level table ═════ -->
-    <div class="ireach-sec">
+    <div class="ireach-sec" id="ireachSecCamp">
       <div class="ireach-sec-hdr">
         <span class="ireach-sec-ttl">Campaign level</span>
         <span class="ireach-sec-sub" id="ireachCampCount">—</span>
       </div>
-      <div style="overflow:auto;max-height:calc(50vh - 140px);margin-top:6px">
+      <div style="overflow:auto;max-height:calc(100vh - 260px);margin-top:6px">
         <table class="tbl ae-tbl" id="ireachTblCamp" style="margin:0;table-layout:fixed;width:100%">
           <colgroup>
             <col style="width:34%"><col style="width:60px"><col style="width:78px">
@@ -928,12 +935,12 @@
     </div>
 
     <!-- ═════ Adset-level table ═════ -->
-    <div class="ireach-sec" style="margin-top:18px">
+    <div class="ireach-sec" id="ireachSecAdset" style="display:none">
       <div class="ireach-sec-hdr">
         <span class="ireach-sec-ttl">Adset level</span>
         <span class="ireach-sec-sub" id="ireachAdsetCount">—</span>
       </div>
-      <div style="overflow:auto;max-height:calc(50vh - 140px);margin-top:6px">
+      <div style="overflow:auto;max-height:calc(100vh - 260px);margin-top:6px">
         <table class="tbl ae-tbl" id="ireachTblAdset" style="margin:0;table-layout:fixed;width:100%">
           <colgroup>
             <col style="width:34%"><col style="width:60px"><col style="width:78px">
@@ -1964,6 +1971,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ireach_two_tbl"></script>
+<script src="assets/dashboard.js?v=ireach_toggle"></script>
 </body>
 </html>

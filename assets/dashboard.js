@@ -4918,6 +4918,7 @@ _hreachApplyPreset('last30');   // seed the inputs
 let ireachState = {
   from:'', to:'',
   search:'',
+  scope:'camp',                 // 'camp' | 'adset' — which table is visible
   camp:  { sortKey:'incr_reach', sortDir:'desc', rows:[] },
   adset: { sortKey:'incr_reach', sortDir:'desc', rows:[] },
   audit: null,
@@ -5076,7 +5077,10 @@ function _ireachRenderScope(scope){
     body.innerHTML = '<tr><td colspan="10" style="padding:24px;text-align:center;color:var(--text-tertiary)">No groups match the current filter.</td></tr>';
     return;
   }
-  body.innerHTML = rows.slice(0, 1000).map(r => {
+  // No pagination — render every row so nothing is silently dropped.
+  // 261 adsets × ~1KB HTML each is still ~260KB, well under any DOM
+  // limits, and lets the user Ctrl-F any group name.
+  body.innerHTML = rows.map(r => {
     const neg = r.incr_reach < 0;
     return '<tr>'+
       '<td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+r.grp.replace(/"/g,'&quot;')+'">'+r.grp+'</td>'+
@@ -5093,10 +5097,25 @@ function _ireachRenderScope(scope){
     '</tr>';
   }).join('');
 }
+function _ireachSetScope(scope){
+  if (scope !== 'camp' && scope !== 'adset') return;
+  ireachState.scope = scope;
+  // Show only the selected table
+  const camp  = document.getElementById('ireachSecCamp');
+  const adset = document.getElementById('ireachSecAdset');
+  if (camp)  camp.style.display  = scope === 'camp'  ? '' : 'none';
+  if (adset) adset.style.display = scope === 'adset' ? '' : 'none';
+  // Sync the toggle buttons
+  document.querySelectorAll('#ireachScope .lt-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.scope === scope));
+}
 function _ireachRender(){
+  // Render both tables (cheap; ~few hundred rows total) so switching
+  // the toggle is instant — no re-render round-trip needed.
   _ireachRenderScope('camp');
   _ireachRenderScope('adset');
   _ireachRenderAudit();
+  _ireachSetScope(ireachState.scope);
 }
 function _ireachRenderAudit(){
   const a = ireachState.audit;
@@ -5155,6 +5174,12 @@ document.querySelector('#view-ireach .preset-row').addEventListener('click', e =
   document.querySelectorAll('#view-ireach .preset-row .preset').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   _ireachApplyPreset(btn.dataset.p);
+});
+// Campaign / Adset toggle — flips visibility, no re-fetch (both tables
+// were populated during the same Apply pass).
+document.getElementById('ireachScope')?.addEventListener('click', e => {
+  const btn = e.target.closest('.lt-btn'); if (!btn) return;
+  _ireachSetScope(btn.dataset.scope);
 });
 document.getElementById('ireachApply').addEventListener('click', _ireachApply);
 // Column-definitions modal for Incremental Analysis. Uses the same
