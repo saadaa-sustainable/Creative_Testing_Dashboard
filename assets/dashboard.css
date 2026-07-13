@@ -697,6 +697,19 @@
     display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);
     border:1px solid var(--border-warm);font-size:10px}
   .inv-tbl .title-cell{max-width:340px}
+  /* Per-size stock badges — one pill per size the product actually
+     carries. Colour follows the current qty (in / low ≤10 / out).
+     Kept compact so a whole size ladder fits inline next to DoQ / OOS. */
+  .inv-tbl .inv-sz-cell{padding:6px 8px;line-height:1.3}
+  .inv-sz-badge{display:inline-flex;align-items:center;gap:4px;padding:1px 6px;
+    margin:1px 3px 1px 0;border-radius:5px;font-size:10.5px;
+    font-family:'JetBrains Mono',monospace;font-weight:600;border:1px solid transparent}
+  .inv-sz-badge b{font-weight:700;letter-spacing:.2px}
+  .inv-sz-badge i{font-style:normal;font-weight:500;opacity:.9}
+  .inv-sz-in { color:var(--success-text); background:var(--success-bg);  border-color:#cfd8c5 }
+  .inv-sz-low{ color:var(--warning-text); background:var(--warning-bg);  border-color:var(--warning-border) }
+  .inv-sz-out{ color:var(--error-text);   background:var(--error-bg);    border-color:var(--error-border, #f0c9c9) }
+  .inv-sz-empty{color:var(--text-tertiary);font-size:11px}
   .inv-tbl .title-cell .title{font-weight:600;color:var(--text-primary);
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .inv-tbl .title-cell .handle{font-size:11px;color:var(--text-tertiary);margin-top:2px}

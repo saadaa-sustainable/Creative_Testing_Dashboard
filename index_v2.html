@@ -1389,6 +1389,10 @@
         <th class="num" title="Average daily ordered quantity, last 30 days">DoQ 30d</th>
         <th class="num" title="Average daily ordered quantity, last 45 days">DoQ 45d</th>
         <th class="num" title="Days out-of-stock in the last 30 days (worst variant)">OOS 30d</th>
+        <!-- Per-size stock badges. Green = in-stock (>10), amber = low
+             (1-10), red = out (0). Only sizes the product actually
+             carries appear as badges. -->
+        <th title="Per-size stock — green in-stock, amber low, red out">Sizes</th>
         <th class="num">Price range (₹)</th>
         <th>Created</th>
       </tr></thead>
@@ -1841,6 +1845,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ai_no_reach"></script>
+<script src="assets/dashboard.js?v=inv_sizes"></script>
 </body>
 </html>

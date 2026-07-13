@@ -62,7 +62,13 @@ query InvPage($after: String) {
           minVariantPrice { amount }
           maxVariantPrice { amount }
         }
-        variants(first: 1) { edges { node { id } } }
+        variants(first: 100) {
+          edges { node {
+            id
+            inventoryQuantity
+            selectedOptions { name value }
+          } }
+        }
         variantsCount { count }
       }
     }
@@ -70,6 +76,43 @@ query InvPage($after: String) {
   }
 }
 """
+
+# Canonical size ordering used by the Inventory badges. Values on the left
+# get normalised to the values on the right so alternate spellings from
+# Shopify (XXL/XXXL/EXTRA LARGE/etc.) collapse to a single badge.
+SIZE_ORDER = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"]
+SIZE_MAP = {
+    "XS": "XS", "XXS": "XS", "EXTRA SMALL": "XS",
+    "S": "S",   "SMALL": "S",
+    "M": "M",   "MEDIUM": "M", "MED": "M",
+    "L": "L",   "LARGE": "L",
+    "XL": "XL", "EXTRA LARGE": "XL",
+    "2XL": "2XL", "XXL": "2XL",
+    "3XL": "3XL", "XXXL": "3XL",
+    "4XL": "4XL", "XXXXL": "4XL",
+    "5XL": "5XL", "XXXXXL": "5XL",
+}
+def _norm_size(v):
+    if not v: return ""
+    return SIZE_MAP.get(str(v).strip().upper(), "")
+
+def _extract_sizes(variant_edges):
+    """Return {size: total_qty} summed across all colour variants that carry
+    a size option. Products with no size-shaped variants return {}."""
+    out = {}
+    for e in variant_edges or []:
+        n = e.get("node") or {}
+        qty = n.get("inventoryQuantity")
+        if qty is None: continue
+        sz = ""
+        for opt in (n.get("selectedOptions") or []):
+            if (opt.get("name") or "").strip().lower() == "size":
+                sz = _norm_size(opt.get("value") or "")
+                break
+        if not sz: continue
+        out[sz] = out.get(sz, 0) + int(qty)
+    # Preserve canonical ordering for deterministic serialisation
+    return {s: out[s] for s in SIZE_ORDER if s in out}
 
 def _fetch_all():
     products = []
@@ -96,6 +139,7 @@ def _fetch_all():
             pmax = (price.get("maxVariantPrice") or {}).get("amount")
             img  = (n.get("featuredImage") or {}).get("url") or None
             vc   = (n.get("variantsCount") or {}).get("count")
+            var_edges = (n.get("variants") or {}).get("edges") or []
             products.append({
                 "id":              n.get("id"),
                 "title":           n.get("title"),
@@ -111,6 +155,7 @@ def _fetch_all():
                 "price_max":       float(pmax) if pmax else None,
                 "created_at_shop": n.get("createdAt"),
                 "updated_at_shop": n.get("updatedAt"),
+                "sizes_json":      _extract_sizes(var_edges),
             })
         pi = pd.get("pageInfo") or {}
         if not pi.get("hasNextPage"):
@@ -127,7 +172,7 @@ def _upsert(products):
     INSERT INTO public.shopify_products
       (id, title, status, vendor, product_type, handle, tags, image_url,
        variant_count, total_inventory, price_min, price_max,
-       created_at_shop, updated_at_shop)
+       created_at_shop, updated_at_shop, sizes_json)
     VALUES %s
     ON CONFLICT (id) DO UPDATE SET
       title            = EXCLUDED.title,
@@ -143,6 +188,7 @@ def _upsert(products):
       price_max        = EXCLUDED.price_max,
       created_at_shop  = EXCLUDED.created_at_shop,
       updated_at_shop  = EXCLUDED.updated_at_shop,
+      sizes_json       = EXCLUDED.sizes_json,
       synced_at        = NOW()
     """
     rows = [(
@@ -150,6 +196,7 @@ def _upsert(products):
         p["handle"], p["tags"], p["image_url"],
         p["variant_count"], p["total_inventory"], p["price_min"], p["price_max"],
         p["created_at_shop"], p["updated_at_shop"],
+        json.dumps(p.get("sizes_json") or {}),
     ) for p in products]
 
     conn = psycopg2.connect(DB_URL)

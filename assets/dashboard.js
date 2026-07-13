@@ -5686,7 +5686,7 @@ async function loadInventory(){
                    Prefer:'count=none'};
   const cols = 'id,title,status,vendor,product_type,handle,image_url,'+
                'variant_count,total_inventory,price_min,price_max,'+
-               'created_at_shop,updated_at_shop,synced_at';
+               'created_at_shop,updated_at_shop,synced_at,sizes_json';
   let offset = 0, BATCH = 1000, lastSynced = null;
   try {
     while (true){
@@ -5717,6 +5717,10 @@ async function loadInventory(){
             maxVariantPrice: {amount: p.price_max},
           },
           variantsCount: {count: p.variant_count},
+          // Per-size stock breakdown (populated by sync_shopify_products.py
+          // from Shopify GraphQL variants.selectedOptions). Missing on
+          // pre-migration rows — render code treats null/{} identically.
+          sizes: (p.sizes_json && typeof p.sizes_json === 'object') ? p.sizes_json : null,
         });
         if (p.synced_at && (!lastSynced || p.synced_at > lastSynced)) lastSynced = p.synced_at;
       }
@@ -5794,6 +5798,30 @@ function invFiltered(){
   return rows;
 }
 
+/* Canonical size order for the Inventory badges. Matches the ordering
+   used by sync_shopify_products.py so the frontend agrees with the
+   backend's stored key sequence. */
+const INV_SIZE_ORDER = ['XS','S','M','L','XL','2XL','3XL','4XL','5XL'];
+const INV_LOW_THRESHOLD = 10;
+
+function invSizeBadges(sizes){
+  if (!sizes || typeof sizes !== 'object') return '';
+  const keys = Object.keys(sizes);
+  if (!keys.length) return '<span class="inv-sz-empty">—</span>';
+  // Preserve canonical ordering; unknown sizes (e.g. FREE, OS) sink to the end.
+  const known   = INV_SIZE_ORDER.filter(s => sizes[s] != null);
+  const unknown = keys.filter(s => !INV_SIZE_ORDER.includes(s));
+  return [...known, ...unknown].map(s => {
+    const q  = Number(sizes[s]) || 0;
+    const cls = q === 0 ? 'inv-sz-out' :
+                q <= INV_LOW_THRESHOLD ? 'inv-sz-low' : 'inv-sz-in';
+    // qty shown after the size letter, formatted compact (1.2k, 340, 8)
+    const qStr = q >= 1000 ? (q/1000).toFixed(1).replace(/\.0$/,'')+'k' : String(q);
+    return '<span class="inv-sz-badge '+cls+'" title="'+s+' · '+q.toLocaleString('en-IN')+' units">'+
+           '<b>'+s+'</b><i>'+qStr+'</i></span>';
+  }).join('');
+}
+
 function renderInventoryTable(){
   const rows = invFiltered();
   const tbody = document.querySelector('#invTbl tbody');
@@ -5827,6 +5855,7 @@ function renderInventoryTable(){
       '<td class="num">'+d30+'</td>'+
       '<td class="num">'+d45+'</td>'+
       '<td class="num">'+oo +'</td>'+
+      '<td class="inv-sz-cell">'+invSizeBadges(p.sizes)+'</td>'+
       '<td class="num">'+priceTxt+'</td>'+
       '<td style="font-family:JetBrains Mono;font-size:11px">'+(p.createdAt ? p.createdAt.slice(0,10) : '—')+'</td>'+
     '</tr>';
