@@ -4545,6 +4545,14 @@ function aiRenderTable(){
       return '<tr>'+
         '<td class="id-cell">'+date+'</td>'+
         '<td class="id-cell">'+(r.order_id || '—').replace('gid://shopify/Order/','')+'</td>'+
+        // Customer ID + lifetime orders sit right after Order ID so buyer
+        // + loyalty read together.  Populated by backfill_customer_info.py
+        // (and rebuild_attribution_orders.py for new syncs); "—" while
+        // the backfill is still catching up on historical rows.
+        '<td class="id-cell" title="'+(r.contact_email || '').replace(/"/g,'&quot;')+'">'+
+          (r.customer_id || '—')+
+        '</td>'+
+        '<td class="num">'+(r.customer_num_orders != null ? fmtInt(r.customer_num_orders) : '—')+'</td>'+
         '<td class="num">'+fmtRs(r.total_price)+'</td>'+
         '<td><span class="ai-tier '+tc+'">'+tier+'</span></td>'+
         '<td>'+(r.utm_source  || '—')+'</td>'+
@@ -4554,13 +4562,6 @@ function aiRenderTable(){
         '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+(r.utm_term    ||'').replace(/"/g,'&quot;')+'">'+(r.utm_term     || '—')+'</td>'+
         '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+(r.matched_value||'').replace(/"/g,'&quot;')+'">'+(r.matched_value|| '—')+'</td>'+
         '<td class="id-cell">'+(r.ad_id || '—')+'</td>'+
-        // Customer ID + lifetime orders — populated by backfill_customer_info.py
-        // (and rebuild_attribution_orders.py for new syncs). "—" while the
-        // backfill is still catching up.
-        '<td class="id-cell" title="'+(r.contact_email || '').replace(/"/g,'&quot;')+'">'+
-          (r.customer_id || '—')+
-        '</td>'+
-        '<td class="num">'+(r.customer_num_orders != null ? fmtInt(r.customer_num_orders) : '—')+'</td>'+
         // Asset ID from manual ad_asset_ids mapping. Blank when the
         // Sheet hasn't been imported for this ad yet.  Editable inline
         // via installAssetIdCellEditor (wired in the delegated handler

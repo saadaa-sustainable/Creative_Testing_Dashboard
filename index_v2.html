@@ -1361,6 +1361,13 @@
         <tr>
           <th data-aisort="order_created_at">Order Date</th>
           <th data-aisort="order_id">Order ID</th>
+          <!-- Customer identity right after Order ID so buyer + loyalty
+               read together. Populated by backfill_customer_info.py and
+               by future rebuild_attribution_orders.py runs; historical
+               rows without a customer show "—". -->
+          <th data-aisort="customer_id"        title="Shopify customer numeric id (from Order.customer)">Customer ID</th>
+          <th class="num" data-aisort="customer_num_orders"
+                                              title="Lifetime Shopify order count for this customer at attribution time">Orders</th>
           <th class="num" data-aisort="total_price">Total ₹</th>
           <th data-aisort="matched_tier">Tier</th>
           <th data-aisort="utm_source">utm_source</th>
@@ -1370,12 +1377,6 @@
           <th data-aisort="utm_term">utm_term</th>
           <th data-aisort="matched_value">matched_value</th>
           <th data-aisort="ad_id">Ad ID</th>
-          <!-- Customer identity — populated by backfill_customer_info.py
-               and by future rebuild_attribution_orders.py runs. Historical
-               rows without a customer show "—". -->
-          <th data-aisort="customer_id"        title="Shopify customer numeric id (from Order.customer)">Customer ID</th>
-          <th class="num" data-aisort="customer_num_orders"
-                                              title="Lifetime Shopify order count for this customer at attribution time">Orders</th>
           <!-- Manual mapping from ad_asset_ids. Blank until the sheet
                is imported; sorts alphabetically since asset ids are
                opaque strings ("Sep-682" style). -->
@@ -2043,6 +2044,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=incr_reach_fallback"></script>
+<script src="assets/dashboard.js?v=ai_customer_col_reorder"></script>
 </body>
 </html>
