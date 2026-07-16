@@ -1,23 +1,24 @@
 """
 fetch_google_ads_daily.py — pull daily ad-level performance from every
-child account under the MCC, upsert into public.google_ads_daily.
+child account under the MCC (or direct-access accounts) and upsert into
+public.google_ads_primary.
 
-Grain per row: (customer_id, ad_id, date). Metrics use Google Ads'
-native last-click attribution (the "conversions" column with default
-attribution settings).
+Grain per row: (customer_id, ad_id, date). Mirrors Meta's primary_table
+shape — one truthful daily row per ad. See refresh_google_ads_summary.py
+for the aggregated one-row-per-ad view.
 
 USAGE
-  python fetch_google_ads_daily.py                 # incremental (max(date)+1 → today, 3-day overlap)
+  python fetch_google_ads_daily.py                 # incremental (last synced date + 3d overlap → today)
   python fetch_google_ads_daily.py --since 2025-01-01
-  python fetch_google_ads_daily.py --until 2026-07-10
+  python fetch_google_ads_daily.py --until 2026-07-15
   python fetch_google_ads_daily.py --customer 1234567890   # single sub-account
   python fetch_google_ads_daily.py --dry-run       # fetch, print summary, skip DB write
 
 ENV (backend/.env — see GOOGLE_ADS_SETUP.md)
   GOOGLE_ADS_DEVELOPER_TOKEN
-  GOOGLE_ADS_CLIENT_ID / CLIENT_SECRET / REFRESH_TOKEN
-  GOOGLE_ADS_LOGIN_CUSTOMER_ID     (the MCC)
+  GOOGLE_ADS_LOGIN_CUSTOMER_ID     (the MCC, optional)
   SUPABASE_DB_URL                  (the Meta Ads project — reused)
+Auth via gcloud ADC — application_default_credentials.json is read directly.
 """
 import os, sys, time, argparse
 from datetime import date, datetime, timedelta, timezone
@@ -29,7 +30,7 @@ load_dotenv()
 
 import json, pathlib
 DEV_TOKEN = (os.environ.get("GOOGLE_ADS_DEVELOPER_TOKEN") or "").strip()
-MCC_ID    = (os.environ.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID") or "").strip()  # optional
+MCC_ID    = (os.environ.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID") or "").strip()
 DB_URL    = (os.environ.get("SUPABASE_DB_URL") or "").strip()
 
 for name, v in [("GOOGLE_ADS_DEVELOPER_TOKEN", DEV_TOKEN),
@@ -44,14 +45,13 @@ def _adc_path():
 
 _adc_p = _adc_path()
 if not _adc_p or not _adc_p.is_file():
-    sys.exit(f"gcloud ADC not found at {_adc_p}. Run:\n"
-             "  gcloud auth application-default login --scopes=https://www.googleapis.com/auth/adwords,https://www.googleapis.com/auth/cloud-platform,openid,https://www.googleapis.com/auth/userinfo.email")
+    sys.exit(f"gcloud ADC not found at {_adc_p}. Run the OAuth flow first (see _gads_web_auth.py or GOOGLE_ADS_SETUP.md)")
 try:
     _adc = json.loads(_adc_p.read_text(encoding="utf-8"))
 except Exception as e:
     sys.exit(f"Failed to parse ADC: {e}")
 if not _adc.get("refresh_token"):
-    sys.exit("ADC has no refresh_token — re-run gcloud auth application-default login with the adwords scope.")
+    sys.exit("ADC has no refresh_token — re-run OAuth flow with the adwords scope.")
 
 CLIENT_ID   = _adc.get("client_id")
 CLIENT_SEC  = _adc.get("client_secret")
@@ -66,7 +66,8 @@ except ImportError:
 import psycopg2
 from psycopg2.extras import execute_values
 
-# ── Config ────────────────────────────────────────────────────────────
+# ── GAQL ─────────────────────────────────────────────────────────────
+# Enumerate MCC child accounts (only enabled non-manager).
 GAQL_ACCOUNTS = """
   SELECT customer_client.id, customer_client.descriptive_name,
          customer_client.currency_code, customer_client.manager,
@@ -76,112 +77,114 @@ GAQL_ACCOUNTS = """
     AND customer_client.manager = FALSE
 """
 
-# Ad-level performance query. Google Ads GAQL — "ad_group_ad" is the
-# ad-serving entity. All numeric metrics come from the default
-# last-click attribution model.
+# Ad-level performance query — every valid ad_group_ad metric in v24
+# that doesn't require a breakdown segment.  Metrics that are only
+# valid on VIDEO campaigns still parse for other campaign types (Meta
+# returns 0/null gracefully).  Fields added over time can be appended
+# here; schema in google_ads_primary_and_summary migration covers all
+# of them.
 GAQL_AD_PERF = """
   SELECT
     segments.date,
+
     ad_group_ad.ad.id,
     ad_group_ad.ad.name,
+    ad_group_ad.ad.type,
+    ad_group_ad.ad.final_urls,
+    ad_group_ad.ad.display_url,
+    ad_group_ad.status,
+    ad_group_ad.ad_strength,
+
     ad_group.id,
     ad_group.name,
+    ad_group.status,
+
     campaign.id,
     campaign.name,
-    ad_group_ad.status,
-    ad_group_ad.ad.type,
+    campaign.status,
+    campaign.advertising_channel_type,
+    campaign.advertising_channel_sub_type,
+    campaign.bidding_strategy_type,
+
     metrics.impressions,
     metrics.clicks,
     metrics.cost_micros,
+    metrics.average_cpc,
+    metrics.average_cpm,
+    metrics.ctr,
+
+    metrics.interactions,
+    metrics.interaction_rate,
+    metrics.engagements,
+    metrics.engagement_rate,
+
     metrics.conversions,
     metrics.conversions_value,
+    metrics.conversions_from_interactions_rate,
+    metrics.cost_per_conversion,
+    metrics.value_per_conversion,
+
     metrics.all_conversions,
     metrics.all_conversions_value,
-    metrics.video_views,
-    metrics.engagements
+    metrics.all_conversions_from_interactions_rate,
+    metrics.cost_per_all_conversions,
+
+    metrics.view_through_conversions,
+    metrics.video_quartile_p25_rate,
+    metrics.video_quartile_p50_rate,
+    metrics.video_quartile_p75_rate,
+    metrics.video_quartile_p100_rate,
+
+    metrics.absolute_top_impression_percentage,
+    metrics.top_impression_percentage,
+    metrics.active_view_impressions,
+    metrics.active_view_measurability,
+    metrics.active_view_viewability
   FROM ad_group_ad
   WHERE segments.date BETWEEN '{from_d}' AND '{until_d}'
 """
 
 # ── DB helpers ────────────────────────────────────────────────────────
-DDL = """
-CREATE TABLE IF NOT EXISTS public.google_ads_daily (
-  customer_id       BIGINT      NOT NULL,
-  customer_name     TEXT,
-  currency_code     TEXT,
-  date              DATE        NOT NULL,
-  campaign_id       BIGINT,
-  campaign_name     TEXT,
-  ad_group_id       BIGINT,
-  ad_group_name     TEXT,
-  ad_id             BIGINT      NOT NULL,
-  ad_name           TEXT,
-  ad_status         TEXT,
-  ad_type           TEXT,
-  impressions       BIGINT,
-  clicks            BIGINT,
-  cost              NUMERIC(14,2),
-  conversions       NUMERIC(14,3),
-  conversion_value  NUMERIC(14,2),
-  all_conversions       NUMERIC(14,3),
-  all_conversions_value NUMERIC(14,2),
-  video_views       BIGINT,
-  engagements       BIGINT,
-  synced_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (customer_id, ad_id, date)
-);
-CREATE INDEX IF NOT EXISTS idx_google_ads_daily_date ON public.google_ads_daily(date);
-CREATE INDEX IF NOT EXISTS idx_google_ads_daily_campaign ON public.google_ads_daily(campaign_id);
-"""
-
-UPSERT = """
-INSERT INTO public.google_ads_daily (
-  customer_id, customer_name, currency_code, date,
-  campaign_id, campaign_name, ad_group_id, ad_group_name,
-  ad_id, ad_name, ad_status, ad_type,
-  impressions, clicks, cost, conversions, conversion_value,
-  all_conversions, all_conversions_value, video_views, engagements,
-  synced_at
-) VALUES %s
+UPSERT_COLS = [
+    "customer_id","customer_name","currency_code","date",
+    "campaign_id","campaign_name","campaign_status",
+    "advertising_channel_type","advertising_channel_sub_type","bidding_strategy_type",
+    "ad_group_id","ad_group_name","ad_group_status",
+    "ad_id","ad_name","ad_status","ad_type","ad_strength","final_urls","display_url",
+    "impressions","clicks","cost","average_cpc","average_cpm","average_cpv","ctr",
+    "interactions","interaction_rate","engagements","engagement_rate",
+    "conversions","conversion_value","conversions_from_interactions_rate",
+    "cost_per_conversion","value_per_conversion",
+    "all_conversions","all_conversions_value",
+    "all_conversions_from_interactions_rate","cost_per_all_conversions","value_per_all_conversion",
+    "view_through_conversions","video_view_rate",
+    "video_quartile_p25_rate","video_quartile_p50_rate",
+    "video_quartile_p75_rate","video_quartile_p100_rate",
+    "absolute_top_impression_percentage","top_impression_percentage",
+    "active_view_impressions","active_view_measurability","active_view_viewability",
+    "synced_at",
+]
+_update_cols = ",".join(f"{c} = EXCLUDED.{c}" for c in UPSERT_COLS
+                        if c not in ("customer_id","ad_id","date"))
+UPSERT_SQL = f"""
+INSERT INTO public.google_ads_primary ({",".join(UPSERT_COLS)})
+VALUES %s
 ON CONFLICT (customer_id, ad_id, date) DO UPDATE SET
-  customer_name         = EXCLUDED.customer_name,
-  currency_code         = EXCLUDED.currency_code,
-  campaign_id           = EXCLUDED.campaign_id,
-  campaign_name         = EXCLUDED.campaign_name,
-  ad_group_id           = EXCLUDED.ad_group_id,
-  ad_group_name         = EXCLUDED.ad_group_name,
-  ad_name               = EXCLUDED.ad_name,
-  ad_status             = EXCLUDED.ad_status,
-  ad_type               = EXCLUDED.ad_type,
-  impressions           = EXCLUDED.impressions,
-  clicks                = EXCLUDED.clicks,
-  cost                  = EXCLUDED.cost,
-  conversions           = EXCLUDED.conversions,
-  conversion_value      = EXCLUDED.conversion_value,
-  all_conversions       = EXCLUDED.all_conversions,
-  all_conversions_value = EXCLUDED.all_conversions_value,
-  video_views           = EXCLUDED.video_views,
-  engagements           = EXCLUDED.engagements,
-  synced_at             = NOW()
+  {_update_cols}
 """
 
 def get_conn():
     return psycopg2.connect(DB_URL, connect_timeout=15)
 
-def ensure_schema(conn):
-    with conn.cursor() as cur:
-        cur.execute(DDL)
-    conn.commit()
-
 def latest_synced_date(conn):
     with conn.cursor() as cur:
-        cur.execute("SELECT MAX(date) FROM public.google_ads_daily")
+        cur.execute("SELECT MAX(date) FROM public.google_ads_primary")
         return cur.fetchone()[0]
 
 # ── Main ──────────────────────────────────────────────────────────────
 def list_child_accounts(client, mcc_id):
     """Return [(customer_id, name, currency)] for every ENABLED non-manager
-    child account under the MCC. Uses customer_client via searchStream."""
+    child under the MCC."""
     svc = client.get_service("GoogleAdsService")
     out = []
     try:
@@ -203,28 +206,61 @@ def fetch_customer(client, customer_id, since_d, until_d):
         for row in batch.results:
             yield row
 
+def _enum(x):
+    """Google Ads SDK returns enum objects — extract the .name string."""
+    if x is None: return None
+    return x.name if hasattr(x, "name") else str(x)
+
 def to_row(customer_id, customer_name, currency, r):
-    ad = r.ad_group_ad
+    ad     = r.ad_group_ad
+    m      = r.metrics
+    urls   = list(ad.ad.final_urls) if ad.ad.final_urls else []
     return (
         int(customer_id), customer_name, currency,
         r.segments.date,
-        int(r.campaign.id) if r.campaign.id else None,
+        int(r.campaign.id)      if r.campaign.id      else None,
         r.campaign.name or None,
-        int(r.ad_group.id) if r.ad_group.id else None,
+        _enum(r.campaign.status),
+        _enum(r.campaign.advertising_channel_type),
+        _enum(r.campaign.advertising_channel_sub_type),
+        _enum(r.campaign.bidding_strategy_type),
+        int(r.ad_group.id)      if r.ad_group.id      else None,
         r.ad_group.name or None,
+        _enum(r.ad_group.status),
         int(ad.ad.id),
         ad.ad.name or None,
-        ad.status.name if hasattr(ad.status, "name") else str(ad.status),
-        ad.ad.type_.name if hasattr(ad.ad.type_, "name") else str(ad.ad.type_),
-        int(r.metrics.impressions),
-        int(r.metrics.clicks),
-        (r.metrics.cost_micros or 0) / 1_000_000,   # micros → currency units
-        float(r.metrics.conversions),
-        float(r.metrics.conversions_value),
-        float(r.metrics.all_conversions),
-        float(r.metrics.all_conversions_value),
-        int(r.metrics.video_views or 0),
-        int(r.metrics.engagements or 0),
+        _enum(ad.status),
+        _enum(ad.ad.type_),
+        _enum(getattr(ad, "ad_strength", None)),
+        ",".join(urls) if urls else None,
+        ad.ad.display_url or None,
+        int(m.impressions), int(m.clicks),
+        (m.cost_micros or 0) / 1_000_000,
+        (m.average_cpc  or 0) / 1_000_000,
+        (m.average_cpm  or 0) / 1_000_000,
+        None,                                     # average_cpv retired on ad_group_ad in v24
+        float(m.ctr),
+        int(m.interactions or 0), float(m.interaction_rate),
+        int(m.engagements  or 0), float(m.engagement_rate),
+        float(m.conversions), float(m.conversions_value),
+        float(m.conversions_from_interactions_rate),
+        (m.cost_per_conversion or 0) / 1_000_000,
+        float(m.value_per_conversion or 0),
+        float(m.all_conversions), float(m.all_conversions_value),
+        float(m.all_conversions_from_interactions_rate),
+        (m.cost_per_all_conversions or 0) / 1_000_000,
+        None,                                     # value_per_all_conversion retired in v24
+        int(m.view_through_conversions or 0),
+        None,                                     # video_view_rate retired in v24
+        float(m.video_quartile_p25_rate),
+        float(m.video_quartile_p50_rate),
+        float(m.video_quartile_p75_rate),
+        float(m.video_quartile_p100_rate),
+        float(m.absolute_top_impression_percentage),
+        float(m.top_impression_percentage),
+        int(m.active_view_impressions or 0),
+        float(m.active_view_measurability),
+        float(m.active_view_viewability),
         datetime.now(timezone.utc),
     )
 
@@ -245,14 +281,11 @@ def main():
         "refresh_token":    REFRESH_TOK,
         "use_proto_plus":   True,
     }
-    # login_customer_id is only required when the caller is an MCC. For
-    # direct-access accounts we omit it.
     if MCC_ID:
         _cfg["login_customer_id"] = MCC_ID
     client = GoogleAdsClient.load_from_dict(_cfg)
 
     conn = get_conn()
-    ensure_schema(conn)
 
     today = datetime.now(timezone.utc).date()
     until_d = date.fromisoformat(args.until) if args.until else today
@@ -262,7 +295,7 @@ def main():
         last = latest_synced_date(conn)
         if last is None:
             since_d = date(2025, 1, 1)
-            print(f"[*] google_ads_daily is empty — defaulting since = {since_d}")
+            print(f"[*] google_ads_primary is empty — defaulting since = {since_d}")
         else:
             since_d = last - timedelta(days=args.overlap) + timedelta(days=1)
             print(f"[*] last date = {last}  overlap={args.overlap}d → since = {since_d}")
@@ -277,8 +310,6 @@ def main():
         print(f"[*] listing MCC {MCC_ID} child accounts …")
         accounts = list_child_accounts(client, MCC_ID)
     else:
-        # No MCC configured — fall back to whichever direct-access customers
-        # the OAuth grant can see via list_accessible_customers.
         print(f"[*] no MCC set — listing direct-access customers …")
         svc = client.get_service("CustomerService")
         rns = svc.list_accessible_customers().resource_names
@@ -290,7 +321,7 @@ def main():
                 rows = ga.search(customer_id=cid, query=
                     "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.manager FROM customer LIMIT 1")
                 for row in rows:
-                    if row.customer.manager: continue   # skip MCCs
+                    if row.customer.manager: continue
                     accounts.append((str(row.customer.id), row.customer.descriptive_name, row.customer.currency_code))
             except GoogleAdsException:
                 continue
@@ -299,7 +330,7 @@ def main():
     total_rows = 0; total_upserts = 0
     t0 = time.time()
     for (cid, cname, ccy) in accounts:
-        print(f"\n  ── customer {cid}  ({cname or '—'})  ─────")
+        print(f"\n  ── customer {cid}  ({cname or '—'})  ─────", flush=True)
         try:
             batch = []
             for r in fetch_customer(client, cid, since_d, until_d):
@@ -308,7 +339,7 @@ def main():
                     total_rows += len(batch)
                     if not args.dry_run:
                         with conn.cursor() as cur:
-                            execute_values(cur, UPSERT, batch, page_size=500)
+                            execute_values(cur, UPSERT_SQL, batch, page_size=500)
                         conn.commit()
                         total_upserts += len(batch)
                     batch.clear()
@@ -316,7 +347,7 @@ def main():
                 total_rows += len(batch)
                 if not args.dry_run:
                     with conn.cursor() as cur:
-                        execute_values(cur, UPSERT, batch, page_size=500)
+                        execute_values(cur, UPSERT_SQL, batch, page_size=500)
                     conn.commit()
                     total_upserts += len(batch)
         except GoogleAdsException as e:

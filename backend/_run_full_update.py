@@ -28,6 +28,13 @@ STEPS = [
     # Daily incremental picks up the last 15 days on every run so a
     # slow-to-arrive backfill day still lands.
     ("fetch_meta_ireach_daily",        ["fetch_meta_ireach_daily.py"],     1800),
+    # Google Ads daily fetch — ad-level performance via /ad_group_ad GAQL,
+    # writes google_ads_primary with 3-day overlap.  Grain matches Meta's
+    # primary_table (one row per customer, ad_id, date).
+    ("fetch_google_ads_daily",         ["fetch_google_ads_daily.py"],       1800),
+    # google_ads_summary rollup — one row per ad, lifetime aggregates.
+    # Small (~60 ads), full-rebuild each run.
+    ("refresh_google_ads_summary",     ["refresh_google_ads_summary.py"],    300),
     ("result_classifier",              ["result_classifier.py"],            900),
     ("results_sync",                   ["results_sync.py"],                1800),
     # Shopify sessions per landing-page — daily incremental via ShopifyQL.

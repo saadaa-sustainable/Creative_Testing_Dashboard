@@ -116,11 +116,36 @@ UPDATE public.shopify_ad_attribution
    AND customer_id         IS NULL
 """
 
-def _apply(conn, rows):
-    """rows = [(cid, nn, email, order_id), ...]"""
-    with conn.cursor() as cur:
-        execute_batch(cur, UPDATE_SQL, rows, page_size=500)
-    conn.commit()
+def _fresh_conn():
+    """Open a fresh short-lived DB connection.  We call this from every
+    _apply() so a dropped pooler socket after a long-idle stretch never
+    kills the whole backfill — Supabase's Session pooler terminates
+    connections that stay open across ~1-2h of activity."""
+    c = psycopg2.connect(DB_URL, connect_timeout=30); c.autocommit = False
+    with c.cursor() as cur: cur.execute("SET statement_timeout = '5min'")
+    return c
+
+def _apply(rows, retries=5):
+    """rows = [(cid, nn, email, order_id), ...]. Opens a fresh connection
+    per call so a mid-batch server-side disconnect doesn't torch the
+    whole run. Retries on OperationalError with exponential backoff."""
+    delay = 2
+    last = None
+    for attempt in range(1, retries + 1):
+        try:
+            c = _fresh_conn()
+            try:
+                with c.cursor() as cur:
+                    execute_batch(cur, UPDATE_SQL, rows, page_size=500)
+                c.commit()
+                return
+            finally:
+                c.close()
+        except psycopg2.OperationalError as e:
+            last = e
+            log(f"  [db {attempt}] {type(e).__name__}: {str(e)[:120]} — sleeping {delay}s")
+            time.sleep(delay); delay = min(delay * 2, 60)
+    raise last if last else RuntimeError("_apply exhausted retries")
 
 def _save_prog(state):
     with open(PROG, "w", encoding="utf-8") as f: json.dump(state, f)
@@ -140,6 +165,9 @@ def main():
     log(f"\n========== backfill_customer_info @ {time.strftime('%Y-%m-%d %H:%M:%S')} ==========")
     log(f"dry_run={args.dry_run}  limit={args.limit}  batch={args.batch}")
 
+    # Queue-fetch connection is short-lived — close it before the long
+    # Shopify walk starts so it can't get killed mid-run. _apply() opens
+    # its own fresh connection per batch.
     conn = psycopg2.connect(DB_URL, connect_timeout=30); conn.autocommit = False
     with conn.cursor() as cur:
         cur.execute("SET statement_timeout = '30min'")
@@ -148,10 +176,11 @@ def main():
         if args.limit > 0: sql += f" LIMIT {args.limit}"
         cur.execute(sql)
         order_ids = [r[0] for r in cur.fetchall()]
+    conn.close()
     log(f"[*] {len(order_ids):,} rows need customer info")
 
     if not order_ids:
-        log("[ok] nothing to backfill"); conn.close(); return
+        log("[ok] nothing to backfill"); return
 
     t0 = time.time()
     total_patched = 0
@@ -177,7 +206,7 @@ def main():
             else:
                 total_missing += 1
         if rows_to_update and not args.dry_run:
-            _apply(conn, rows_to_update)
+            _apply(rows_to_update)
             total_patched += len(rows_to_update)
         _save_prog({"done": last_done + i + len(chunk),
                     "patched": total_patched,
@@ -200,7 +229,6 @@ def main():
         f"seen={total_seen:,} patched={total_patched:,} "
         f"missing={total_missing:,} elapsed={(time.time()-t0)/60:.1f} min"
         + (" (dry-run)" if args.dry_run else ""))
-    conn.close()
 
 if __name__ == "__main__":
     main()
