@@ -6,7 +6,7 @@
 <title>Creative Testing v2 — Analytics</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<link rel="stylesheet" href="assets/dashboard.css?v=ae_column_picker">
+<link rel="stylesheet" href="assets/dashboard.css?v=ai_kpi_recolor">
 </head>
 <body>
 
@@ -22,18 +22,22 @@
   <div class="sb-section">Creative Testing</div>
   <div class="sb-item active" data-view="testing">Creative testing</div>
   <div class="sb-item" data-view="lifecycle">Creative Lifecycle</div>
-  <div class="sb-section">Analysis</div>
+  <div class="sb-section">Analysis
+    <span class="sb-info" title="Data in this section is scoped to ads dated 1st Jan 2025 onwards. Older ads live under Historic below.">ⓘ</span>
+  </div>
   <div class="sb-item" data-view="ae">Ads Analyse</div>
   <div class="sb-item" data-view="ireach" title="Campaign / Adset-level incremental reach for ads dated on/after 2025-01-01">Incremental Analysis</div>
-  <div class="sb-item" data-view="adintel">Ad Intelligence</div>
+  <div class="sb-item" data-view="adintel">Last Click UTM analysis</div>
   <div class="sb-section">Catalog</div>
   <div class="sb-item" data-view="inventory">Inventory</div>
-  <div class="sb-section">Historic</div>
+  <div class="sb-section">Historic
+    <span class="sb-info" title="Data in this section is the full lifetime — every ad since 2023, no date cap.">ⓘ</span>
+  </div>
   <!-- Historic sections route to the same underlying view-ae / view-adintel
        but flip a mode flag that swaps the date defaults + removes the
        post-2025-01-01 cap. The current (top) items scope to date >= 2025-01-01. -->
   <div class="sb-item" data-view="ae" data-historic="1" title="Lifetime ads analysis — no post-2025 cap">Historic Ads Analysis</div>
-  <div class="sb-item" data-view="adintel" data-historic="1" title="Lifetime ad intelligence — includes pre-2025 attribution">Historic Ad Intelligence</div>
+  <div class="sb-item" data-view="adintel" data-historic="1" title="Lifetime attribution — includes pre-2025 orders">Historic Last Click UTM</div>
   <div class="sb-item" data-view="hreach" title="Campaign / Adset-level historic incremental reach — group-first aggregation of primary_table + backfill_table">Historic Reach</div>
   <div class="sb-bottom"><span class="mono" id="dbStat">Idle</span></div>
 </aside>
@@ -1075,7 +1079,7 @@
 <div class="view" id="view-adintel" style="display:none">
   <div class="page-hdr">
     <div>
-      <h1 class="heading">Ad Intelligence
+      <h1 class="heading">Last Click UTM analysis
         <span class="historic-banner" style="display:none">⏳ Historic (Lifetime)</span>
       </h1>
       <div class="sub">step-wise UTM matches from <code>shopify_ad_attribution</code></div>
@@ -2044,6 +2048,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ai_customer_col_reorder"></script>
+<script src="assets/dashboard.js?v=ai_kpi_recolor"></script>
 </body>
 </html>

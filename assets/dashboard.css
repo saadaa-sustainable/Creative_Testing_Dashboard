@@ -97,7 +97,16 @@
     color:var(--sb-text);letter-spacing:.3px}
   .sb-section{padding:14px 18px 6px;font-size:9.5px;font-weight:700;
     color:rgba(250,248,245,0.55);text-transform:uppercase;letter-spacing:.8px;
-    font-family:'Space Grotesk',sans-serif}
+    font-family:'Space Grotesk',sans-serif;
+    display:flex;align-items:center;gap:6px}
+  /* Tiny info badge — used next to section headers to hover-explain
+     the scope of the child items (e.g. "Analysis" = post-2025 only). */
+  .sb-info{display:inline-flex;align-items:center;justify-content:center;
+    width:14px;height:14px;border-radius:50%;font-size:9px;font-weight:700;
+    color:rgba(250,248,245,0.55);background:rgba(255,255,255,0.06);
+    cursor:help;font-family:'Space Grotesk',sans-serif;
+    text-transform:none;letter-spacing:0}
+  .sb-info:hover{color:var(--accent-yellow);background:rgba(232,168,124,0.15)}
   .sb-item{display:flex;align-items:center;gap:10px;padding:9px 18px;cursor:pointer;
     color:rgba(250,248,245,0.78);font-size:13px;font-weight:500;
     border-left:2px solid transparent;
@@ -1321,11 +1330,35 @@
   #aiChannelRow .kpi.selected{border-color:var(--accent-yellow);
     box-shadow:0 0 0 2px var(--accent-yellow) inset;
     background:var(--accent-warm-tint)}
-  #aiChannelRow .kpi[data-channel="all"]        { --accent:#1B1A17 }
-  #aiChannelRow .kpi[data-channel="meta"]       { --accent:#1877F2 }
-  #aiChannelRow .kpi[data-channel="google"]     { --accent:#4285F4 }
-  #aiChannelRow .kpi[data-channel="retention"] { --accent:#8B5CF6 }
-  #aiChannelRow .kpi[data-channel="other"]      { --accent:#9A9384 }
+  /* Channel accent bar — one distinct hue per traffic channel so the top
+     stripe of each card immediately telegraphs the source without reading
+     the label. Kept desaturated / medium-brightness so the card body still
+     reads on light background. */
+  #aiChannelRow .kpi[data-channel="all"]          { --accent:#1B1A17 }  /* black — totals */
+  #aiChannelRow .kpi[data-channel="meta"]         { --accent:#1877F2 }  /* Meta blue */
+  #aiChannelRow .kpi[data-channel="organic_ig"]   { --accent:#E1306C }  /* Instagram magenta */
+  #aiChannelRow .kpi[data-channel="google"]       { --accent:#EA4335 }  /* Google red */
+  #aiChannelRow .kpi[data-channel="retention"]    { --accent:#8B5CF6 }  /* purple */
+  #aiChannelRow .kpi[data-channel="brand_collab"] { --accent:#F59E0B }  /* amber — sponsored */
+  #aiChannelRow .kpi[data-channel="ai"]           { --accent:#10B981 }  /* emerald — AI */
+  #aiChannelRow .kpi[data-channel="organic"]      { --accent:#14B8A6 }  /* teal — organic direct */
+  #aiChannelRow .kpi[data-channel="loyalty"]      { --accent:#EF4444 }  /* red — loyalty */
+  #aiChannelRow .kpi[data-channel="other"]        { --accent:#9A9384 }  /* neutral grey */
+
+  /* Step-tier accent — success→warning gradient so the ladder reads at
+     a glance: Step 1 (best) green, degrading through Step 5 and then a
+     grey Unmatched. Same palette applies to Google G1..G4 by index. */
+  #aiTierCards .kpi[data-tier="Step 1"],
+  #aiTierCardsGoogle .kpi[data-tier="G1"]      { --accent:#059669 }  /* strong green */
+  #aiTierCards .kpi[data-tier="Step 2"],
+  #aiTierCardsGoogle .kpi[data-tier="G2"]      { --accent:#65A30D }  /* olive-green */
+  #aiTierCards .kpi[data-tier="Step 3"],
+  #aiTierCardsGoogle .kpi[data-tier="G3"]      { --accent:#0EA5E9 }  /* sky blue */
+  #aiTierCards .kpi[data-tier="Step 4"],
+  #aiTierCardsGoogle .kpi[data-tier="G4"]      { --accent:#F59E0B }  /* amber */
+  #aiTierCards .kpi[data-tier="Step 5"]        { --accent:#EF4444 }  /* red — least reliable */
+  #aiTierCards .kpi[data-tier="__none__"],
+  #aiTierCardsGoogle .kpi[data-tier="__none__"]{ --accent:#6B7280 }  /* neutral grey */
   .ai-ch-drill{background:var(--bg-white);border:1px solid var(--border-warm);
     border-radius:12px;padding:16px 20px;margin-bottom:14px;
     box-shadow:0 4px 14px rgba(28,25,22,0.06)}
