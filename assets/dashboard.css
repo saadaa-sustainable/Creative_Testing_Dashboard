@@ -1337,7 +1337,7 @@
   #aiChannelRow .kpi[data-channel="all"]          { --accent:#1B1A17 }  /* black — totals */
   #aiChannelRow .kpi[data-channel="meta"]         { --accent:#1877F2 }  /* Meta blue */
   #aiChannelRow .kpi[data-channel="organic_ig"]   { --accent:#E1306C }  /* Instagram magenta */
-  #aiChannelRow .kpi[data-channel="google"]       { --accent:#EA4335 }  /* Google red */
+  #aiChannelRow .kpi[data-channel="google"]       { --accent:#34A853 }  /* Google green */
   #aiChannelRow .kpi[data-channel="retention"]    { --accent:#8B5CF6 }  /* purple */
   #aiChannelRow .kpi[data-channel="brand_collab"] { --accent:#F59E0B }  /* amber — sponsored */
   #aiChannelRow .kpi[data-channel="ai"]           { --accent:#10B981 }  /* emerald — AI */
@@ -1345,20 +1345,15 @@
   #aiChannelRow .kpi[data-channel="loyalty"]      { --accent:#EF4444 }  /* red — loyalty */
   #aiChannelRow .kpi[data-channel="other"]        { --accent:#9A9384 }  /* neutral grey */
 
-  /* Step-tier accent — success→warning gradient so the ladder reads at
-     a glance: Step 1 (best) green, degrading through Step 5 and then a
-     grey Unmatched. Same palette applies to Google G1..G4 by index. */
-  #aiTierCards .kpi[data-tier="Step 1"],
-  #aiTierCardsGoogle .kpi[data-tier="G1"]      { --accent:#059669 }  /* strong green */
-  #aiTierCards .kpi[data-tier="Step 2"],
-  #aiTierCardsGoogle .kpi[data-tier="G2"]      { --accent:#65A30D }  /* olive-green */
-  #aiTierCards .kpi[data-tier="Step 3"],
-  #aiTierCardsGoogle .kpi[data-tier="G3"]      { --accent:#0EA5E9 }  /* sky blue */
-  #aiTierCards .kpi[data-tier="Step 4"],
-  #aiTierCardsGoogle .kpi[data-tier="G4"]      { --accent:#F59E0B }  /* amber */
-  #aiTierCards .kpi[data-tier="Step 5"]        { --accent:#EF4444 }  /* red — least reliable */
-  #aiTierCards .kpi[data-tier="__none__"],
-  #aiTierCardsGoogle .kpi[data-tier="__none__"]{ --accent:#6B7280 }  /* neutral grey */
+  /* Step-tier accent — all cards in the Meta tier row inherit the Meta
+     channel's blue, and all cards in the Google tier row inherit the
+     Google channel's green. This mirrors the parent-channel colour so
+     users can tell at a glance which cascade they're inspecting.
+     Unmatched keeps a neutral grey since it belongs to no source. */
+  #aiTierCards        .kpi          { --accent:#1877F2 }  /* Meta blue — all Step tiers */
+  #aiTierCards        .kpi[data-tier="__none__"] { --accent:#6B7280 }
+  #aiTierCardsGoogle  .kpi          { --accent:#34A853 }  /* Google green — all G tiers */
+  #aiTierCardsGoogle  .kpi[data-tier="__none__"] { --accent:#6B7280 }
   .ai-ch-drill{background:var(--bg-white);border:1px solid var(--border-warm);
     border-radius:12px;padding:16px 20px;margin-bottom:14px;
     box-shadow:0 4px 14px rgba(28,25,22,0.06)}
