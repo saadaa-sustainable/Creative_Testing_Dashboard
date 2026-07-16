@@ -3,12 +3,13 @@
 One row per unique ad_id with lifetime aggregates and lifecycle status.
 Run anytime backfill_table changes (e.g., after run_backfill.py).
 
-Status rules (6 categories — mirrors dashboard getAdCategory):
+Status rules (7 categories — mirrors dashboard getAdCategory):
     Incremental Winner = F1 AND (F2 OR F3) AND F4
     Winner             = F1 AND (F2 OR F3)
     P0 analysis        = F1 AND F4
     P1 analysis        = F1 only
     P2 analysis        = F2 only
+    Result Awaited     = otherwise-Discarded AND created within last 14 days
     Discarded          = everything else
 
 Thresholds:
@@ -194,6 +195,13 @@ SELECT
         -- P2 analysis (was Analyze 2) = F2 only
         WHEN a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.2
             THEN 'P2 analysis'
+        -- Result Awaited = 14-day grace period. Any ad that would fall to
+        -- Discarded but was created within the last CT_BUFFER_DAYS (14)
+        -- gets this tag instead — matches dashboard.js:285-291 which
+        -- computes the same fallback client-side. After day 14 the grace
+        -- expires and the ad reverts to 'Discarded' on the next refresh.
+        WHEN a.created_date > CURRENT_DATE - INTERVAL '14 days'
+            THEN 'Result Awaited'
         ELSE 'Discarded'
     END  AS status,
     ls.ad_status,

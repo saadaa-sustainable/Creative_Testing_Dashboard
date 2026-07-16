@@ -541,6 +541,42 @@ SELECT b.ad_id, b.shopify_orders, b.shopify_sales, b.shopify_aov,
        b.shopify_first_order, b.shopify_last_order, tt.shopify_top_tier
 FROM base b LEFT JOIN top_tier tt USING (ad_id);
 """)
+
+# ae_table_view uses COALESCE(ae_shopify_enriched.shopify_*, shopify_ad_agg.shopify_*)
+# — so ae_shopify_enriched wins the join if it has a row.  That table is a
+# legacy snapshot from a retired build path and doesn't refresh itself.  Sync
+# it against the fresh shopify_ad_agg here so every one-off attribution UPDATE
+# is reflected in Ads Analyse on the next refresh_ae_table run.
+print("Syncing ae_shopify_enriched from shopify_ad_agg ...")
+# Pass 1 — sync current values from shopify_ad_agg
+cur.execute("""
+    UPDATE public.ae_shopify_enriched e
+       SET shopify_orders = COALESCE(s.shopify_orders::bigint, 0),
+           shopify_sales  = COALESCE(s.shopify_sales, 0),
+           matched_orders = COALESCE(s.shopify_orders::bigint, 0),
+           matched_sales  = COALESCE(s.shopify_sales, 0),
+           matched_tier   = s.shopify_top_tier
+      FROM public.shopify_ad_agg s
+     WHERE e.ad_id = s.ad_id;
+""")
+n_upd = cur.rowcount
+# Pass 2 — zero out enriched rows whose ad_id no longer has any
+# attribution (e.g. rows moved to another ad via a manual UPDATE).
+# Without this the enriched table keeps stale ghost orders on ads
+# that now legitimately have 0 attribution.
+cur.execute("""
+    UPDATE public.ae_shopify_enriched e
+       SET shopify_orders = 0, shopify_sales = 0,
+           matched_orders = 0, matched_sales = 0,
+           matched_tier   = NULL
+     WHERE NOT EXISTS (
+       SELECT 1 FROM public.shopify_ad_agg s WHERE s.ad_id = e.ad_id
+     )
+     AND (shopify_orders <> 0 OR shopify_sales <> 0);
+""")
+n_zero = cur.rowcount
+print(f"  ae_shopify_enriched: {n_upd:,} rows synced, {n_zero:,} rows zeroed")
+
 cur.execute("NOTIFY pgrst, 'reload schema';")
 conn.commit()
 cur.execute("SELECT COUNT(*), COUNT(*) FILTER (WHERE shopify_orders > 0) FROM ae_table_view")

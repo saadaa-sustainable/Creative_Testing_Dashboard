@@ -388,48 +388,56 @@ def shopify_page(after, since, until, retries=8):
 def _scoped_match(ads, name_cand, order_date, scope):
     """Resolve a specific ad within an adset/campaign by NAME ONLY.
 
-    Use case: T2 (global ad_name lookup) failed because the ad was RENAMED
-    and the canonical name is no longer the utm string. We fall back to
-    matching utm_content against the HISTORICAL names of ads within the
-    matched adset / campaign.
+    Use case: utm_content matches an ad_name that exists across multiple
+    adsets (shell + real, or dupes from copy-paste). Constrain to ads in
+    the resolved scope so we don't cross-contaminate.
 
-    Date-based and asset-code-based guessing was removed (used to emit
-    T3.2 / T3.3 / T4.2 / T4.3 — too unreliable). If we can't pin exactly
-    one ad via name matching, we return (None, None) and the caller
-    falls back to base T3 / T4 (scope known, no specific ad).
+    Tiebreak rule (per user directive): when several ads in scope match
+    by name, prefer the one with the highest lifetime_spend. Shell ads
+    with 0 delivery lose to real ads that actually served the click.
 
-    Returns (ad_meta, "T3.1" | "T4.1") or (None, None).
+    Match ladder inside scope:
+      exact (case-sensitive) → fuzzy (norm_name) → substring (case-ins)
+      → separator-normalized substring
+    Any hit — even multiple — returns the highest-spend one.  Returns
+    (None, None) only when NO ad in scope has a name-like match at all.
     """
     if not ads: return (None, None)
-    n_root = "T3" if scope == "adset" else "T4"
+    # Tier label: adset-scope matches emit "Step 3", campaign-scope emit "Step 4".
+    scoped_tier = "Step 3" if scope == "adset" else "Step 4"
     nc  = (name_cand or "").strip()
     if not nc: return (None, None)
     nc_l = nc.lower()
 
-    # exact (case-sensitive) against any historical name in scope
-    for a in ads:
-        if nc in a["names"]:
-            return (a, f"{n_root}.1")
+    def _best(candidates):
+        """Highest lifetime_spend wins; falls back to first if all zero."""
+        if not candidates: return None
+        return max(candidates, key=lambda a: a.get("lifetime_spend", 0.0))
 
-    # fuzzy: norm_name (suffix-stripped, whitespace-collapsed, lowercased)
+    # exact
+    exact_hits = [a for a in ads if nc in a["names"]]
+    if exact_hits:
+        return (_best(exact_hits), scoped_tier)
+
+    # fuzzy
     f = norm_name(nc)
     if f:
         fz_hits = [a for a in ads
                    if any(norm_name(n) == f for n in a["names"])]
-        if len(fz_hits) == 1:
-            return (fz_hits[0], f"{n_root}.1")
+        if fz_hits:
+            return (_best(fz_hits), scoped_tier)
 
-    # substring (case-insensitive, separator-strict)
+    # substring (case-insensitive)
     sub_hits = []
     for a in ads:
         for nm in a["names"]:
             nml = nm.lower()
             if nml and (nml in nc_l or nc_l in nml):
                 sub_hits.append(a); break
-    if len(sub_hits) == 1:
-        return (sub_hits[0], f"{n_root}.1")
+    if sub_hits:
+        return (_best(sub_hits), scoped_tier)
 
-    # substring with separator normalization (treats +/-/_/space/./, as equivalent)
+    # substring with separator normalization
     # Catches utm "CLP-SDPL MU OFF-RS IHP" vs ad_name "CLP-SDPL+MU+OFF-RS+IHP+..."
     nc_sep = _sep_key(nc)
     if nc_sep:
@@ -439,10 +447,9 @@ def _scoped_match(ads, name_cand, order_date, scope):
                 nm_sep = _sep_key(nm)
                 if nm_sep and (nm_sep in nc_sep or nc_sep in nm_sep):
                     sep_hits.append(a); break
-        if len(sep_hits) == 1:
-            return (sep_hits[0], f"{n_root}.1")
+        if sep_hits:
+            return (_best(sep_hits), scoped_tier)
 
-    # Multi-hit or no-hit cases: fall through to base T3 / T4 (no specific ad)
     return (None, None)
 
 
@@ -453,13 +460,26 @@ def attribute_order_cache_clear():
 def attribute_order(ca, maps, order_created_at=None):
     """Returns (ad_id, ad_name, adset_id, campaign_name, matched_value, matched_tier).
     Empty strings for the metadata fields when no match.
-    Cascade:
-      T1  utm_content is a numeric ad_id
-      T2  utm_content matches an ad_name globally (exact / fuzzy / substring / sep-normalized substring)
-      T3.1 utm_content matches an ad's HISTORICAL name within the adset (renamed-ad recovery)
-      T3   adset_id known, no specific ad pinpointed
-      T4.1/T4 same at campaign scope
-    Date-based and asset-code guessing was removed.
+
+    Cascade (scope-first policy — 2026-07-16):
+      Step 1   utm_content is a numeric ad_id (unambiguous, wins immediately)
+      Step 3   utm_term names an adset AND utm_content matches an ad_name
+               within THAT adset (exact / fuzzy / substring / sep-normalized).
+               Tiebreak among adset ads: highest lifetime_spend so real
+               delivering ads beat 0-spend shell/dark-post duplicates.
+               Also fires when adset is known but no ad-level name match
+               (ad_id NULL, later Step-3-spread aggregator handles it).
+      Step 4   utm_camp names a campaign AND utm_content matches an ad_name
+               within THAT campaign. Same tiebreak.  Also fires when
+               campaign known but no ad-level name match (ad_id NULL).
+      Step 2   utm_content matches an ad_name GLOBALLY (last resort — only
+               when NO scope signal was resolvable). Tiebreak by spend.
+      Step 5   nothing pinned at all (empty return).
+
+    Why Step 3/4 run before Step 2: duplicate ad_names across adsets are
+    common (real ad + shell/dark-post copy).  A global Step 2 lookup would
+    grab whichever it finds first; scope-first ensures we prefer the ad in
+    the adset the click actually came from.
     """
     (by_id, by_name, by_fuzzy, by_adset, by_camp_name, by_camp_id,
      adset_ads, camp_name_ads, camp_id_ads, name_index) = maps
@@ -486,61 +506,30 @@ def attribute_order(ca, maps, order_created_at=None):
         _ATTR_CACHE[cache_key] = r
         return r
 
-    # T1: utm_content is a numeric ad_id in our universe
+    # Step 1 : utm_content is a numeric ad_id (unambiguous — always wins)
     if utm_content.isdigit() and utm_content in by_id:
         m = by_id[utm_content]
         return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
-                     utm_content, "T1_ad_id"))
+                     utm_content, "Step 1"))
 
-    # T2: utm_content matches an ad_name globally — exact -> fuzzy -> substring -> sep-normalized
-    for cand in (attr_ad_name, utm_content):
-        if not cand: continue
-        # exact
-        if cand in by_name:
-            ad_id = by_name[cand][0]; m = by_id[ad_id]
-            return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
-                         cand, "T2_ad_name"))
-        # fuzzy (suffix-stripped + lowercased)
-        f = norm_name(cand)
-        if f and f in by_fuzzy:
-            ad_id = by_fuzzy[f][0]; m = by_id[ad_id]
-            return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
-                         cand, "T2_ad_name"))
+    # ═══════════════════════════════════════════════════════════════════════
+    # Scope-first policy (2026-07-16 fix):
+    # For NAME-based matches, resolve within the utm_term's adset BEFORE
+    # doing any global lookup.  Duplicate ad_names across adsets are common
+    # (real ad + shell/dark-post copy), and a global Step-2 exact-match will
+    # pick whichever it finds first — usually WRONG when utm_term points
+    # to a specific adset.  So order is:
+    #   Step 3 (adset scope) → Step 4 (campaign scope) → Step 2 (last resort)
+    # ═══════════════════════════════════════════════════════════════════════
 
-    # T2 global substring (and sep-normalized substring). The matched
-    # substring (whichever side is shorter) must be at least 10 chars long —
-    # this prevents generic short names like "ER" from matching by coincidence.
-    # Tiebreak: pick the ad with HIGHEST lifetime spend (Meta actually
-    # delivered it); name-length proximity is a secondary tiebreaker.
-    for cand in (attr_ad_name, utm_content):
-        if not cand or len(cand) < 10: continue
-        cand_l   = cand.lower()
-        cand_sep = _sep_key(cand)
-        cand_l_len = len(cand_l)
-        cand_sep_len = len(cand_sep)
-        # Best so far — tuple (spend DESC, name_length_gap ASC). We track these
-        # as separate vars to avoid building a list for non-matching iterations.
-        best_aid = None; best_spend = -1.0; best_gap = 10**9
-        for nl, nsep, nlen, ad_id, spend in name_index:
-            matched = False
-            if (cand_l in nl) or (nl in cand_l):
-                if min(cand_l_len, nlen) >= 10:
-                    matched = True
-            if not matched and cand_sep and nsep:
-                if (cand_sep in nsep) or (nsep in cand_sep):
-                    if min(cand_sep_len, len(nsep)) >= 10:
-                        matched = True
-            if matched:
-                gap = abs(nlen - cand_l_len)
-                # Prefer higher spend; on equal spend prefer closer name length
-                if (spend > best_spend) or (spend == best_spend and gap < best_gap):
-                    best_aid = ad_id; best_spend = spend; best_gap = gap
-        if best_aid is not None:
-            m = by_id[best_aid]
-            return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
-                         cand, "T2_ad_name"))
-
-    # ── T3.x : ADSET-SCOPED match  (utm_term -> adset; narrow within) ─────
+    # ── Step 3 : ADSET-SCOPED match  (utm_term -> adset; narrow within) ────
+    # If utm_term names an adset, that IS where the click came from — any
+    # name-match within that adset outranks a global name match.  When the
+    # adset resolves but no ad-name match narrows it down, we STAY at
+    # adset-only Step 3 (ad_id NULL) rather than fall through to Step 2
+    # global — because Step 2 global would grab a duplicate-named ad from
+    # ANOTHER adset, which is exactly the misattribution bug this reordering
+    # prevents.
     for adset_cand in (attr_adset_id, utm_term):
         if not adset_cand: continue
         ads = adset_ads.get(adset_cand)
@@ -549,12 +538,14 @@ def attribute_order(ca, maps, order_created_at=None):
         if a:
             return _ret((a["ad_id"], a["ad_name"], a["adset_id"], a["campaign_name"],
                          name_cand or adset_cand, tier))
-        # No narrowing -> base T3: adset known, no specific ad (spread downstream)
-        first = ads[0]
+        # No name-match narrowing — resolve to adset-only. Pick the ad with
+        # the highest lifetime_spend as the representative row so downstream
+        # aggregators have SOME campaign context to spread against.
+        first = max(ads, key=lambda a: a.get("lifetime_spend", 0.0))
         return _ret(("", first["ad_name"], first["adset_id"], first["campaign_name"],
-                     adset_cand, "T3"))
+                     adset_cand, "Step 3"))
 
-    # ── T4.x : CAMPAIGN-SCOPED match  (utm_camp -> campaign; narrow within) ─
+    # ── Step 4 : CAMPAIGN-SCOPED match  (utm_camp -> campaign; narrow within)
     camp_ads = None; matched_camp = ""; camp_tier_kind = ""
     if utm_camp.isdigit() and utm_camp in camp_id_ads:
         camp_ads = camp_id_ads[utm_camp]; matched_camp = utm_camp; camp_tier_kind = "id"
@@ -568,10 +559,53 @@ def attribute_order(ca, maps, order_created_at=None):
         if a:
             return _ret((a["ad_id"], a["ad_name"], a["adset_id"], a["campaign_name"],
                          name_cand or matched_camp, tier))
-        first = camp_ads[0]
+        first = max(camp_ads, key=lambda a: a.get("lifetime_spend", 0.0))
         return _ret(("", "", first["adset_id"] if camp_tier_kind == "id" else "",
                      first["campaign_name"],
-                     matched_camp, "T4"))
+                     matched_camp, "Step 4"))
+
+    # ── Step 2 (global) : LAST RESORT — utm_term + utm_camp both empty/unknown
+    # Only fires when NO scope signal was resolvable — otherwise scope-first
+    # policy above would have handled it (and stayed at scope-only rather
+    # than picking a global name-collision).  Tiebreak by highest spend so
+    # a real delivering ad wins over a same-named shell.
+    for cand in (attr_ad_name, utm_content):
+        if not cand: continue
+        # exact
+        if cand in by_name:
+            ad_id = max(by_name[cand], key=lambda i: by_id[i].get("lifetime_spend", 0.0))
+            m = by_id[ad_id]
+            return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
+                         cand, "Step 2"))
+        # fuzzy
+        f = norm_name(cand)
+        if f and f in by_fuzzy:
+            ad_id = max(by_fuzzy[f], key=lambda i: by_id[i].get("lifetime_spend", 0.0))
+            m = by_id[ad_id]
+            return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
+                         cand, "Step 2"))
+    # substring (≥ 10 chars to avoid generic collisions)
+    for cand in (attr_ad_name, utm_content):
+        if not cand or len(cand) < 10: continue
+        cand_l   = cand.lower()
+        cand_sep = _sep_key(cand)
+        cand_l_len = len(cand_l); cand_sep_len = len(cand_sep)
+        best_aid = None; best_spend = -1.0; best_gap = 10**9
+        for nl, nsep, nlen, ad_id, spend in name_index:
+            matched = False
+            if (cand_l in nl) or (nl in cand_l):
+                if min(cand_l_len, nlen) >= 10: matched = True
+            if not matched and cand_sep and nsep:
+                if (cand_sep in nsep) or (nsep in cand_sep):
+                    if min(cand_sep_len, len(nsep)) >= 10: matched = True
+            if matched:
+                gap = abs(nlen - cand_l_len)
+                if (spend > best_spend) or (spend == best_spend and gap < best_gap):
+                    best_aid = ad_id; best_spend = spend; best_gap = gap
+        if best_aid is not None:
+            m = by_id[best_aid]
+            return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
+                         cand, "Step 2"))
 
     return _ret(("", "", "", "", "", ""))
 
