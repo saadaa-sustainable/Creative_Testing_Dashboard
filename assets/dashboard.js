@@ -4517,8 +4517,149 @@ function aiRenderKpis(){
   set('S4','Step 4'); set('S5','Step 5'); set('none','__none__');
 }
 
+// UTM Analytics — 3-panel viz sitting above the orders table.  Recomputes
+// off the currently-filtered aiOrders every time the table re-renders,
+// so channel / step / date filters flow through automatically.
+const _AI_CHANNEL_ORDER = [
+  {key:'meta',        label:'Meta',        color:'#1877F2'},
+  {key:'google',      label:'Google',      color:'#34A853'},
+  {key:'organic_ig',  label:'Organic (IG)', color:'#E1306C'},
+  {key:'retention',   label:'Retention',   color:'#8B5CF6'},
+  {key:'brand_collab',label:'Brand Collab',color:'#F59E0B'},
+  {key:'ai',          label:'AI',          color:'#10B981'},
+  {key:'organic',     label:'Organic (Direct)', color:'#14B8A6'},
+  {key:'loyalty',     label:'Loyalty',     color:'#EF4444'},
+  {key:'other',       label:'Other',       color:'#9A9384'},
+];
+let _aiChartTime = null, _aiChartSource = null;
+
+function aiRenderCharts(rows){
+  const container = document.getElementById('aiAnalyticsRow');
+  if (!container) return;
+  if (!rows || !rows.length){
+    // Blank state — keep chart canvases visible so DOM sizing stays stable
+    if (_aiChartTime)   { _aiChartTime.destroy();   _aiChartTime = null; }
+    if (_aiChartSource) { _aiChartSource.destroy(); _aiChartSource = null; }
+    document.getElementById('aiTopUtmContent').innerHTML =
+      '<div style="padding:24px;text-align:center;color:var(--text-tertiary);font-size:11.5px">No orders in the current filter.</div>';
+    return;
+  }
+
+  // ── Chart 1: stacked daily orders by channel ────────────────────────
+  const byDate = new Map();     // date → { [channelKey]: count }
+  const chSet  = new Set();
+  for (const r of rows){
+    const d = (r.order_created_at || '').slice(0, 10);
+    if (!d) continue;
+    const src = aiSourceKey(r);
+    const ch  = aiChannel(src, r);
+    chSet.add(ch);
+    if (!byDate.has(d)) byDate.set(d, {});
+    const b = byDate.get(d);
+    b[ch] = (b[ch] || 0) + 1;
+  }
+  const dates = Array.from(byDate.keys()).sort();
+  // Cap X-axis to a reasonable number of ticks
+  const displayDates = dates.length > 60 ? dates.filter((_,i) => i % Math.ceil(dates.length/60) === 0) : dates;
+  const datasets = _AI_CHANNEL_ORDER
+    .filter(c => chSet.has(c.key))
+    .map(c => ({
+      label: c.label,
+      data:  dates.map(d => (byDate.get(d)?.[c.key]) || 0),
+      backgroundColor: c.color,
+      borderColor: c.color,
+      borderWidth: 0,
+      stack: 'orders',
+    }));
+
+  const ctxTime = document.getElementById('aiChartTime');
+  if (_aiChartTime) _aiChartTime.destroy();
+  _aiChartTime = new Chart(ctxTime, {
+    type: 'bar',
+    data: { labels: dates, datasets },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: {
+        legend: { position:'bottom', labels:{ boxWidth:10, font:{size:10.5}, padding:8 } },
+        tooltip: { mode:'index', intersect:false },
+      },
+      scales: {
+        x: { stacked:true, ticks:{ maxTicksLimit:12, font:{size:10} }, grid:{display:false} },
+        y: { stacked:true, ticks:{ font:{size:10} }, grid:{color:'rgba(0,0,0,0.05)'} },
+      },
+    },
+  });
+
+  // ── Chart 2: doughnut of utm_source distribution ────────────────────
+  const bySource = new Map();
+  for (const r of rows){
+    const s = (r.utm_source || '(direct)').toLowerCase().trim() || '(direct)';
+    bySource.set(s, (bySource.get(s) || 0) + 1);
+  }
+  const sortedSrc = Array.from(bySource.entries()).sort((a,b) => b[1] - a[1]);
+  const top = sortedSrc.slice(0, 7);
+  const rest = sortedSrc.slice(7).reduce((s, [,v]) => s + v, 0);
+  if (rest > 0) top.push(['other utm_sources', rest]);
+  const srcLabels = top.map(([l]) => l);
+  const srcData   = top.map(([,v]) => v);
+  const srcColors = ['#1877F2','#34A853','#E1306C','#8B5CF6','#F59E0B','#10B981','#14B8A6','#9A9384'];
+
+  const ctxSrc = document.getElementById('aiChartSource');
+  if (_aiChartSource) _aiChartSource.destroy();
+  _aiChartSource = new Chart(ctxSrc, {
+    type: 'doughnut',
+    data: {
+      labels: srcLabels,
+      datasets: [{ data: srcData, backgroundColor: srcColors, borderWidth: 2, borderColor: '#fff' }],
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      cutout: '60%',
+      plugins: {
+        legend: { position:'right', labels:{ boxWidth:10, font:{size:10.5}, padding:6 } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const total = srcData.reduce((s,v) => s+v, 0);
+              const v = ctx.parsed;
+              const pct = total > 0 ? (v/total*100).toFixed(1) : '0';
+              return `${ctx.label}: ${v.toLocaleString('en-IN')} (${pct}%)`;
+            }
+          }
+        }
+      },
+    },
+  });
+
+  // ── Panel 3: top utm_content ─────────────────────────────────────
+  const byContent = new Map();
+  for (const r of rows){
+    const c = (r.utm_content || '(none)').trim() || '(none)';
+    const cur = byContent.get(c) || {orders:0, sales:0};
+    cur.orders += 1;
+    cur.sales  += (+r.total_price || 0);
+    byContent.set(c, cur);
+  }
+  const topContent = Array.from(byContent.entries())
+                       .sort((a,b) => b[1].orders - a[1].orders)
+                       .slice(0, 12);
+  const maxOrd = topContent.reduce((m, [,v]) => Math.max(m, v.orders), 0) || 1;
+  document.getElementById('aiTopUtmContent').innerHTML =
+    topContent.map(([lbl, v]) => {
+      const pct = (v.orders / maxOrd) * 100;
+      const short = lbl.length > 48 ? lbl.slice(0, 45) + '…' : lbl;
+      return '<div class="ai-topbar" style="--bar-pct:' + pct.toFixed(1) + '%" title="' +
+             lbl.replace(/"/g, '&quot;') + '">'+
+        '<div class="ai-topbar-lbl">' + short.replace(/</g,'&lt;') + '</div>'+
+        '<div class="ai-topbar-val">' + fmtInt(v.orders) +
+        '<span class="ai-topbar-sales">' + fmtRs(v.sales) + '</span></div>'+
+      '</div>';
+    }).join('') || '<div style="padding:20px;text-align:center;color:var(--text-tertiary);font-size:11.5px">No utm_content values to show.</div>';
+}
+
 function aiRenderTable(){
   const rows = aiFiltered();
+  aiRenderCharts(rows);
   const pageSize = +document.getElementById('aiPageSize').value || 100;
   const totalRows = rows.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));

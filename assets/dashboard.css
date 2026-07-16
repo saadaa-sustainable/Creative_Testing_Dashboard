@@ -1354,6 +1354,64 @@
   #aiTierCards        .kpi[data-tier="__none__"] { --accent:#6B7280 }
   #aiTierCardsGoogle  .kpi          { --accent:#34A853 }  /* Google green — all G tiers */
   #aiTierCardsGoogle  .kpi[data-tier="__none__"] { --accent:#6B7280 }
+
+  /* ── UTM Analytics row — 3-panel chart layout ─────────────────────
+     Sits under the tier KPIs on the Last Click UTM page.  Recomputes
+     from aiOrders on every table render. */
+  .ai-analytics-row{
+    display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:12px;
+    margin:14px 0 18px;
+  }
+  .ai-analytics-card{
+    background:var(--bg-white);border:1px solid var(--border-primary);
+    border-radius:12px;padding:14px 16px;
+    display:flex;flex-direction:column;min-width:0;
+  }
+  .ai-analytics-hdr{margin-bottom:10px}
+  .ai-analytics-ttl{
+    font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;
+    color:var(--text-primary);text-transform:uppercase;letter-spacing:.6px;
+  }
+  .ai-analytics-sub{
+    font-size:10.5px;color:var(--text-tertiary);margin-top:2px;font-weight:500;
+  }
+  .ai-analytics-body{
+    flex:1;position:relative;min-height:220px;
+  }
+  .ai-analytics-body canvas{width:100% !important;max-height:280px}
+
+  /* Top-N horizontal bar list — the third panel */
+  .ai-topbars{
+    display:flex;flex-direction:column;gap:6px;
+    overflow-y:auto;max-height:280px;padding-right:4px;
+  }
+  .ai-topbar{
+    display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+    padding:6px 8px;border-radius:6px;
+    background:var(--bg-page-alt);position:relative;overflow:hidden;
+  }
+  .ai-topbar::before{
+    content:'';position:absolute;left:0;top:0;bottom:0;
+    background:rgba(24,119,242,0.14);   /* Meta-blue tint by default */
+    width:var(--bar-pct, 0%);
+    transition:width .3s ease;z-index:0;
+  }
+  .ai-topbar > *{position:relative;z-index:1}
+  .ai-topbar-lbl{
+    font-size:11.5px;font-family:'JetBrains Mono',monospace;
+    color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .ai-topbar-val{
+    font-size:11px;font-weight:700;font-family:'Space Grotesk',sans-serif;
+    color:var(--text-secondary);white-space:nowrap;
+  }
+  .ai-topbar-val .ai-topbar-sales{color:var(--text-tertiary);font-weight:500;margin-left:6px}
+
+  @media (max-width:1200px){
+    .ai-analytics-row{grid-template-columns:1fr;}
+    .ai-analytics-body{min-height:200px}
+  }
   .ai-ch-drill{background:var(--bg-white);border:1px solid var(--border-warm);
     border-radius:12px;padding:16px 20px;margin-bottom:14px;
     box-shadow:0 4px 14px rgba(28,25,22,0.06)}

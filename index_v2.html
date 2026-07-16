@@ -6,7 +6,7 @@
 <title>Creative Testing v2 — Analytics</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<link rel="stylesheet" href="assets/dashboard.css?v=ai_kpi_parent_color">
+<link rel="stylesheet" href="assets/dashboard.css?v=ai_analytics_charts">
 </head>
 <body>
 
@@ -1274,6 +1274,39 @@
       <div class="k-sub">sales <b id="aiKp-Gnone-sp">—</b></div></div>
   </div>
 
+  <!-- ═════════════ UTM Analytics — 3-panel visualisation ═════════════
+       Recomputes off the currently-filtered aiOrders array via
+       aiRenderCharts() (fires after every table render). -->
+  <div class="ai-analytics-row" id="aiAnalyticsRow">
+    <div class="ai-analytics-card">
+      <div class="ai-analytics-hdr">
+        <div class="ai-analytics-ttl">Orders by channel over time</div>
+        <div class="ai-analytics-sub">Daily order count · stacked by traffic channel</div>
+      </div>
+      <div class="ai-analytics-body">
+        <canvas id="aiChartTime"></canvas>
+      </div>
+    </div>
+    <div class="ai-analytics-card">
+      <div class="ai-analytics-hdr">
+        <div class="ai-analytics-ttl">UTM source share</div>
+        <div class="ai-analytics-sub">Where the clicks originated</div>
+      </div>
+      <div class="ai-analytics-body">
+        <canvas id="aiChartSource"></canvas>
+      </div>
+    </div>
+    <div class="ai-analytics-card">
+      <div class="ai-analytics-hdr">
+        <div class="ai-analytics-ttl">Top utm_content</div>
+        <div class="ai-analytics-sub">Which creative labels drove the most orders</div>
+      </div>
+      <div class="ai-analytics-body ai-topbars" id="aiTopUtmContent">
+        <!-- populated by aiRenderCharts() -->
+      </div>
+    </div>
+  </div>
+
   <!-- Filter grid -->
   <div class="ai-fgrid">
     <div class="fg-field">
@@ -2048,6 +2081,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ai_kpi_recolor"></script>
+<script src="assets/dashboard.js?v=ai_analytics_charts"></script>
 </body>
 </html>
