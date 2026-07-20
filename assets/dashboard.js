@@ -4175,15 +4175,25 @@ function aiFiltered(){
    T1_ad_id, T2_ad_name, T3, T0_template — fold them into the equivalent
    modern step so the KPIs are accurate. */
 function aiStep(row){
-  if (!row.has_match) return '__none__';
   const t = (row.matched_tier || '').trim();
   if (!t) return '__none__';
+  // Google tiers first — has_match may be FALSE for adgroup/campaign-only
+  // matches (ad_id intentionally NULL) but the order IS attributed at the
+  // adgroup / campaign level, so it should render as matched, not unmatched.
+  // G5_google_unpinned = utm hints exist but nothing pinned in gads →
+  // effectively unmatched, folds into __none__ so KPI + CSV agree.
+  if (t.startsWith('G1')) return 'G1';
+  if (t.startsWith('G2')) return 'G2';
+  if (t.startsWith('G3')) return 'G3';
+  if (t.startsWith('G4')) return 'G4';
+  if (t.startsWith('G5')) return '__none__';
+  // Meta tiers require has_match true (unchanged legacy behavior)
+  if (!row.has_match) return '__none__';
   if (t === 'Step 1' || t === 'T1_ad_id')   return 'Step 1';
   if (t === 'Step 2' || t === 'T2_ad_name') return 'Step 2';
   if (t === 'Step 3' || t === 'T3')         return 'Step 3';
   if (t === 'Step 4')                       return 'Step 4';
   if (t === 'Step 5')                       return 'Step 5';
-  // Unknown / template-only labels — treat as unmatched for KPI bucketing
   return '__none__';
 }
 function aiTierClass(t){
@@ -4459,7 +4469,12 @@ function aiCloseChannelDrill(){
    G3 (joint campaign+ad_name), G4 (unique ad_name), Unmatched. */
 function aiGoogleStep(row){
   const t = (row.matched_tier || '').trim();
-  if (t === 'G1' || t === 'G2' || t === 'G3' || t === 'G4') return t;
+  // Prefix match so DB variants (G1_ad_id, G4_campaign_only, etc.) all fold
+  // into the 4 canonical KPI slots. G5_google_unpinned buckets with Gnone.
+  if (t.startsWith('G1')) return 'G1';
+  if (t.startsWith('G2')) return 'G2';
+  if (t.startsWith('G3')) return 'G3';
+  if (t.startsWith('G4')) return 'G4';
   return '__none__';
 }
 
