@@ -57,7 +57,7 @@ Every ad in the system is scored against four cost-and-signal filters. Every cat
 
 ```
 F1   Impressions     >=   50,000       (delivery — has this ad served enough to judge)
-F2   ROAS            >=      3.2       (return on ad spend — Meta-attributed)
+F2   ROAS            >=      3         (return on ad spend — Meta-attributed; editable in toolbar)
 F3   Cost per NCP    <=     ₹525       (new customer purchase — retention proxy)
 F4   Cost per FTEWV  <=      ₹25       (first-time engaged video-viewer — creative quality)
 ```
@@ -180,7 +180,7 @@ Thresholds (second row, editable numeric):
 
 ```
 F1 — Impressions       (#ctF1)     default 50,000
-F2 — ROAS              (#ctF2)     default 3.2
+F2 — ROAS              (#ctF2)     default 3
 F3 — Cost / NCP        (#ctF3)     default 525
 F4 — Cost / FTEWV      (#ctF4)     default 12
 Reset (#ctResetThresh)             defaults
@@ -429,7 +429,7 @@ Thresholds and clear buttons:
 
 ```
 F1 Imp             (#aeF1)             default 50,000
-F2 ROAS            (#aeF2)             default 3.2
+F2 ROAS            (#aeF2)             default 3
 F3 C/NCP           (#aeF3)             default 525
 F4 C/FTEWV         (#aeF4)             default 12
 Clear Dates        (#aeClearDates)     resets both date inputs

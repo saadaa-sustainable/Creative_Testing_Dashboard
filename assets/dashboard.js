@@ -255,7 +255,7 @@ async function fetchThumbnails(){
    Testing.  Fetches raw daily rows from `primary_table`, aggregates
    per ad_id client-side, derives ROAS / cost-per-NCP / cost-per-FTEWV,
    then applies the exact same F1-F4 thresholds the OLD dashboard
-   applied (50000 / 3.2 / 525 / 12).  Returns per-ad rows shaped like
+   applied (50000 / 3 / 525 / 12).  Returns per-ad rows shaped like
    ae_table_view rows so the existing Creative Testing renderers
    (renderKpis, renderFunnel, renderFocusStrips, etc.) work unchanged.
    ───────────────────────────────────────────────────────────────── */
@@ -333,7 +333,7 @@ async function fetchPrimaryFromCache(dateFrom, dateTo, dateField){
   // Map compact cache keys → the same row shape fetchPrimaryAggregated emits
   const t = (typeof aeReadThresholds === 'function')
             ? aeReadThresholds()
-            : {f1:50000, f2:3.2, f3:525, f4:12};
+            : {f1:50000, f2:3, f3:525, f4:12};
   const out = [];
   for (const a of ads){
     const impr  = +a.impr  || 0;
@@ -454,7 +454,7 @@ async function fetchPrimaryAggregated(dateFrom, dateTo){
   // Derive per-ad metrics and apply F1-F4 with current threshold inputs
   const t = (typeof aeReadThresholds === 'function')
             ? aeReadThresholds()
-            : {f1:50000, f2:3.2, f3:525, f4:12};
+            : {f1:50000, f2:3, f3:525, f4:12};
   const out = [];
   for (const k in map){
     const m = map[k];
@@ -487,7 +487,7 @@ async function fetchPrimaryAggregated(dateFrom, dateTo){
 function ctApplyCurrentThresholds(){
   const t = (typeof aeReadThresholds === 'function')
             ? aeReadThresholds()
-            : {f1:50000, f2:3.2, f3:525, f4:12};
+            : {f1:50000, f2:3, f3:525, f4:12};
   for (const r of primaryAds){
     const cat = _ctCategory(+r.impressions || 0, +r.roas_ma || 0,
                             +r.cost_per_ncp || 0, +r.cost_per_ftewv || 0, t,
@@ -4990,7 +4990,7 @@ function aeGroupBy(rows, key){
 
 /* Canonical thresholds. F4=12 is the new working standard (was 25 in old refresh).
    Changes via the Ads Analyse view propagate through aeApplyCurrentThresholds(). */
-const AE_DEFAULTS = {f1:50000, f2:3.2, f3:525, f4:12};
+const AE_DEFAULTS = {f1:50000, f2:3, f3:525, f4:12};
 
 function aeReadThresholds(){
   return {
@@ -5046,7 +5046,6 @@ function aeRecategorise(rows){
 
 function aeFiltered(){
   const acct       = document.getElementById('aeAcct').value;
-  const showDisc   = document.getElementById('aeShowDiscarded').checked;
   const status     = document.getElementById('aeStatus').value;
   const groupBy    = document.getElementById('aeGroupBy').value;
   const dateField  = document.getElementById('aeDateField').value || '__delivery__';
@@ -5069,9 +5068,10 @@ function aeFiltered(){
   });
   if (acct)   rows = rows.filter(r => (r.account_name || '') === acct);
   if (status) rows = rows.filter(r => (r.ad_status || '').toUpperCase() === status);
-  // Hide Discarded by default — matches old dashboard's implicit filter.
-  if (!showDisc && !aeSelectedCat) rows = rows.filter(r => r.category !== 'Discarded');
-  if (aeSelectedCat) rows = rows.filter(r => r.category === aeSelectedCat);
+  // Hide Discarded by default; clicking the Discarded KPI card reveals it
+  // (aeSelectedCat === 'Discarded' bypasses the filter below).
+  if (!aeSelectedCat) rows = rows.filter(r => r.category !== 'Discarded');
+  if (aeSelectedCat)  rows = rows.filter(r => r.category === aeSelectedCat);
   // Date-range filter
   if (dFrom || dTo){
     if (dateField === '__delivery__'){
@@ -5165,20 +5165,22 @@ function aeApplyWindow(r){
     const spend = +out.amount_spent || 0;
     out.shopify_roas = spend > 0 ? (out.shopify_sales / spend) : null;
   }
-  // Reach overlay — reads directly from get_reach_by_window RPC output so
-  // the columns are byte-identical to what the old Incremental Reach
-  // Analysis modal showed. rr.reach_incr is already GREATEST(last-first, 0)
-  // on the server side, so no client-side capping needed.
-  //   Prev Reach     = reach_first
-  //   Latest Reach   = reach_last
-  //   Incr. Reach    = reach_incr  (already capped at 0 by RPC)
-  //   Cost / 1k Incr = spend_sum × 1000 / reach_incr
+  // Reach overlay — reads from get_reach_by_window RPC. Aligns with the
+  // reference incremental-logic sheet: Incr Reach for a window = SUM of
+  // daily incremental reach across days = SUM(daily_reach) = rr.reach_sum.
+  // (Old first-vs-last snapshot delta didn't represent user coverage — an
+  // ad whose daily reach was 1,000 on day 1 AND day 30 would show incr=0
+  // even though it reached ~30k people cumulatively over the window.)
+  //   Prev Reach     = reach_first    (daily reach on first delivering day)
+  //   Latest Reach   = reach_last     (daily reach on last  delivering day)
+  //   Incr. Reach    = reach_sum      (sum of daily reach across window)
+  //   Cost / 1k Incr = spend_sum × 1000 / reach_sum
   if (_aeWindowReachKey && rr){
     out.previous_reach    = rr.reach_first;
     out.latest_reach      = rr.reach_last;
-    out.incremental_reach = Math.max(0, rr.reach_incr || 0);
-    out.cost_per_1000_incremental_reach = rr.reach_incr > 0
-      ? (rr.spend_sum * 1000) / rr.reach_incr
+    out.incremental_reach = Math.max(0, rr.reach_sum || 0);
+    out.cost_per_1000_incremental_reach = rr.reach_sum > 0
+      ? (rr.spend_sum * 1000) / rr.reach_sum
       : null;
   }
   // If `rr` is missing (ad has no reach in the current window, OR the
@@ -5755,6 +5757,15 @@ function renderAE(){
   const dFrom = dFromStr ? new Date(dFromStr + 'T00:00:00') : null;
   const dTo   = dToStr   ? new Date(dToStr   + 'T23:59:59') : null;
   let cats = aeRecategorise(allAds);
+  // Apply the SAME historic partition the table uses (line 5065 in aeFiltered)
+  // — without this, KPI counts include ads outside the current/historic split
+  // and disagree with the table row count (e.g. Winner KPI 1,132 vs table 722).
+  const _catCutoff = new Date(HISTORIC_CUTOFF + 'T00:00:00');
+  cats = cats.filter(r => {
+    if (!r.ad_created) return !historicMode.ae;
+    const d = new Date(r.ad_created);
+    return historicMode.ae ? d < _catCutoff : d >= _catCutoff;
+  });
   if (acct)   cats = cats.filter(r => (r.account_name || '') === acct);
   if (status) cats = cats.filter(r => (r.ad_status || '').toUpperCase() === status);
   if (dFrom || dTo){
@@ -5982,8 +5993,7 @@ function renderAE(){
     if (th.dataset.sort === aeSortKey) th.classList.add(aeSortDir === 'asc' ? 'sort-asc' : 'sort-desc');
   });
 
-  const showDisc = document.getElementById('aeShowDiscarded').checked;
-  const hiddenNote = (!showDisc && !aeSelectedCat) ? ' · Discarded hidden' : '';
+  const hiddenNote = aeSelectedCat ? '' : ' · Discarded hidden (click Discarded KPI to show)';
   // Diagnostic strip: shows which date-field mode is active + delivery-set size
   const dfEl = document.getElementById('aeDateField');
   const dfVal = dfEl ? dfEl.value : '';
@@ -6052,7 +6062,7 @@ function renderAE(){
 });
 const _ctResetBtn = document.getElementById('ctResetThresh');
 if (_ctResetBtn) _ctResetBtn.addEventListener('click', () => {
-  const defaults = {ctF1:50000, ctF2:3.2, ctF3:525, ctF4:12};
+  const defaults = {ctF1:50000, ctF2:3, ctF3:525, ctF4:12};
   for (const [id, v] of Object.entries(defaults)){
     const el = document.getElementById(id); if (el) el.value = v;
   }
@@ -6072,7 +6082,7 @@ if (_ctMfAdd) _ctMfAdd.addEventListener('click', () => {
 });
 // Render the empty CT multi-filter row on initial load
 ctMfRender();
-['aeAcct','aeShowDiscarded','aeStatus','aeGroupBy'].forEach(id =>
+['aeAcct','aeStatus','aeGroupBy'].forEach(id =>
   document.getElementById(id).addEventListener('change', () => { aePage = 0; renderAE(); }));
 // aeDateField change → possibly rebuild the delivery Set (only meaningful
 // when switching to __delivery__ with an active window)
@@ -6225,7 +6235,6 @@ document.getElementById('aeClearFilters').onclick = async () => {
   document.getElementById('aeDateField').value = '__delivery__';  // new default
   document.getElementById('aeCategory').value  = '';
   await drpClearDateRange();   // also clears aeDateFrom/aeDateTo + button label
-  document.getElementById('aeShowDiscarded').checked = false;
   aeSelectedCat = '';
   aeRules = [];
   aeMfRender();
@@ -6314,7 +6323,7 @@ document.getElementById('aeBtnExport').onclick = () => {
       asset_id:              assetIdByAdId[r.ad_id] || '',
       previous_reach:        (aeWindowReachByAdId[r.ad_id] || {}).reach_first ?? r.previous_reach,
       latest_reach:          (aeWindowReachByAdId[r.ad_id] || {}).reach_last  ?? r.latest_reach,
-      incremental_reach:     (aeWindowReachByAdId[r.ad_id] || {}).reach_incr  ?? r.incremental_reach,
+      incremental_reach:     (aeWindowReachByAdId[r.ad_id] || {}).reach_sum   ?? r.incremental_reach,
     }),
   });
 };
