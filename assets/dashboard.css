@@ -786,6 +786,29 @@
   .tbl .num{text-align:right;font-family:'JetBrains Mono',monospace;font-size:12.5px}
 
   /* ── Ads Analyse view ─────────────────────────────────────────── */
+  /* Level toggle — Ad / Adset / Campaign pill group above the filters.
+     Highlighted when the Active sidebar shortcut is used. */
+  .ae-level-toggle{
+    display:flex; align-items:center; gap:6px; margin:0 0 12px 0;
+    padding:6px 8px; background:var(--bg-card); border:1px solid var(--border-warm);
+    border-radius:10px; box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,.04));
+  }
+  .ae-level-pill{
+    padding:6px 14px; font-size:12.5px; font-weight:600;
+    color:var(--text-secondary); background:transparent;
+    border:1px solid transparent; border-radius:6px; cursor:pointer;
+    transition:background .12s ease, color .12s ease, border-color .12s ease;
+  }
+  .ae-level-pill:hover{ background:var(--bg-page-alt); color:var(--text-primary) }
+  .ae-level-pill.active{
+    background:var(--accent-primary, #2a6fdb); color:#fff;
+    border-color:var(--accent-primary, #2a6fdb);
+  }
+  .ae-level-hint{
+    margin-left:auto; padding:4px 8px; font-size:11px;
+    color:var(--text-tertiary); border:1px dashed var(--border-warm); border-radius:6px;
+    cursor:help; user-select:none;
+  }
   /* Card-grid filter section — relaxed spacing so labels never wrap */
   .ae-fgrid{display:grid;gap:12px;margin-bottom:12px}
   .ae-fgrid.row1{grid-template-columns:repeat(6, minmax(160px, 1fr))}

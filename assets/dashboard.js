@@ -1397,7 +1397,11 @@ function openDrawer(r){
   //   3. FB page-post permalink → iframe FB plugin
   //   4. Static image thumbnail
   //   5. No preview → Ads Library link
-  const entry = r.ad_id ? thumbsByAdId[r.ad_id] : null;
+  // For grouped rows (adset/campaign) the row's ad_id is "N ad_ids"; use
+  // the representative ad_id captured in aeGroupBy so the preview surfaces
+  // (video/iframe/thumbnail) render from an actual constituent ad.
+  const _lookupAdId = r._repAdId || r.ad_id;
+  const entry = _lookupAdId ? thumbsByAdId[_lookupAdId] : null;
   const videoUrl  = entry && entry.v  ? entry.v  : '';
   const igLink    = entry && entry.ig ? entry.ig : '';
   const fbLink    = entry && entry.fb ? entry.fb : '';
@@ -2009,6 +2013,33 @@ document.querySelectorAll('.sb-item').forEach(it => {
   it.addEventListener('click', () => {
     const v = it.dataset.view;
     const isHistoric = it.dataset.historic === '1';
+    // Active shortcut — set Group By + Status=ACTIVE on view-ae before render.
+    // data-active-preset = "campaign" | "adset" | "ad"  (defaults to "ad")
+    const activePreset = it.dataset.activePreset;
+    if (v === 'ae' && activePreset){
+      const gb = document.getElementById('aeGroupBy');
+      const st = document.getElementById('aeStatus');
+      if (gb) gb.value = activePreset;
+      if (st) st.value = 'ACTIVE';
+      // Reflect the preset on the pill toggle bar so it lights up correctly.
+      document.querySelectorAll('#aeLevelToggle .ae-level-pill').forEach(p => {
+        const on = p.dataset.level === activePreset;
+        p.classList.toggle('active', on);
+        p.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      // aeSelectedCat drives category-filter KPI clicks; clear it so the
+      // pre-set doesn't inherit a stale category from a prior view.
+      try { aeSelectedCat = ''; } catch(_) {}
+      const cat = document.getElementById('aeCategory'); if (cat) cat.value = '';
+      try { aePage = 0; } catch(_) {}
+      // Kick off the RPC rollup fetch so the first render at adset/campaign
+      // level shows authoritative Shopify numbers.  Fire-and-forget — the
+      // group-by function falls back to summed values if the RPC is still
+      // resolving; a subsequent render will pick up the authoritative data.
+      if (activePreset === 'adset' || activePreset === 'campaign'){
+        try { fetchAeShopifyRollups(); } catch(_){}
+      }
+    }
     // Flip mode BEFORE the view renders so it reads the right flag.
     if (v in historicMode){
       // When the mode actually flips for AE, invalidate the reach cache so
@@ -2029,7 +2060,13 @@ document.querySelectorAll('.sb-item').forEach(it => {
     if (banner) banner.style.display = isHistoric ? 'inline-flex' : 'none';
     // Lazy-load per-view data
     if (v === 'lifecycle' && allAds.length) renderLifecycle();
-    if (v === 'ae'        && allAds.length) renderAE();
+    if (v === 'ae'        && allAds.length) {
+      // Kick off group-level Shopify RPCs so the level toggle has
+      // authoritative data ready the moment the user flips a pill.
+      // No-op after the first call for a given window; safe fire-and-forget.
+      try { fetchAeShopifyRollups().then(() => renderAE()); } catch(_){}
+      renderAE();
+    }
     if (v === 'adintel'){
       // If historic-mode changed since last load, re-fetch with the new window.
       const modeChanged = _lastLoadedHistoric.adintel !== null &&
@@ -2571,6 +2608,13 @@ let _aeWindowMetricsKey    = '';
 // columns move in step with the date picker.
 let aeWindowShopifyByAdId = {};
 let _aeWindowShopifyKey    = '';
+// Group-level Shopify rollups — populated from get_shopify_by_adset /
+// get_shopify_by_campaign RPCs. Keyed by adset_id / campaign_name so
+// aeGroupBy() can overlay authoritative totals (which include orders
+// resolved at the group scope, not just those pinned to individual ads).
+let aeShopifyByAdset    = {};
+let aeShopifyByCampaign = {};
+let _aeShopifyRollupKey = '';
 // Per-ad windowed reach snapshot — pulled from primary_table + backfill_table
 // so the Prev/Latest/Incr reach columns follow the AE date picker rather than
 // showing the fixed latest/previous-day snapshot from ae_reach_recent.  Keys
@@ -2682,6 +2726,58 @@ async function fetchAeWindowShopify(){
     console.warn('[fetchAeWindowShopify] network error', e);
     aeWindowShopifyByAdId = {};
   }
+}
+// Group-level Shopify rollups. Called on:
+//   - date-range change (via fetchAeWindowShopify's caller chain)
+//   - level-toggle click (when switching to adset/campaign for the first time)
+//   - AE view first-open
+// Uses RPCs get_shopify_by_adset / get_shopify_by_campaign so orders resolved
+// at Step 3 (adset) / Step 4 (campaign) scopes are captured even when they
+// didn't pin to a specific ad_id in the current AE partition.
+async function fetchAeShopifyRollups(){
+  const from = document.getElementById('aeDateFrom').value || '';
+  const to   = document.getElementById('aeDateTo').value   || '';
+  const key  = from + '|' + to;
+  if (key === _aeShopifyRollupKey) return;
+  _aeShopifyRollupKey = key;
+  if (!SUPABASE_URL || !SUPABASE_ANON){
+    aeShopifyByAdset = {}; aeShopifyByCampaign = {}; return;
+  }
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                   'Content-Type':'application/json', Prefer:'count=none'};
+  const body = JSON.stringify({
+    from_date: from || '1970-01-01',
+    to_date:   to   || '2100-01-01',
+  });
+  const nextAdset = {}, nextCamp = {};
+  try {
+    const [ra, rc] = await Promise.all([
+      fetch(SUPABASE_URL + '/rest/v1/rpc/get_shopify_by_adset',    {method:'POST', headers, body}),
+      fetch(SUPABASE_URL + '/rest/v1/rpc/get_shopify_by_campaign', {method:'POST', headers, body}),
+    ]);
+    if (ra.ok){
+      const j = await ra.json();
+      if (Array.isArray(j)){
+        for (const row of j){
+          if (!row.adset_id) continue;
+          nextAdset[row.adset_id] = {orders: +row.orders || 0, sales: +row.sales || 0};
+        }
+      }
+    } else console.warn('[fetchAeShopifyRollups] adset RPC', ra.status);
+    if (rc.ok){
+      const j = await rc.json();
+      if (Array.isArray(j)){
+        for (const row of j){
+          if (!row.campaign_name) continue;
+          nextCamp[row.campaign_name] = {orders: +row.orders || 0, sales: +row.sales || 0};
+        }
+      }
+    } else console.warn('[fetchAeShopifyRollups] campaign RPC', rc.status);
+  } catch(e){
+    console.warn('[fetchAeShopifyRollups] network error', e);
+  }
+  aeShopifyByAdset    = nextAdset;
+  aeShopifyByCampaign = nextCamp;
 }
 // Windowed reach fetch — calls the get_reach_by_window RPC (same one the
 // removed Incremental Reach Analysis modal used) so the per-ad numbers here
@@ -3398,7 +3494,8 @@ async function drpApply(){
   // Fetch both in parallel — delivery set gates which ads to show,
   // window metrics gates the values shown in each row's columns.
   await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics(),
-                     fetchAeWindowShopify(), fetchAeWindowReach()]);
+                     fetchAeWindowShopify(), fetchAeWindowReach(),
+                     fetchAeShopifyRollups()]);
   aePage = 0; renderAE();
 }
 async function drpClearDateRange(){
@@ -3409,7 +3506,8 @@ async function drpClearDateRange(){
   drpUpdateButton();
   drpRender();
   await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics(),
-                     fetchAeWindowShopify(), fetchAeWindowReach()]);
+                     fetchAeWindowShopify(), fetchAeWindowReach(),
+                     fetchAeShopifyRollups()]);
   aePage = 0; renderAE();
 }
 function initDateRangePicker(){
@@ -4943,13 +5041,17 @@ function initAdIntel(){
   });
 }
 
-/* Group ad rows by ad_name or campaign — sum numeric fields, keep most-recent ad meta */
+/* Group ad rows by ad_name, adset, or campaign — sum numeric fields, keep most-recent ad meta */
 function aeGroupBy(rows, key){
   if (key === 'ad') return rows;
-  const groupKey = (key === 'ad_name') ? 'ad_name' : 'campaign_name';
+  // adset groups on adset_id (stable) + label with adset_name; ad_name / campaign
+  // still key off their respective name fields for back-compat.
+  const groupKey = (key === 'ad_name')  ? 'ad_name'
+                 : (key === 'adset')    ? 'adset_id'
+                 :                        'campaign_name';
   const groups = {};
   for (const r of rows){
-    const k = (r[groupKey] || '').trim();
+    const k = (r[groupKey] || '').toString().trim();
     if (!k) continue;
     if (!groups[k]) groups[k] = {
       ...r, _members:1, _adIds:new Set([r.ad_id]),
@@ -4971,19 +5073,54 @@ function aeGroupBy(rows, key){
     // Take most-recent created date for the group
     if (r.ad_created && (!g.ad_created || r.ad_created > g.ad_created)) g.ad_created = r.ad_created;
   }
-  // Derive frequency, ROAS, cost-per metrics from the aggregated sums
+  // Derive frequency, ROAS, cost-per metrics from the aggregated sums.
+  // For adset / campaign group levels, OVERLAY shopify_orders + shopify_sales
+  // from the authoritative RPC rollups (aeShopifyByAdset / aeShopifyByCampaign)
+  // instead of using the sums from constituent ads — those miss orders
+  // resolved at the adset/campaign scope (Step 3/4) that didn't pin to an
+  // ad_id inside the current AE partition.
   return Object.values(groups).map(g => {
     const cnt = g._adIds.size;
+    const label = key === 'ad_name'  ? g.ad_name + (cnt > 1 ? '  (×' + cnt + ' ad_ids)' : '')
+                : key === 'adset'    ? (g.adset_name || '(adset)') + (cnt > 1 ? '  (×' + cnt + ' ads)' : '')
+                :                      '[Campaign]';
+    // Authoritative Shopify overlay (adset/campaign only). Uses RPC rollup
+    // when available; falls back to the summed value otherwise (e.g. before
+    // the RPC has resolved on first paint).
+    let shopOrders = g.shopify_orders;
+    let shopSales  = g.shopify_sales;
+    if (key === 'adset'){
+      const rr = aeShopifyByAdset[g.adset_id];
+      if (rr){ shopOrders = rr.orders; shopSales = rr.sales; }
+    } else if (key === 'campaign'){
+      const rr = aeShopifyByCampaign[g.campaign_name];
+      if (rr){ shopOrders = rr.orders; shopSales = rr.sales; }
+    }
+    // Representative ad_id — pick the first constituent ad that actually has
+    // a thumbnail (falls back to the first ad_id if none do). Used for the
+    // inline thumbnail cell + drawer preview so grouped rows don't render
+    // as empty placeholders.
+    let repAdId = null;
+    for (const id of g._adIds){
+      if (!id) continue;
+      if (typeof thumbsByAdId !== 'undefined' && thumbsByAdId[id]){ repAdId = id; break; }
+      if (!repAdId) repAdId = id;   // fallback
+    }
+    const conv = +g.conv_value || 0;
     return {
       ...g,
-      ad_name: key === 'ad_name' ? g.ad_name + (cnt > 1 ? '  (×' + cnt + ' ad_ids)' : '') : '[Campaign]',
-      campaign_name: g.campaign_name || '',
-      ad_id: cnt === 1 ? [...g._adIds][0] : (cnt + ' ad_ids'),
-      frequency: g.reach > 0 ? g.impressions / g.reach : 0,
-      roas_ma: g.amount_spent > 0 ? g.conv_value / g.amount_spent : 0,
-      cost_per_ftewv: g.ftewv_count > 0 ? g.amount_spent / g.ftewv_count : 0,
-      cost_per_ncp:   g.ncp_count   > 0 ? g.amount_spent / g.ncp_count   : 0,
-      shopify_roas:   g.amount_spent > 0 ? g.shopify_sales / g.amount_spent : 0,
+      ad_name:        label,
+      campaign_name:  g.campaign_name || '',
+      ad_id:          cnt === 1 ? [...g._adIds][0] : (cnt + ' ad_ids'),
+      _repAdId:       repAdId,
+      frequency:      g.reach > 0 ? g.impressions / g.reach : 0,
+      roas_ma:        g.amount_spent > 0 ? g.conv_value / g.amount_spent : 0,
+      cost_per_ftewv: g.ftewv_count  > 0 ? g.amount_spent / g.ftewv_count : 0,
+      cost_per_ncp:   g.ncp_count    > 0 ? g.amount_spent / g.ncp_count   : 0,
+      shopify_orders: shopOrders,
+      shopify_sales:  shopSales,
+      shopify_roas:   g.amount_spent > 0 ? shopSales / g.amount_spent : 0,
+      meta_shop_diff_pct: conv > 0 ? ((shopSales - conv) / conv) * 100 : null,
     };
   });
 }
@@ -5164,6 +5301,15 @@ function aeApplyWindow(r){
     // shopify_roas re-derives from the (possibly windowed) spend + sales
     const spend = +out.amount_spent || 0;
     out.shopify_roas = spend > 0 ? (out.shopify_sales / spend) : null;
+  }
+  // % gap between Meta-attributed conversion value and Shopify actual sales.
+  // Negative = Meta over-reports (view-through attribution inflation).
+  // Positive = Shopify sales exceed Meta's attribution (usually late-window
+  // orders or non-Meta assist). Null when Meta reported 0.
+  {
+    const _conv = +out.conv_value    || 0;
+    const _shop = +out.shopify_sales || 0;
+    out.meta_shop_diff_pct = _conv > 0 ? ((_shop - _conv) / _conv) * 100 : null;
   }
   // Reach overlay — reads from get_reach_by_window RPC. Aligns with the
   // reference incremental-logic sheet: Incr Reach for a window = SUM of
@@ -5442,9 +5588,11 @@ _hreachApplyPreset('last30');   // seed the inputs
 let ireachState = {
   from:'', to:'',
   search:'',
-  scope:'camp',                 // 'camp' | 'adset' — which table is visible
-  camp:  { sortKey:'incr_reach', sortDir:'desc', rows:[] },
-  adset: { sortKey:'incr_reach', sortDir:'desc', rows:[] },
+  status:'',                    // '' | 'ACTIVE' | 'PAUSED' | ... — filters groups by ad_status
+  scope:'camp',                 // 'account' | 'camp' | 'adset' — which table is visible
+  account: { sortKey:'incr_reach', sortDir:'desc', rows:[] },
+  camp:    { sortKey:'incr_reach', sortDir:'desc', rows:[] },
+  adset:   { sortKey:'incr_reach', sortDir:'desc', rows:[] },
   audit: null,
 };
 
@@ -5474,13 +5622,13 @@ function _ireachApplyPreset(p){
 async function _ireachFetch(from, to){
   const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
                    Prefer:'count=none'};
-  const fetchAll = async (view, grpCol) => {
+  // Note: the campaign fetch also pulls account_name so the same rows can
+  // be re-aggregated at the account scope client-side (sum-of-campaigns).
+  const fetchAll = async (view, selectCols) => {
     let out = [], offset = 0, BATCH = 5000;
     while (true){
-      // n_ads is no longer available server-side (Meta's group-level
-      // insights don't expose an ad count). Ads column shows "—".
       const url = SUPABASE_URL + '/rest/v1/' + view +
-                  '?select=' + grpCol + ',date,reach_daily,spend_daily' +
+                  '?select=' + selectCols +
                   '&date=gte.' + from + '&date=lte.' + to +
                   '&order=date.asc&limit=' + BATCH + '&offset=' + offset;
       const r = await fetch(url, {headers});
@@ -5494,8 +5642,8 @@ async function _ireachFetch(from, to){
     return out;
   };
   const [camp, adset] = await Promise.all([
-    fetchAll('ireach_campaign_daily', 'campaign_name').catch(() => []),
-    fetchAll('ireach_adset_daily',    'adset_name'   ).catch(() => []),
+    fetchAll('ireach_campaign_daily', 'account_name,campaign_name,date,reach_daily,spend_daily').catch(() => []),
+    fetchAll('ireach_adset_daily',    'account_name,adset_name,date,reach_daily,spend_daily'   ).catch(() => []),
   ]);
   return {
     camp, adset,
@@ -5504,21 +5652,28 @@ async function _ireachFetch(from, to){
 }
 
 // Aggregate pre-aggregated daily group rows into a per-group summary.
-// Each input row is already {group, date, reach_daily, spend_daily, n_ads}
-// so we just walk the series to pick first / last / peak / totals.
+// Consolidates by (grp, date) with SUM first — safe no-op for camp/adset
+// scopes (one row per (grp, date) already) and correct for account scope
+// (many campaigns per (account, date) → sum daily reach across them).
 function _ireachAggregateFromDaily(rows, grpCol){
-  const byGrp = new Map();
+  // Phase 1: consolidate → one entry per (grp, date), summing metrics.
+  const byGrpDate = new Map();
   for (const r of rows){
     const grp = ((r[grpCol] || '(none)') + '').trim() || '(none)';
     const d   = (r.date || '').slice(0, 10);
     if (!d) continue;
-    let series = byGrp.get(grp);
-    if (!series){ series = []; byGrp.set(grp, series); }
-    series.push({
-      date:  d,
-      reach: +r.reach_daily || 0,
-      spend: +r.spend_daily || 0,
-    });
+    const key = grp + '|' + d;
+    let e = byGrpDate.get(key);
+    if (!e){ e = {grp, date:d, reach:0, spend:0}; byGrpDate.set(key, e); }
+    e.reach += +r.reach_daily || 0;
+    e.spend += +r.spend_daily || 0;
+  }
+  // Phase 2: rebuild the per-group time series.
+  const byGrp = new Map();
+  for (const e of byGrpDate.values()){
+    let series = byGrp.get(e.grp);
+    if (!series){ series = []; byGrp.set(e.grp, series); }
+    series.push({ date: e.date, reach: e.reach, spend: e.spend });
   }
   const out = [];
   for (const [grp, series] of byGrp.entries()){
@@ -5564,6 +5719,19 @@ function _ireachRenderScope(scope){
   const k   = st.sortKey;
   let rows = st.rows;
   if (q) rows = rows.filter(r => r.grp.toLowerCase().includes(q));
+  // Ad Status filter — keeps only groups that have at least one ad in
+  // allAds matching the selected status. Silently passes through when
+  // allAds is empty (dashboard still warming up).
+  const statusSel = (ireachState.status || '').toUpperCase();
+  if (statusSel){
+    const sets = _ireachStatusSets()[statusSel];
+    if (sets){
+      const setKey = scope === 'account' ? sets.accounts
+                   : scope === 'camp'    ? sets.camps
+                   :                       sets.adsets;
+      rows = rows.filter(r => setKey.has(r.grp));
+    }
+  }
   rows = rows.slice().sort((a,b) => {
     const av = a[k], bv = b[k];
     if (av == null && bv == null) return 0;
@@ -5572,11 +5740,18 @@ function _ireachRenderScope(scope){
     if (typeof av === 'string') return dir * av.localeCompare(bv);
     return dir * (av - bv);
   });
-  const bodyId  = scope === 'camp' ? 'ireachBodyCamp'  : 'ireachBodyAdset';
-  const countId = scope === 'camp' ? 'ireachCampCount' : 'ireachAdsetCount';
+  const bodyId  = scope === 'account' ? 'ireachBodyAccount'
+                : scope === 'camp'    ? 'ireachBodyCamp'
+                :                       'ireachBodyAdset';
+  const countId = scope === 'account' ? 'ireachAccountCount'
+                : scope === 'camp'    ? 'ireachCampCount'
+                :                       'ireachAdsetCount';
+  const noun    = scope === 'account' ? ' accounts'
+                : scope === 'camp'    ? ' campaigns'
+                :                       ' adsets';
   const body = document.getElementById(bodyId);
   const cntEl = document.getElementById(countId);
-  if (cntEl) cntEl.textContent = fmtInt(rows.length) + (scope === 'camp' ? ' campaigns' : ' adsets');
+  if (cntEl) cntEl.textContent = fmtInt(rows.length) + noun;
   if (!rows.length){
     body.innerHTML = '<tr><td colspan="10" style="padding:24px;text-align:center;color:var(--text-tertiary)">No groups match the current filter.</td></tr>';
     return;
@@ -5602,24 +5777,51 @@ function _ireachRenderScope(scope){
   }).join('');
 }
 function _ireachSetScope(scope){
-  if (scope !== 'camp' && scope !== 'adset') return;
+  if (scope !== 'camp' && scope !== 'adset' && scope !== 'account') return;
   ireachState.scope = scope;
   // Show only the selected table
+  const acc   = document.getElementById('ireachSecAccount');
   const camp  = document.getElementById('ireachSecCamp');
   const adset = document.getElementById('ireachSecAdset');
-  if (camp)  camp.style.display  = scope === 'camp'  ? '' : 'none';
-  if (adset) adset.style.display = scope === 'adset' ? '' : 'none';
+  if (acc)   acc.style.display   = scope === 'account' ? '' : 'none';
+  if (camp)  camp.style.display  = scope === 'camp'    ? '' : 'none';
+  if (adset) adset.style.display = scope === 'adset'   ? '' : 'none';
   // Sync the toggle buttons
   document.querySelectorAll('#ireachScope .lt-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.scope === scope));
 }
 function _ireachRender(){
-  // Render both tables (cheap; ~few hundred rows total) so switching
-  // the toggle is instant — no re-render round-trip needed.
+  // Render all three tables (cheap; ~few hundred rows total) so switching
+  // the scope toggle is instant — no re-render round-trip needed.
+  _ireachRenderScope('account');
   _ireachRenderScope('camp');
   _ireachRenderScope('adset');
   _ireachRenderAudit();
   _ireachSetScope(ireachState.scope);
+}
+// Build sets of {accounts, camps, adsets} keyed by ad_status from allAds,
+// so the status filter can decide which groups pass. Cached per allAds
+// snapshot to keep _ireachRenderScope O(rows).
+let _ireachStatusSetsCache = { v: null, byStatus: null };
+function _ireachStatusSets(){
+  const v = allAds && allAds.length ? allAds.length : 0;
+  if (_ireachStatusSetsCache.v === v && _ireachStatusSetsCache.byStatus){
+    return _ireachStatusSetsCache.byStatus;
+  }
+  const by = {};
+  if (allAds && allAds.length){
+    for (const a of allAds){
+      const s = (a.ad_status || '').toUpperCase();
+      if (!s) continue;
+      let entry = by[s];
+      if (!entry){ entry = by[s] = { accounts:new Set(), camps:new Set(), adsets:new Set() }; }
+      if (a.account_name)  entry.accounts.add(a.account_name);
+      if (a.campaign_name) entry.camps.add(a.campaign_name);
+      if (a.adset_name)    entry.adsets.add(a.adset_name);
+    }
+  }
+  _ireachStatusSetsCache = { v, byStatus: by };
+  return by;
 }
 function _ireachRenderAudit(){
   const a = ireachState.audit;
@@ -5651,17 +5853,21 @@ async function _ireachApply(){
   try {
     const { camp, adset, audit } = await _ireachFetch(from, to);
     ireachState.audit = audit;
-    ireachState.camp.rows  = _ireachAggregateFromDaily(camp,  'campaign_name');
-    ireachState.adset.rows = _ireachAggregateFromDaily(adset, 'adset_name');
+    ireachState.camp.rows    = _ireachAggregateFromDaily(camp,  'campaign_name');
+    ireachState.adset.rows   = _ireachAggregateFromDaily(adset, 'adset_name');
+    // Account rows re-aggregate the campaign-daily source by account_name
+    // (sum reach across campaigns per (account, date) — see aggregator).
+    ireachState.account.rows = _ireachAggregateFromDaily(camp,  'account_name');
     const dt = ((performance.now()-t0)/1000).toFixed(1);
     status.innerHTML = 'Aggregated <b>'+fmtInt(camp.length + adset.length)+
       '</b> pre-deduped daily rows into <b>'+
+      fmtInt(ireachState.account.rows.length)+'</b> accounts, <b>'+
       fmtInt(ireachState.camp.rows.length)+'</b> campaigns and <b>'+
       fmtInt(ireachState.adset.rows.length)+'</b> adsets · '+dt+'s';
     _ireachRender();
   } catch (e){
     status.textContent = 'Error: ' + (e.message || e);
-    ireachState.camp.rows = ireachState.adset.rows = [];
+    ireachState.camp.rows = ireachState.adset.rows = ireachState.account.rows = [];
     ireachState.audit = null;
     _ireachRender();
   }
@@ -5673,11 +5879,16 @@ document.querySelector('#view-ireach .preset-row').addEventListener('click', e =
   btn.classList.add('active');
   _ireachApplyPreset(btn.dataset.p);
 });
-// Campaign / Adset toggle — flips visibility, no re-fetch (both tables
-// were populated during the same Apply pass).
+// Account / Campaign / Adset toggle — flips visibility, no re-fetch (all
+// three tables were populated during the same Apply pass).
 document.getElementById('ireachScope')?.addEventListener('click', e => {
   const btn = e.target.closest('.lt-btn'); if (!btn) return;
   _ireachSetScope(btn.dataset.scope);
+});
+// Ad Status filter — applies client-side to all three scope tables.
+document.getElementById('ireachAdStatus')?.addEventListener('change', e => {
+  ireachState.status = e.target.value || '';
+  _ireachRender();
 });
 document.getElementById('ireachApply').addEventListener('click', _ireachApply);
 // Column-definitions modal for Incremental Analysis. Uses the same
@@ -5703,7 +5914,7 @@ document.getElementById('ireachSearch').addEventListener('input', e => {
 // (camp/adset) + data-irsort (which key). Toggling asc/desc is scoped
 // to that table's state so sorting Adset by Reach D1 doesn't disturb
 // the Campaign table's current sort.
-['ireachTblCamp','ireachTblAdset'].forEach(tblId => {
+['ireachTblAccount','ireachTblCamp','ireachTblAdset'].forEach(tblId => {
   const tbl = document.getElementById(tblId);
   if (!tbl) return;
   tbl.querySelectorAll('thead th').forEach(th => {
@@ -5892,10 +6103,13 @@ function renderAE(){
     const cFtVal     = dTot ? fmtRs(dTot.costFt)              : fmtRs(r.cost_per_ftewv);
     const ncpVal     = dTot ? fmtInt(dTot.ncp)                : fmtInt(r.ncp_count);
     const cNcpVal    = dTot ? fmtRs(dTot.costNcp)             : fmtRs(r.cost_per_ncp);
-    // Thumbnail cell — Meta Graph creative.thumbnail_url, clickable to open drawer
-    const thumbUrl = thumbUrlOf(r.ad_id ? thumbsByAdId[r.ad_id] : null);
+    // Thumbnail cell — Meta Graph creative.thumbnail_url, clickable to open drawer.
+    // For grouped rows (adset/campaign) the ad_id is overridden to "N ad_ids",
+    // so use _repAdId (representative ad chosen in aeGroupBy) for the lookup.
+    const _thumbAdId = r._repAdId || r.ad_id;
+    const thumbUrl = thumbUrlOf(_thumbAdId ? thumbsByAdId[_thumbAdId] : null);
     const thumbCell = thumbUrl
-      ? '<td class="thumb-cell"><img class="ae-thumb" src="'+thumbUrl+'" loading="lazy" alt="" data-ae-thumb-ad="'+r.ad_id+'" title="Click to preview"></td>'
+      ? '<td class="thumb-cell"><img class="ae-thumb" src="'+thumbUrl+'" loading="lazy" alt="" data-ae-thumb-ad="'+_thumbAdId+'" title="Click to preview"></td>'
       : '<td class="thumb-cell"><div class="ae-thumb-placeholder" title="No thumbnail">—</div></td>';
     const main = '<tr>'+
       thumbCell+
@@ -5946,6 +6160,7 @@ function renderAE(){
       numCell(roasVal)+
       numCell(fmtInt(r.shopify_orders))+
       numCell(fmtRs(r.shopify_sales))+
+      numCell(r.meta_shop_diff_pct == null ? '—' : (r.meta_shop_diff_pct >= 0 ? '+' : '') + r.meta_shop_diff_pct.toFixed(1) + '%')+
       numCell(cFtVal)+
       numCell(ftVal)+
       numCell(fmtNum2(r.pct_reach_ftewv))+
@@ -6090,6 +6305,39 @@ document.getElementById('aeDateField').addEventListener('change', async () => {
   await aeRebuildDeliverySet();
   aePage = 0; renderAE();
 });
+// ── Level toggle (Ad / Adset / Campaign) — mirrors + drives the Group By
+// dropdown. Also kicks off the RPC rollup fetch when switching to a group
+// level for the first time (fetchAeShopifyRollups is a no-op if the key
+// already matches). Keeps the pill row and the dropdown in sync both ways.
+(function initAeLevelToggle(){
+  const bar = document.getElementById('aeLevelToggle');
+  const gb  = document.getElementById('aeGroupBy');
+  if (!bar || !gb) return;
+  function _sync(fromDropdown){
+    const level = gb.value || 'ad';
+    bar.querySelectorAll('.ae-level-pill').forEach(p => {
+      const on = p.dataset.level === level;
+      p.classList.toggle('active', on);
+      p.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+  bar.addEventListener('click', async e => {
+    const p = e.target.closest('.ae-level-pill'); if (!p) return;
+    const level = p.dataset.level; if (!level || gb.value === level) return;
+    gb.value = level;
+    _sync(false);
+    // Kick off the RPC rollup fetch if we're going to a group level and it
+    // hasn't been fetched yet for the current window. Safe to await —
+    // resolves to no-op when already cached.
+    if (level === 'adset' || level === 'campaign'){
+      await fetchAeShopifyRollups();
+    }
+    aePage = 0; renderAE();
+  });
+  gb.addEventListener('change', _sync);
+  // Initial sync on load
+  _sync(true);
+})();
 document.getElementById('aePageSize').addEventListener('change', () => { aePage = 0; renderAE(); });
 
 /* Column visibility picker — Shopify-style. State lives in localStorage
@@ -6214,7 +6462,8 @@ document.getElementById('aePageSize').addEventListener('change', () => { aePage 
     clearTimeout(window._aeDeliveryDb);
     window._aeDeliveryDb = setTimeout(async () => {
       await Promise.all([aeRebuildDeliverySet(), fetchAeWindowMetrics(),
-                     fetchAeWindowShopify(), fetchAeWindowReach()]);
+                     fetchAeWindowShopify(), fetchAeWindowReach(),
+                     fetchAeShopifyRollups()]);
       aePage = 0; renderAE();
     }, 220);
   }));

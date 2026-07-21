@@ -28,6 +28,10 @@
   <div class="sb-item" data-view="ae">Ads Analyse</div>
   <div class="sb-item" data-view="ireach" title="Campaign / Adset-level incremental reach for ads dated on/after 2025-01-01">Incremental Analysis</div>
   <div class="sb-item" data-view="adintel">Last Click UTM analysis</div>
+  <div class="sb-section">Active
+    <span class="sb-info" title="Consolidated view of ad_status=ACTIVE ads with Ad / Adset / Campaign level toggle. Shopify orders + sales are aggregated authoritatively at the toggled level (adset & campaign totals come from shopify_ad_attribution rollups, not summed from ads).">ⓘ</span>
+  </div>
+  <div class="sb-item" data-view="ae" data-active-preset="ad" title="Active ads only — toggle Ad / Adset / Campaign level inside the view">Active</div>
   <div class="sb-section">Catalog</div>
   <div class="sb-item" data-view="inventory">Inventory</div>
   <div class="sb-section">Historic
@@ -571,6 +575,18 @@
   </div>
 
 
+  <!-- ── Level Toggle — mirrors + drives the Group By dropdown. Visible
+       always; the sidebar "Active" shortcut pre-sets Status=ACTIVE and
+       highlights the "Ads" pill by default.  Adset/Campaign clicks pull
+       authoritative Shopify totals from RPCs (get_shopify_by_adset /
+       _by_campaign) instead of summing constituent-ad numbers. ─────── -->
+  <div class="ae-level-toggle" id="aeLevelToggle" role="tablist" aria-label="Group level">
+    <button class="ae-level-pill active" type="button" data-level="ad"       role="tab" aria-selected="true">Ads</button>
+    <button class="ae-level-pill"        type="button" data-level="adset"    role="tab" aria-selected="false">Adsets</button>
+    <button class="ae-level-pill"        type="button" data-level="campaign" role="tab" aria-selected="false">Campaigns</button>
+    <span class="ae-level-hint" id="aeLevelHint" title="Shopify orders + sales at Adset / Campaign level are pulled from shopify_ad_attribution rollups, not summed from constituent ads (so orders resolved at the group level are included).">ⓘ authoritative Shopify rollup</span>
+  </div>
+
   <!-- ── Filter section — card-grid layout, two rows ─────────────────── -->
   <div class="ae-fgrid row1">
     <div class="ae-fcard">
@@ -587,6 +603,7 @@
       <select class="ae-finput" id="aeGroupBy">
         <option value="ad">Ad Level</option>
         <option value="ad_name">Ad Name</option>
+        <option value="adset">Adset</option>
         <option value="campaign">Campaign</option>
       </select>
     </div>
@@ -840,6 +857,8 @@
             <th class="num" data-sort="roas_ma">ROAS</th>
             <th class="num" data-sort="shopify_orders">Shop Orders</th>
             <th class="num" data-sort="shopify_sales">Shop Sales</th>
+            <th class="num" data-sort="meta_shop_diff_pct"
+                title="((Shop Sales − Meta Conv Value) / Meta Conv Value) × 100. Negative = Meta over-reports revenue vs Shopify actuals; positive = Shopify sales exceed Meta-attributed value (attribution gap).">% Meta vs Shop</th>
             <th class="num" data-sort="cost_per_ftewv">Cost/FTEWV</th>
             <th class="num" data-sort="ftewv_count">FTEWV</th>
             <th class="num" data-sort="pct_reach_ftewv">% Reach FTEWV</th>
@@ -892,9 +911,25 @@
       <!-- Toggle: which grouping to show. Both aggregations are computed
            on Apply; the toggle just flips which table is visible. -->
       <div class="life-toggle" id="ireachScope">
-        <button class="lt-btn active" data-scope="camp"  type="button">Campaign</button>
-        <button class="lt-btn"        data-scope="adset" type="button">Adset</button>
+        <button class="lt-btn"        data-scope="account" type="button" title="Aggregate at the ad-account level (sum of campaign daily reaches per account)">Account</button>
+        <button class="lt-btn active" data-scope="camp"    type="button">Campaign</button>
+        <button class="lt-btn"        data-scope="adset"   type="button">Adset</button>
       </div>
+      <span class="preset-sep">|</span>
+      <!-- Ad Status filter — filters groups by whether ANY constituent ad
+           in allAds has the selected status. Falls back to "All" when the
+           allAds cache isn't populated yet (renders every group). -->
+      <select class="fg-select" id="ireachAdStatus" title="Only show groups whose ads match this status"
+              style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;
+                     background:var(--bg-white);font-size:12px;font-family:'Inter',sans-serif">
+        <option value="">All statuses</option>
+        <option value="ACTIVE">Active</option>
+        <option value="PAUSED">Paused</option>
+        <option value="CAMPAIGN_PAUSED">Campaign paused</option>
+        <option value="ADSET_PAUSED">Adset paused</option>
+        <option value="ARCHIVED">Archived</option>
+        <option value="WITH_ISSUES">With issues</option>
+      </select>
       <span class="preset-sep">|</span>
       <div class="preset-row" style="margin:0">
         <button class="preset" data-p="last7">Last 7d</button>
@@ -925,6 +960,51 @@
     <div style="font-size:11px;color:var(--text-tertiary)" id="ireachStatus">Ready — click Apply to load.</div>
     <div id="ireachAudit" style="font-size:11px;color:var(--text-tertiary);
          margin:6px 0 12px;font-family:'JetBrains Mono',monospace;display:none"></div>
+
+    <!-- ═════ Account-level table ═════ Aggregates campaign-daily rows
+         by account_name. Note: sum-of-campaign daily reaches per account
+         over-counts vs true Meta level=account dedup by ~10-20% (users
+         overlap between campaigns). Directionally accurate; for exact
+         level=account dedup a backend fetcher extension is required. ═══ -->
+    <div class="ireach-sec" id="ireachSecAccount" style="display:none">
+      <div class="ireach-sec-hdr">
+        <span class="ireach-sec-ttl">Account level
+          <span style="font-weight:400;color:var(--text-tertiary);font-size:11px">
+            (sum of campaign daily reaches — approximate)
+          </span>
+        </span>
+        <span class="ireach-sec-sub" id="ireachAccountCount">—</span>
+      </div>
+      <div style="overflow:auto;max-height:calc(100vh - 260px);margin-top:6px">
+        <table class="tbl ae-tbl" id="ireachTblAccount" style="margin:0;table-layout:fixed;width:100%">
+          <colgroup>
+            <col style="width:34%"><col style="width:60px"><col style="width:78px">
+            <col style="width:90px"><col style="width:100px"><col style="width:92px">
+            <col style="width:98px"><col style="width:110px"><col style="width:110px">
+            <col style="width:118px">
+          </colgroup>
+          <thead><tr>
+            <th data-irsort="grp" data-ir-tbl="account">Account</th>
+            <th class="num" data-irsort="n_ads"       data-ir-tbl="account">Ads</th>
+            <th class="num" data-irsort="days"        data-ir-tbl="account">Days delivered</th>
+            <th class="num" data-irsort="first_reach" data-ir-tbl="account"
+                title="Sum of campaign daily reaches on the first day of the window">Reach D1</th>
+            <th class="num" data-irsort="last_reach"  data-ir-tbl="account"
+                title="Sum of campaign daily reaches on the last day of the window">Reach D-last</th>
+            <th class="num" data-irsort="peak_reach"  data-ir-tbl="account"
+                title="Peak sum-of-campaign daily reach anywhere in the window">Peak reach</th>
+            <th class="num" data-irsort="incr_reach"  data-ir-tbl="account"
+                title="Reach D-last − Reach D1 at the account level (sum-of-campaigns delta)">Incr. reach</th>
+            <th class="num" data-irsort="total_reach" data-ir-tbl="account"
+                title="Total delivered impressions equivalent — sum of daily aggregated reach">Σ daily reach</th>
+            <th class="num" data-irsort="spend"       data-ir-tbl="account">Spend</th>
+            <th class="num" data-irsort="cpk"         data-ir-tbl="account"
+                title="Total spend ÷ incremental reach × 1000">Cost / 1k incr.</th>
+          </tr></thead>
+          <tbody id="ireachBodyAccount"><tr><td colspan="10" style="padding:24px;text-align:center;color:var(--text-tertiary)">Pick a window and click Apply.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
 
     <!-- ═════ Campaign-level table ═════ -->
     <div class="ireach-sec" id="ireachSecCamp">
@@ -2078,6 +2158,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=incr_reach_sum"></script>
+<script src="assets/dashboard.js?v=ireach_account_status"></script>
 </body>
 </html>
