@@ -398,10 +398,12 @@ def _scoped_match(ads, name_cand, order_date, scope):
     one ad via name matching, we return (None, None) and the caller
     falls back to base T3 / T4 (scope known, no specific ad).
 
-    Returns (ad_meta, "T3.1" | "T4.1") or (None, None).
+    Returns (ad_meta, "Step 3" | "Step 4") or (None, None).
     """
     if not ads: return (None, None)
-    n_root = "T3" if scope == "adset" else "T4"
+    # Emit "Step 3" for adset-scope, "Step 4" for campaign-scope so the
+    # ladder in the DB reads Step 1..5 rather than the legacy T1..T4.
+    n_root = "Step 3" if scope == "adset" else "Step 4"
     nc  = (name_cand or "").strip()
     if not nc: return (None, None)
     nc_l = nc.lower()
@@ -409,7 +411,7 @@ def _scoped_match(ads, name_cand, order_date, scope):
     # exact (case-sensitive) against any historical name in scope
     for a in ads:
         if nc in a["names"]:
-            return (a, f"{n_root}.1")
+            return (a, n_root)
 
     # fuzzy: norm_name (suffix-stripped, whitespace-collapsed, lowercased)
     f = norm_name(nc)
@@ -417,7 +419,7 @@ def _scoped_match(ads, name_cand, order_date, scope):
         fz_hits = [a for a in ads
                    if any(norm_name(n) == f for n in a["names"])]
         if len(fz_hits) == 1:
-            return (fz_hits[0], f"{n_root}.1")
+            return (fz_hits[0], n_root)
 
     # substring (case-insensitive, separator-strict)
     sub_hits = []
@@ -427,7 +429,7 @@ def _scoped_match(ads, name_cand, order_date, scope):
             if nml and (nml in nc_l or nc_l in nml):
                 sub_hits.append(a); break
     if len(sub_hits) == 1:
-        return (sub_hits[0], f"{n_root}.1")
+        return (sub_hits[0], n_root)
 
     # substring with separator normalization (treats +/-/_/space/./, as equivalent)
     # Catches utm "CLP-SDPL MU OFF-RS IHP" vs ad_name "CLP-SDPL+MU+OFF-RS+IHP+..."
@@ -440,7 +442,44 @@ def _scoped_match(ads, name_cand, order_date, scope):
                 if nm_sep and (nm_sep in nc_sep or nc_sep in nm_sep):
                     sep_hits.append(a); break
         if len(sep_hits) == 1:
-            return (sep_hits[0], f"{n_root}.1")
+            return (sep_hits[0], n_root)
+
+    # token-set subset: utm tokens ⊆ ad_name tokens.
+    # Catches "SMFLK_IFAD-vinitsikariya_16/12/25" (utm) vs
+    # "CLP-SMFLK+IFAD+NA+IHP+-1PA-SIF-1419-P1-vinitsikariya_16/12/25_H0" (ad_name)
+    # where every utm token appears in the ad_name but not contiguously (older
+    # substring checks fail because filler tokens sit between them). To stay
+    # safe we require ≥3 utm tokens AND at least 1 distinctive token (length ≥5,
+    # non-numeric) — this prevents utms with only generic short/numeric tokens
+    # from spuriously matching multiple ads in the adset.
+    #
+    # For multi-hit cases, we score each ad by MAX(|utm ∩ ad_tokens| / |ad_tokens|)
+    # across its historical names — Meta typically bakes utm_content at ad-create
+    # time, so the ad whose earliest/tightest name most closely matches the utm
+    # is the intended one. A clear winner (ratio ≥0.6 AND margin ≥0.15 over
+    # runner-up) is picked; ambiguous multi-hits still fall to base T3.
+    utm_tokens = [t for t in nc_sep.split() if t]
+    if len(utm_tokens) >= 3:
+        distinctive = [t for t in utm_tokens if len(t) >= 5 and not t.isdigit()]
+        if distinctive:
+            utm_tok_set = set(utm_tokens)
+            scored = []  # list of (best_ratio, ad)
+            for a in ads:
+                best_r = 0.0
+                for nm in a["names"]:
+                    ad_tok_set = set(_sep_key(nm).split())
+                    if utm_tok_set.issubset(ad_tok_set) and ad_tok_set:
+                        r = len(utm_tok_set) / len(ad_tok_set)
+                        if r > best_r: best_r = r
+                if best_r > 0:
+                    scored.append((best_r, a))
+            if len(scored) == 1:
+                return (scored[0][1], n_root)
+            if len(scored) >= 2:
+                scored.sort(key=lambda t: -t[0])
+                top_r, runner_r = scored[0][0], scored[1][0]
+                if top_r >= 0.6 and (top_r - runner_r) >= 0.15:
+                    return (scored[0][1], n_root)
 
     # Multi-hit or no-hit cases: fall through to base T3 / T4 (no specific ad)
     return (None, None)
@@ -453,12 +492,15 @@ def attribute_order_cache_clear():
 def attribute_order(ca, maps, order_created_at=None):
     """Returns (ad_id, ad_name, adset_id, campaign_name, matched_value, matched_tier).
     Empty strings for the metadata fields when no match.
-    Cascade:
-      T1  utm_content is a numeric ad_id
-      T2  utm_content matches an ad_name globally (exact / fuzzy / substring / sep-normalized substring)
-      T3.1 utm_content matches an ad's HISTORICAL name within the adset (renamed-ad recovery)
-      T3   adset_id known, no specific ad pinpointed
-      T4.1/T4 same at campaign scope
+    Cascade (Step 1..5 labels — same logic as legacy T1/T2/T3/T4):
+      Step 1  utm_content is a numeric ad_id
+      Step 2  utm_content matches an ad_name globally (exact / fuzzy /
+              substring / sep-normalized substring)
+      Step 3  utm_term names an adset AND utm_content narrows to a
+              specific ad by name — OR adset known with no ad narrow
+              (ad_id NULL, downstream Step-3-spread aggregator handles it)
+      Step 4  same at campaign scope
+      Step 5  nothing pinned at all (empty return)
     Date-based and asset-code guessing was removed.
     """
     (by_id, by_name, by_fuzzy, by_adset, by_camp_name, by_camp_id,
@@ -490,7 +532,7 @@ def attribute_order(ca, maps, order_created_at=None):
     if utm_content.isdigit() and utm_content in by_id:
         m = by_id[utm_content]
         return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
-                     utm_content, "T1_ad_id"))
+                     utm_content, "Step 1"))
 
     # T2: utm_content matches an ad_name globally — exact -> fuzzy -> substring -> sep-normalized
     for cand in (attr_ad_name, utm_content):
@@ -499,13 +541,13 @@ def attribute_order(ca, maps, order_created_at=None):
         if cand in by_name:
             ad_id = by_name[cand][0]; m = by_id[ad_id]
             return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
-                         cand, "T2_ad_name"))
+                         cand, "Step 2"))
         # fuzzy (suffix-stripped + lowercased)
         f = norm_name(cand)
         if f and f in by_fuzzy:
             ad_id = by_fuzzy[f][0]; m = by_id[ad_id]
             return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
-                         cand, "T2_ad_name"))
+                         cand, "Step 2"))
 
     # T2 global substring (and sep-normalized substring). The matched
     # substring (whichever side is shorter) must be at least 10 chars long —
@@ -538,7 +580,7 @@ def attribute_order(ca, maps, order_created_at=None):
         if best_aid is not None:
             m = by_id[best_aid]
             return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
-                         cand, "T2_ad_name"))
+                         cand, "Step 2"))
 
     # ── T3.x : ADSET-SCOPED match  (utm_term -> adset; narrow within) ─────
     for adset_cand in (attr_adset_id, utm_term):
@@ -552,7 +594,7 @@ def attribute_order(ca, maps, order_created_at=None):
         # No narrowing -> base T3: adset known, no specific ad (spread downstream)
         first = ads[0]
         return _ret(("", first["ad_name"], first["adset_id"], first["campaign_name"],
-                     adset_cand, "T3"))
+                     adset_cand, "Step 3"))
 
     # ── T4.x : CAMPAIGN-SCOPED match  (utm_camp -> campaign; narrow within) ─
     camp_ads = None; matched_camp = ""; camp_tier_kind = ""
@@ -571,7 +613,7 @@ def attribute_order(ca, maps, order_created_at=None):
         first = camp_ads[0]
         return _ret(("", "", first["adset_id"] if camp_tier_kind == "id" else "",
                      first["campaign_name"],
-                     matched_camp, "T4"))
+                     matched_camp, "Step 4"))
 
     return _ret(("", "", "", "", "", ""))
 

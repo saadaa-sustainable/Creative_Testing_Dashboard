@@ -12,5 +12,20 @@ backend/logs/
 
 # Local data exports (large, regenerable)
 backend/*.csv
-backend/full_backfill.progress.json
-backend/rebuild_attribution.progress.json
+*.progress.json
+backend/*.progress.json
+
+# Scratch/one-off scripts convention — anything under backend/ that starts
+# with an underscore is throwaway. Whitelist the few that graduated into
+# real utilities.
+backend/_*
+!backend/_run_meta_parallel.py
+!backend/_md_to_docx.py
+!backend/_build_changelog_xlsx.py
+
+# Editor / OS lock files
+~$*
+.claude/scheduled_tasks.lock
+
+# Parallel-pipeline per-worker logs (regenerated each run)
+backend/_parallel_logs/

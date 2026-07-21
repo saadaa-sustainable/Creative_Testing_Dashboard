@@ -64,6 +64,15 @@ ACCOUNTS = [
     },
 ]
 
+# Fan-out hook: SYNC_ACCOUNT_ID=<one of the account ids> restricts this run to
+# a single account so an orchestrator (see _run_meta_parallel.py) can launch
+# 3 processes in parallel — one per account — for ~3× faster nightly sync.
+_only_id = (os.getenv("SYNC_ACCOUNT_ID") or "").strip()
+if _only_id:
+    ACCOUNTS = [a for a in ACCOUNTS if a["id"] == _only_id]
+    if not ACCOUNTS:
+        sys.exit(f"SYNC_ACCOUNT_ID={_only_id!r} matched no configured account")
+
 # Custom conversion names — must match exactly what's in Meta Business Manager
 CUSTOM_METRIC_FTEWV = os.getenv("CUSTOM_METRIC_FTEWV", "First-time EWV")
 CUSTOM_METRIC_NCP = os.getenv("CUSTOM_METRIC_NCP", "NCP")
@@ -187,6 +196,24 @@ def _get(url: str, params: dict = None, attempt: int = 1) -> dict:
             log.warning("  Meta 403 persists — skipping page")
             return {"data": [], "paging": {}}
 
+        if resp.status_code == 400:
+            # Meta uses 400 for ad-account rate limits ("too many calls").
+            # Message-body sniff distinguishes rate-limit from real 400s
+            # (validation errors) so we don't burn retries on those.
+            try: body = resp.json()
+            except Exception: body = {}
+            msg = ((body.get("error") or {}).get("message") or "").lower()
+            if "too many calls" in msg or "rate" in msg or "throttl" in msg:
+                if attempt < MAX_RETRIES:
+                    wait = 90 * attempt   # 90s, 180s, 270s
+                    log.warning(
+                        f"  Meta 400 rate limit — waiting {wait}s (attempt {attempt}/{MAX_RETRIES})"
+                    )
+                    time.sleep(wait)
+                    return _get(url, params, attempt + 1)
+                log.warning("  Meta 400 rate limit persists — skipping page")
+                return {"data": [], "paging": {}}
+
         if resp.status_code == 500:
             if attempt < MAX_RETRIES:
                 wait = RETRY_DELAY * attempt * 3
@@ -258,7 +285,11 @@ def fetch_all_ads(account_id: str) -> list:
                                        "template_data{link}}},"
             "adset{id,name},campaign{id,name}"
         ),
-        "limit": 500,
+        # Fourth Ad Account hits Meta 500 ("reduce amount of data") at
+        # limit>50 with this nested creative field spec — Raho Saadaa
+        # tolerates 200. 50 is the cross-account floor. Pagination handles
+        # the total volume; the extra HTTP round-trips add ~1 min per sync.
+        "limit": 50,
         "access_token": ACCESS_TOKEN,
     }
     page = 0
@@ -380,11 +411,72 @@ def _extract_link_from_preview(ad_id: str) -> str:
         return ""
 
 
-def get_ad_metadata(ad_ids: list) -> dict:
+def fetch_link_url_asset_map(account_id: str, since: str, until: str) -> dict:
+    """
+    Meta's Advantage+/URL-testing feature rotates multiple destination URLs per ad.
+    The creative endpoint only exposes the *configured* URL; the actually-delivered
+    URLs (with rotation history) live in insights' `link_url_asset` breakdown.
+
+    Returns {ad_id: [url, url, ...]} — one row per (ad, delivered_url) combo,
+    ordered by impressions descending so index [0] is the top-served URL. Only
+    ads that used URL-asset testing appear; static-URL ads return nothing here
+    and fall back to the 6-path creative walk in _extract_ad_link.
+    """
+    from collections import defaultdict
+    per_ad = defaultdict(list)  # ad_id -> list of (impressions, url)
+    url = f"{BASE_URL}/act_{account_id}/insights"
+    params = {
+        "level": "ad",
+        "fields": "ad_id,impressions",
+        "breakdowns": "link_url_asset",
+        "time_range": f'{{"since":"{since}","until":"{until}"}}',
+        "limit": 500,
+        "access_token": ACCESS_TOKEN,
+    }
+    page = 0
+    while url:
+        page += 1
+        try:
+            data = _get(url, params if page == 1 else None)
+        except Exception as e:
+            log.warning(f"  link_url_asset breakdown page {page} failed: {e}")
+            break
+        for row in data.get("data") or []:
+            aid = row.get("ad_id")
+            asset = row.get("link_url_asset") or {}
+            u = (asset.get("website_url") or "").strip()
+            if aid and u:
+                try:
+                    imp = int(row.get("impressions") or 0)
+                except (TypeError, ValueError):
+                    imp = 0
+                per_ad[aid].append((imp, u))
+        url = (data.get("paging") or {}).get("next")
+        params = None
+        if page > 30:  # safety; typical accounts fit in <5 pages
+            break
+    # collapse to unique URLs per ad, ordered by impressions desc
+    out = {}
+    for aid, pairs in per_ad.items():
+        seen, ordered = set(), []
+        for imp, u in sorted(pairs, key=lambda x: -x[0]):
+            if u not in seen:
+                seen.add(u)
+                ordered.append(u)
+        out[aid] = ordered
+    return out
+
+
+def get_ad_metadata(ad_ids: list, link_asset_map: dict = None) -> dict:
     """
     Returns {ad_id: {status, created_date, preview_link, ad_link}} for all given IDs.
     Batches 25 per request. Matches Apps Script's getAdStatusMap + getTargetedAdCreationMap
     plus the two new link fields surfaced in the AE panel.
+
+    If link_asset_map is provided ({ad_id: [urls]} from fetch_link_url_asset_map),
+    Meta's DELIVERED URL takes precedence — this is the ground truth for
+    Advantage+/URL-testing ads where the configured URL may differ from what
+    Meta actually rotated in production.
     """
     metadata = {}
     unique_ids = list(set(ad_ids))
@@ -411,11 +503,16 @@ def get_ad_metadata(ad_ids: list) -> dict:
                 if isinstance(info, dict):
                     ct = info.get("created_time", "")
                     cre = info.get("creative") or {}
+                    creative_link = _extract_ad_link(cre)
+                    delivered = (link_asset_map or {}).get(ad_id) or []
+                    # Meta's delivered URL wins when present (URL-testing ads);
+                    # otherwise fall back to the 6-path creative walk.
+                    ad_link = delivered[0] if delivered else creative_link
                     metadata[ad_id] = {
                         "status": info.get("effective_status", ""),
                         "created_date": ct[:10] if ct else None,
                         "preview_link": info.get("preview_shareable_link", "") or "",
-                        "ad_link":  _extract_ad_link(cre),
+                        "ad_link":  ad_link,
                         "url_tags": cre.get("url_tags") or "",
                     }
         except Exception as e:
@@ -703,6 +800,7 @@ def fetch_and_upsert(
     until: str,
     ftewv_id: str,
     ncp_id: str,
+    link_asset_map: dict = None,
 ) -> tuple:
     """
     Fetches all insights for a date range, plus LTV stats + metadata,
@@ -744,7 +842,7 @@ def fetch_and_upsert(
     )
 
     # Fetch metadata and LTV in parallel batches
-    metadata = get_ad_metadata(ad_ids)
+    metadata = get_ad_metadata(ad_ids, link_asset_map)
     ltv = get_ltv_stats(ad_ids, account_id)
 
     # Parse all rows
@@ -916,11 +1014,25 @@ def sync(since: str, until: str, label: str):
         else:
             log.warning(f"  NCP custom conversion not found — will store 0")
 
+        # Fetch link_url_asset breakdown once per account — captures
+        # delivered destination URLs for Advantage+/URL-testing ads. This
+        # overlays onto ad_link when Meta's insights show a delivered URL
+        # (ground truth) that differs from the creative's configured URL.
+        try:
+            link_asset_map = fetch_link_url_asset_map(acct["id"], since, until)
+            covered = len(link_asset_map)
+            multi   = sum(1 for v in link_asset_map.values() if len(v) > 1)
+            log.info(f"  link_url_asset breakdown: {covered} ads covered ({multi} with URL rotation)")
+        except Exception as e:
+            log.warning(f"  link_url_asset breakdown failed: {e}")
+            link_asset_map = {}
+
         af = au = 0
         delivered_ad_ids: set = set()
         for chunk_since, chunk_until in date_chunks(since, until):
             f, u, ids = fetch_and_upsert(
-                acct["id"], acct["name"], chunk_since, chunk_until, ftewv_id, ncp_id
+                acct["id"], acct["name"], chunk_since, chunk_until, ftewv_id, ncp_id,
+                link_asset_map=link_asset_map,
             )
             af += f
             au += u
@@ -929,6 +1041,12 @@ def sync(since: str, until: str, label: str):
         # Pull every ad in the account, then placeholder-fill ones that didn't deliver
         try:
             active_ads = fetch_all_ads(acct["id"])
+            # Overlay Meta's delivered URL onto placeholder rows too
+            if link_asset_map:
+                for ad in active_ads:
+                    delivered = link_asset_map.get(ad.get("id")) or []
+                    if delivered:
+                        ad["ad_link"] = delivered[0]
             placeholder_n = upsert_placeholders(
                 acct["name"], active_ads, delivered_ad_ids, since, until
             )

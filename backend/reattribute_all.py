@@ -58,13 +58,21 @@ def main():
     log(f'    built in {time.time()-t0:.1f}s')
 
     # NEVER touch Google-attributed rows — this engine only knows Meta ads.
-    # Google orders are managed by attribute_google_orders.py and their
-    # G1/G2/G3 tiers must be preserved.  Also skip channels the current
-    # engine can't reason about.
     where = [
         "(matched_tier IS NULL OR matched_tier NOT LIKE 'G%%')",
         "(LOWER(utm_source) IS NULL OR LOWER(utm_source) NOT IN "
         "  ('google','google_ads','gads','yt_ads','youtube'))",
+        # Preserve the manual per-ad UPDATEs applied earlier in the session.
+        # Their matched_value carries a distinctive marker prefix that
+        # regular attribute_order() never emits, so we can identify them
+        # deterministically and skip them.
+        "(matched_value IS NULL OR ("
+            "matched_value NOT LIKE 'utm_term=adset%%' AND "
+            "matched_value NOT LIKE 'shell-ad fix:%%' AND "
+            "matched_value NOT LIKE 'edit-history rule:%%' AND "
+            "matched_value NOT LIKE 'asset_id %%' AND "
+            "matched_value NOT LIKE 'subset match:%%'"
+        "))",
     ]
     params = []
     if args.since:
@@ -73,32 +81,61 @@ def main():
         tier_list = [t.strip() for t in args.tiers.split(',') if t.strip()]
         where.append("matched_tier IN %s"); params.append(tuple(tier_list))
 
-    log('\n[*] streaming shopify_ad_attribution rows …')
-    conn = psycopg2.connect(DB_URL, connect_timeout=30); conn.autocommit = False
-    with conn.cursor(name='reattr_scan') as cur:
-        cur.itersize = 5000
-        cur.execute(f"""
+    log('\n[*] fetching shopify_ad_attribution rows via keyset pagination …')
+    seen = 0
+    counters_before = defaultdict(int)
+    counters_after  = defaultdict(int)
+    moved_counters  = defaultdict(int)  # (before_tier, after_tier) -> count
+    moved_sales     = defaultdict(float)
+    updates = []
+
+    # Keyset pagination on order_id ascending — each page opens a fresh
+    # short-lived connection so we never depend on a long-lived server-side
+    # cursor that Supabase's pooler can silently drop.
+    PAGE = 20_000
+    last_order_id = None
+    while True:
+        page_where = list(where)
+        page_params = list(params)
+        if last_order_id is not None:
+            page_where.append("order_id > %s")
+            page_params.append(last_order_id)
+        sql = f"""
             SELECT order_id, utm_content, utm_term, utm_campaign,
                    ad_id, ad_name, matched_tier, total_price,
                    order_created_at
               FROM public.shopify_ad_attribution
-             WHERE {' AND '.join(where)}
-        """, params)
+             WHERE {' AND '.join(page_where)}
+             ORDER BY order_id ASC
+             LIMIT {PAGE}
+        """
+        # Retry loop so a transient pooler drop doesn't kill the whole run.
+        rows = None
+        for attempt in range(5):
+            try:
+                rconn = psycopg2.connect(DB_URL, connect_timeout=30)
+                rconn.autocommit = True
+                with rconn.cursor() as rc:
+                    rc.execute(sql, page_params)
+                    rows = rc.fetchall()
+                rconn.close()
+                break
+            except psycopg2.OperationalError as e:
+                log(f'    [warn] fetch retry {attempt+1}: {e}')
+                try: rconn.close()
+                except Exception: pass
+                time.sleep(2 * (attempt + 1))
+        if rows is None:
+            log('[!] fetch failed after retries — aborting'); return
+        if not rows: break
 
-        seen = 0
-        counters_before = defaultdict(int)
-        counters_after  = defaultdict(int)
-        moved_counters  = defaultdict(int)  # (before_tier, after_tier) -> count
-        moved_sales     = defaultdict(float)
-        updates = []
-        for row in cur:
+        for row in rows:
             seen += 1
             (order_id, uc, ut, ua, cur_ad, cur_name, cur_tier, price, order_dt) = row
 
             ca = {'utm_content': uc, 'utm_term': ut, 'utm_campaign': ua}
             n_ad, n_name, n_adset, n_camp, mv, n_tier = attribute_order(ca, maps, order_created_at=order_dt)
 
-            # Empty tuple → Step 5 (no match)
             if not n_tier: n_tier = 'Step 5'
             counters_before[cur_tier or 'Step 5'] += 1
             counters_after[n_tier] += 1
@@ -127,8 +164,9 @@ def main():
                     'matched_tier':  n_tier if n_tier != 'Step 5' else None,
                 })
 
-            if seen % 50_000 == 0:
-                log(f'    scanned {seen:,} · updates queued {len(updates):,}')
+        last_order_id = rows[-1][0]
+        log(f'    scanned {seen:,} · updates queued {len(updates):,}')
+        if len(rows) < PAGE: break
 
     log(f'\n[scanned {seen:,} rows]')
     log(f'  updates queued: {len(updates):,}')
@@ -146,18 +184,33 @@ def main():
 
     if args.dry_run:
         log('\n[dry-run] not applying updates. Re-run without --dry-run to persist.')
-        conn.close(); return
+        return
 
     log(f'\n[*] applying {len(updates):,} UPDATEs in batches of {args.batch} …')
     t1 = time.time()
-    with conn.cursor() as w:
-        for i in range(0, len(updates), args.batch):
-            execute_batch(w, UPDATE_SQL, updates[i:i+args.batch], page_size=500)
-            if i % (args.batch * 20) == 0:
-                log(f'    applied {i+args.batch:>8,} / {len(updates):,}')
-    conn.commit()
-    log(f'[ok] applied {len(updates):,} UPDATEs in {(time.time()-t1)/60:.1f} min')
-    conn.close()
+    applied = 0
+    for i in range(0, len(updates), args.batch):
+        chunk = updates[i:i+args.batch]
+        for attempt in range(5):
+            try:
+                wconn = psycopg2.connect(DB_URL, connect_timeout=30)
+                wconn.autocommit = False
+                with wconn.cursor() as w:
+                    execute_batch(w, UPDATE_SQL, chunk, page_size=500)
+                wconn.commit()
+                wconn.close()
+                break
+            except psycopg2.OperationalError as e:
+                log(f'    [warn] update retry {attempt+1} at row {i}: {e}')
+                try: wconn.close()
+                except Exception: pass
+                time.sleep(2 * (attempt + 1))
+        else:
+            log('[!] update failed after retries — aborting'); return
+        applied += len(chunk)
+        if (i // args.batch) % 20 == 0:
+            log(f'    applied {applied:>8,} / {len(updates):,}')
+    log(f'[ok] applied {applied:,} UPDATEs in {(time.time()-t1)/60:.1f} min')
 
 if __name__ == '__main__':
     main()

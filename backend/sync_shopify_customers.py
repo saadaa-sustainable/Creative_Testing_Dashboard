@@ -295,7 +295,13 @@ def _upsert_rest(rows):
         chunk = rows[i:i+BATCH]
         delay = 3
         for attempt in range(1, 6):
-            r = requests.post(url, headers=hdrs, data=json.dumps(chunk), timeout=90)
+            try:
+                r = requests.post(url, headers=hdrs, data=json.dumps(chunk), timeout=90)
+            except (requests.exceptions.SSLError,
+                    requests.exceptions.ConnectionError,
+                    requests.exceptions.Timeout) as e:
+                say(f"  [retry {attempt}] transport {type(e).__name__} — sleeping {delay}s")
+                time.sleep(delay); delay = min(delay * 2, 60); continue
             if r.status_code in (200, 201, 204): break
             if r.status_code >= 500 or r.status_code in (408, 429):
                 say(f"  [retry {attempt}] HTTP {r.status_code} — sleeping {delay}s")

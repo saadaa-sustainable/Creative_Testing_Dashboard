@@ -27,9 +27,9 @@ TRUNCATE public.google_ads_summary;
 
 INSERT INTO public.google_ads_summary (
   customer_id, customer_name, currency_code,
-  campaign_id, campaign_name,
+  campaign_id, campaign_name, campaign_status,
   advertising_channel_type, advertising_channel_sub_type,
-  ad_group_id, ad_group_name,
+  ad_group_id, ad_group_name, ad_group_status,
   ad_id, ad_name, ad_type, ad_status, final_urls,
   first_seen, last_seen, days_active,
   total_impressions, total_clicks, total_cost,
@@ -42,9 +42,9 @@ WITH latest AS (
   SELECT DISTINCT ON (customer_id, ad_id)
          customer_id, ad_id,
          customer_name, currency_code,
-         campaign_id, campaign_name,
+         campaign_id, campaign_name, campaign_status,
          advertising_channel_type, advertising_channel_sub_type,
-         ad_group_id, ad_group_name,
+         ad_group_id, ad_group_name, ad_group_status,
          ad_name, ad_type, ad_status, final_urls
     FROM public.google_ads_primary
    ORDER BY customer_id, ad_id, date DESC
@@ -65,9 +65,9 @@ agg AS (
    GROUP BY customer_id, ad_id
 )
 SELECT l.customer_id, l.customer_name, l.currency_code,
-       l.campaign_id, l.campaign_name,
+       l.campaign_id, l.campaign_name, l.campaign_status,
        l.advertising_channel_type, l.advertising_channel_sub_type,
-       l.ad_group_id, l.ad_group_name,
+       l.ad_group_id, l.ad_group_name, l.ad_group_status,
        l.ad_id, l.ad_name, l.ad_type, l.ad_status, l.final_urls,
        a.first_seen, a.last_seen, a.days_active,
        a.total_impressions, a.total_clicks, a.total_cost,

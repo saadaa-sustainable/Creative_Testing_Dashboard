@@ -228,7 +228,7 @@ def main():
         where_parts.append("order_created_at >= %s::timestamptz")
         params.append(args.since)
     if args.only_untagged:
-        where_parts.append("(matched_tier IS NULL OR matched_tier NOT LIKE 'G%')")
+        where_parts.append("(matched_tier IS NULL OR matched_tier NOT LIKE 'G%%')")
     where = ' AND '.join(where_parts)
 
     log(f"\n[*] scanning orders …")
