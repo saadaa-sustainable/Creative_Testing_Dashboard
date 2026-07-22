@@ -2606,7 +2606,8 @@ let aeSelectedCat = '';
 let aeSortKey  = 'amount_spent';
 let aeSortDir  = 'desc';
 let aePage     = 0;             // 0-based page index for the AE table
-let aeRules    = [];            // [{field, op, value}, …] for multi-filter
+let aeRules    = [];            // TEXT rules (Name/Status/Category/…) — inline Multi-Filter card
+let aeRulesNum = [];            // NUMERIC rules (Spend/ROAS/Impressions/…) — right-side Inspector drawer
 // Set<ad_id> of ads that delivered inside the current date window.
 // null = not fetched yet / no active window; empty Set = fetched, no matches.
 let aeDeliverySet = null;
@@ -3122,7 +3123,11 @@ function aeRenderDailyRowHTML(r, colspan){
 /* ─────────────────────────────────────────────────────────────
    MULTI-FILTER — chainable rules (Field × Operator × Value)
    ───────────────────────────────────────────────────────────── */
+// Text fields (name-like) — use string operators
+// Numeric fields (metrics) — use threshold operators.  Marked with numeric:true
+// so the UI auto-swaps the operator dropdown when the user picks one.
 const AE_MF_FIELDS = [
+  // ── Text ─────────────────────────────────────────────────────────
   {key:'name_combined', label:'Name (Ad/Camp)'},
   {key:'ad_name',       label:'Ad Name'},
   {key:'campaign_name', label:'Campaign'},
@@ -3131,21 +3136,82 @@ const AE_MF_FIELDS = [
   {key:'category',      label:'Category'},
   {key:'ad_status',     label:'Status'},
   {key:'account_name',  label:'Account'},
+  // ── Numeric metrics — pick metric + set threshold ───────────────
+  {key:'amount_spent',       label:'Spend',            numeric:true, ph:'e.g. 1000'},
+  {key:'roas_ma',            label:'ROAS',             numeric:true, ph:'e.g. 3'},
+  {key:'shopify_roas',       label:'Shopify ROAS',     numeric:true, ph:'e.g. 2'},
+  {key:'impressions',        label:'Impressions',      numeric:true, ph:'e.g. 50000'},
+  {key:'reach',              label:'Reach',            numeric:true, ph:'e.g. 10000'},
+  {key:'frequency',          label:'Frequency',        numeric:true, ph:'e.g. 2.5'},
+  {key:'purchases',          label:'Meta Purchases',   numeric:true, ph:'e.g. 10'},
+  {key:'conv_value',         label:'Meta Conv Value',  numeric:true, ph:'e.g. 100000'},
+  {key:'shopify_orders',     label:'Shopify Orders',   numeric:true, ph:'e.g. 5'},
+  {key:'shopify_sales',      label:'Shopify Sales',    numeric:true, ph:'e.g. 50000'},
+  {key:'ctr_pct',            label:'CTR %',            numeric:true, ph:'e.g. 1.5'},
+  {key:'atc_lc_pct',         label:'ATC / LC %',       numeric:true, ph:'e.g. 5'},
+  {key:'ci_atc_pct',         label:'CI / ATC %',       numeric:true, ph:'e.g. 10'},
+  {key:'checkout_compl_pct', label:'Checkout %',       numeric:true, ph:'e.g. 20'},
+  {key:'cost_per_1000',      label:'Cost / 1k',        numeric:true, ph:'e.g. 500'},
+  {key:'cpc_link',           label:'CPC Link',         numeric:true, ph:'e.g. 5'},
+  {key:'cost_per_ncp',       label:'Cost / NCP',       numeric:true, ph:'e.g. 525'},
+  {key:'cost_per_ftewv',     label:'Cost / FTEWV',     numeric:true, ph:'e.g. 12'},
+  {key:'ftewv_count',        label:'FTEWV',            numeric:true, ph:'e.g. 100'},
+  {key:'ncp_count',          label:'NCP',              numeric:true, ph:'e.g. 50'},
+  {key:'atc_count',          label:'ATC',              numeric:true, ph:'e.g. 20'},
+  {key:'ci_count',           label:'CI',               numeric:true, ph:'e.g. 10'},
+  {key:'link_clicks_raw',    label:'Link Clicks',      numeric:true, ph:'e.g. 500'},
 ];
-const AE_MF_OPS = [
+const AE_MF_OPS_TEXT = [
   {key:'contains_all',  label:'contains all of',  ph:'Keywords separated by space'},
   {key:'contains_any',  label:'contains any of',  ph:'Any of these keywords'},
   {key:'equals',        label:'equals',           ph:'Exact match (case-insensitive)'},
   {key:'not_contains',  label:'does not contain', ph:'Exclude these keywords'},
 ];
+const AE_MF_OPS_NUMERIC = [
+  {key:'gte',      label:'≥',        ph:'e.g. 1000'},
+  {key:'gt',       label:'>',        ph:'e.g. 1000'},
+  {key:'lte',      label:'≤',        ph:'e.g. 500'},
+  {key:'lt',       label:'<',        ph:'e.g. 500'},
+  {key:'eq',       label:'=',        ph:'e.g. 3'},
+  {key:'neq',      label:'≠',        ph:'e.g. 0'},
+  {key:'between',  label:'between',  ph:'min-max, e.g. 1000-5000'},
+];
+// Combined list (kept for back-compat with any code that reads AE_MF_OPS)
+const AE_MF_OPS = AE_MF_OPS_TEXT.concat(AE_MF_OPS_NUMERIC);
+
+function _aeMfFieldMeta(key){ return AE_MF_FIELDS.find(f => f.key === key) || {}; }
+function _aeMfIsNumericField(key){ return !!_aeMfFieldMeta(key).numeric; }
+
 function aeMfFieldValue(row, key){
   if (key === 'name_combined') return ((row.ad_name||'') + ' ' + (row.campaign_name||'')).trim();
-  return row[key] || '';
+  return row[key];   // preserve type (number stays number for numeric ops)
 }
 function aeMfMatch(row, rule){
-  const raw = String(rule.value || '').trim();
-  if (!raw) return true;                              // empty value = ignore rule
-  const v = String(aeMfFieldValue(row, rule.field)).toLowerCase();
+  const raw = String(rule.value ?? '').trim();
+  if (!raw) return true;                             // empty value = ignore rule
+  // Numeric field → threshold comparison
+  if (_aeMfIsNumericField(rule.field)){
+    const rowVal = aeMfFieldValue(row, rule.field);
+    const rowNum = typeof rowVal === 'number' ? rowVal : parseFloat(rowVal);
+    if (isNaN(rowNum)) return false;                 // no value on this row → excluded
+    if (rule.op === 'between'){
+      const m = raw.match(/^\s*([-+]?[\d.]+)\s*[-–]\s*([-+]?[\d.]+)\s*$/);
+      if (!m) return true;
+      const lo = parseFloat(m[1]); const hi = parseFloat(m[2]);
+      if (isNaN(lo) || isNaN(hi)) return true;
+      return rowNum >= Math.min(lo,hi) && rowNum <= Math.max(lo,hi);
+    }
+    const n = parseFloat(raw); if (isNaN(n)) return true;
+    if (rule.op === 'gte' || rule.op === 'contains_all') return rowNum >= n;  // default when op was text
+    if (rule.op === 'gt')  return rowNum >  n;
+    if (rule.op === 'lte') return rowNum <= n;
+    if (rule.op === 'lt')  return rowNum <  n;
+    if (rule.op === 'eq')  return Math.abs(rowNum - n) < 1e-9;
+    if (rule.op === 'neq') return Math.abs(rowNum - n) >= 1e-9;
+    return true;
+  }
+  // Text field → substring comparisons (as before)
+  const v = String(aeMfFieldValue(row, rule.field) || '').toLowerCase();
   const toks = raw.toLowerCase().split(/\s+/).filter(Boolean);
   if (rule.op === 'contains_all')  return toks.every(t => v.includes(t));
   if (rule.op === 'contains_any')  return toks.some (t => v.includes(t));
@@ -3153,39 +3219,76 @@ function aeMfMatch(row, rule){
   if (rule.op === 'not_contains')  return !toks.some(t => v.includes(t));
   return true;
 }
-function aeMfRender(){
-  const host = document.getElementById('aeMfRows');
-  if (!aeRules.length) aeRules.push({field:'name_combined', op:'contains_all', value:''});
-  host.innerHTML = aeRules.map((r, i) => {
-    const opPh = (AE_MF_OPS.find(o => o.key === r.op) || AE_MF_OPS[0]).ph;
-    const fieldOpts = AE_MF_FIELDS.map(f =>
+function _aeMfOpsFor(fieldKey){
+  return _aeMfIsNumericField(fieldKey) ? AE_MF_OPS_NUMERIC : AE_MF_OPS_TEXT;
+}
+function _aeMfDefaultOp(fieldKey){
+  return _aeMfIsNumericField(fieldKey) ? 'gte' : 'contains_all';
+}
+function _aeMfPlaceholder(fieldKey, opKey){
+  const ops = _aeMfOpsFor(fieldKey);
+  const op  = ops.find(o => o.key === opKey) || ops[0];
+  // For numeric fields, prefer the field-specific placeholder (e.g. "e.g. 1000")
+  // unless the op has its own hint (between → "min-max, e.g. 1000-5000")
+  if (_aeMfIsNumericField(fieldKey) && op.key !== 'between'){
+    return _aeMfFieldMeta(fieldKey).ph || op.ph;
+  }
+  return op.ph;
+}
+/* Generic renderer used by both the inline text Multi-Filter and the
+   drawer's numeric Filters — differs only in state array, host element,
+   and which subset of AE_MF_FIELDS to expose in the field dropdown.
+   `mode` is 'text' or 'numeric'. */
+function _aeMfRenderPanel(mode){
+  const isNum   = mode === 'numeric';
+  const state   = isNum ? aeRulesNum : aeRules;
+  const hostId  = isNum ? 'aeMfNumRows' : 'aeMfRows';
+  const host    = document.getElementById(hostId);
+  if (!host) return;
+  const defField = isNum ? 'amount_spent' : 'name_combined';
+  const defRule  = () => ({field: defField, op: _aeMfDefaultOp(defField), value: ''});
+  if (!state.length) state.push(defRule());
+  const fieldsForMode = AE_MF_FIELDS.filter(f => !!f.numeric === isNum);
+  host.innerHTML = state.map((r, i) => {
+    // Coerce field into the correct pool (drop stale field of the wrong type).
+    if (!fieldsForMode.some(f => f.key === r.field)) r.field = defField;
+    const validOps = _aeMfOpsFor(r.field);
+    if (!validOps.some(o => o.key === r.op)) r.op = _aeMfDefaultOp(r.field);
+    const fieldOpts = fieldsForMode.map(f =>
       `<option value="${f.key}"${f.key===r.field?' selected':''}>${f.label}</option>`).join('');
-    const opOpts = AE_MF_OPS.map(o =>
+    const opOpts = validOps.map(o =>
       `<option value="${o.key}"${o.key===r.op?' selected':''}>${o.label}</option>`).join('');
-    const val = (r.value || '').replace(/"/g, '&quot;');
+    const val = String(r.value ?? '').replace(/"/g, '&quot;');
+    const ph  = _aeMfPlaceholder(r.field, r.op);
     return `<div class="ae-mfilter-row" data-i="${i}">
       <select class="ae-finput rule-field">${fieldOpts}</select>
       <select class="ae-finput rule-op">${opOpts}</select>
-      <input  class="ae-finput rule-value" type="text" placeholder="${opPh}" value="${val}">
+      <input  class="ae-finput rule-value" type="text" placeholder="${ph}" value="${val}">
       <button class="ae-rule-del" type="button" title="Remove this rule">&times;</button>
     </div>`;
   }).join('');
   host.querySelectorAll('.ae-mfilter-row').forEach(div => {
     const i = +div.dataset.i;
-    div.querySelector('.rule-field').addEventListener('change', e => { aeRules[i].field = e.target.value; });
-    div.querySelector('.rule-op'   ).addEventListener('change', e => {
-      aeRules[i].op = e.target.value;
-      const ph = (AE_MF_OPS.find(o => o.key === e.target.value) || AE_MF_OPS[0]).ph;
-      div.querySelector('.rule-value').placeholder = ph;
+    div.querySelector('.rule-field').addEventListener('change', e => {
+      state[i].field = e.target.value;
+      state[i].op    = _aeMfDefaultOp(e.target.value);
+      state[i].value = '';
+      _aeMfRenderPanel(mode);
     });
-    div.querySelector('.rule-value').addEventListener('input',  e => { aeRules[i].value = e.target.value; });
+    div.querySelector('.rule-op').addEventListener('change', e => {
+      state[i].op = e.target.value;
+      div.querySelector('.rule-value').placeholder = _aeMfPlaceholder(state[i].field, e.target.value);
+    });
+    div.querySelector('.rule-value').addEventListener('input', e => { state[i].value = e.target.value; });
     div.querySelector('.ae-rule-del').addEventListener('click', () => {
-      aeRules.splice(i, 1);
-      if (!aeRules.length) aeRules.push({field:'name_combined', op:'contains_all', value:''});
-      aeMfRender(); aePage = 0; renderAE();
+      state.splice(i, 1);
+      if (!state.length) state.push(defRule());
+      _aeMfRenderPanel(mode); aePage = 0; renderAE();
     });
   });
 }
+function aeMfRender()    { _aeMfRenderPanel('text');    }
+function aeMfRenderNum() { _aeMfRenderPanel('numeric'); }
 
 /* ─────────────────────────────────────────────────────────────
    Creative Testing — Multi-Filter (same engine as AE) + F1-F4 thresholds
@@ -5244,10 +5347,13 @@ function aeFiltered(){
       });
     }
   }
-  // Multi-Filter rules — every rule with a non-empty value must pass (AND)
-  const activeRules = aeRules.filter(r => (r.value || '').trim());
-  if (activeRules.length){
-    rows = rows.filter(r => activeRules.every(rule => aeMfMatch(r, rule)));
+  // Text Multi-Filter (inline card) — always safe to apply pre-window
+  // because name/status/category don't change with the date window.
+  // Numeric filters (drawer) are DEFERRED to renderAE / CSV export, so
+  // they run AFTER aeApplyWindow against on-screen (windowed) values.
+  const textRules = aeRules.filter(r => String(r.value ?? '').trim());
+  if (textRules.length){
+    rows = rows.filter(r => textRules.every(rule => aeMfMatch(r, rule)));
   }
   // Optional Group By
   rows = aeGroupBy(rows, groupBy);
@@ -6032,14 +6138,15 @@ function renderAE(){
   const hasWindow = Object.keys(aeWindowMetricsByAdId).length > 0
                     || aeWindowShopifyKeyIsActive()
                     || !!_aeWindowReachKey;
-  // Apply window overrides FIRST, then sort — so sort order matches the
-  // values the user actually sees in the table (was: aeFiltered sorted on
-  // lifetime values, then map(aeApplyWindow) rewrote them and the display
-  // looked out of order).
-  const rows = _aeSortRows(
-    aeFiltered().map(r => hasWindow ? aeApplyWindow(r) : r),
-    aeSortKey, aeSortDir
-  );
+  // Apply window overrides FIRST, then run numeric Filters (drawer) against
+  // the windowed values, then sort — so both filter and sort operate on the
+  // values the user actually sees in the table.
+  const _numRules = aeRulesNum.filter(rl => String(rl.value ?? '').trim());
+  let _windowed = aeFiltered().map(r => hasWindow ? aeApplyWindow(r) : r);
+  if (_numRules.length){
+    _windowed = _windowed.filter(r => _numRules.every(rule => aeMfMatch(r, rule)));
+  }
+  const rows = _aeSortRows(_windowed, aeSortKey, aeSortDir);
 
   // KPIs honour the date range + account + status + multi-filter (but NOT
   // category / discarded toggle — so clicking a card still shows the count
@@ -6078,9 +6185,17 @@ function renderAE(){
       });
     }
   }
-  const activeRules = aeRules.filter(rl => (rl.value || '').trim());
-  if (activeRules.length){
-    cats = cats.filter(r => activeRules.every(rule => aeMfMatch(r, rule)));
+  // Text rules (inline card) → apply on lifetime cats — name/status don't
+  // move with the window.  Numeric rules (drawer) → overlay windowed metrics
+  // first so "Spend ≥ X" matches the on-screen windowed value.
+  const activeText = aeRules   .filter(rl => String(rl.value ?? '').trim());
+  const activeNum  = aeRulesNum.filter(rl => String(rl.value ?? '').trim());
+  if (activeText.length){
+    cats = cats.filter(r => activeText.every(rule => aeMfMatch(r, rule)));
+  }
+  if (activeNum.length){
+    cats = cats.map(r => hasWindow ? aeApplyWindow(r) : r)
+               .filter(r => activeNum.every(rule => aeMfMatch(r, rule)));
   }
   // KPI card spend totals reflect window metrics when a range is set,
   // so "Winner spend: ₹5.9 Cr" becomes "Winner spend on 29/06: ₹X" the
@@ -6576,6 +6691,112 @@ document.getElementById('aePageSize').addEventListener('change', () => { aePage 
   // every current + future <td>/<th> in the table — no re-hook needed
   // for subsequent renderAE() calls.
   _applyHide();
+
+  // Expose the internals so the Inspector drawer's Metrics section can
+  // reuse the same state (single source of truth: localStorage 'aeHiddenCols_v1').
+  window._aeColpick = {
+    collectCols: _collectCols,
+    loadHidden,
+    saveHidden,
+    applyHide: _applyHide,
+    renderList: _renderList,
+    KEY,
+  };
+})();
+
+/* ─────────────────────────────────────────────────────────────
+   Inspector drawer — right-side Shopify-Analytics-style panel.
+   Sections: Metrics (column visibility) + Filters (multi-filter rules).
+   Filters live inside this drawer via #aeMfRows (moved from the inline card).
+   ───────────────────────────────────────────────────────────── */
+(function initAeInspector(){
+  const btn      = document.getElementById('aeInspBtn');
+  const drawer   = document.getElementById('aeInspector');
+  const closeBtn = document.getElementById('aeInspClose');
+  const backdrop = document.getElementById('aeInspBackdrop');
+  if (!btn || !drawer) return;
+
+  // ── Metrics section (mirror the ▤ Columns picker) ──
+  const listEl  = document.getElementById('aeInspMetricsList');
+  const search  = document.getElementById('aeInspMetricsSearch');
+  const cntEl   = document.getElementById('aeInspMetricsCount');
+
+  function renderMetrics(){
+    const api = window._aeColpick;
+    if (!api || !listEl) return;
+    const cols = api.collectCols();
+    const hidden = api.loadHidden();
+    if (cntEl) cntEl.textContent = (cols.length - hidden.size) + ' / ' + cols.length + ' shown';
+    const q = (search?.value || '').trim().toLowerCase();
+    const shown = cols.filter(c => !q || c.label.toLowerCase().includes(q));
+    if (!shown.length){
+      listEl.innerHTML = '<div class="ae-insp-metric-empty">No metrics match.</div>';
+      return;
+    }
+    listEl.innerHTML = shown.map(c => {
+      const isOn = !hidden.has(c.label);
+      const safe = c.label.replace(/</g, '&lt;').replace(/"/g,'&quot;');
+      return '<label class="ae-insp-metric-item' + (isOn ? '' : ' check-off') + '">' +
+        '<input type="checkbox" data-col-label="' + safe + '" ' + (isOn ? 'checked' : '') + '>' +
+        '<span class="lbl" title="' + safe + '">' + safe + '</span>' +
+      '</label>';
+    }).join('');
+    listEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const api = window._aeColpick; if (!api) return;
+        const label = cb.dataset.colLabel;
+        const set = api.loadHidden();
+        if (cb.checked) set.delete(label);
+        else            set.add(label);
+        api.saveHidden(set); api.applyHide();
+        // Repaint just this row's dimmed state — cheaper than re-rendering the list.
+        cb.closest('.ae-insp-metric-item')?.classList.toggle('check-off', !cb.checked);
+        if (cntEl){
+          const cols = api.collectCols();
+          cntEl.textContent = (cols.length - set.size) + ' / ' + cols.length + ' shown';
+        }
+        // Keep the legacy ▤ Columns panel in sync if it happens to be open.
+        try { api.renderList(); } catch(_){}
+      });
+    });
+  }
+  if (search) search.addEventListener('input', renderMetrics);
+
+  document.getElementById('aeInspMetricsAll')?.addEventListener('click', () => {
+    const api = window._aeColpick; if (!api) return;
+    api.saveHidden(new Set()); api.applyHide(); renderMetrics();
+  });
+  document.getElementById('aeInspMetricsNone')?.addEventListener('click', () => {
+    const api = window._aeColpick; if (!api) return;
+    const cols = api.collectCols();
+    api.saveHidden(new Set(cols.map(c => c.label))); api.applyHide(); renderMetrics();
+  });
+  document.getElementById('aeInspMetricsReset')?.addEventListener('click', () => {
+    const api = window._aeColpick; if (!api) return;
+    localStorage.removeItem(api.KEY); api.applyHide(); renderMetrics();
+  });
+
+  // ── Open / close ──
+  function open(){
+    drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false');
+    backdrop?.classList.add('open'); backdrop?.setAttribute('aria-hidden','false');
+    renderMetrics();
+    // Re-render numeric filter rules — drawer's Filters section.
+    if (typeof aeMfRenderNum === 'function') aeMfRenderNum();
+    setTimeout(() => search?.focus(), 40);
+  }
+  function close(){
+    drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true');
+    backdrop?.classList.remove('open'); backdrop?.setAttribute('aria-hidden','true');
+  }
+  btn.addEventListener('click', () => {
+    drawer.classList.contains('open') ? close() : open();
+  });
+  closeBtn?.addEventListener('click', close);
+  backdrop?.addEventListener('click', close);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && drawer.classList.contains('open')) close();
+  });
 })();
 // Manual date-input edits rebuild the delivery Set too (debounced)
 ['aeDateFrom','aeDateTo'].forEach(id =>
@@ -6606,8 +6827,8 @@ document.getElementById('aeClearFilters').onclick = async () => {
   document.getElementById('aeCategory').value  = '';
   await drpClearDateRange();   // also clears aeDateFrom/aeDateTo + button label
   aeSelectedCat = '';
-  aeRules = [];
-  aeMfRender();
+  aeRules = []; aeRulesNum = [];
+  aeMfRender(); aeMfRenderNum();
   await aeRebuildDeliverySet();
   aePage = 0; renderAE();
 };
@@ -6616,7 +6837,7 @@ document.getElementById('aeClearFilters').onclick = async () => {
 document.getElementById('aePrevPage').onclick = () => { if (aePage > 0) { aePage--; renderAE(); } };
 document.getElementById('aeNextPage').onclick = () => { aePage++; renderAE(); };
 
-// Multi-Filter buttons
+// Multi-Filter buttons — inline card (TEXT rules)
 document.getElementById('aeMfAdd').onclick = () => {
   aeRules.push({field:'name_combined', op:'contains_all', value:''});
   aeMfRender();
@@ -6627,9 +6848,23 @@ document.getElementById('aeMfClear').onclick = () => {
   aeMfRender();
   aePage = 0; renderAE();
 };
+// Inspector drawer — NUMERIC filter buttons
+document.getElementById('aeMfNumAdd')?.addEventListener('click', () => {
+  aeRulesNum.push({field:'amount_spent', op:'gte', value:''});
+  aeMfRenderNum();
+});
+document.getElementById('aeMfNumApply')?.addEventListener('click', () => {
+  aePage = 0; renderAE();
+});
+document.getElementById('aeMfNumClear')?.addEventListener('click', () => {
+  aeRulesNum = [];
+  aeMfRenderNum();
+  aePage = 0; renderAE();
+});
 
-// Render the initial empty rule on page load
+// Render the initial empty rule on page load — both panels
 aeMfRender();
+aeMfRenderNum();
 // Init the date-range pickers once the DOM is wired
 initDateRangePicker();
 initLifecycleDRP();
@@ -6689,14 +6924,17 @@ document.getElementById('aeBtnExport').onclick = () => {
   // computed asset_id, reach snapshot, and shopify metrics that the
   // renderer merges in but that aren't stored on the raw ae_table_view
   // row, so those columns don't come out blank.
-  // Sort matches the on-screen order: same window-then-sort pipeline as renderAE.
+  // Sort matches the on-screen order: same window-then-numeric-filter-then-sort
+  // pipeline as renderAE, so CSV export mirrors what the user is looking at.
   const hasWindow = Object.keys(aeWindowMetricsByAdId).length > 0
                     || aeWindowShopifyKeyIsActive()
                     || !!_aeWindowReachKey;
-  const rows = _aeSortRows(
-    aeFiltered().map(r => hasWindow ? aeApplyWindow(r) : r),
-    aeSortKey, aeSortDir
-  );
+  const _numRulesCsv = aeRulesNum.filter(rl => String(rl.value ?? '').trim());
+  let _windowedCsv = aeFiltered().map(r => hasWindow ? aeApplyWindow(r) : r);
+  if (_numRulesCsv.length){
+    _windowedCsv = _windowedCsv.filter(r => _numRulesCsv.every(rule => aeMfMatch(r, rule)));
+  }
+  const rows = _aeSortRows(_windowedCsv, aeSortKey, aeSortDir);
   exportVisibleTableCsv('#aeMain', rows, {
     filenamePrefix: 'ads_analyse',
     deriveRow: r => ({

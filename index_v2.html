@@ -702,11 +702,19 @@
         <button class="ae-fbtn" id="aeClearFilters" type="button">Clear Filters</button>
         <button class="ae-fbtn" id="aeEditAssetBtn" type="button"
                 title="Turn on to click-edit Asset ID cells">✎ Edit Asset ID</button>
+        <!-- Inspector drawer trigger — right-side panel with Metrics + numeric filters -->
+        <button class="ae-fbtn ae-insp-open" id="aeInspBtn" type="button"
+                title="Open Inspector — Metrics + Numeric Filters">
+          <span style="font-size:13px;line-height:1">⚙</span>
+          <span>Inspector</span>
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- Multi-Filter — chainable rules (Field × Operator × Value) -->
+  <!-- Multi-Filter (text search) — back in its original spot above the KPI cards.
+       Handles NAME / STATUS / CATEGORY / ID style rules only.  Numeric-threshold
+       rules (Spend ≥ X, ROAS ≥ Y, etc.) live in the right-side Inspector drawer. -->
   <div class="ae-fgrid row4">
     <div class="ae-fcard ae-mfilter">
       <div class="ae-mfilter-head">
@@ -720,6 +728,53 @@
       <button class="ae-mfilter-add" id="aeMfAdd" type="button">+ Add Rule</button>
     </div>
   </div>
+
+  <!-- Right-side Inspector drawer — Shopify-Analytics-style.  Contains
+       Metrics (column visibility) + Numeric Filters (metric × > < = ≠ ≤ ≥ × value). -->
+  <aside class="ae-inspector" id="aeInspector" aria-hidden="true">
+    <div class="ae-insp-head">
+      <div class="ae-insp-title">Controls</div>
+      <button class="ae-insp-close" id="aeInspClose" type="button" title="Close">×</button>
+    </div>
+    <div class="ae-insp-body">
+
+      <!-- ── Metrics section — column visibility -->
+      <section class="ae-insp-sect">
+        <div class="ae-insp-sect-hdr">
+          <span>Metrics</span>
+          <span class="ae-insp-sect-hint mono" id="aeInspMetricsCount">—</span>
+        </div>
+        <div class="ae-insp-sect-tools">
+          <input type="search" id="aeInspMetricsSearch" placeholder="Search metrics…" autocomplete="off">
+          <button class="ae-insp-mini" id="aeInspMetricsAll"   type="button">All</button>
+          <button class="ae-insp-mini" id="aeInspMetricsNone"  type="button">None</button>
+          <button class="ae-insp-mini" id="aeInspMetricsReset" type="button">Reset</button>
+        </div>
+        <div class="ae-insp-metrics-list" id="aeInspMetricsList"></div>
+      </section>
+
+      <!-- ── Numeric Filters section — chainable rules (Metric × > < = ≠ ≤ ≥ × Value).
+           Runs on-screen (windowed) values when a date range is active. -->
+      <section class="ae-insp-sect">
+        <div class="ae-insp-sect-hdr">
+          <span>Filters (numeric)</span>
+          <div class="ae-insp-sect-btns">
+            <button class="ae-insp-mini primary" id="aeMfNumApply" type="button">Apply</button>
+            <button class="ae-insp-mini"         id="aeMfNumClear" type="button">Clear</button>
+          </div>
+        </div>
+        <div class="ae-insp-filter-list" id="aeMfNumRows"></div>
+        <button class="ae-insp-add-rule" id="aeMfNumAdd" type="button">+ Add Filter</button>
+        <div class="ae-insp-help">
+          Pick a metric (Spend, ROAS, Impressions, Reach, Purchases, Cost/NCP, …)
+          then set a threshold using <span class="mono">&gt; &lt; = ≠ ≤ ≥ between</span>.
+          Filters run against the on-screen (windowed) values when a date range is active.
+        </div>
+      </section>
+
+    </div>
+  </aside>
+  <div class="ae-insp-backdrop" id="aeInspBackdrop" aria-hidden="true"></div>
 
   <!-- Hidden custom-range inputs (kept for backwards compat with the JS;
        use Date Range = Custom to show them) -->
@@ -2160,6 +2215,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ae_show_discarded_default"></script>
+<script src="assets/dashboard.js?v=ae_inspector_split_numeric"></script>
 </body>
 </html>

@@ -1113,6 +1113,151 @@
     .ae-mfilter-row .rule-value{grid-column:1 / -1}
     .ae-mfilter-row .ae-rule-del{grid-column:1 / -1}
   }
+
+  /* ────────────────────────────────────────────────────────────────
+     Inspector drawer — right-side, Shopify-Analytics style.
+     Holds Metrics (column visibility) + Filters (metric rules).
+     Off-canvas by default; slides in on toggle.
+     ──────────────────────────────────────────────────────────────── */
+  .ae-insp-open{
+    display:inline-flex;align-items:center;gap:6px;
+    background:linear-gradient(180deg, #EDE4D5 0%, #E4D8C4 100%);
+    border-color:#C7B393;color:#5C4632;
+  }
+  .ae-insp-open:hover{background:linear-gradient(180deg, #E4D8C4 0%, #D8C7AC 100%)}
+
+  .ae-inspector{
+    position:fixed; top:0; right:0; bottom:0;
+    width:420px; max-width:96vw;
+    background:var(--surface-1, #FAF7F1);
+    border-left:1px solid var(--border-warm, #DDD1BC);
+    box-shadow:-8px 0 24px rgba(60, 40, 20, 0.10);
+    transform:translateX(100%);
+    transition:transform .22s ease;
+    z-index:1000;
+    display:flex; flex-direction:column;
+    font-family:'Space Grotesk', 'Inter', sans-serif;
+  }
+  .ae-inspector.open{transform:translateX(0)}
+
+  .ae-insp-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px;
+    border-bottom:1px solid var(--border-warm, #DDD1BC);
+    background:var(--surface-2, #F3ECE0);
+  }
+  .ae-insp-title{
+    font-size:14px; font-weight:600; letter-spacing:0.3px;
+    color:var(--text-primary, #3A2D1F);
+  }
+  .ae-insp-close{
+    background:none; border:none; font-size:22px; line-height:1;
+    cursor:pointer; color:var(--text-tertiary); padding:0 6px;
+    border-radius:6px;
+  }
+  .ae-insp-close:hover{color:var(--text-primary); background:var(--surface-3, #E9E0D0)}
+
+  .ae-insp-body{
+    flex:1; overflow-y:auto; padding:14px 16px 24px;
+  }
+
+  .ae-insp-sect{
+    margin-bottom:18px;
+    padding:14px 14px 12px;
+    border:1px solid var(--border-warm, #DDD1BC);
+    border-radius:8px;
+    background:var(--surface-0, #FFF);
+  }
+  .ae-insp-sect-hdr{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:12px; font-weight:600; letter-spacing:0.6px;
+    color:var(--text-secondary); text-transform:uppercase;
+    margin-bottom:10px;
+  }
+  .ae-insp-sect-hint{font-size:10px; font-weight:400; color:var(--text-tertiary); text-transform:none}
+  .ae-insp-sect-btns{display:flex; gap:6px}
+  .ae-insp-sect-tools{
+    display:flex; gap:6px; align-items:center; margin-bottom:10px;
+  }
+  .ae-insp-sect-tools input[type="search"]{
+    flex:1; padding:7px 10px; font-size:12px;
+    border:1px solid var(--border-warm); border-radius:6px;
+    background:var(--surface-0); color:var(--text-primary);
+    font-family:inherit;
+  }
+  .ae-insp-mini{
+    padding:6px 10px; font-size:11px; font-weight:500;
+    border:1px solid var(--border-warm); background:var(--surface-1);
+    color:var(--text-secondary); border-radius:6px; cursor:pointer;
+  }
+  .ae-insp-mini:hover{background:var(--surface-2); color:var(--text-primary)}
+  .ae-insp-mini.primary{
+    background:#C0603A; border-color:#A0512E; color:#fff;
+  }
+  .ae-insp-mini.primary:hover{background:#A0512E}
+
+  /* Metrics list — dense checkbox list */
+  .ae-insp-metrics-list{
+    max-height:280px; overflow-y:auto;
+    border:1px solid var(--border-warm); border-radius:6px;
+    background:var(--surface-1, #FAF7F1);
+  }
+  .ae-insp-metric-item{
+    display:flex; align-items:center; gap:8px;
+    padding:6px 10px; font-size:12px;
+    cursor:pointer; border-bottom:1px solid rgba(0,0,0,0.03);
+  }
+  .ae-insp-metric-item:last-child{border-bottom:none}
+  .ae-insp-metric-item:hover{background:var(--surface-2)}
+  .ae-insp-metric-item input{margin:0}
+  .ae-insp-metric-item .lbl{
+    flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    color:var(--text-primary);
+  }
+  .ae-insp-metric-item.check-off .lbl{color:var(--text-tertiary)}
+  .ae-insp-metric-empty{padding:14px; text-align:center; color:var(--text-tertiary); font-size:11px}
+
+  /* Filter rules — 4-col grid: metric, op, value, delete */
+  .ae-insp-filter-list .ae-mfilter-row{
+    grid-template-columns: 1.3fr 1fr 1fr 28px;
+    gap:6px; margin-bottom:6px;
+  }
+  .ae-insp-filter-list .ae-mfilter-row .ae-finput{
+    padding:7px 8px; font-size:12px;
+  }
+  .ae-insp-filter-list .ae-mfilter-row select.rule-op{
+    font-family:'JetBrains Mono', 'Menlo', monospace; text-align:center;
+    font-weight:600;
+  }
+  .ae-insp-add-rule{
+    background:none; border:1px dashed var(--border-warm); color:#C0603A;
+    font-family:'Space Grotesk',sans-serif; font-weight:600;
+    cursor:pointer; padding:8px 0; font-size:12px; width:100%;
+    border-radius:6px; margin-top:4px;
+  }
+  .ae-insp-add-rule:hover{border-color:#C0603A; background:#FDF5EE}
+  .ae-insp-help{
+    font-size:10.5px; color:var(--text-tertiary);
+    padding:8px 4px 0; line-height:1.5;
+  }
+  .ae-insp-help .mono{font-family:'JetBrains Mono', monospace; color:var(--text-secondary)}
+
+  /* Backdrop */
+  .ae-insp-backdrop{
+    position:fixed; inset:0; background:rgba(60, 40, 20, 0.18);
+    opacity:0; pointer-events:none; transition:opacity .18s ease;
+    z-index:999;
+  }
+  .ae-insp-backdrop.open{opacity:1; pointer-events:auto}
+
+  @media (max-width:640px){
+    .ae-inspector{width:100vw}
+    .ae-insp-filter-list .ae-mfilter-row{
+      grid-template-columns: 1fr 1fr;
+    }
+    .ae-insp-filter-list .ae-mfilter-row .rule-value,
+    .ae-insp-filter-list .ae-mfilter-row .ae-rule-del{grid-column:1 / -1}
+  }
   /* Category KPI tints (reuse what's defined for #kpiRow but add IW/Pri/etc.) */
   .kpi[data-cls="incr"]      { --accent:var(--success-alt) }
   .kpi[data-cls="winner"]    { --accent:var(--success-mid) }
