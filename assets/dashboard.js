@@ -2039,6 +2039,20 @@ document.querySelectorAll('.sb-item').forEach(it => {
       if (activePreset === 'adset' || activePreset === 'campaign'){
         try { fetchAeShopifyRollups(); } catch(_){}
       }
+    } else if (v === 'ae' && !isHistoric){
+      // Regular "Ads Analyse" — reset filters that the Active shortcut may
+      // have left stuck. Users expect this button to be a "clean slate";
+      // without the reset, a stale Status=ACTIVE causes ~6.7× fewer rows to
+      // show than the delivery count in the footer suggests.
+      const st = document.getElementById('aeStatus');
+      const gb = document.getElementById('aeGroupBy');
+      if (st && st.value === 'ACTIVE') st.value = '';
+      if (gb && gb.value !== 'ad')     gb.value = 'ad';
+      document.querySelectorAll('#aeLevelToggle .ae-level-pill').forEach(p => {
+        const on = p.dataset.level === 'ad';
+        p.classList.toggle('active', on);
+        p.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
     }
     // Flip mode BEFORE the view renders so it reads the right flag.
     if (v in historicMode){
@@ -5205,9 +5219,8 @@ function aeFiltered(){
   });
   if (acct)   rows = rows.filter(r => (r.account_name || '') === acct);
   if (status) rows = rows.filter(r => (r.ad_status || '').toUpperCase() === status);
-  // Hide Discarded by default; clicking the Discarded KPI card reveals it
-  // (aeSelectedCat === 'Discarded' bypasses the filter below).
-  if (!aeSelectedCat) rows = rows.filter(r => r.category !== 'Discarded');
+  // Show every category (including Discarded) by default; a KPI card click
+  // narrows to just that category via aeSelectedCat.
   if (aeSelectedCat)  rows = rows.filter(r => r.category === aeSelectedCat);
   // Date-range filter
   if (dFrom || dTo){
@@ -5238,17 +5251,68 @@ function aeFiltered(){
   }
   // Optional Group By
   rows = aeGroupBy(rows, groupBy);
-  // sort
+  // NOTE: sort is intentionally NOT applied here anymore.  It's now the
+  // caller's job to sort AFTER any windowed-metric overrides (aeApplyWindow),
+  // otherwise the sort order is based on lifetime values but the display
+  // shows windowed values — looks jumbled to the user.  See _aeSortRows().
+  return rows;
+}
+
+// Category rank for the Category column — sorts by real priority (best →
+// worst) instead of alphabetical.  Anything not in the map falls to the end.
+const AE_CATEGORY_RANK = {
+  'Incremental Winner': 0,
+  'Winner':             1,
+  'P0 analysis':        2,
+  'P1 analysis':        3,
+  'P2 analysis':        4,
+  'Result Awaited':     5,
+  'Discarded':          6,
+};
+
+// Robust sort for the AE table.  Handles PostgREST numeric-strings, dates,
+// null/undefined sinking, booleans, category ranks, and mixed-type columns.
+function _aeSortRows(rows, key, dir){
+  if (!key) return rows;
+  const DATE_KEYS = new Set(['ad_created','first_seen_date','date_of_result',
+                             'reporting_ends','reporting_starts','date_target_imp_achieved']);
+  const d = dir === 'asc' ? 1 : -1;
   rows.sort((a, b) => {
-    let av = a[aeSortKey], bv = b[aeSortKey];
-    if (aeSortKey === 'ad_created') { av = new Date(av || 0); bv = new Date(bv || 0); }
-    else if (typeof av === 'string' || typeof bv === 'string'){
-      av = (av || '').toString(); bv = (bv || '').toString();
-      return aeSortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-    } else {
-      av = +av || 0; bv = +bv || 0;
+    let av = a[key], bv = b[key];
+    // 1. Nulls always sink
+    const aNull = av === null || av === undefined || av === '';
+    const bNull = bv === null || bv === undefined || bv === '';
+    if (aNull && bNull) return 0;
+    if (aNull) return 1;
+    if (bNull) return -1;
+    // 2. Category column — rank-based (Incremental Winner first, Discarded last)
+    if (key === 'category'){
+      const ar = AE_CATEGORY_RANK[av] ?? 99;
+      const br = AE_CATEGORY_RANK[bv] ?? 99;
+      return d * (ar - br);
     }
-    return aeSortDir === 'asc' ? (av - bv) : (bv - av);
+    // 3. Date columns — parse to ms epoch
+    if (DATE_KEYS.has(key)){
+      const ad = new Date(av).getTime();
+      const bd = new Date(bv).getTime();
+      const an = isNaN(ad) ? -Infinity : ad;
+      const bn = isNaN(bd) ? -Infinity : bd;
+      return d * (an - bn);
+    }
+    // 4. Booleans — false < true (numeric coerce)
+    if (typeof av === 'boolean' || typeof bv === 'boolean'){
+      return d * ((av ? 1 : 0) - (bv ? 1 : 0));
+    }
+    // 5. Numeric coercion — handles "5.75" string same as 5.75 number
+    const an = typeof av === 'number' ? av : parseFloat(av);
+    const bn = typeof bv === 'number' ? bv : parseFloat(bv);
+    const aNum = !isNaN(an), bNum = !isNaN(bn);
+    if (aNum && bNum) return d * (an - bn);
+    // 6. Mixed numeric + non-numeric → non-numeric sinks
+    if (aNum) return -1;
+    if (bNum) return 1;
+    // 7. Both non-numeric — locale-aware string compare
+    return d * String(av).localeCompare(String(bv));
   });
   return rows;
 }
@@ -5620,34 +5684,34 @@ function _ireachApplyPreset(p){
 // already handles the (ad_id, date) primary-wins dedup, so no audit
 // counter to surface any more.
 async function _ireachFetch(from, to){
+  // Uses the sheet-model RPC get_ireach_incremental_analysis. Returns per-entity
+  // rows already aggregated over the window:
+  //   incr_reach = MAX(0, cum_at_end - cum_at_start_prev)
+  //   cum_at_end = Meta cumulative unique reach at window end (from origin)
+  //   cum_at_start_prev = same, at (window_start - 1). Diff = new users in window.
+  //   spend / cost_per_1k_incr aggregated from the per-day *_daily tables.
   const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
-                   Prefer:'count=none'};
-  // Note: the campaign fetch also pulls account_name so the same rows can
-  // be re-aggregated at the account scope client-side (sum-of-campaigns).
-  const fetchAll = async (view, selectCols) => {
-    let out = [], offset = 0, BATCH = 5000;
-    while (true){
-      const url = SUPABASE_URL + '/rest/v1/' + view +
-                  '?select=' + selectCols +
-                  '&date=gte.' + from + '&date=lte.' + to +
-                  '&order=date.asc&limit=' + BATCH + '&offset=' + offset;
-      const r = await fetch(url, {headers});
-      if (!r.ok) throw new Error(view + ' HTTP ' + r.status);
-      const j = await r.json();
-      if (!Array.isArray(j) || !j.length) break;
-      out = out.concat(j);
-      if (j.length < BATCH) break;
-      offset += BATCH;
-    }
-    return out;
+                   'Content-Type':'application/json', Prefer:'count=none'};
+  const call = async (level) => {
+    const url = SUPABASE_URL + '/rest/v1/rpc/get_ireach_incremental_analysis';
+    const body = JSON.stringify({from_date: from, to_date: to, level_arg: level});
+    const r = await fetch(url, {method:'POST', headers, body});
+    if (!r.ok) throw new Error('ireach RPC ' + level + ' HTTP ' + r.status);
+    const j = await r.json();
+    return Array.isArray(j) ? j : [];
   };
-  const [camp, adset] = await Promise.all([
-    fetchAll('ireach_campaign_daily', 'account_name,campaign_name,date,reach_daily,spend_daily').catch(() => []),
-    fetchAll('ireach_adset_daily',    'account_name,adset_name,date,reach_daily,spend_daily'   ).catch(() => []),
+  const [account, camp, adset] = await Promise.all([
+    call('account').catch(() => []),
+    call('campaign').catch(() => []),
+    call('adset').catch(() => []),
   ]);
   return {
-    camp, adset,
-    audit: { camp_rows: camp.length, adset_rows: adset.length }
+    account, camp, adset,
+    audit: {
+      account_rows: account.length,
+      camp_rows: camp.length,
+      adset_rows: adset.length,
+    },
   };
 }
 
@@ -5685,18 +5749,17 @@ function _ireachAggregateFromDaily(rows, grpCol){
       totalReach += s.reach;
       totalSpend += s.spend;
     }
-    // Reach is a cumulative unique count and can never regress — clamp
-    // the (last - first) delta at 0. Meta's per-day unique-reach numbers
-    // can dip on quiet days; showing a negative delta would misread that
-    // as reach being "taken back" from the audience.
-    const incr = Math.max(0, (last?.reach || 0) - (first?.reach || 0));
+    // Incremental reach per user's sheet model:
+    //   cumulative[D]   = SUM(daily_reach) from origin to D
+    //   incremental[D]  = cumulative[D] - cumulative[D-1] = daily_reach[D]
+    //   window incr     = SUM(daily incrs) = SUM(daily_reach in window)
+    // So incr_reach = totalReach (SUM of daily reach across the window),
+    // and cost/1k = spend * 1000 / SUM(reach).
+    const incr = totalReach;
     const cpk  = incr > 0 ? (totalSpend / incr) * 1000 : null;
     out.push({
       grp,
-      // n_ads intentionally null — Meta's group-level insights don't
-      // expose an ad count and we deliberately avoid re-introducing
-      // primary_table as a source to compute it. Renderer displays "—".
-      n_ads: null,
+      n_ads: null,   // group-level insights don't expose ad count
       days:  series.length,
       first_reach: first?.reach || 0,
       last_reach : last?.reach  || 0,
@@ -5753,24 +5816,26 @@ function _ireachRenderScope(scope){
   const cntEl = document.getElementById(countId);
   if (cntEl) cntEl.textContent = fmtInt(rows.length) + noun;
   if (!rows.length){
-    body.innerHTML = '<tr><td colspan="10" style="padding:24px;text-align:center;color:var(--text-tertiary)">No groups match the current filter.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text-tertiary)">No groups match the current filter.</td></tr>';
     return;
   }
   // No pagination — render every row so nothing is silently dropped.
   // 261 adsets × ~1KB HTML each is still ~260KB, well under any DOM
   // limits, and lets the user Ctrl-F any group name.
   body.innerHTML = rows.map(r => {
-    // incr_reach is clamped ≥ 0 upstream — always render as a positive delta
+    // Sheet model:
+    //   base_reach = cumulative(window_start − 1)
+    //   cum_reach  = cumulative(window_end)
+    //   incr_reach = MAX(0, cum_reach − base_reach)
+    // cpk        = spend × 1000 / incr_reach
     return '<tr>'+
       '<td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+r.grp.replace(/"/g,'&quot;')+'">'+r.grp+'</td>'+
       '<td class="num">'+fmtInt(r.n_ads)+'</td>'+
       '<td class="num">'+fmtInt(r.days)+'</td>'+
-      '<td class="num">'+fmtInt(r.first_reach)+'</td>'+
-      '<td class="num">'+fmtInt(r.last_reach)+'</td>'+
-      '<td class="num">'+fmtInt(r.peak_reach)+'</td>'+
+      '<td class="num">'+fmtInt(r.base_reach)+'</td>'+
+      '<td class="num">'+fmtInt(r.cum_reach)+'</td>'+
       '<td class="num" style="color:var(--success-text);font-weight:700">'+
         '+'+fmtInt(r.incr_reach)+'</td>'+
-      '<td class="num">'+fmtInt(r.total_reach)+'</td>'+
       '<td class="num">'+fmtRs(r.spend)+'</td>'+
       '<td class="num">'+(r.cpk != null ? fmtRs(r.cpk) : '—')+'</td>'+
     '</tr>';
@@ -5829,10 +5894,11 @@ function _ireachRenderAudit(){
   if (!a || !el){ if (el) el.style.display = 'none'; return; }
   el.style.display = '';
   el.innerHTML =
-    '<span>Source · <b>public.ireach_campaign_daily</b> ('+
-      fmtInt(a.camp_rows)+' daily rows) + <b>public.ireach_adset_daily</b> ('+
-      fmtInt(a.adset_rows)+' daily rows) · dedup and grain rebuilt server-side by '+
-      'refresh_ireach_daily.py</span>';
+    '<span>Source · <b>ireach_cumulative_daily</b> (Meta unique reach, growing time_range from ORIGIN=2025-01-01) via '+
+    '<b>get_ireach_incremental_analysis()</b> RPC · returned '+
+      fmtInt(a.account_rows)+' accounts, '+
+      fmtInt(a.camp_rows)+' campaigns, '+
+      fmtInt(a.adset_rows)+' adsets · spend joined from ireach_*_daily</span>';
 }
 
 async function _ireachApply(){
@@ -5851,19 +5917,30 @@ async function _ireachApply(){
   status.innerHTML = 'Fetching from ireach_campaign_daily + ireach_adset_daily <span class="spinner"></span>';
   const t0 = performance.now();
   try {
-    const { camp, adset, audit } = await _ireachFetch(from, to);
+    const { account, camp, adset, audit } = await _ireachFetch(from, to);
     ireachState.audit = audit;
-    ireachState.camp.rows    = _ireachAggregateFromDaily(camp,  'campaign_name');
-    ireachState.adset.rows   = _ireachAggregateFromDaily(adset, 'adset_name');
-    // Account rows re-aggregate the campaign-daily source by account_name
-    // (sum reach across campaigns per (account, date) — see aggregator).
-    ireachState.account.rows = _ireachAggregateFromDaily(camp,  'account_name');
+    // RPC rows are per-entity; adapt to the shape the renderer expects.
+    // The 'grp' key is what the sort/search/status-filter code targets.
+    const _shape = rows => rows.map(r => ({
+      grp:              r.entity_name || '(unnamed)',
+      entity_id:        r.entity_id,
+      account_name:     r.account_name,
+      n_ads:            null,                          // group-level Meta insights don't expose ad count
+      days:             r.n_days || 0,
+      base_reach:       +r.cum_at_start_prev || 0,     // sheet's "Base Reach D1+D2"
+      cum_reach:        +r.cum_at_end || 0,            // sheet's "Cumulative Reach D1+D2+D3"
+      incr_reach:       +r.incr_reach || 0,            // MAX(0, cum − base)
+      spend:            +r.spend || 0,
+      cpk:              r.cost_per_1k_incr == null ? null : +r.cost_per_1k_incr,
+    }));
+    ireachState.account.rows = _shape(account);
+    ireachState.camp.rows    = _shape(camp);
+    ireachState.adset.rows   = _shape(adset);
     const dt = ((performance.now()-t0)/1000).toFixed(1);
-    status.innerHTML = 'Aggregated <b>'+fmtInt(camp.length + adset.length)+
-      '</b> pre-deduped daily rows into <b>'+
+    status.innerHTML = 'Loaded <b>' +
       fmtInt(ireachState.account.rows.length)+'</b> accounts, <b>'+
       fmtInt(ireachState.camp.rows.length)+'</b> campaigns and <b>'+
-      fmtInt(ireachState.adset.rows.length)+'</b> adsets · '+dt+'s';
+      fmtInt(ireachState.adset.rows.length)+'</b> adsets · sheet model (cum(end)−cum(start−1)) · '+dt+'s';
     _ireachRender();
   } catch (e){
     status.textContent = 'Error: ' + (e.message || e);
@@ -5955,7 +6032,14 @@ function renderAE(){
   const hasWindow = Object.keys(aeWindowMetricsByAdId).length > 0
                     || aeWindowShopifyKeyIsActive()
                     || !!_aeWindowReachKey;
-  const rows = aeFiltered().map(r => hasWindow ? aeApplyWindow(r) : r);
+  // Apply window overrides FIRST, then sort — so sort order matches the
+  // values the user actually sees in the table (was: aeFiltered sorted on
+  // lifetime values, then map(aeApplyWindow) rewrote them and the display
+  // looked out of order).
+  const rows = _aeSortRows(
+    aeFiltered().map(r => hasWindow ? aeApplyWindow(r) : r),
+    aeSortKey, aeSortDir
+  );
 
   // KPIs honour the date range + account + status + multi-filter (but NOT
   // category / discarded toggle — so clicking a card still shows the count
@@ -6022,7 +6106,21 @@ function renderAE(){
   setKPI('pr', 'P0 analysis');
   setKPI('a1', 'P1 analysis');
   setKPI('a2', 'P2 analysis');
+  setKPI('ra', 'Result Awaited');   // created-date-anchored; delivery date filter doesn't move it
   setKPI('d',  'Discarded');
+  // Total row — sum of ALL KPI cards (Discarded is no longer hidden by
+  // default, so the total matches the table row count directly).
+  const _kpiTotalN = document.getElementById('aeKpiTotalN');
+  if (_kpiTotalN){
+    if (aeSelectedCat){
+      const x = totalsByCat[aeSelectedCat] || {n:0};
+      _kpiTotalN.textContent = fmtInt(x.n);
+    } else {
+      let n = 0;
+      for (const v of Object.values(totalsByCat)) n += v.n;
+      _kpiTotalN.textContent = fmtInt(n);
+    }
+  }
 
   // Reflect selected card visually
   document.querySelectorAll('#aeCats .kpi').forEach(card => {
@@ -6208,7 +6306,7 @@ function renderAE(){
     if (th.dataset.sort === aeSortKey) th.classList.add(aeSortDir === 'asc' ? 'sort-asc' : 'sort-desc');
   });
 
-  const hiddenNote = aeSelectedCat ? '' : ' · Discarded hidden (click Discarded KPI to show)';
+  const hiddenNote = '';   // Discarded no longer hidden by default
   // Diagnostic strip: shows which date-field mode is active + delivery-set size
   const dfEl = document.getElementById('aeDateField');
   const dfVal = dfEl ? dfEl.value : '';
@@ -6224,10 +6322,33 @@ function renderAE(){
       : ' · window metrics loading…';
   }
   const catNote = aeSelectedCat ? (' · category=' + aeSelectedCat) : '';
+  // Surface any non-default filter so the user can see WHY the row count
+  // is lower than the delivery-set headline (e.g., status=ACTIVE dropping
+  // 6,955 → 1,002 was invisible until this footer.
+  const acctVal   = document.getElementById('aeAcct')?.value    || '';
+  const statusVal = document.getElementById('aeStatus')?.value  || '';
+  const groupVal  = document.getElementById('aeGroupBy')?.value || 'ad';
+  const activeFilters = [];
+  if (acctVal)             activeFilters.push('account=' + acctVal);
+  if (statusVal)           activeFilters.push('status=' + statusVal);
+  if (groupVal !== 'ad')   activeFilters.push('group=' + groupVal);
+  const filterNote = activeFilters.length ? ' · [' + activeFilters.join(' · ') + ']' : '';
+  // Build the drop-off cascade so the raw delivery-set headline (e.g., 8,548)
+  // and the visible-table row count can be reconciled at a glance.
+  let cascadeNote = '';
+  if (dFromStr || dToStr){
+    const raw = aeDeliverySet ? aeDeliverySet.size : allAds.length;
+    const parts = ['delivered ' + fmtInt(raw)];
+    if (totalRows !== raw){
+      parts.push('post-partition+filters ' + fmtInt(totalRows));
+    }
+    parts.push('shown ' + fmtInt(slice.length));
+    cascadeNote = ' · ' + parts.join(' → ');
+  }
   document.getElementById('aeFooter').textContent =
     'Showing ' + fmtInt(slice.length) + ' of ' + fmtInt(totalRows) + ' filtered ' +
     '(' + fmtInt(allAds.length) + ' total in ae_table_view' + hiddenNote + ')'+
-    modeNote + catNote;
+    modeNote + catNote + filterNote + cascadeNote;
 
   // Pagination footer
   document.getElementById('aeRowInfo').textContent   = fmtInt(totalRows) + ' rows';
@@ -6525,6 +6646,10 @@ document.getElementById('aeCats').addEventListener('click', e => {
 document.querySelectorAll('#aeMain thead th').forEach(th => {
   th.addEventListener('click', () => {
     const k = th.dataset.sort;
+    // Guard: Preview and Attribution columns have no data-sort; ignoring the
+    // click prevents aeSortKey from being set to undefined (which silently
+    // broke every subsequent sort).
+    if (!k) return;
     if (aeSortKey === k) aeSortDir = (aeSortDir === 'asc') ? 'desc' : 'asc';
     else { aeSortKey = k; aeSortDir = 'desc'; }
     renderAE();
@@ -6564,7 +6689,14 @@ document.getElementById('aeBtnExport').onclick = () => {
   // computed asset_id, reach snapshot, and shopify metrics that the
   // renderer merges in but that aren't stored on the raw ae_table_view
   // row, so those columns don't come out blank.
-  const rows = aeFiltered();
+  // Sort matches the on-screen order: same window-then-sort pipeline as renderAE.
+  const hasWindow = Object.keys(aeWindowMetricsByAdId).length > 0
+                    || aeWindowShopifyKeyIsActive()
+                    || !!_aeWindowReachKey;
+  const rows = _aeSortRows(
+    aeFiltered().map(r => hasWindow ? aeApplyWindow(r) : r),
+    aeSortKey, aeSortDir
+  );
   exportVisibleTableCsv('#aeMain', rows, {
     filenamePrefix: 'ads_analyse',
     deriveRow: r => ({

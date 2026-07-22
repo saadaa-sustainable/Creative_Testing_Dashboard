@@ -1119,6 +1119,7 @@
   .kpi[data-cls="priority"]  { --accent:var(--info-mid) }
   .kpi[data-cls="analyze1"]  { --accent:var(--warning-mid) }
   .kpi[data-cls="analyze2"]  { --accent:var(--warning-text) }
+  .kpi[data-cls="result_awaited"] { --accent:var(--text-tertiary) }
   .kpi[data-cls="discarded"] { --accent:var(--error-mid) }
   .kpi.cat-selected{box-shadow:0 0 0 2px var(--accent-yellow) inset;
     background:var(--accent-warm-tint)}

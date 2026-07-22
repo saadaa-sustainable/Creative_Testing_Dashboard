@@ -748,14 +748,30 @@
       <div class="k-lbl">P2 analysis</div><div class="k-val mono" id="aeKp-a2">—</div>
       <div class="k-sub">spend <b id="aeKp-a2-sp">—</b></div>
     </div>
+    <div class="kpi" data-cat="Result Awaited" data-cls="result_awaited"
+         title="Result Awaited ads: within 14 days of ad_created and haven't crossed F1 yet. This card is anchored on the CREATED date only — the Delivery Date filter doesn't move it (unlike the other cards, which are delivery-scoped when a range is picked).">
+      <div class="k-lbl">Result Awaited
+        <span style="font-size:9px;color:var(--text-tertiary);font-weight:400;margin-left:4px;padding:1px 4px;border:1px solid var(--border-warm);border-radius:3px;vertical-align:middle">created only</span>
+      </div>
+      <div class="k-val mono" id="aeKp-ra">—</div>
+      <div class="k-sub">spend <b id="aeKp-ra-sp">—</b></div>
+    </div>
     <div class="kpi" data-cat="Discarded" data-cls="discarded">
       <div class="k-lbl">Discarded</div><div class="k-val mono" id="aeKp-d">—</div>
       <div class="k-sub">spend <b id="aeKp-d-sp">—</b></div>
     </div>
   </div>
 
-  <!-- Discarded ads are hidden by default; click the Discarded KPI card above to reveal them -->
-  <div style="display:flex;justify-content:flex-end;align-items:center;margin:8px 2px 6px">
+  <!-- Discarded ads are hidden by default; click the Discarded KPI card above to reveal them.
+       Sum-vs-rows: KPI total (excl. Discarded) = table row count when Group By = Ad
+       and no card is clicked. Grouped views (Adset/Campaign) collapse rows;
+       the footer shows both the ad-level KPI sum AND the visible row count. -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin:8px 2px 6px">
+    <span id="aeKpiTotals" style="font-size:11px;color:var(--text-tertiary)">
+      <span title="Sum of Incremental Winner + Winner + P0 + P1 + P2 + Result Awaited (Discarded excluded — hidden in the table by default). Click Discarded to include it.">
+        Total shown in table: <b class="mono" id="aeKpiTotalN">—</b> ads
+      </span>
+    </span>
     <span id="aeFooter" style="font-size:11px;color:var(--text-tertiary)">—</span>
   </div>
 
@@ -911,7 +927,7 @@
       <!-- Toggle: which grouping to show. Both aggregations are computed
            on Apply; the toggle just flips which table is visible. -->
       <div class="life-toggle" id="ireachScope">
-        <button class="lt-btn"        data-scope="account" type="button" title="Aggregate at the ad-account level (sum of campaign daily reaches per account)">Account</button>
+        <button class="lt-btn"        data-scope="account" type="button" title="Aggregate at the ad-account level (Meta cumulative unique reach at account level from ireach_cumulative_daily)">Account</button>
         <button class="lt-btn active" data-scope="camp"    type="button">Campaign</button>
         <button class="lt-btn"        data-scope="adset"   type="button">Adset</button>
       </div>
@@ -949,13 +965,14 @@
     </div>
     <div class="def-note" style="margin:0 0 12px 0">
       <span class="def-note-icon">◆</span>
-      <span>Reach is the <b>unique audience per group per day</b>, pulled straight
-      from Meta's <code>/insights?level=campaign|adset</code>. That's Meta's own
-      dedup — you can't get it by summing <code>primary_table.reach</code>, which
-      overcounts because the same user seeing two ads in the same campaign gets
-      counted twice. Incremental reach is <code>reach_last − reach_first</code>
-      across the window at the group level. Window capped at 2025-01-01 on the
-      low end; older data lives in <b>Historic Reach</b>.</span>
+      <span><b>Sheet model — true Meta cumulative reach.</b>
+      <code>Cumulative Reach(D)</code> is Meta's unique reach across <code>[ORIGIN, D]</code>
+      (growing time_range), stored in <b>ireach_cumulative_daily</b>.
+      <code>Incremental Reach = MAX(0, Cumulative(window_end) − Cumulative(window_start − 1))</code>
+      — new unique users first reached during the window. Naturally never negative
+      (Meta occasionally recalculates and cumulative can dip; the clamp handles that).
+      <code>Cost / 1k Incr = spend × 1000 / Incremental Reach</code>.
+      Window capped at 2025-01-01 on the low end; older data lives in <b>Historic Reach</b>.</span>
     </div>
     <div style="font-size:11px;color:var(--text-tertiary)" id="ireachStatus">Ready — click Apply to load.</div>
     <div id="ireachAudit" style="font-size:11px;color:var(--text-tertiary);
@@ -970,7 +987,7 @@
       <div class="ireach-sec-hdr">
         <span class="ireach-sec-ttl">Account level
           <span style="font-weight:400;color:var(--text-tertiary);font-size:11px">
-            (sum of campaign daily reaches — approximate)
+            (Meta cumulative unique reach — sheet model)
           </span>
         </span>
         <span class="ireach-sec-sub" id="ireachAccountCount">—</span>
@@ -978,30 +995,25 @@
       <div style="overflow:auto;max-height:calc(100vh - 260px);margin-top:6px">
         <table class="tbl ae-tbl" id="ireachTblAccount" style="margin:0;table-layout:fixed;width:100%">
           <colgroup>
-            <col style="width:34%"><col style="width:60px"><col style="width:78px">
-            <col style="width:90px"><col style="width:100px"><col style="width:92px">
-            <col style="width:98px"><col style="width:110px"><col style="width:110px">
-            <col style="width:118px">
+            <col style="width:36%"><col style="width:70px"><col style="width:90px">
+            <col style="width:130px"><col style="width:150px"><col style="width:130px">
+            <col style="width:130px"><col style="width:130px">
           </colgroup>
           <thead><tr>
             <th data-irsort="grp" data-ir-tbl="account">Account</th>
             <th class="num" data-irsort="n_ads"       data-ir-tbl="account">Ads</th>
             <th class="num" data-irsort="days"        data-ir-tbl="account">Days delivered</th>
-            <th class="num" data-irsort="first_reach" data-ir-tbl="account"
-                title="Sum of campaign daily reaches on the first day of the window">Reach D1</th>
-            <th class="num" data-irsort="last_reach"  data-ir-tbl="account"
-                title="Sum of campaign daily reaches on the last day of the window">Reach D-last</th>
-            <th class="num" data-irsort="peak_reach"  data-ir-tbl="account"
-                title="Peak sum-of-campaign daily reach anywhere in the window">Peak reach</th>
+            <th class="num" data-irsort="base_reach" data-ir-tbl="account"
+                title="Base Reach (D1+D2) — Meta account-level cumulative unique reach at (window_start − 1).">Base Reach</th>
+            <th class="num" data-irsort="cum_reach"  data-ir-tbl="account"
+                title="Cumulative Reach (D1+D2+D3) — Meta account-level cumulative unique reach at window end.">Cumulative Reach</th>
             <th class="num" data-irsort="incr_reach"  data-ir-tbl="account"
-                title="Reach D-last − Reach D1 at the account level (sum-of-campaigns delta)">Incr. reach</th>
-            <th class="num" data-irsort="total_reach" data-ir-tbl="account"
-                title="Total delivered impressions equivalent — sum of daily aggregated reach">Σ daily reach</th>
+                title="Incremental Reach = MAX(0, Cumulative − Base). New unique users first reached by the account during the window.">Incr. Reach</th>
             <th class="num" data-irsort="spend"       data-ir-tbl="account">Spend</th>
             <th class="num" data-irsort="cpk"         data-ir-tbl="account"
-                title="Total spend ÷ incremental reach × 1000">Cost / 1k incr.</th>
+                title="Total spend × 1000 ÷ Incremental Reach — cost to reach 1000 new unique users.">Cost / 1k Incr</th>
           </tr></thead>
-          <tbody id="ireachBodyAccount"><tr><td colspan="10" style="padding:24px;text-align:center;color:var(--text-tertiary)">Pick a window and click Apply.</td></tr></tbody>
+          <tbody id="ireachBodyAccount"><tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text-tertiary)">Pick a window and click Apply.</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -1015,30 +1027,25 @@
       <div style="overflow:auto;max-height:calc(100vh - 260px);margin-top:6px">
         <table class="tbl ae-tbl" id="ireachTblCamp" style="margin:0;table-layout:fixed;width:100%">
           <colgroup>
-            <col style="width:34%"><col style="width:60px"><col style="width:78px">
-            <col style="width:90px"><col style="width:100px"><col style="width:92px">
-            <col style="width:98px"><col style="width:110px"><col style="width:110px">
-            <col style="width:118px">
+            <col style="width:36%"><col style="width:70px"><col style="width:90px">
+            <col style="width:130px"><col style="width:150px"><col style="width:130px">
+            <col style="width:130px"><col style="width:130px">
           </colgroup>
           <thead><tr>
             <th data-irsort="grp" data-ir-tbl="camp">Campaign</th>
             <th class="num" data-irsort="n_ads"       data-ir-tbl="camp">Ads</th>
             <th class="num" data-irsort="days"        data-ir-tbl="camp">Days delivered</th>
-            <th class="num" data-irsort="first_reach" data-ir-tbl="camp"
-                title="Aggregated daily reach on the first day of the window">Reach D1</th>
-            <th class="num" data-irsort="last_reach"  data-ir-tbl="camp"
-                title="Aggregated daily reach on the last day of the window">Reach D-last</th>
-            <th class="num" data-irsort="peak_reach"  data-ir-tbl="camp"
-                title="Peak aggregated daily reach anywhere in the window">Peak reach</th>
+            <th class="num" data-irsort="base_reach" data-ir-tbl="camp"
+                title="Base Reach (D1+D2) — Meta cumulative unique reach at (window_start − 1). From ireach_cumulative_daily.">Base Reach</th>
+            <th class="num" data-irsort="cum_reach"  data-ir-tbl="camp"
+                title="Cumulative Reach (D1+D2+D3) — Meta cumulative unique reach at window end. From ireach_cumulative_daily.">Cumulative Reach</th>
             <th class="num" data-irsort="incr_reach"  data-ir-tbl="camp"
-                title="Reach D-last − Reach D1 at the group level (not sum of per-ad increments)">Incr. reach</th>
-            <th class="num" data-irsort="total_reach" data-ir-tbl="camp"
-                title="Total delivered impressions equivalent — sum of daily aggregated reach">Σ daily reach</th>
+                title="Incremental Reach = MAX(0, Cumulative − Base). New unique users first reached during the window (sheet model).">Incr. Reach</th>
             <th class="num" data-irsort="spend"       data-ir-tbl="camp">Spend</th>
             <th class="num" data-irsort="cpk"         data-ir-tbl="camp"
-                title="Total spend ÷ incremental reach × 1000">Cost / 1k incr.</th>
+                title="Total spend × 1000 ÷ Incremental Reach — cost to reach 1000 new unique users.">Cost / 1k Incr</th>
           </tr></thead>
-          <tbody id="ireachBodyCamp"><tr><td colspan="10" style="padding:24px;text-align:center;color:var(--text-tertiary)">Pick a window and click Apply.</td></tr></tbody>
+          <tbody id="ireachBodyCamp"><tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text-tertiary)">Pick a window and click Apply.</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -1052,30 +1059,25 @@
       <div style="overflow:auto;max-height:calc(100vh - 260px);margin-top:6px">
         <table class="tbl ae-tbl" id="ireachTblAdset" style="margin:0;table-layout:fixed;width:100%">
           <colgroup>
-            <col style="width:34%"><col style="width:60px"><col style="width:78px">
-            <col style="width:90px"><col style="width:100px"><col style="width:92px">
-            <col style="width:98px"><col style="width:110px"><col style="width:110px">
-            <col style="width:118px">
+            <col style="width:36%"><col style="width:70px"><col style="width:90px">
+            <col style="width:130px"><col style="width:150px"><col style="width:130px">
+            <col style="width:130px"><col style="width:130px">
           </colgroup>
           <thead><tr>
             <th data-irsort="grp" data-ir-tbl="adset">Adset</th>
             <th class="num" data-irsort="n_ads"       data-ir-tbl="adset">Ads</th>
             <th class="num" data-irsort="days"        data-ir-tbl="adset">Days delivered</th>
-            <th class="num" data-irsort="first_reach" data-ir-tbl="adset"
-                title="Aggregated daily reach on the first day of the window">Reach D1</th>
-            <th class="num" data-irsort="last_reach"  data-ir-tbl="adset"
-                title="Aggregated daily reach on the last day of the window">Reach D-last</th>
-            <th class="num" data-irsort="peak_reach"  data-ir-tbl="adset"
-                title="Peak aggregated daily reach anywhere in the window">Peak reach</th>
+            <th class="num" data-irsort="base_reach" data-ir-tbl="adset"
+                title="Base Reach (D1+D2) — Meta cumulative unique reach at (window_start − 1).">Base Reach</th>
+            <th class="num" data-irsort="cum_reach"  data-ir-tbl="adset"
+                title="Cumulative Reach (D1+D2+D3) — Meta cumulative unique reach at window end.">Cumulative Reach</th>
             <th class="num" data-irsort="incr_reach"  data-ir-tbl="adset"
-                title="Reach D-last − Reach D1 at the group level (not sum of per-ad increments)">Incr. reach</th>
-            <th class="num" data-irsort="total_reach" data-ir-tbl="adset"
-                title="Total delivered impressions equivalent — sum of daily aggregated reach">Σ daily reach</th>
+                title="Incremental Reach = MAX(0, Cumulative − Base). New unique users first reached during the window.">Incr. Reach</th>
             <th class="num" data-irsort="spend"       data-ir-tbl="adset">Spend</th>
             <th class="num" data-irsort="cpk"         data-ir-tbl="adset"
-                title="Total spend ÷ incremental reach × 1000">Cost / 1k incr.</th>
+                title="Total spend × 1000 ÷ Incremental Reach — cost to reach 1000 new unique users.">Cost / 1k Incr</th>
           </tr></thead>
-          <tbody id="ireachBodyAdset"><tr><td colspan="10" style="padding:24px;text-align:center;color:var(--text-tertiary)">Pick a window and click Apply.</td></tr></tbody>
+          <tbody id="ireachBodyAdset"><tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text-tertiary)">Pick a window and click Apply.</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -2158,6 +2160,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ireach_account_status"></script>
+<script src="assets/dashboard.js?v=ae_show_discarded_default"></script>
 </body>
 </html>

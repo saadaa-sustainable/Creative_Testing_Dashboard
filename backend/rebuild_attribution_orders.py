@@ -230,6 +230,37 @@ def load_ad_universe():
       GROUP BY ad_id
     """)
     lifetime_spend = {ad_id: float(s or 0) for ad_id, s in cur.fetchall()}
+    # User-managed asset_id mapping — feeds the adset-scoped "asset_id appears
+    # in utm_content" match so orders like SDCP_whisper-Hook_FLVO_Jan2025 route
+    # to the correct within-adset ad even when a globally-named clone exists.
+    cur.execute("""
+      SELECT ad_id, asset_id FROM public.ad_asset_ids
+      WHERE ad_id IS NOT NULL AND asset_id IS NOT NULL AND asset_id <> ''
+    """)
+    asset_by_ad = {ad_id: aid.strip() for ad_id, aid in cur.fetchall()}
+    # Historical ad names (manual + auto-fetched from Meta /activities).
+    # Meta bakes the ORIGINAL ad_name into utm_content at ad-launch time —
+    # so renames leave utms pointing at the old name. Add every known
+    # historical name to the ad's names set so those utms still match.
+    cur.execute("""
+      SELECT ad_id, historical_name FROM public.ad_name_history
+      WHERE ad_id IS NOT NULL AND historical_name IS NOT NULL
+    """)
+    name_history = {}
+    for ad_id, hn in cur.fetchall():
+        name_history.setdefault(ad_id, set()).add(hn.strip())
+    # Manual attribution overrides (utm_content substring → target_ad_id).
+    # Consulted BEFORE Step 1 so specific patterns win over ad_id / name matches.
+    cur.execute("""
+      SELECT pattern, target_ad_id FROM public.ad_attribution_overrides
+      WHERE pattern IS NOT NULL AND target_ad_id IS NOT NULL
+    """)
+    # Sort by pattern length desc so longer (more specific) patterns win when
+    # multiple overrides match the same utm_content.
+    overrides = sorted(
+        [(p.strip(), t.strip()) for p, t in cur.fetchall() if p and t],
+        key=lambda x: -len(x[0])
+    )
     # Distinct (ad_id, ad_name, ...) — keep every historical ad_name variant
     cur.execute("""
       SELECT DISTINCT ad_id, ad_name, adset_id, adset_name,
@@ -304,9 +335,20 @@ def load_ad_universe():
         if m["campaign_name"]: camp_name_ads[m["campaign_name"]].append(m)
         if m["campaign_id"]:   camp_id_ads[m["campaign_id"]].append(m)
 
-    # Attach lifetime spend to every rich-meta record.
+    # Attach lifetime spend + user-assigned asset_id to every rich-meta record.
     for ad_id, m in rich.items():
         m["lifetime_spend"] = lifetime_spend.get(ad_id, 0.0)
+        m["asset_id_manual"] = asset_by_ad.get(ad_id, "")
+        # Merge historical names (from ad_name_history) into the ad's names set.
+        # Also register them in the global by_name / by_fuzzy indexes so the
+        # Step 2 global lookup can find the ad by its original name too.
+        for hn in name_history.get(ad_id, ()):
+            m["names"].add(hn)
+            if ad_id not in by_name[hn]:
+                by_name[hn].append(ad_id)
+            f = norm_name(hn)
+            if f and ad_id not in by_fuzzy[f]:
+                by_fuzzy[f].append(ad_id)
 
     # Global name index for T2 substring + sep-normalized matching.
     # One entry per (ad_id, historical_name) pair, ordered by ad_name length
@@ -326,7 +368,7 @@ def load_ad_universe():
         f"{len(by_campaign_name):,} campaign names, "
         f"{len(name_index):,} (ad,name) pairs for global substring")
     return (by_id, by_name, by_fuzzy, by_adset, by_campaign_name, by_campaign_id,
-            adset_ads, camp_name_ads, camp_id_ads, name_index)
+            adset_ads, camp_name_ads, camp_id_ads, name_index, overrides)
 
 
 # ────────────────────────────────────────────────────────────────
@@ -412,6 +454,22 @@ def _scoped_match(ads, name_cand, order_date, scope):
     for a in ads:
         if nc in a["names"]:
             return (a, n_root)
+
+    # Asset-id match: the user-managed asset_id from ad_asset_ids appears
+    # in the utm_content. Common pattern — the utm carries a suffix like
+    # "..._FLVO_Jan2025" where FLVO_Jan2025 is the asset_id for one specific
+    # ad in this adset. Picks the ad whose asset_id is a substring of nc.
+    # If multiple ads share the same asset_id (creative reused), tiebreak
+    # by highest lifetime spend so we route to the ad that actually delivered.
+    asset_hits = [a for a in ads
+                  if a.get("asset_id_manual")
+                  and a["asset_id_manual"].lower() in nc_l]
+    if len(asset_hits) == 1:
+        return (asset_hits[0], n_root)
+    if len(asset_hits) >= 2:
+        # Tiebreak by lifetime spend descending; the delivered ad wins.
+        asset_hits.sort(key=lambda a: -(a.get("lifetime_spend") or 0))
+        return (asset_hits[0], n_root)
 
     # fuzzy: norm_name (suffix-stripped, whitespace-collapsed, lowercased)
     f = norm_name(nc)
@@ -504,7 +562,7 @@ def attribute_order(ca, maps, order_created_at=None):
     Date-based and asset-code guessing was removed.
     """
     (by_id, by_name, by_fuzzy, by_adset, by_camp_name, by_camp_id,
-     adset_ads, camp_name_ads, camp_id_ads, name_index) = maps
+     adset_ads, camp_name_ads, camp_id_ads, name_index, overrides) = maps
 
     utm_content = (ca.get("utm_content")  or "").strip()
     utm_term    = (ca.get("utm_term")     or "").strip()
@@ -528,11 +586,42 @@ def attribute_order(ca, maps, order_created_at=None):
         _ATTR_CACHE[cache_key] = r
         return r
 
+    # T0 (override): manual utm_content substring → target_ad_id from
+    # public.ad_attribution_overrides.  Runs BEFORE Step 1 so specific
+    # patterns beat ad_id direct matches (used to consolidate paused-clone
+    # attribution back to the ACTIVE ad — e.g., all "DIVYAYRIAC" orders
+    # route to the currently-active DIVYAYRIAC creative, not to a clone).
+    # Sorted longest-pattern-first upstream; first hit wins.
+    if utm_content:
+        uc_lower = utm_content.lower()
+        for pat, tgt in overrides:
+            if pat and pat.lower() in uc_lower and tgt in by_id:
+                m = by_id[tgt]
+                return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
+                             pat, "Step 1"))
+
     # T1: utm_content is a numeric ad_id in our universe
     if utm_content.isdigit() and utm_content in by_id:
         m = by_id[utm_content]
         return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
                      utm_content, "Step 1"))
+
+    # Step 3 EARLY — adset-scoped match takes priority over global Step 2 when
+    # utm_term is a known adset. This prevents a globally-named clone (often an
+    # archived "Copy" ad with zero spend) from beating the real active ad that
+    # actually lives inside the adset the user tagged. Falls through to Step 2
+    # if the adset scope can't narrow to exactly one ad (multi-hit ambiguity).
+    for adset_cand_early in (attr_adset_id, utm_term):
+        if not adset_cand_early: continue
+        ads_early = adset_ads.get(adset_cand_early)
+        if not ads_early: continue
+        a_early, tier_early = _scoped_match(ads_early, name_cand, order_date, "adset")
+        if a_early:
+            return _ret((a_early["ad_id"], a_early["ad_name"], a_early["adset_id"],
+                         a_early["campaign_name"],
+                         name_cand or adset_cand_early, tier_early))
+        # No narrowing to one ad; fall through to Step 2 global lookup.
+        break
 
     # T2: utm_content matches an ad_name globally — exact -> fuzzy -> substring -> sep-normalized
     for cand in (attr_ad_name, utm_content):
