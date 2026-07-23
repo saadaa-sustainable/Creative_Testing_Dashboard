@@ -300,6 +300,212 @@
   .kpi .k-pct.muted{background:var(--bg-page-alt);color:var(--text-tertiary);
     border-color:var(--border-warm)}
 
+  /* ── Landing Page × Ads DRILL-DOWN modal ───────────────────────── */
+  .lp-modal-backdrop{
+    position:fixed; inset:0; background:rgba(60, 40, 20, 0.35);
+    z-index:1000; opacity:0; pointer-events:none;
+    transition:opacity .18s ease;
+  }
+  .lp-modal-backdrop.open{opacity:1; pointer-events:auto}
+  /* Two-class selector (.funnel-card.lp-modal) — bumps specificity above the
+     base `.funnel-card { overflow:hidden }` rule further down in the file
+     that was otherwise winning the cascade and killing scroll. */
+  .funnel-card.lp-modal{
+    position:fixed; top:3vh; left:50%; transform:translateX(-50%);
+    width:min(1360px, 96vw); max-height:94vh;
+    overflow-y:auto; overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    z-index:1001; margin:0;
+    background:var(--bg-white); border:1px solid var(--border-primary);
+    border-radius:12px; box-shadow:0 20px 60px rgba(60, 40, 20, 0.28);
+  }
+  .funnel-card.lp-modal .funnel-hdr{
+    position:sticky; top:0; z-index:2;
+    background:var(--bg-white);
+    border-bottom:1px solid var(--border-soft);
+  }
+  /* Ad-level table matches the chart column's natural bottom — JavaScript
+     measures the chart column after render and applies max-height to the
+     ad-table scroll container.  Ads scroll inside their own child container.
+     No hard-coded row height so this survives font-size / chart tweaks. */
+  .funnel-card.lp-modal .lp-detail-grid{align-items:start}
+  .funnel-card.lp-modal .lp-table-col{
+    display:flex; flex-direction:column; min-height:0;
+  }
+  .funnel-card.lp-modal .lp-adtable-scroll{
+    /* max-height is set inline by _lpSyncTableHeight(); fallback keeps the
+       widget usable even when JS is delayed. */
+    max-height:560px; min-height:0;
+    overflow-y:auto; overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    border-top:1px solid var(--border-soft);
+  }
+  .funnel-card.lp-modal .lp-adtable-scroll #lpAdTable thead th{top:0}
+  body.lp-modal-open{overflow:hidden}
+  body.lp-modal-open{overflow:hidden}   /* freeze background scroll */
+
+  /* ── Landing Page — master-table view toggle (Pages ⇄ Ads) ─────── */
+  .lp-viewtog{
+    display:inline-flex; background:var(--surface-1, #FAF7F1);
+    border:1px solid var(--border-warm, #DDD1BC); border-radius:8px;
+    padding:2px; gap:2px;
+  }
+  .lp-viewtog-btn{
+    background:transparent; border:none; padding:5px 12px; border-radius:6px;
+    font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:600;
+    color:var(--text-secondary); cursor:pointer; letter-spacing:.2px;
+    white-space:nowrap;
+  }
+  .lp-viewtog-btn:hover{background:var(--surface-2, #F3ECE0); color:var(--text-primary)}
+  .lp-viewtog-btn.active{
+    background:var(--warning-text); color:#fff;
+  }
+
+  /* ── Landing Page × Ads drill-down ─────────────────────────────── */
+  .lp-tbl-clickable tbody tr{cursor:pointer}
+  .lp-tbl-clickable tbody tr:hover{background:var(--accent-warm-tint)}
+  .lp-tbl-clickable tbody tr.selected{background:var(--warning-bg)}
+  .lp-tbl-clickable tbody tr.selected td{border-top:1px solid var(--warning-border);
+                                          border-bottom:1px solid var(--warning-border)}
+  .lp-pill-row{
+    display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px 4px;
+    align-items:center;
+  }
+  .lp-pill{
+    background:var(--surface-1, #FAF7F1); border:1px solid var(--border-warm, #DDD1BC);
+    color:var(--text-secondary); padding:5px 12px; border-radius:20px;
+    font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:500;
+    cursor:pointer; letter-spacing:.2px;
+  }
+  .lp-pill:hover{background:var(--surface-2, #F3ECE0)}
+  .lp-pill.active{
+    background:var(--warning-text); color:#fff; border-color:var(--warning-text);
+    font-weight:600;
+  }
+  .lp-pill-count{margin-left:auto; font-size:11px; color:var(--text-tertiary)}
+  .lp-detail-grid{
+    display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1.4fr);
+    gap:14px; padding:8px 16px 16px;
+  }
+  @media (max-width:1180px){ .lp-detail-grid{grid-template-columns:1fr} }
+  .lp-chart-col{display:flex;flex-direction:column;gap:14px}
+  .lp-chart-card{
+    background:var(--bg-white); border:1px solid var(--border-primary);
+    border-radius:10px; padding:12px 14px;
+  }
+  .lp-chart-hdr{
+    font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:700;
+    color:var(--text-secondary); text-transform:uppercase; letter-spacing:.6px;
+    margin-bottom:8px;
+  }
+  .lp-chart-hdr b{color:var(--warning-text)}
+  .lp-chart-hdr span{color:var(--text-tertiary); font-weight:500; text-transform:none; letter-spacing:0}
+  .lp-chart-wrap{height:220px; position:relative}
+  .lp-table-col{
+    background:var(--bg-white); border:1px solid var(--border-primary);
+    border-radius:10px; padding:0;
+  }
+  /* Ad-level table styling */
+  #lpAdTable{width:100%; font-size:11.5px}
+  #lpAdTable thead th{
+    background:var(--accent-warm-tint); color:var(--text-secondary);
+    font-family:'Space Grotesk',sans-serif; font-size:10px; font-weight:700;
+    letter-spacing:.5px; text-transform:uppercase; padding:8px 6px;
+    position:sticky; top:0; z-index:1;
+  }
+  #lpAdTable tbody td{padding:6px 6px; border-bottom:1px solid var(--border-soft)}
+  #lpAdTable img{width:44px; height:44px; object-fit:cover; border-radius:6px;
+                  border:1px solid var(--border-soft)}
+  .lp-adname{
+    max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    font-family:'Space Grotesk',sans-serif;
+  }
+  .lp-adname .sub{font-size:9.5px; color:var(--text-tertiary); display:block}
+  .lp-status{
+    display:inline-block; padding:1px 7px; border-radius:10px;
+    font-size:9.5px; font-weight:700; letter-spacing:.3px; text-transform:uppercase;
+    background:var(--surface-2); color:var(--text-tertiary);
+  }
+  .lp-status.active{background:var(--success-bg); color:var(--success-text)}
+  .lp-status.paused{background:var(--warning-bg); color:var(--warning-text)}
+  .lp-gap-neg{color:var(--error-text, #b94a3d)}
+  .lp-gap-pos{color:var(--success-text)}
+
+  /* ── Overview – Performance KPI block (home page) ──────────────────
+     Sits right after the Creative Type funnel. Warm palette only (browns,
+     ambers, yellows, tans) to match the dashboard's earthy design tokens. */
+  .overview-perf-card{
+    background:var(--bg-white); border:1px solid var(--border-primary);
+    border-radius:12px; margin-bottom:14px; overflow:hidden;
+  }
+  .op-hdr{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 18px; border-bottom:1px solid var(--border-soft);
+    background:linear-gradient(180deg, var(--accent-warm-tint) 0%, var(--bg-white) 100%);
+  }
+  .op-title{
+    font-family:'Space Grotesk',sans-serif; font-size:11.5px; font-weight:700;
+    color:var(--text-secondary); text-transform:uppercase; letter-spacing:1.1px;
+  }
+  .op-title .op-dash{margin:0 4px; opacity:.55}
+  .op-badge{
+    font-family:'Space Grotesk',sans-serif; font-size:10.5px; font-weight:700;
+    letter-spacing:0.9px; text-transform:uppercase;
+    background:var(--warning-bg); color:var(--warning-text);
+    border:1px solid var(--warning-border);
+    padding:4px 10px; border-radius:4px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    max-width:60%;
+  }
+  @media (max-width:900px){
+    .op-badge{font-size:9.5px; max-width:70%; letter-spacing:.6px}
+  }
+  .op-grid{
+    display:grid; grid-template-columns:repeat(4, minmax(0, 1fr));
+    gap:1px; background:var(--border-soft);
+  }
+  .op-kpi{
+    background:var(--bg-white); padding:16px 18px 14px;
+    display:flex; flex-direction:column; gap:6px;
+    border-left:3px solid transparent;
+  }
+  /* Warm-only palette — cycles through amber → gold → sand → deep-amber. */
+  .op-kpi[data-tone="warm"]  { border-left-color:var(--warning-text) } /* deep amber-brown */
+  .op-kpi[data-tone="teal"]  { border-left-color:var(--accent-sand) } /* sandy tan */
+  .op-kpi[data-tone="blue"]  { border-left-color:var(--warning-mid) } /* mid amber */
+  .op-kpi[data-tone="brick"] { border-left-color:var(--accent-yellow) } /* gold */
+  .op-kpi[data-tone="brand"] { border-left-color:var(--warning-text) }
+  .op-kpi-lbl{
+    font-family:'Space Grotesk',sans-serif; font-size:10px; font-weight:700;
+    color:var(--text-tertiary); text-transform:uppercase; letter-spacing:1px;
+  }
+  .op-kpi-val{
+    font-family:'Space Grotesk',sans-serif; font-size:26px; font-weight:600;
+    color:var(--text-primary); letter-spacing:-0.3px; line-height:1.15;
+  }
+  .op-kpi-sub{
+    font-family:'Space Grotesk',sans-serif; font-size:10.5px;
+    color:var(--warning-text); font-weight:500; letter-spacing:.2px;
+  }
+  /* Highlight card — filled amber (CT ROAS). Uses the dashboard's warning
+     gradient which matches the yellow-accent theme without introducing a
+     new colour. */
+  .op-kpi.op-highlight{
+    background:linear-gradient(135deg, var(--warning-mid) 0%, var(--warning-text) 100%);
+    border-left-color:transparent;
+  }
+  .op-kpi.op-highlight .op-kpi-lbl,
+  .op-kpi.op-highlight .op-kpi-val{color:#fff}
+  .op-kpi.op-highlight .op-kpi-sub{color:rgba(255,255,255,0.85)}
+  @media (max-width:1180px){
+    .op-grid{grid-template-columns:repeat(2, minmax(0, 1fr))}
+  }
+  @media (max-width:640px){
+    .op-grid{grid-template-columns:1fr}
+  }
+
   /* ── Funnel breakdown (Creative Type × Category) ─────────────────── */
   .funnel-card{background:var(--bg-white);border:1px solid var(--border-primary);
     border-radius:12px;padding:0;margin-bottom:14px;overflow:hidden}

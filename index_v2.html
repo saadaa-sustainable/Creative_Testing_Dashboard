@@ -28,6 +28,7 @@
   <div class="sb-item" data-view="ae">Ads Analyse</div>
   <div class="sb-item" data-view="ireach" title="Campaign / Adset-level incremental reach for ads dated on/after 2025-01-01">Incremental Analysis</div>
   <div class="sb-item" data-view="adintel">Last Click UTM analysis</div>
+  <div class="sb-item" data-view="landing" title="Shopify Web Analytics landing-page sessions × conversion funnel. Backfill in progress — data appears once sync completes.">Landing Page Analysis</div>
   <div class="sb-section">Active
     <span class="sb-info" title="Consolidated view of ad_status=ACTIVE ads with Ad / Adset / Campaign level toggle. Shopify orders + sales are aggregated authoritatively at the toggled level (adset & campaign totals come from shopify_ad_attribution rollups, not summed from ads).">ⓘ</span>
   </div>
@@ -231,6 +232,58 @@
       <span class="mono" style="font-size:11px;color:var(--text-tertiary)" id="funnelTotal">—</span>
     </div>
     <div id="funnelBody"></div>
+  </div>
+
+  <!-- Overview – Performance KPI block.  Aggregates Meta-side creative metrics
+       across the currently-filtered primary_table dataset.  Values respect the
+       "Excl. copy" toggle so paused clones don't skew the numbers. -->
+  <div class="overview-perf-card" id="overviewPerf">
+    <div class="op-hdr">
+      <span class="op-title">OVERVIEW <span class="op-dash">—</span> PERFORMANCE</span>
+      <span class="op-badge" id="opBadge">SUM &amp; AVG · EXCL. COPY</span>
+    </div>
+    <div class="op-grid">
+      <div class="op-kpi" data-tone="warm">
+        <div class="op-kpi-lbl">TOTAL AMOUNT SPENT</div>
+        <div class="op-kpi-val mono" id="opSpend">—</div>
+        <div class="op-kpi-sub">Sum · INR</div>
+      </div>
+      <div class="op-kpi" data-tone="teal">
+        <div class="op-kpi-lbl">TOTAL IMPRESSIONS</div>
+        <div class="op-kpi-val mono" id="opImpr">—</div>
+        <div class="op-kpi-sub">Sum</div>
+      </div>
+      <div class="op-kpi" data-tone="blue">
+        <div class="op-kpi-lbl">AVG. HOOK RATE</div>
+        <div class="op-kpi-val mono" id="opHook">—</div>
+        <div class="op-kpi-sub">Sum(3-Sec Video Plays) ÷ Sum(Impressions)</div>
+      </div>
+      <div class="op-kpi" data-tone="brick">
+        <div class="op-kpi-lbl">AVG. OUTBOUND CTR</div>
+        <div class="op-kpi-val mono" id="opCtr">—</div>
+        <div class="op-kpi-sub">Sum(Outbound Clicks) ÷ Sum(Impressions)</div>
+      </div>
+      <div class="op-kpi" data-tone="warm">
+        <div class="op-kpi-lbl">AVG. ENGAGEMENT RATE</div>
+        <div class="op-kpi-val mono" id="opEng">—</div>
+        <div class="op-kpi-sub">(ThruPlays + Reactions + Comments + Saves + Shares + Likes + Link Clicks) ÷ Impressions</div>
+      </div>
+      <div class="op-kpi" data-tone="teal">
+        <div class="op-kpi-lbl">AVG. THRUPLAY RATE</div>
+        <div class="op-kpi-val mono" id="opThruplay">—</div>
+        <div class="op-kpi-sub">Sum(ThruPlays) ÷ Sum(Impressions)</div>
+      </div>
+      <div class="op-kpi" data-tone="blue">
+        <div class="op-kpi-lbl">AVG. HOLD RATE</div>
+        <div class="op-kpi-val mono" id="opHold">—</div>
+        <div class="op-kpi-sub">Sum(ThruPlays) ÷ Sum(3-Sec Video Plays)</div>
+      </div>
+      <div class="op-kpi op-highlight" data-tone="brand">
+        <div class="op-kpi-lbl">CT ROAS</div>
+        <div class="op-kpi-val mono" id="opRoas">—</div>
+        <div class="op-kpi-sub">Sum(Conv. Value) ÷ Sum(Spend)</div>
+      </div>
+    </div>
   </div>
 
   <!-- Product & Creative focus -->
@@ -700,9 +753,9 @@
       <div class="ae-actions-row">
         <button class="ae-fbtn" id="aeClearDates"   type="button">Clear Dates</button>
         <button class="ae-fbtn" id="aeClearFilters" type="button">Clear Filters</button>
-        <button class="ae-fbtn" id="aeEditAssetBtn" type="button"
-                title="Turn on to click-edit Asset ID cells">✎ Edit Asset ID</button>
-        <!-- Inspector drawer trigger — right-side panel with Metrics + numeric filters -->
+        <!-- Inspector drawer trigger — right-side panel with Metrics + numeric filters.
+             (Edit Asset ID button removed — asset-id editing is available inline
+             via the ✎ badge in the Asset ID column header.) -->
         <button class="ae-fbtn ae-insp-open" id="aeInspBtn" type="button"
                 title="Open Inspector — Metrics + Numeric Filters">
           <span style="font-size:13px;line-height:1">⚙</span>
@@ -1565,6 +1618,211 @@
   </div>
 </div><!-- /view-adintel -->
 
+<!-- ─── VIEW: LANDING PAGE ANALYSIS ─────────────────────────────────
+     Shopify Web Analytics session data joined against attribution.
+     Backfill of `landing_page_sessions_daily` runs in the background
+     (sync_landing_page_sessions.py). This view shows sync status until
+     the table has meaningful data, then paints the analytics table. -->
+<div class="view" id="view-landing" style="display:none">
+  <div class="page-hdr">
+    <div>
+      <h1 class="heading">Landing Page Analysis</h1>
+      <div class="sub">Shopify Web Analytics · Sessions · Cart / Checkout / Bounce · joined with ads</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn ghost" id="lpRefresh" type="button">↻ Refresh</button>
+    </div>
+  </div>
+
+  <!-- KPI strip — window totals (sessions + ad-side aggregates) -->
+  <div class="kpi-row" id="lpKpiRow" style="grid-template-columns:repeat(auto-fit, minmax(160px, 1fr))">
+    <div class="kpi"><div class="k-lbl">Sessions</div><div class="k-val mono" id="lpKpSess">—</div><div class="k-sub">on distinct pages</div></div>
+    <div class="kpi"><div class="k-lbl">Ad Spend</div><div class="k-val mono" id="lpKpSpend">—</div><div class="k-sub">Meta, matched pages</div></div>
+    <div class="kpi"><div class="k-lbl">Cost / Session</div><div class="k-val mono" id="lpKpCPS">—</div><div class="k-sub">Spend ÷ Sessions</div></div>
+    <div class="kpi"><div class="k-lbl">Avg ATC</div><div class="k-val mono" id="lpKpATC">—</div><div class="k-sub">Sessions weighted</div></div>
+    <div class="kpi"><div class="k-lbl">Avg Bounce</div><div class="k-val mono" id="lpKpBounce">—</div><div class="k-sub">Sessions weighted</div></div>
+    <div class="kpi"><div class="k-lbl">Snapshot</div><div class="k-val mono" id="lpKpSnap" style="font-size:14px">—</div><div class="k-sub" id="lpKpSnapSub">computed_at</div></div>
+  </div>
+
+  <!-- Analytics table — reads from landing_page_analysis_30d (pre-computed rollup).
+       Loads instantly; no aggregation on the client side. -->
+  <div class="funnel-card" id="lpTableCard" style="padding:14px 16px">
+    <div class="funnel-hdr" style="padding:6px 4px 12px">
+      <h3 id="lpTableTitle">Landing pages
+        <span class="h-sub" id="lpTableSub">last 30 days · sessions × ad-spend join</span>
+      </h3>
+      <div style="display:flex;gap:8px;align-items:center">
+        <!-- View toggle: page-first ↔ ad-first master table -->
+        <div class="lp-viewtog" role="tablist">
+          <button class="lp-viewtog-btn active" data-lp-view="pages" type="button"
+                  role="tab" aria-selected="true"
+                  title="Master = landing pages · click a row to see the ads pointing to it">Pages → Ads</button>
+          <button class="lp-viewtog-btn" data-lp-view="ads" type="button"
+                  role="tab" aria-selected="false"
+                  title="Master = individual ads · click a row to see the landing page it drives">Ads → Pages</button>
+        </div>
+        <input class="fg-input" id="lpSearch" type="search" placeholder="filter…"
+               style="padding:5px 10px;font-size:12px;width:200px">
+        <select class="fg-select" id="lpSort" style="padding:5px 8px;font-size:12px">
+          <option value="sessions">Sort: Sessions</option>
+          <option value="ad_spend">Sort: Ad Spend</option>
+          <option value="atc_rate">Sort: ATC %</option>
+          <option value="bounce_rate">Sort: Bounce %</option>
+          <option value="cost_per_session">Sort: Cost / Session</option>
+        </select>
+        <button class="btn ghost" id="lpRefreshCompute" type="button"
+                style="padding:5px 10px;font-size:11px"
+                title="Recompute the rollup — runs refresh_landing_page_analysis_30d() (server-side).">↻ Recompute</button>
+        <button class="btn ghost" id="lpExport" type="button" style="padding:5px 10px;font-size:11px">Export CSV</button>
+      </div>
+    </div>
+    <!-- Mode A — Pages master (default) -->
+    <div class="ae-tbl-wrap" id="lpTableWrapPages">
+      <table class="tbl" id="lpTable">
+        <thead>
+          <tr>
+            <th>Landing page path</th>
+            <th class="mono" style="text-align:right">Sessions</th>
+            <th class="mono" style="text-align:right">Visitors</th>
+            <th class="mono" style="text-align:right">Ad Spend</th>
+            <th class="mono" style="text-align:right" title="Number of distinct ads whose destination URL resolves to this path">Ads</th>
+            <th class="mono" style="text-align:right">Cost / Session</th>
+            <th class="mono" style="text-align:right">ATC %</th>
+            <th class="mono" style="text-align:right">Checkout %</th>
+            <th class="mono" style="text-align:right">Bounce %</th>
+          </tr>
+        </thead>
+        <tbody id="lpTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Mode B — Ads master (toggled) -->
+    <div class="ae-tbl-wrap" id="lpTableWrapAds" style="display:none">
+      <table class="tbl lp-tbl-clickable" id="lpTableAds">
+        <thead>
+          <tr>
+            <th style="width:52px">Preview</th>
+            <th>Ad</th>
+            <th>Landing page</th>
+            <th class="mono" style="text-align:right">Status</th>
+            <th class="mono" style="text-align:right">Impr.</th>
+            <th class="mono" style="text-align:right">Spend</th>
+            <th class="mono" style="text-align:right" title="Meta reported conv value ÷ Spend">Meta ROAS</th>
+            <th class="mono" style="text-align:right">Shop Orders</th>
+            <th class="mono" style="text-align:right" title="Attributed Shopify sales ÷ Spend">Shop ROAS</th>
+            <th class="mono" style="text-align:right" title="(Shopify sales - Meta conv) / Meta conv ×100">Gap %</th>
+          </tr>
+        </thead>
+        <tbody id="lpTableAdsBody"></tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:8px;font-size:11px;color:var(--text-tertiary)"
+         id="lpTableFooter">—</div>
+    <div style="margin-top:6px;font-size:10.5px;color:var(--text-tertiary)">
+      ↳ <b>Click any row</b> to open the Path × Ads deep-dive below.
+    </div>
+  </div>
+
+  <!-- ═══ Path × Ads drill-down ═════════════════════════════════════
+       Popup modal — opens over the page instead of pushing content down.
+       Populated from public.landing_page_ad_breakdown_30d.  Shows every ad
+       whose destination URL resolves to the selected landing page, with
+       Meta ROAS vs Shopify ROAS side-by-side. -->
+  <div class="lp-modal-backdrop" id="lpDetailBackdrop" aria-hidden="true"></div>
+  <div class="funnel-card lp-modal" id="lpDetailCard" style="display:none;padding:0"
+       role="dialog" aria-modal="true" aria-labelledby="lpDetailPath">
+    <div class="funnel-hdr" style="padding:12px 18px">
+      <h3>Path × Ads deep-dive
+        <span class="h-sub" id="lpDetailPath">select a page above</span>
+      </h3>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="mono" id="lpDetailWindow"
+              style="font-size:10.5px;color:var(--text-tertiary)">—</span>
+        <button class="btn ghost" id="lpDetailClose" type="button"
+                style="padding:5px 10px;font-size:11px" title="Close (Esc)">× Close</button>
+      </div>
+    </div>
+
+    <!-- KPI strip for the selected page -->
+    <div class="kpi-row" id="lpDetailKpis"
+         style="grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));padding:12px 16px 4px;margin:0">
+      <div class="kpi" data-cls="analyze2">
+        <div class="k-lbl">Sessions</div><div class="k-val mono" id="lpDkSess">—</div>
+        <div class="k-sub" id="lpDkSessSub">visitors —</div>
+      </div>
+      <div class="kpi" data-cls="priority">
+        <div class="k-lbl">Ad Spend</div><div class="k-val mono" id="lpDkSpend">—</div>
+        <div class="k-sub" id="lpDkSpendSub">cost/session —</div>
+      </div>
+      <div class="kpi" data-cls="winner">
+        <div class="k-lbl">Meta ROAS</div><div class="k-val mono" id="lpDkMROAS">—</div>
+        <div class="k-sub">Sum(Meta conv) ÷ Sum(Spend)</div>
+      </div>
+      <div class="kpi" data-cls="incr">
+        <div class="k-lbl">Shopify ROAS</div><div class="k-val mono" id="lpDkSROAS">—</div>
+        <div class="k-sub" id="lpDkSROASub">actual orders</div>
+      </div>
+      <div class="kpi" data-cls="analyze1">
+        <div class="k-lbl">Meta vs Shop Gap</div><div class="k-val mono" id="lpDkGap">—</div>
+        <div class="k-sub">how much Meta over-reports</div>
+      </div>
+      <div class="kpi" data-cls="result_awaited">
+        <div class="k-lbl">Ads on this page</div><div class="k-val mono" id="lpDkAds">—</div>
+        <div class="k-sub" id="lpDkAdsSub">active — · paused —</div>
+      </div>
+    </div>
+
+    <!-- Filter pills -->
+    <div class="lp-pill-row">
+      <button class="lp-pill active" data-lp-filter="all"     type="button">All</button>
+      <button class="lp-pill"        data-lp-filter="active"  type="button">Active only</button>
+      <button class="lp-pill"        data-lp-filter="paused"  type="button">Paused only</button>
+      <button class="lp-pill"        data-lp-filter="winner"  type="button">Winners (Shop ROAS ≥ 2)</button>
+      <button class="lp-pill"        data-lp-filter="loser"   type="button">Losers (Shop ROAS &lt; 1)</button>
+      <button class="lp-pill"        data-lp-filter="gap"     type="button">Big Meta gap (&gt; 40%)</button>
+      <span class="lp-pill-count mono" id="lpDetailCount"></span>
+    </div>
+
+    <!-- 2-column: charts + table -->
+    <div class="lp-detail-grid">
+      <div class="lp-chart-col">
+        <div class="lp-chart-card">
+          <div class="lp-chart-hdr">Meta ROAS <b>vs</b> Shopify ROAS <span>· top ads by spend</span></div>
+          <div class="lp-chart-wrap"><canvas id="lpChartBars"></canvas></div>
+        </div>
+        <div class="lp-chart-card">
+          <div class="lp-chart-hdr">Spend × Shopify ROAS <span>· bubble size = orders</span></div>
+          <div class="lp-chart-wrap"><canvas id="lpChartBubble"></canvas></div>
+        </div>
+      </div>
+
+      <div class="lp-table-col">
+        <div class="lp-adtable-scroll">
+          <table class="tbl" id="lpAdTable">
+            <thead>
+              <tr>
+                <th style="width:60px">Preview</th>
+                <th>Ad</th>
+                <th class="mono" style="text-align:right">Impr.</th>
+                <th class="mono" style="text-align:right">Spend</th>
+                <th class="mono" style="text-align:right" title="Meta reported conversion value ÷ Spend">Meta ROAS</th>
+                <th class="mono" style="text-align:right">Shop Orders</th>
+                <th class="mono" style="text-align:right">Shop Sales</th>
+                <th class="mono" style="text-align:right" title="Attributed Shopify sales ÷ Spend">Shop ROAS</th>
+                <th class="mono" style="text-align:right" title="(Shopify sales - Meta conv) / Meta conv ×100">Gap %</th>
+              </tr>
+            </thead>
+            <tbody id="lpAdTableBody"></tbody>
+          </table>
+        </div>
+        <div style="font-size:11px;color:var(--text-tertiary);padding:8px 12px 4px"
+             id="lpAdTableFoot">—</div>
+      </div>
+    </div>
+  </div>
+</div><!-- /view-landing -->
+
 <!-- ─── VIEW: INVENTORY (Shopify products) ─────────────────────────── -->
 <div class="view" id="view-inventory" style="display:none">
   <div class="page-hdr">
@@ -2215,6 +2473,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ae_inspector_split_numeric"></script>
+<script src="assets/dashboard.js?v=lp_modal_table_sync_charts"></script>
 </body>
 </html>

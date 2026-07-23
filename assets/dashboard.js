@@ -307,10 +307,16 @@ async function fetchPrimaryFromCache(dateFrom, dateTo, dateField){
   // Only 'delivery' and 'created' variants are precomputed. Other field
   // selectors (first_seen, result) fall back to the live aggregator.
   const cacheField = (dateField === 'created') ? 'created' : 'delivery';
+  // Extra columns: pre-computed Overview – Performance totals (populated by
+  // results_sync.py). Reading them here avoids the extra RPC round-trip when
+  // the user is on the standard "last 30 days" window.
   const url = SUPABASE_URL +
     '/rest/v1/results_table?account_name=eq.All%20Accounts' +
     '&date_field=eq.' + cacheField +
-    '&select=ads_json,data_date_from,data_date_to,date_field,computed_at' +
+    '&select=ads_json,data_date_from,data_date_to,date_field,computed_at,' +
+    'total_spend,total_impr,total_conv_value,total_video_plays,total_thru_plays,' +
+    'total_out_clicks,total_post_eng,hook_rate,hold_rate,thruplay_rate,' +
+    'outbound_ctr,engagement_rate,ct_roas' +
     '&order=computed_at.desc&limit=1';
   const r = await fetch(url, {headers});
   if (!r.ok) return null;
@@ -329,6 +335,28 @@ async function fetchPrimaryFromCache(dateFrom, dateTo, dateField){
   };
   if (dateFrom && _driftDays(row.data_date_from, dateFrom) > 1) return null;
   if (dateTo   && _driftDays(row.data_date_to,   dateTo)   > 1) return null;
+  // Stash pre-computed Overview totals so renderOverviewPerf paints instantly
+  // without hitting the RPC.  Keyed on the row's window so a stale snapshot
+  // doesn't leak into a subsequent custom-window fetch.
+  window._ctOverviewSnapshot = {
+    fromDate:      row.data_date_from,
+    toDate:        row.data_date_to,
+    computedAt:    row.computed_at,
+    dateField:     row.date_field,
+    spend:         +row.total_spend        || 0,
+    impressions:   +row.total_impr         || 0,
+    convValue:     +row.total_conv_value   || 0,
+    threeSecPlays: +row.total_video_plays  || 0,
+    thruPlays:     +row.total_thru_plays   || 0,
+    outboundClk:   +row.total_out_clicks   || 0,
+    postEng:       +row.total_post_eng     || 0,
+    hookRate:      +row.hook_rate          || 0,
+    holdRate:      +row.hold_rate          || 0,
+    thruplayRate:  +row.thruplay_rate      || 0,
+    outboundCtr:   +row.outbound_ctr       || 0,
+    engagementRate:+row.engagement_rate    || 0,
+    ctRoas:        +row.ct_roas            || 0,
+  };
   const ads = row.ads_json || [];
   // Map compact cache keys → the same row shape fetchPrimaryAggregated emits
   const t = (typeof aeReadThresholds === 'function')
@@ -392,6 +420,9 @@ async function fetchPrimaryAggregated(dateFrom, dateTo){
     'impressions','amount_spent_inr','reach','outbound_clicks','conversion_value','purchases',
     'ad_created_date','ftewv_count','cost_per_ftewv','ncp_count','cost_per_ncp',
     'preview_link','ad_link'
+    // (Overview – Performance now reads its totals from the
+    //  get_overview_perf_totals RPC, so we no longer need to page
+    //  three_sec_video_plays/thruplays/etc. per-ad.)
   ].join(',');
   const headers = {apikey:SUPABASE_ANON,Authorization:'Bearer '+SUPABASE_ANON,Prefer:'count=none'};
   const BATCH = 1000;
@@ -1594,6 +1625,139 @@ function renderFunnel(rows){
   document.getElementById('funnelTotal').textContent = fmtInt(grand.total) + ' ads';
 }
 
+/* Overview – Performance KPI block.
+   Two paint paths:
+     (a) FAST — read the pre-computed snapshot from results_table (populated
+         by results_sync.py). Instant, no round trip. Used when the current
+         filter window matches the snapshot's window (± 1 day drift).
+     (b) SLOW — call get_overview_perf_totals RPC for custom windows.
+   The date-range tag on the header shows which window the numbers cover. */
+let _opDebounce = null;
+let _opLastKey  = '';
+
+function _opFmtDateRange(fromISO, toISO){
+  if (!fromISO || !toISO) return '';
+  const days = Math.round(
+    (new Date(toISO + 'T00:00:00Z') - new Date(fromISO + 'T00:00:00Z')) / 86400000
+  ) + 1;
+  // Human-friendly labels for the standard windows.  Falls back to the
+  // literal range for anything unusual.
+  let label = '';
+  if (days === 30) label = 'LAST 30 DAYS';
+  else if (days === 7)  label = 'LAST 7 DAYS';
+  else if (days === 90) label = 'LAST 90 DAYS';
+  else label = days + '-DAY WINDOW';
+  return label + ' · ' + fromISO + ' → ' + toISO;
+}
+
+function _opWindowMatchesSnapshot(fromISO, toISO){
+  const snap = window._ctOverviewSnapshot; if (!snap) return false;
+  const drift = (a, b) => {
+    if (!a || !b) return 999;
+    return Math.abs((new Date(a + 'T00:00:00Z') - new Date(b + 'T00:00:00Z')) / 86400000);
+  };
+  return drift(snap.fromDate, fromISO) <= 1 && drift(snap.toDate, toISO) <= 1;
+}
+
+function _opBadgeText(rangeLabel){
+  const excl = state.exclCopy ? 'EXCL' : 'INCL';
+  return 'SUM & AVG · ' + (rangeLabel ? rangeLabel + ' · ' : '') + excl + '. COPY';
+}
+
+function renderOverviewPerf(_rows){
+  const host = document.getElementById('overviewPerf');
+  if (!host) return;
+  clearTimeout(_opDebounce);
+  _opDebounce = setTimeout(_opFire, 180);
+}
+
+async function _opFire(){
+  const setTxt = (id, v) => {
+    const el = document.getElementById(id); if (el) el.textContent = v;
+  };
+  // Resolve the requested window.  If the CT view has no explicit range set,
+  // the pipeline's default (last 30 days ending today) applies.
+  const today = new Date().toISOString().slice(0, 10);
+  const from = state.dateFrom || (() => {
+    const d = new Date(); d.setUTCDate(d.getUTCDate() - 29);
+    return d.toISOString().slice(0, 10);
+  })();
+  const to    = state.dateTo || today;
+  const excl  = !!state.exclCopy;
+  const key   = from + '|' + to + '|' + (excl ? '1' : '0');
+  _opLastKey  = key;
+  const badge = document.getElementById('opBadge');
+
+  // ── FAST PATH — pre-computed snapshot from results_table ──
+  // Only usable when (a) window matches, (b) Excl. Copy toggle is ON (that's
+  // how the snapshot is computed).  Falls through to the RPC otherwise.
+  const snap = window._ctOverviewSnapshot;
+  if (snap && excl && _opWindowMatchesSnapshot(from, to)){
+    if (badge) badge.textContent = _opBadgeText(_opFmtDateRange(snap.fromDate, snap.toDate));
+    setTxt('opSpend',    '₹' + fmtInt(snap.spend));
+    setTxt('opImpr',     fmtInt(snap.impressions));
+    setTxt('opHook',     snap.hookRate       .toFixed(2) + '%');
+    setTxt('opCtr',      snap.outboundCtr    .toFixed(2) + '%');
+    setTxt('opEng',      snap.engagementRate .toFixed(2) + '%');
+    setTxt('opThruplay', snap.thruplayRate   .toFixed(2) + '%');
+    setTxt('opHold',     snap.holdRate       .toFixed(2) + '%');
+    setTxt('opRoas',     snap.ctRoas         .toFixed(2));
+    return;
+  }
+
+  // ── SLOW PATH — RPC against primary_table ──
+  if (badge) badge.textContent = _opBadgeText(_opFmtDateRange(from, to));
+  ['opSpend','opImpr','opHook','opCtr','opEng','opThruplay','opHold','opRoas']
+    .forEach(id => setTxt(id, '…'));
+  try {
+    const url = SUPABASE_URL + '/rest/v1/rpc/get_overview_perf_totals';
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON,
+        Authorization: 'Bearer ' + SUPABASE_ANON,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_from: from, p_to: to, p_excl_copy: excl }),
+    });
+    if (_opLastKey !== key) return;
+    if (!r.ok){
+      const bodyText = await r.text().catch(() => '');
+      throw new Error('RPC HTTP ' + r.status + ' — ' + bodyText.slice(0, 200));
+    }
+    const arr = await r.json();
+    const t = Array.isArray(arr) ? (arr[0] || {}) : (arr || {});
+    const impr    = +t.total_impressions      || 0;
+    const spend   = +t.total_spend            || 0;
+    const conv    = +t.total_conv_value       || 0;
+    const threeS  = +t.total_three_sec        || 0;
+    const thrupl  = +t.total_thruplays        || 0;
+    const outClk  = +t.total_outbound_clicks  || 0;
+    const postEng = +t.total_post_engagements || 0;
+    const _pct    = (num, den) => den > 0 ? ((num / den) * 100) : null;
+    const _fmtPct = v => v == null ? '—' : v.toFixed(2) + '%';
+    setTxt('opSpend',    '₹' + fmtInt(spend));
+    setTxt('opImpr',     fmtInt(impr));
+    setTxt('opHook',     _fmtPct(_pct(threeS,  impr)));
+    setTxt('opCtr',      _fmtPct(_pct(outClk,  impr)));
+    setTxt('opEng',      _fmtPct(_pct(postEng, impr)));
+    setTxt('opThruplay', _fmtPct(_pct(thrupl,  impr)));
+    setTxt('opHold',     _fmtPct(_pct(thrupl,  threeS)));
+    setTxt('opRoas',     spend > 0 ? (conv / spend).toFixed(2) : '—');
+  } catch (e){
+    ['opSpend','opImpr','opHook','opCtr','opEng','opThruplay','opHold','opRoas']
+      .forEach(id => setTxt(id, '—'));
+    console.warn('[Overview KPI] RPC failed:', e);
+  }
+}
+
+// Kick one initial paint on DOM ready.  The snapshot won't be loaded yet at
+// this point so this call is basically an RPC fallback; subsequent rerender()
+// calls (after primary data loads) hit the snapshot fast-path.
+document.addEventListener('DOMContentLoaded', () => {
+  try { renderOverviewPerf(); } catch(_){}
+});
+
 /* ── Wire-up ───────────────────────────────────────────────────────── */
 /* Pull the first uppercase product-code-ish token from an ad name. */
 const _LP_CODE_RE = /[A-Z][A-Z0-9_]{1,7}/;
@@ -1765,6 +1929,7 @@ function rerender(){
   const rows = filtered(primaryAds);
   renderKpis(rows);
   renderFunnel(rows);
+  renderOverviewPerf(rows);
   const {p,c} = renderFocusStrips(rows);
   renderProdChart(p);
   renderCreativeChart(c);
@@ -2118,6 +2283,12 @@ document.querySelectorAll('.sb-item').forEach(it => {
       if (chip) chip.classList.add('active');
       _ireachApply();
       VIEW_LOADED.ireach = true;
+    }
+    if (v === 'landing'){
+      // Always refresh sync-status on entry — backfill is running in the
+      // background so the numbers move minute-by-minute.  Cheap probe.
+      try { loadLandingPageStatus(); } catch(_){}
+      try { loadLandingPageTable(); } catch(_){}
     }
     // Auto-close the mobile sidebar after selection
     if (window.innerWidth <= 900) document.getElementById('sidebar').classList.remove('open');
@@ -6818,7 +6989,11 @@ document.getElementById('aeCategory').addEventListener('change', e => {
 // Clear buttons
 document.getElementById('aeClearDates').onclick = () => drpClearDateRange();
 // Edit Asset ID toggle — same flag for AE + AI. See setAssetEditMode.
-document.getElementById('aeEditAssetBtn').onclick = () => setAssetEditMode(!window.assetEditMode);
+// aeEditAssetBtn was removed from the AE actions row — asset-id editing is now
+// only wired through the ✎ badge in the Asset ID column header. Guarded so the
+// bootstrap doesn't crash if the element is missing.
+document.getElementById('aeEditAssetBtn')?.addEventListener('click',
+  () => setAssetEditMode(!window.assetEditMode));
 document.getElementById('aeClearFilters').onclick = async () => {
   document.getElementById('aeAcct').value      = '';
   document.getElementById('aeStatus').value    = '';
@@ -7059,6 +7234,574 @@ async function shopifyGraphQL(query, variables){
   const j = await r.json();
   if (j.errors) throw new Error(JSON.stringify(j.errors).slice(0, 200));
   return j.data;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Landing Page Analysis — two master-table modes:
+     'pages' → public.landing_page_analysis_30d (one row per page)
+     'ads'   → public.landing_page_ad_breakdown_30d (one row per ad)
+   Drill-down is the same in both modes — it always opens on the
+   selected page (in 'ads' mode we use the clicked ad's landing_page_path).
+   ─────────────────────────────────────────────────────────────── */
+const LP_ROLLUP_TABLE = 'landing_page_analysis_30d';
+let _lpRows       = [];       // rows for 'pages' master
+let _lpAdsMaster  = [];       // rows for 'ads' master (all pages)
+let _lpViewMode   = 'pages';  // 'pages' | 'ads'
+
+async function loadLandingPageStatus(){
+  // The heavy status panel is gone — Session-data-sync is finished. Just
+  // keep this shim so the sidebar click handler doesn't error out.
+  return;
+}
+
+async function loadLandingPageTable(){
+  const bodyP = document.getElementById('lpTableBody');
+  const sub   = document.getElementById('lpTableSub');
+  if (!bodyP) return;
+  bodyP.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>';
+  const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
+  try {
+    // Fetch BOTH masters in parallel — small tables, one round trip each.
+    const [pR, aR] = await Promise.all([
+      fetch(SUPABASE_URL + '/rest/v1/' + LP_ROLLUP_TABLE +
+            '?select=*&order=sessions.desc&limit=5000', { headers: hdrs }),
+      fetch(SUPABASE_URL + '/rest/v1/' + LP_AD_TABLE +
+            '?select=*&order=spend.desc&limit=5000', { headers: hdrs }),
+    ]);
+    if (!pR.ok) throw new Error(LP_ROLLUP_TABLE + ' HTTP ' + pR.status);
+    if (!aR.ok) throw new Error(LP_AD_TABLE + ' HTTP ' + aR.status);
+    _lpRows      = await pR.json();
+    _lpAdsMaster = await aR.json();
+    if (!Array.isArray(_lpRows) || !_lpRows.length){
+      bodyP.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:14px;' +
+        'color:var(--text-tertiary)">Rollup is empty. Click ↻ Recompute to seed it.</td></tr>';
+      return;
+    }
+    _lpRenderTable();
+    _lpRenderAdsMasterTable();
+    const first = _lpRows[0];
+    if (first && sub){
+      sub.textContent = 'window ' + first.window_from + ' → ' + first.window_to +
+                        ' · joined with primary_table.ad_link';
+    }
+    _lpRenderKpis();
+  } catch (e){
+    bodyP.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:14px;' +
+      'color:var(--error-text, #b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
+  }
+}
+
+/* Render the Ads master table (Mode B).  Same filter/search/sort UI as
+   the Pages master — but the sort key is remapped to ad-level columns. */
+function _lpRenderAdsMasterTable(){
+  const body   = document.getElementById('lpTableAdsBody');
+  const foot   = document.getElementById('lpTableFooter');
+  const qEl    = document.getElementById('lpSearch');
+  const sortEl = document.getElementById('lpSort');
+  if (!body) return;
+  // Map the shared sort dropdown values to ad-level fields.
+  const _adSortMap = {
+    sessions:         'spend',           // sessions unavailable per ad → default to spend
+    ad_spend:         'spend',
+    atc_rate:         'shopify_roas',    // repurpose to Shop ROAS in ad view
+    bounce_rate:      'meta_roas',
+    cost_per_session: 'roas_gap_pct',
+  };
+  const q     = ((qEl?.value || '')).trim().toLowerCase();
+  const sortK = _adSortMap[sortEl?.value] || 'spend';
+  let rows = _lpAdsMaster.slice();
+  if (q) rows = rows.filter(r =>
+    (r.ad_name || '').toLowerCase().includes(q) ||
+    (r.landing_page_path || '').toLowerCase().includes(q));
+  rows.sort((a, b) => (+b[sortK] || 0) - (+a[sortK] || 0));
+  const TOPN  = 250;
+  const shown = rows.slice(0, TOPN);
+  const _fmtRs   = v => '₹' + fmtInt(+v || 0);
+  const _fmtRoas = v => (+v || 0).toFixed(2);
+  const _pill = st => {
+    const s = (st || '').toUpperCase();
+    const cls = s === 'ACTIVE' ? 'active' : (s ? 'paused' : '');
+    return '<span class="lp-status ' + cls + '">' + (s || '—') + '</span>';
+  };
+  body.innerHTML = shown.map(r => {
+    const gap    = r.roas_gap_pct;
+    const gapCls = gap == null ? '' : (+gap < -15 ? 'lp-gap-neg' : (+gap > 15 ? 'lp-gap-pos' : ''));
+    const gapTxt = gap == null ? '—' : ((+gap > 0 ? '+' : '') + (+gap).toFixed(1) + '%');
+    const thumb  = r.preview_link
+      ? '<img src="' + r.preview_link.replace(/"/g, '&quot;') + '" alt=""' +
+        ' style="width:40px;height:40px;object-fit:cover;border-radius:5px" onerror="this.style.visibility=\'hidden\'">'
+      : '';
+    const adName = (r.ad_name || '').replace(/</g, '&lt;');
+    const path   = (r.landing_page_path || '').replace(/</g, '&lt;');
+    return '<tr data-lp-path="' + (r.landing_page_path || '').replace(/"/g, '&quot;') + '">' +
+      '<td>' + thumb + '</td>' +
+      '<td class="mono" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"' +
+        ' title="' + adName.replace(/"/g,'&quot;') + '">' + adName + '</td>' +
+      '<td class="mono" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"' +
+        ' title="' + path.replace(/"/g,'&quot;') + '">' + path + '</td>' +
+      '<td class="mono" style="text-align:right">' + _pill(r.ad_status) + '</td>' +
+      '<td class="mono" style="text-align:right">' + fmtInt(r.impressions) + '</td>' +
+      '<td class="mono" style="text-align:right">' + _fmtRs(r.spend) + '</td>' +
+      '<td class="mono" style="text-align:right">' + _fmtRoas(r.meta_roas) + '</td>' +
+      '<td class="mono" style="text-align:right">' + fmtInt(r.shopify_orders) + '</td>' +
+      '<td class="mono" style="text-align:right">' + _fmtRoas(r.shopify_roas) + '</td>' +
+      '<td class="mono ' + gapCls + '" style="text-align:right">' + gapTxt + '</td>' +
+      '</tr>';
+  }).join('') || '<tr><td colspan="10" style="text-align:center;padding:14px;color:var(--text-tertiary)">No ads match.</td></tr>';
+  if (foot && _lpViewMode === 'ads'){
+    foot.textContent = 'Showing ' + fmtInt(shown.length) + ' of ' + fmtInt(rows.length) +
+                       ' ads (from ' + fmtInt(_lpAdsMaster.length) + ') · sort=' + sortK;
+  }
+}
+
+/* Toggle: swap the master table + retarget the sort/search UI. */
+function _lpSetViewMode(mode){
+  if (mode !== 'ads' && mode !== 'pages') return;
+  _lpViewMode = mode;
+  document.querySelectorAll('.lp-viewtog-btn').forEach(b => {
+    const on = b.dataset.lpView === mode;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  const pagesWrap = document.getElementById('lpTableWrapPages');
+  const adsWrap   = document.getElementById('lpTableWrapAds');
+  if (pagesWrap) pagesWrap.style.display = (mode === 'pages') ? '' : 'none';
+  if (adsWrap)   adsWrap  .style.display = (mode === 'ads')   ? '' : 'none';
+  // Re-title + retune search placeholder
+  const title = document.getElementById('lpTableTitle');
+  const q     = document.getElementById('lpSearch');
+  if (title){
+    title.innerHTML = (mode === 'ads' ? 'Ads' : 'Landing pages') +
+      ' <span class="h-sub" id="lpTableSub">last 30 days · ' +
+      (mode === 'ads' ? 'ad-first view · Meta vs Shopify ROAS'
+                     : 'sessions × ad-spend join') + '</span>';
+  }
+  if (q) q.placeholder = (mode === 'ads') ? 'filter ad name or path…' : 'filter path…';
+  // Force re-render the visible master with the current search/sort state.
+  if (mode === 'ads') _lpRenderAdsMasterTable();
+  else                _lpRenderTable();
+}
+
+// Wire the view toggle pills.
+document.querySelectorAll('.lp-viewtog-btn').forEach(btn => {
+  btn.addEventListener('click', () => _lpSetViewMode(btn.dataset.lpView));
+});
+
+function _lpRenderTable(){
+  const body   = document.getElementById('lpTableBody');
+  const foot   = document.getElementById('lpTableFooter');
+  const qEl    = document.getElementById('lpSearch');
+  const sortEl = document.getElementById('lpSort');
+  if (!body) return;
+  const q     = ((qEl?.value || '')).trim().toLowerCase();
+  const sortK = sortEl?.value || 'sessions';
+  let rows = _lpRows.slice();
+  if (q) rows = rows.filter(r => (r.landing_page_path || '').toLowerCase().includes(q));
+  rows.sort((a, b) => (+b[sortK] || 0) - (+a[sortK] || 0));
+  const TOPN  = 250;
+  const shown = rows.slice(0, TOPN);
+  const _fmtPct = v => (v == null || v === '') ? '—' : (+v).toFixed(2) + '%';
+  const _fmtRs  = v => '₹' + fmtInt(+v || 0);
+  // Make rows clickable so the drill-down opens for the picked path.
+  const tblEl = document.getElementById('lpTable');
+  if (tblEl && !tblEl.classList.contains('lp-tbl-clickable'))
+    tblEl.classList.add('lp-tbl-clickable');
+  body.innerHTML = shown.map(r => (
+    '<tr data-lp-path="' + (r.landing_page_path || '').replace(/"/g, '&quot;') + '">' +
+    '<td class="mono" style="max-width:460px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"' +
+      ' title="' + (r.landing_page_path || '').replace(/"/g, '&quot;') + '">' + r.landing_page_path + '</td>' +
+    '<td class="mono" style="text-align:right">' + fmtInt(r.sessions) + '</td>' +
+    '<td class="mono" style="text-align:right">' + fmtInt(r.visitors) + '</td>' +
+    '<td class="mono" style="text-align:right">' + _fmtRs(r.ad_spend) + '</td>' +
+    '<td class="mono" style="text-align:right">' + fmtInt(r.distinct_ads) + '</td>' +
+    '<td class="mono" style="text-align:right">' + _fmtRs(r.cost_per_session) + '</td>' +
+    '<td class="mono" style="text-align:right">' + _fmtPct(r.atc_rate) + '</td>' +
+    '<td class="mono" style="text-align:right">' + _fmtPct(r.checkout_rate) + '</td>' +
+    '<td class="mono" style="text-align:right">' + _fmtPct(r.bounce_rate) + '</td>' +
+    '</tr>'
+  )).join('') || '<tr><td colspan="9" style="text-align:center;padding:14px;color:var(--text-tertiary)">No pages match.</td></tr>';
+  if (foot){
+    foot.textContent = 'Showing ' + fmtInt(shown.length) + ' of ' + fmtInt(rows.length) +
+                       ' pages (filtered from ' + fmtInt(_lpRows.length) + ') · sort=' + sortK;
+  }
+}
+
+function _lpRenderKpis(){
+  const rows = _lpRows;
+  if (!rows.length) return;
+  let sess = 0, spend = 0, atcW = 0, bncW = 0;
+  for (const r of rows){
+    const s = +r.sessions || 0;
+    sess  += s;
+    spend += +r.ad_spend || 0;
+    atcW  += ((+r.atc_rate    || 0) * s);
+    bncW  += ((+r.bounce_rate || 0) * s);
+  }
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('lpKpSess',    fmtInt(sess));
+  set('lpKpSpend',   '₹' + fmtInt(spend));
+  set('lpKpCPS',     sess > 0 ? '₹' + (spend / sess).toFixed(2) : '—');
+  set('lpKpATC',     sess > 0 ? (atcW / sess).toFixed(2) + '%' : '—');
+  set('lpKpBounce',  sess > 0 ? (bncW / sess).toFixed(2) + '%' : '—');
+  // Snapshot info — window + computed_at (all rows share the same snapshot).
+  const first = rows[0];
+  set('lpKpSnap', first?.window_from + ' → ' + first?.window_to);
+  const el = document.getElementById('lpKpSnapSub');
+  if (el && first?.computed_at){
+    const d = new Date(first.computed_at);
+    el.textContent = 'computed ' + d.toISOString().slice(0, 16).replace('T', ' ') + 'Z';
+  }
+}
+
+async function _lpRecompute(){
+  const btn = document.getElementById('lpRefreshCompute');
+  if (btn){ btn.disabled = true; btn.textContent = '⏳ Recomputing…'; }
+  try {
+    const url = SUPABASE_URL + '/rest/v1/rpc/refresh_landing_page_analysis_30d';
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON,
+                 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_days: 30 }),
+    });
+    if (!r.ok) throw new Error('RPC HTTP ' + r.status);
+    await loadLandingPageTable();
+  } catch (e){
+    alert('Recompute failed: ' + (e?.message || e));
+  } finally {
+    if (btn){ btn.disabled = false; btn.textContent = '↻ Recompute'; }
+  }
+}
+
+// Search + sort dispatch to whichever master is currently visible.
+function _lpMasterRerender(){
+  if (_lpViewMode === 'ads') _lpRenderAdsMasterTable();
+  else                       _lpRenderTable();
+}
+document.getElementById('lpRefresh')?.addEventListener('click', loadLandingPageTable);
+document.getElementById('lpRefreshCompute')?.addEventListener('click', _lpRecompute);
+document.getElementById('lpSearch')?.addEventListener('input',
+  () => { clearTimeout(window._lpDb); window._lpDb = setTimeout(_lpMasterRerender, 120); });
+document.getElementById('lpSort')?.addEventListener('change', _lpMasterRerender);
+document.getElementById('lpExport')?.addEventListener('click', () => {
+  const rows = Array.from(document.querySelectorAll('#lpTable tbody tr'));
+  const csv = ['landing_page_path,sessions,visitors,ad_spend,distinct_ads,' +
+               'cost_per_session,atc_pct,checkout_pct,bounce_pct'];
+  for (const r of rows){
+    const c = r.querySelectorAll('td');
+    if (c.length < 9) continue;
+    csv.push('"' + c[0].textContent.replace(/"/g, '""') + '",' +
+             [c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8]]
+               .map(x => x.textContent.replace(/[,₹]/g, '')).join(','));
+  }
+  const blob = new Blob([csv.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'landing_page_analysis_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+});
+
+/* ═════════════════════════════════════════════════════════════════
+   Landing Page × Ads DRILL-DOWN
+   Fires when the user clicks a row in the master landing-page table.
+   Fetches every ad whose destination URL resolves to that path from
+   public.landing_page_ad_breakdown_30d, renders KPIs + 2 charts + table.
+   ═════════════════════════════════════════════════════════════════ */
+const LP_AD_TABLE = 'landing_page_ad_breakdown_30d';
+let _lpAdRows       = [];              // last-loaded ad rows for selected path
+let _lpAdFilter     = 'all';
+let _lpSelectedPath = null;
+let _lpChartBars    = null;            // Chart.js instances (destroy before re-init)
+let _lpChartBubble  = null;
+
+// Delegated click handler for BOTH master tables — the tbody re-renders on
+// every filter, so listen at each table root.  Clicking an ad-first row
+// opens the drill-down on that ad's landing_page_path (all sibling ads on
+// the same page show up in the detail, sorted by spend).
+function _lpMasterClick(e){
+  const tr = e.target.closest('tr[data-lp-path]');
+  if (!tr) return;
+  const path = tr.getAttribute('data-lp-path') || '';
+  document.querySelectorAll('#lpTable tbody tr.selected, #lpTableAds tbody tr.selected')
+    .forEach(x => x.classList.remove('selected'));
+  tr.classList.add('selected');
+  _lpSelectedPath = path;
+  _lpOpenDetail(path);
+}
+document.getElementById('lpTable')?.addEventListener('click', _lpMasterClick);
+document.getElementById('lpTableAds')?.addEventListener('click', _lpMasterClick);
+
+function _lpCloseDetail(){
+  const card     = document.getElementById('lpDetailCard');
+  const backdrop = document.getElementById('lpDetailBackdrop');
+  if (card)     card.style.display = 'none';
+  if (backdrop){ backdrop.classList.remove('open'); backdrop.setAttribute('aria-hidden','true'); }
+  document.body.classList.remove('lp-modal-open');
+  document.querySelectorAll('#lpTable tbody tr.selected, #lpTableAds tbody tr.selected')
+    .forEach(x => x.classList.remove('selected'));
+  _lpSelectedPath = null;
+}
+document.getElementById('lpDetailClose')?.addEventListener('click', _lpCloseDetail);
+document.getElementById('lpDetailBackdrop')?.addEventListener('click', _lpCloseDetail);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape'){
+    const card = document.getElementById('lpDetailCard');
+    if (card && card.style.display !== 'none') _lpCloseDetail();
+  }
+});
+
+document.querySelectorAll('.lp-pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.lp-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _lpAdFilter = btn.dataset.lpFilter || 'all';
+    _lpRenderDetail();
+  });
+});
+
+async function _lpOpenDetail(path){
+  const card     = document.getElementById('lpDetailCard');
+  const backdrop = document.getElementById('lpDetailBackdrop');
+  const pathEl   = document.getElementById('lpDetailPath');
+  const winEl    = document.getElementById('lpDetailWindow');
+  if (!card) return;
+  card.style.display = 'block';
+  if (backdrop){ backdrop.classList.add('open'); backdrop.setAttribute('aria-hidden','false'); }
+  document.body.classList.add('lp-modal-open');
+  card.scrollTop = 0;   // start at the modal's own top on each open
+  if (pathEl) pathEl.innerHTML = 'path: <code>' + path.replace(/</g, '&lt;') + '</code>';
+  const body = document.getElementById('lpAdTableBody');
+  if (body) body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>';
+  try {
+    const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
+    const url  = SUPABASE_URL + '/rest/v1/' + LP_AD_TABLE +
+                 '?select=*&landing_page_path=eq.' + encodeURIComponent(path) +
+                 '&order=spend.desc&limit=500';
+    const r = await fetch(url, {headers: hdrs});
+    if (!r.ok) throw new Error(LP_AD_TABLE + ' HTTP ' + r.status);
+    _lpAdRows = await r.json();
+    if (winEl && _lpAdRows[0]){
+      winEl.textContent = _lpAdRows[0].window_from + ' → ' + _lpAdRows[0].window_to;
+    }
+    _lpAdFilter = 'all';
+    document.querySelectorAll('.lp-pill').forEach(b => b.classList.toggle('active', b.dataset.lpFilter === 'all'));
+    _lpRenderDetail();
+  } catch (e){
+    if (body) body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:14px;' +
+      'color:var(--error-text, #b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
+  }
+}
+
+function _lpApplyFilter(rows){
+  if (_lpAdFilter === 'active')  return rows.filter(r => (r.ad_status || '').toUpperCase() === 'ACTIVE');
+  if (_lpAdFilter === 'paused')  return rows.filter(r => (r.ad_status || '').toUpperCase() !== 'ACTIVE');
+  if (_lpAdFilter === 'winner')  return rows.filter(r => (+r.shopify_roas || 0) >= 2);
+  if (_lpAdFilter === 'loser')   return rows.filter(r => (+r.shopify_roas || 0) <  1 && (+r.spend || 0) > 0);
+  if (_lpAdFilter === 'gap')     return rows.filter(r => Math.abs(+r.roas_gap_pct || 0) > 40);
+  return rows;
+}
+
+function _lpRenderDetail(){
+  const rows = _lpApplyFilter(_lpAdRows);
+  _lpRenderDetailKpis(_lpAdRows);   // KPIs based on FULL page, not the filter
+  _lpRenderDetailTable(rows);
+  _lpRenderDetailCharts(rows);
+  const cntEl = document.getElementById('lpDetailCount');
+  if (cntEl) cntEl.textContent = fmtInt(rows.length) + ' of ' + fmtInt(_lpAdRows.length) + ' ads';
+}
+
+function _lpRenderDetailKpis(rows){
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  if (!rows.length){
+    ['lpDkSess','lpDkSpend','lpDkMROAS','lpDkSROAS','lpDkGap','lpDkAds'].forEach(id => set(id, '—'));
+    return;
+  }
+  let spend = 0, conv = 0, shopSales = 0, shopOrders = 0, active = 0;
+  for (const r of rows){
+    spend      += +r.spend         || 0;
+    conv       += +r.conv_value    || 0;
+    shopSales  += +r.shopify_sales || 0;
+    shopOrders += +r.shopify_orders|| 0;
+    if ((r.ad_status || '').toUpperCase() === 'ACTIVE') active++;
+  }
+  const paused = rows.length - active;
+  const metaRoas = spend > 0 ? (conv     / spend) : 0;
+  const shopRoas = spend > 0 ? (shopSales / spend) : 0;
+  const gap = conv > 0 ? ((shopSales - conv) / conv * 100) : 0;
+  const page = rows[0];
+  set('lpDkSess',    fmtInt(page.page_sessions));
+  set('lpDkSessSub', 'ATC ' + (+page.page_atc_rate || 0).toFixed(1) + '% · Bounce ' + (+page.page_bounce_rate || 0).toFixed(1) + '%');
+  set('lpDkSpend',   '₹' + fmtInt(spend));
+  set('lpDkSpendSub', 'cost/session ₹' + (+page.page_cost_per_sess || 0).toFixed(2));
+  set('lpDkMROAS',   metaRoas.toFixed(2));
+  set('lpDkSROAS',   shopRoas.toFixed(2));
+  set('lpDkSROASub', fmtInt(shopOrders) + ' orders · ₹' + fmtInt(shopSales));
+  const gapEl = document.getElementById('lpDkGap');
+  if (gapEl){
+    gapEl.textContent = (gap > 0 ? '+' : '') + gap.toFixed(1) + '%';
+    gapEl.style.color = gap < -20 ? 'var(--error-text,#b94a3d)' :
+                        (gap >  20 ? 'var(--success-text)'    : '');
+  }
+  set('lpDkAds',     fmtInt(rows.length));
+  set('lpDkAdsSub',  'active ' + active + ' · paused ' + paused);
+}
+
+function _lpRenderDetailTable(rows){
+  const body = document.getElementById('lpAdTableBody');
+  const foot = document.getElementById('lpAdTableFoot');
+  if (!body) return;
+  if (!rows.length){
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:14px;color:var(--text-tertiary)">No ads match the filter.</td></tr>';
+    if (foot) foot.textContent = '—';
+    return;
+  }
+  const _fmtRs   = v => '₹' + fmtInt(+v || 0);
+  const _fmtRoas = v => (+v || 0).toFixed(2);
+  const _statusPill = st => {
+    const s = (st || '').toUpperCase();
+    const cls = s === 'ACTIVE' ? 'active' : (s ? 'paused' : '');
+    return '<span class="lp-status ' + cls + '">' + (s || '—') + '</span>';
+  };
+  body.innerHTML = rows.slice(0, 200).map(r => {
+    const gap = r.roas_gap_pct;
+    const gapCls = gap == null ? '' : (+gap < -15 ? 'lp-gap-neg' : (+gap > 15 ? 'lp-gap-pos' : ''));
+    const gapTxt = gap == null ? '—' : ((+gap > 0 ? '+' : '') + (+gap).toFixed(1) + '%');
+    const thumb = r.preview_link
+      ? '<img src="' + r.preview_link.replace(/"/g, '&quot;') + '" alt="" onerror="this.style.visibility=\'hidden\'">'
+      : '';
+    const adName = (r.ad_name || '').replace(/</g, '&lt;');
+    const sub    = ((r.campaign_name || '—') + ' · ' + (r.adset_name || '—')).replace(/</g, '&lt;');
+    return '<tr>' +
+      '<td>' + thumb + '</td>' +
+      '<td><div class="lp-adname" title="' + adName.replace(/"/g,'&quot;') + '">' + adName +
+           ' &nbsp;' + _statusPill(r.ad_status) +
+           '<span class="sub">' + sub + '</span></div></td>' +
+      '<td class="mono" style="text-align:right">' + fmtInt(r.impressions) + '</td>' +
+      '<td class="mono" style="text-align:right">' + _fmtRs(r.spend) + '</td>' +
+      '<td class="mono" style="text-align:right">' + _fmtRoas(r.meta_roas) + '</td>' +
+      '<td class="mono" style="text-align:right">' + fmtInt(r.shopify_orders) + '</td>' +
+      '<td class="mono" style="text-align:right">' + _fmtRs(r.shopify_sales) + '</td>' +
+      '<td class="mono" style="text-align:right">' + _fmtRoas(r.shopify_roas) + '</td>' +
+      '<td class="mono ' + gapCls + '" style="text-align:right">' + gapTxt + '</td>' +
+      '</tr>';
+  }).join('');
+  if (foot){
+    foot.textContent = 'Showing ' + fmtInt(Math.min(200, rows.length)) + ' of ' + fmtInt(rows.length) +
+                       ' ads · filter=' + _lpAdFilter;
+  }
+}
+
+/* Sync ad-table scroll container height to the chart column's natural
+   bottom.  Called after the charts render — the two Chart.js canvases have
+   fixed heights, so the col height is stable within a paint. */
+function _lpSyncTableHeight(){
+  const chartCol = document.querySelector('.funnel-card.lp-modal .lp-chart-col');
+  const scroll   = document.querySelector('.funnel-card.lp-modal .lp-adtable-scroll');
+  if (!chartCol || !scroll) return;
+  const h = chartCol.getBoundingClientRect().height;
+  if (h > 100) scroll.style.maxHeight = h + 'px';   // guard against pre-render 0
+}
+// Re-sync on modal resize (viewport rotate, dev-tools toggle, etc.)
+window.addEventListener('resize', () => {
+  const card = document.getElementById('lpDetailCard');
+  if (card && card.style.display !== 'none') _lpSyncTableHeight();
+});
+
+function _lpRenderDetailCharts(rows){
+  if (typeof Chart === 'undefined') return;
+  // ── Bar chart: Meta vs Shopify ROAS for top 12 by spend ──
+  const barCanvas = document.getElementById('lpChartBars');
+  if (barCanvas){
+    const top = rows.slice().sort((a,b) => (+b.spend||0) - (+a.spend||0)).slice(0, 12);
+    const labels = top.map((r,i) => {
+      const nm = r.ad_name || r.ad_id || '';
+      return nm.length > 34 ? nm.slice(0, 32) + '…' : nm;
+    });
+    if (_lpChartBars) _lpChartBars.destroy();
+    _lpChartBars = new Chart(barCanvas.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Meta ROAS',    data: top.map(r => +r.meta_roas   || 0),
+            backgroundColor: '#3B6FD4' },
+          { label: 'Shopify ROAS', data: top.map(r => +r.shopify_roas|| 0),
+            backgroundColor: '#C0603A' },
+        ],
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', align: 'end',
+                    labels: {boxWidth: 10, boxHeight: 10, font: {size: 10, family: 'Space Grotesk'}} },
+          tooltip:{ callbacks: {
+            afterBody(items){
+              const r = top[items[0].dataIndex]; if (!r) return '';
+              return ['spend ₹' + fmtInt(r.spend),
+                      'shop orders ' + fmtInt(r.shopify_orders),
+                      'shop sales ₹' + fmtInt(r.shopify_sales),
+                      (r.roas_gap_pct == null ? '' : 'gap ' + (+r.roas_gap_pct).toFixed(1) + '%')].filter(Boolean);
+            }
+          }}
+        },
+        scales: {
+          x: { grid: {color: 'rgba(0,0,0,0.05)'}, ticks: {font: {size: 10}} },
+          y: { grid: {display: false}, ticks: {font: {size: 10}} },
+        },
+      },
+    });
+  }
+  // ── Bubble chart: Spend × Shopify ROAS, size = orders ──
+  const bubCanvas = document.getElementById('lpChartBubble');
+  if (bubCanvas){
+    const _colour = st => (st || '').toUpperCase() === 'ACTIVE' ? '#3D9E6B' : '#B57514';
+    const _size = o => Math.max(4, Math.min(28, Math.sqrt(+o || 0) * 1.5));
+    const pts = rows.map(r => ({
+      x: +r.spend        || 0,
+      y: +r.shopify_roas || 0,
+      r: _size(r.shopify_orders),
+      _ad: r,
+      backgroundColor: _colour(r.ad_status) + 'AA',
+      borderColor:     _colour(r.ad_status),
+    }));
+    if (_lpChartBubble) _lpChartBubble.destroy();
+    _lpChartBubble = new Chart(bubCanvas.getContext('2d'), {
+      type: 'bubble',
+      data: { datasets: [{ label: 'ads', data: pts,
+                           backgroundColor: pts.map(p => p.backgroundColor),
+                           borderColor:     pts.map(p => p.borderColor) }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label(item){
+              const p = item.raw?._ad; if (!p) return '';
+              return [
+                (p.ad_name || p.ad_id || '').slice(0, 60),
+                (p.ad_status || '') + ' · ' + p.campaign_name,
+                'spend ₹' + fmtInt(p.spend) + ' · shop ROAS ' + (+p.shopify_roas || 0).toFixed(2),
+                'orders ' + fmtInt(p.shopify_orders) + ' · gap ' +
+                  (p.roas_gap_pct == null ? '—' : (+p.roas_gap_pct).toFixed(1) + '%'),
+              ];
+            }
+          }}
+        },
+        scales: {
+          x: { title: {display:true, text:'Ad Spend (₹)', font:{size:10}},
+               grid: {color:'rgba(0,0,0,0.05)'},
+               ticks: {font:{size:10}, callback: v => '₹' + fmtInt(v)} },
+          y: { title: {display:true, text:'Shopify ROAS', font:{size:10}},
+               grid: {color:'rgba(0,0,0,0.05)'},
+               ticks: {font:{size:10}} },
+        },
+      },
+    });
+  }
+  // Charts are now instantiated. Chart.js sizes canvases synchronously on
+  // creation, but the first layout is queued for the next frame — sync
+  // after paint so getBoundingClientRect() reads the settled height.
+  requestAnimationFrame(() => _lpSyncTableHeight());
 }
 
 async function loadInventory(){
