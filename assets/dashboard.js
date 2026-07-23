@@ -2234,6 +2234,8 @@ document.querySelectorAll('.sb-item').forEach(it => {
     document.querySelectorAll('.view').forEach(vv => vv.style.display = 'none');
     const target = document.getElementById('view-' + v);
     if (target) { target.style.display = 'block'; }
+    // Toggle landing-page mode (sidebar hidden, main goes full width).
+    document.body.classList.toggle('on-home', v === 'home');
     // Toggle the "Historic (Lifetime)" banner on the view's page header
     const banner = target?.querySelector('.historic-banner');
     if (banner) banner.style.display = isHistoric ? 'inline-flex' : 'none';
@@ -2292,6 +2294,30 @@ document.querySelectorAll('.sb-item').forEach(it => {
     }
     // Auto-close the mobile sidebar after selection
     if (window.innerWidth <= 900) document.getElementById('sidebar').classList.remove('open');
+  });
+});
+
+/* Landing-page cards — clicking any card is equivalent to clicking its
+   sidebar item. We find the matching sidebar item by matching data-view,
+   data-historic, and data-active-preset, then dispatch a click so ALL the
+   existing sidebar-handler logic runs (historic-mode flip, Active preset,
+   lazy-load, mobile sidebar auto-close, banner toggle, etc.). */
+document.querySelectorAll('.home-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const view    = card.dataset.targetView;
+    const preset  = card.dataset.activePreset || '';
+    const histo   = card.dataset.historic === '1' ? '1' : '';
+    if (!view) return;
+    // Find the sidebar item whose (data-view, preset, historic) match.
+    const items = document.querySelectorAll('.sb-item');
+    let picked = null;
+    for (const it of items){
+      const sameView    = it.dataset.view === view;
+      const samePreset  = (it.dataset.activePreset || '') === preset;
+      const sameHistoric= (it.dataset.historic === '1' ? '1' : '') === histo;
+      if (sameView && samePreset && sameHistoric){ picked = it; break; }
+    }
+    if (picked) picked.click();
   });
 });
 
@@ -3450,7 +3476,22 @@ function _aeMfRenderPanel(mode){
       state[i].op = e.target.value;
       div.querySelector('.rule-value').placeholder = _aeMfPlaceholder(state[i].field, e.target.value);
     });
-    div.querySelector('.rule-value').addEventListener('input', e => { state[i].value = e.target.value; });
+    // LIVE-SEARCH — typing debounces to a re-render (no Apply click needed).
+    // Enter forces an immediate re-render. This eliminates the class of bugs
+    // where a user typed a second search but forgot / stopped clicking Apply.
+    const _valInp = div.querySelector('.rule-value');
+    _valInp.addEventListener('input', e => {
+      state[i].value = e.target.value;
+      clearTimeout(_valInp._aeMfDb);
+      _valInp._aeMfDb = setTimeout(() => { aePage = 0; renderAE(); }, 250);
+    });
+    _valInp.addEventListener('keydown', e => {
+      if (e.key === 'Enter'){
+        clearTimeout(_valInp._aeMfDb);
+        state[i].value = e.target.value;
+        aePage = 0; renderAE();
+      }
+    });
     div.querySelector('.ae-rule-del').addEventListener('click', () => {
       state.splice(i, 1);
       if (!state.length) state.push(defRule());
@@ -6544,6 +6585,7 @@ function renderAE(){
       numCell(roasVal)+
       numCell(fmtInt(r.shopify_orders))+
       numCell(fmtRs(r.shopify_sales))+
+      numCell(r.shopify_roas == null ? '—' : (+r.shopify_roas).toFixed(2))+
       numCell(r.meta_shop_diff_pct == null ? '—' : (r.meta_shop_diff_pct >= 0 ? '+' : '') + r.meta_shop_diff_pct.toFixed(1) + '%')+
       numCell(cFtVal)+
       numCell(ftVal)+

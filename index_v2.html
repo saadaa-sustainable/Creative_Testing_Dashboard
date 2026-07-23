@@ -19,8 +19,9 @@
     <div class="dot">S</div>
     <div class="name">Saadaa</div>
   </div>
+  <div class="sb-item sb-home active" data-view="home" title="Landing page — every section as a card">⌂ Home</div>
   <div class="sb-section">Creative Testing</div>
-  <div class="sb-item active" data-view="testing">Creative testing</div>
+  <div class="sb-item" data-view="testing">Creative testing</div>
   <div class="sb-item" data-view="lifecycle">Creative Lifecycle</div>
   <div class="sb-section">Analysis
     <span class="sb-info" title="Data in this section is scoped to ads dated 1st Jan 2025 onwards. Older ads live under Historic below.">ⓘ</span>
@@ -50,8 +51,143 @@
 <!-- ═════════════════ MAIN ═════════════════ -->
 <main id="main">
 
-<!-- ─── VIEW: CREATIVE TESTING (default) ──────────────────────────── -->
-<div class="view" id="view-testing">
+<script>document.body.classList.add('on-home');</script>
+
+<!-- ─── VIEW: HOME (default landing page) ──────────────────────────
+     Hero heading + card grid for every dashboard section.  Clicking
+     a card is equivalent to clicking its sidebar item — same handler
+     dispatched via JS. -->
+<div class="view" id="view-home">
+  <div class="home-hero">
+    <h1 class="home-title">Creative Testing Dashboard</h1>
+    <p class="home-sub">Meta + Shopify analytics — sessions, spend, ROAS &amp; the full creative funnel in one place.</p>
+  </div>
+
+  <div class="home-group">
+    <div class="home-group-title">Creative Testing</div>
+    <div class="home-grid">
+      <div class="home-card" data-target-view="testing" data-tone="warm">
+        <div class="hc-row">
+          <div class="hc-icon">▲</div>
+          <div class="hc-title">Creative testing</div>
+        </div>
+        <div class="hc-desc">F1-F4 funnel · Winner / P0-P2 buckets · KPI cards + Overview performance</div>
+        <div class="hc-cta">Open →</div>
+      </div>
+      <div class="home-card" data-target-view="lifecycle" data-tone="sand">
+        <div class="hc-row">
+          <div class="hc-icon">↻</div>
+          <div class="hc-title">Creative Lifecycle</div>
+        </div>
+        <div class="hc-desc">Ad-age distribution · Buffer analysis · Frequency curves over the lifetime</div>
+        <div class="hc-cta">Open →</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="home-group">
+    <div class="home-group-title">Analysis <span class="hg-sub">· scoped to 2025-01-01+</span></div>
+    <div class="home-grid">
+      <div class="home-card" data-target-view="ae" data-tone="brand">
+        <div class="hc-row">
+          <div class="hc-icon">▤</div>
+          <div class="hc-title">Ads Analyse</div>
+        </div>
+        <div class="hc-desc">Row-level deep dive · Sortable + filterable · Right-side Inspector for numeric filters</div>
+        <div class="hc-cta">Open →</div>
+      </div>
+      <div class="home-card" data-target-view="ireach" data-tone="amber">
+        <div class="hc-row">
+          <div class="hc-icon">◈</div>
+          <div class="hc-title">Incremental Analysis</div>
+        </div>
+        <div class="hc-desc">Sheet-model daily incremental reach at Account / Campaign / Adset / Ad level</div>
+        <div class="hc-cta">Open →</div>
+      </div>
+      <div class="home-card" data-target-view="adintel" data-tone="warm">
+        <div class="hc-row">
+          <div class="hc-icon">◆</div>
+          <div class="hc-title">Last Click UTM analysis</div>
+        </div>
+        <div class="hc-desc">Every Shopify order joined against ad attribution — tier ladder + orphan probe</div>
+        <div class="hc-cta">Open →</div>
+      </div>
+      <div class="home-card" data-target-view="landing" data-tone="sand">
+        <div class="hc-row">
+          <div class="hc-icon">☰</div>
+          <div class="hc-title">Landing Page Analysis</div>
+        </div>
+        <div class="hc-desc">Sessions x ad-spend join · Path x Ads deep-dive with Meta vs Shopify ROAS charts</div>
+        <div class="hc-cta">Open →</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="home-group">
+    <div class="home-group-title">Live</div>
+    <div class="home-grid">
+      <div class="home-card" data-target-view="ae" data-active-preset="ad" data-tone="brand">
+        <div class="hc-row">
+          <div class="hc-icon">●</div>
+          <div class="hc-title">Active</div>
+        </div>
+        <div class="hc-desc">All ad_status=ACTIVE ads · Ad / Adset / Campaign level toggle · Meta vs Shop % gap</div>
+        <div class="hc-cta">Open →</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="home-group">
+    <div class="home-group-title">Catalog</div>
+    <div class="home-grid">
+      <div class="home-card" data-target-view="inventory" data-tone="amber">
+        <div class="hc-row">
+          <div class="hc-icon">□</div>
+          <div class="hc-title">Inventory</div>
+        </div>
+        <div class="hc-desc">All Shopify products · Stock status · Vendor + category rollups</div>
+        <div class="hc-cta">Open →</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="home-group">
+    <div class="home-group-title">Historic <span class="hg-sub">· full lifetime, no date cap</span></div>
+    <div class="home-grid">
+      <div class="home-card" data-target-view="ae" data-historic="1" data-tone="warm">
+        <div class="hc-row">
+          <div class="hc-icon">▤</div>
+          <div class="hc-title">Historic Ads Analysis</div>
+        </div>
+        <div class="hc-desc">Lifetime ads — every ad since 2023 without the post-2025 cap</div>
+        <div class="hc-cta">Open →</div>
+      </div>
+      <div class="home-card" data-target-view="adintel" data-historic="1" data-tone="sand">
+        <div class="hc-row">
+          <div class="hc-icon">◆</div>
+          <div class="hc-title">Historic Last Click UTM</div>
+        </div>
+        <div class="hc-desc">Lifetime attribution — includes pre-2025 orders in the tier ladder</div>
+        <div class="hc-cta">Open →</div>
+      </div>
+      <div class="home-card" data-target-view="hreach" data-tone="brand">
+        <div class="hc-row">
+          <div class="hc-icon">◈</div>
+          <div class="hc-title">Historic Reach</div>
+        </div>
+        <div class="hc-desc">Group-first lifetime incremental reach from primary_table + backfill_table</div>
+        <div class="hc-cta">Open →</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="home-footer mono">
+    <span>Meta_ads_data + Saada_Shopify_Data + IG + Google Ads · pipeline via <code>_run_full_update.py</code></span>
+  </div>
+</div>
+
+<!-- ─── VIEW: CREATIVE TESTING ────────────────────────────────────── -->
+<div class="view" id="view-testing" style="display:none">
 
   <div class="page-hdr">
     <div>
@@ -981,6 +1117,8 @@
             <th class="num" data-sort="roas_ma">ROAS</th>
             <th class="num" data-sort="shopify_orders">Shop Orders</th>
             <th class="num" data-sort="shopify_sales">Shop Sales</th>
+            <th class="num" data-sort="shopify_roas"
+                title="Attributed Shopify sales ÷ Ad spend. Uses window-scoped values when a date range is active (aeApplyWindow re-derives shopify_roas from windowed spend + shopify sales); otherwise the lifetime value from ae_shopify_enriched.">Shop ROAS</th>
             <th class="num" data-sort="meta_shop_diff_pct"
                 title="((Shop Sales − Meta Conv Value) / Meta Conv Value) × 100. Negative = Meta over-reports revenue vs Shopify actuals; positive = Shopify sales exceed Meta-attributed value (attribution gap).">% Meta vs Shop</th>
             <th class="num" data-sort="cost_per_ftewv">Cost/FTEWV</th>
@@ -2473,6 +2611,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=lp_modal_table_sync_charts"></script>
+<script src="assets/dashboard.js?v=ae_shop_roas_col"></script>
 </body>
 </html>
