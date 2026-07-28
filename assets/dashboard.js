@@ -5791,21 +5791,31 @@ function aeApplyWindow(r){
   //   Incr. Reach    = latest − previous (new unique users during window)
   //   Cost / 1k Incr = spend_sum × 1000 / Incr. Reach
   // Values sourced from public.ireach_cumulative_daily where level='ad'.
-  if (_aeWindowReachKey && rr){
-    out.previous_reach    = rr.reach_first;   // cum_at_start_prev
-    out.latest_reach      = rr.reach_last;    // cum_at_end
-    out.incremental_reach = Math.max(0, rr.reach_incr || 0);
-    out.cost_per_1000_incremental_reach = rr.reach_incr > 0
-      ? (rr.spend_sum * 1000) / rr.reach_incr
-      : null;
+  if (_aeWindowReachKey){
+    // A window is active — the ONLY correct source of Prev / Latest / Incr
+    // is the RPC (cumulative-reach based). If the ad isn't in the RPC
+    // response (no delivery in window OR fetch still resolving) treat it as
+    // zero — never fall back to ae_reach_recent, whose values are yesterday
+    // vs day-before single-day reaches and are nonsense for a window view.
+    if (rr){
+      out.previous_reach    = rr.reach_first;   // cum_at_start_prev
+      out.latest_reach      = rr.reach_last;    // cum_at_end
+      out.incremental_reach = Math.max(0, rr.reach_incr || 0);
+      out.cost_per_1000_incremental_reach = rr.reach_incr > 0
+        ? (rr.spend_sum * 1000) / rr.reach_incr
+        : null;
+    } else {
+      out.previous_reach    = 0;
+      out.latest_reach      = 0;
+      out.incremental_reach = 0;
+      out.cost_per_1000_incremental_reach = null;
+    }
   }
-  // If `rr` is missing (ad has no reach in the current window, OR the
-  // fetch hasn't resolved yet on the first paint) fall through and keep
-  // out.previous_reach / latest_reach / incremental_reach from the
-  // ae_reach_recent merge that Object.assign copied at line 4981.
-  // Clamp the fallback incremental_reach at 0 — the base view can emit
-  // negatives when Meta's per-day unique reach dips, but users read a
-  // negative as "reach was taken back," which never happens.
+  // No window active — keep ae_reach_recent's last-two-days snapshot values
+  // that were merged in earlier (that's the intended lifetime-table view).
+  // Still clamp a negative incremental to 0 (Meta's per-day unique reach
+  // can dip as attribution settles; users read negative as "took reach
+  // back" which never happens).
   if (typeof out.incremental_reach === 'number' && out.incremental_reach < 0){
     out.incremental_reach = 0;
     out.cost_per_1000_incremental_reach = null;
@@ -7287,13 +7297,21 @@ document.getElementById('aeBtnExport').onclick = () => {
   const rows = _aeSortRows(_windowedCsv, aeSortKey, aeSortDir);
   exportVisibleTableCsv('#aeMain', rows, {
     filenamePrefix: 'ads_analyse',
-    deriveRow: r => ({
-      ...r,
-      asset_id:              assetIdByAdId[r.ad_id] || '',
-      previous_reach:        (aeWindowReachByAdId[r.ad_id] || {}).reach_first ?? r.previous_reach,
-      latest_reach:          (aeWindowReachByAdId[r.ad_id] || {}).reach_last  ?? r.latest_reach,
-      incremental_reach:     (aeWindowReachByAdId[r.ad_id] || {}).reach_sum   ?? r.incremental_reach,
-    }),
+    deriveRow: r => {
+      const rr = aeWindowReachByAdId[r.ad_id];
+      // When a window is active, use RPC values only (0 when ad isn't in
+      // the response). Never surface ae_reach_recent's single-day snapshot
+      // as if it were a windowed cumulative — that was the "wrong numbers"
+      // bug on the AE table.
+      const inWindow = !!_aeWindowReachKey;
+      return {
+        ...r,
+        asset_id:              assetIdByAdId[r.ad_id] || '',
+        previous_reach:        inWindow ? (rr ? rr.reach_first : 0) : r.previous_reach,
+        latest_reach:          inWindow ? (rr ? rr.reach_last  : 0) : r.latest_reach,
+        incremental_reach:     inWindow ? (rr ? Math.max(0, rr.reach_incr) : 0) : r.incremental_reach,
+      };
+    },
   });
 };
 /* Incremental Reach group-by modal was removed — the per-ad reach
