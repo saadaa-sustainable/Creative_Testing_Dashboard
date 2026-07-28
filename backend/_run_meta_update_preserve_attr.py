@@ -1,6 +1,6 @@
 """Meta-only pipeline runner. Preserves manual shopify_ad_attribution edits
 (the 'spend-weight', 'spend-weight-hashed', slug-inherit, MEGHA→DIVYA
-markers) by SKIPPING rebuild_attribution_orders + results_sync.
+markers) by SKIPPING rebuild_attribution_orders only.
 
 After the Meta refresh, rebuilds the two helper tables the Google Sheets
 depend on (ad_utm_mode, ae_daily_30d) so the sheet picks up new Meta
@@ -12,12 +12,16 @@ Steps kept (no attribution overwrite):
   refresh_new_incr_table, fetch_meta_ireach_daily,
   fetch_google_ads_daily, refresh_google_ads_summary,
   result_classifier, fetch_shopify_sessions, sync_shopify_customers,
-  import_asset_id_sheet, fetch_ad_thumbnails,
+  import_asset_id_sheet, results_sync, fetch_ad_thumbnails,
   _build_ad_utm_mode, _build_ae_daily_30d
 
-Steps skipped (would clobber manual attribution):
+Step skipped (would clobber manual attribution):
   rebuild_attribution_orders   ← re-derives from raw UTMs, undoes manual fixes
-  results_sync                 ← depends on rebuild_attribution_orders having just run
+
+Note: results_sync only reads primary_table (not shopify_ad_attribution),
+so it's safe to run — an earlier version of this runner mistakenly
+skipped it, which staled the dashboard's fast-path cache and forced the
+frontend into the slow live-aggregation over 180k+ primary_table rows.
 """
 import subprocess, sys, time, datetime, pathlib, io
 # Reroute stdout so cp1252 consoles don't crash on unicode arrows / em-dashes
@@ -48,9 +52,12 @@ STEPS = [
     ("fetch_shopify_sessions",         ["fetch_shopify_sessions.py"],       1800),
     ("sync_shopify_customers",         ["sync_shopify_customers.py"],       1800),
     ("import_asset_id_sheet",          ["import_asset_id_sheet.py"],         300),
+    # ── Dashboard fast-path cache (30-day snapshot, primary_table only) ─
+    # Skipping this stales results_table and forces the browser into a
+    # slow live aggregation of 180k+ primary_table rows on every page open.
+    ("results_sync",                   ["results_sync.py"],                 1800),
     # ── SKIPPED — would undo manual attribution work ─────────────────────
     #  rebuild_attribution_orders     — RE-derives all attributions from raw UTMs
-    #  results_sync                   — depends on attribution being freshly rebuilt
     # ── Creative refresh ─────────────────────────────────────────────────
     ("fetch_ad_thumbnails",            ["fetch_ad_thumbnails.py"],           18000),
     # ── Helper tables for the Google Sheets ──────────────────────────────
