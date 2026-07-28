@@ -4344,13 +4344,25 @@ async function aiFetchOrders(fromIso, toIso, perfBudgetMs){
   const useL30 = fromIso && fromIso >= l30MinIso;   // window is fully within L30
   const table  = useL30 ? 'shopify_ad_attribution_l30' : 'shopify_ad_attribution';
   const BATCH = 1000;
-  let offset = 0, out = [], pages = 0;
+  // Keyset pagination — never use OFFSET because at offset=40000 PostgreSQL
+  // still has to walk the earlier 40k rows on the date-desc index. That
+  // O(pageIdx²) blowup was the entire reason a 41k-row L30 fetch was still
+  // slow. Cursor moves along (order_created_at DESC, order_id DESC).
+  let out = [], pages = 0;
+  let cur = null;   // {date, id} — strictly-below boundary for next page
   const t0 = performance.now();
   while (true){
     let url = SUPABASE_URL+'/rest/v1/'+table+'?select='+cols+
-              '&order=order_created_at.desc&limit='+BATCH+'&offset='+offset;
+              '&order=order_created_at.desc,order_id.desc&limit='+BATCH;
     if (fromIso) url += '&order_created_at=gte.'+fromIso+'T00:00:00';
-    if (toIso)   url += '&order_created_at=lte.'+toIso  +'T23:59:59';
+    if (cur){
+      // (date, id) < (cur.date, cur.id)  ⇔  date < cur.date  OR  (date = cur.date AND id < cur.id)
+      const d = encodeURIComponent(cur.date);
+      const i = encodeURIComponent(cur.id);
+      url += '&or=(order_created_at.lt.'+d+',and(order_created_at.eq.'+d+',order_id.lt.'+i+'))';
+    } else if (toIso){
+      url += '&order_created_at=lte.'+toIso+'T23:59:59';
+    }
     const r = await fetch(url, {headers});
     if (!r.ok){ break; }
     const chunk = await r.json();
@@ -4360,8 +4372,8 @@ async function aiFetchOrders(fromIso, toIso, perfBudgetMs){
     document.getElementById('aiStatus').textContent =
       'Loaded ' + fmtInt(out.length) + ' rows · ' + ((performance.now()-t0)/1000).toFixed(1) + 's';
     if (chunk.length < BATCH) break;
-    offset += BATCH;
-    // Adaptive abort: if we're past the perf budget, stop early and warn
+    const last = chunk[chunk.length - 1];
+    cur = { date: last.order_created_at, id: last.order_id };
     if (perfBudgetMs && (performance.now() - t0) > perfBudgetMs) {
       document.getElementById('aiStatus').textContent =
         'Aborted at ' + fmtInt(out.length) + ' rows — slow fetch';
