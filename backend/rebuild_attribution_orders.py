@@ -362,13 +362,27 @@ def load_ad_universe():
             name_index.append((nl, _sep_key(nm), len(nl), ad_id, sp))
     name_index.sort(key=lambda r: -r[2])  # longest first
 
+    # Global asset-id index for the Step 3 asset method. One entry per ad
+    # that carries a user-managed asset_id in ad_asset_ids. Used to
+    # attribute an order when its utm_content contains that asset_id as a
+    # substring — regardless of whether utm_term / adset_id matches.
+    # Sorted by asset-id length descending so more-specific codes match
+    # first. Emits matched_tier = "Step 3".
+    asset_index = []   # list of (asset_lower, ad_id, spend)
+    for ad_id, m in rich.items():
+        aid = (m.get("asset_id_manual") or "").strip()
+        if aid:
+            asset_index.append((aid.lower(), ad_id, m.get("lifetime_spend", 0.0)))
+    asset_index.sort(key=lambda r: -len(r[0]))
+
     conn.close()
     log(f"[ok] ad universe loaded: {len(by_id):,} ads, "
         f"{len(by_name):,} unique names, {len(by_adset):,} adsets, "
         f"{len(by_campaign_name):,} campaign names, "
-        f"{len(name_index):,} (ad,name) pairs for global substring")
+        f"{len(name_index):,} (ad,name) pairs for global substring, "
+        f"{len(asset_index):,} ads with asset_id for Step 3 asset method")
     return (by_id, by_name, by_fuzzy, by_adset, by_campaign_name, by_campaign_id,
-            adset_ads, camp_name_ads, camp_id_ads, name_index, overrides)
+            adset_ads, camp_name_ads, camp_id_ads, name_index, overrides, asset_index)
 
 
 # ────────────────────────────────────────────────────────────────
@@ -554,15 +568,24 @@ def attribute_order(ca, maps, order_created_at=None):
       Step 1  utm_content is a numeric ad_id
       Step 2  utm_content matches an ad_name globally (exact / fuzzy /
               substring / sep-normalized substring)
-      Step 3  utm_term names an adset AND utm_content narrows to a
-              specific ad by name — OR adset known with no ad narrow
-              (ad_id NULL, downstream Step-3-spread aggregator handles it)
+      Step 3  Any of three methods (all emit tier = "Step 3"):
+                (a) utm_content CONTAINS an ad's user-managed asset_id as
+                    a substring (global — no utm_term needed). Asset_id
+                    is unique per creative and rename-stable, so this is
+                    a reliable ad identifier on its own.
+                (b) utm_term names an adset AND utm_content narrows to a
+                    specific ad by asset_id or name within that adset.
+                (c) adset known with no ad narrow (ad_id NULL,
+                    downstream Step-3-spread aggregator handles it).
       Step 4  same at campaign scope
       Step 5  nothing pinned at all (empty return)
-    Date-based and asset-code guessing was removed.
+    Date-based / weak-name guessing was removed. Asset_id substring is the
+    only remaining code-in-utm_content check and is backed by user-managed
+    mappings in ad_asset_ids.
     """
     (by_id, by_name, by_fuzzy, by_adset, by_camp_name, by_camp_id,
-     adset_ads, camp_name_ads, camp_id_ads, name_index, overrides) = maps
+     adset_ads, camp_name_ads, camp_id_ads, name_index, overrides,
+     asset_index) = maps
 
     utm_content = (ca.get("utm_content")  or "").strip()
     utm_term    = (ca.get("utm_term")     or "").strip()
@@ -670,6 +693,29 @@ def attribute_order(ca, maps, order_created_at=None):
             m = by_id[best_aid]
             return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
                          cand, "Step 2"))
+
+    # ── Step 3 (global asset-id method) ───────────────────────────────────
+    # A Step 3 match by asset_id. Asset_id is user-managed (from
+    # ad_asset_ids), unique per creative, and does not change on rename —
+    # so it is a reliable Step 3 signal even without utm_term. If
+    # utm_content contains an ad's asset_id as a substring, attribute to
+    # that ad. Runs after global ad_name lookup (Step 2) and before the
+    # adset-scoped Step 3 method so an unambiguous asset code wins over a
+    # less-specific adset guess. Longest asset_id wins; ties broken by
+    # highest lifetime spend (Meta actually delivered that ad).
+    if utm_content:
+        uc_lower = utm_content.lower()
+        best_aid = None; best_len = 0; best_spend = -1.0; matched_asset = ""
+        for aid_l, ad_id, spend in asset_index:
+            if aid_l in uc_lower:
+                l = len(aid_l)
+                if (l > best_len) or (l == best_len and spend > best_spend):
+                    best_aid = ad_id; best_len = l; best_spend = spend
+                    matched_asset = aid_l
+        if best_aid is not None:
+            m = by_id[best_aid]
+            return _ret((m["ad_id"], m["ad_name"], m["adset_id"], m["campaign_name"],
+                         m.get("asset_id_manual") or matched_asset, "Step 3"))
 
     # ── T3.x : ADSET-SCOPED match  (utm_term -> adset; narrow within) ─────
     for adset_cand in (attr_adset_id, utm_term):

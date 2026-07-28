@@ -29,3 +29,16 @@ backend/_*
 
 # Parallel-pipeline per-worker logs (regenerated each run)
 backend/_parallel_logs/
+
+# Structural helpers under _* (reproducible pipeline steps — whitelist)
+!backend/_build_shopify_l30.py
+!backend/_build_ae_daily_30d.py
+!backend/_build_rck_last30.py
+!backend/_build_rck_daily_30d.py
+!backend/_build_ad_utm_mode.py
+!backend/_build_utm_one_pager_docx.py
+!backend/_fetch_new_orders_only.py
+!backend/_run_meta_update_preserve_attr.py
+!backend/_gads_web_auth.py
+!backend/_export_rck_asset_and_name_overlap.py
+!backend/_migrate_ireach_rpc_add_ad_level.sql

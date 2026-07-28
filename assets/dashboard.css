@@ -1639,6 +1639,16 @@
   /* Incremental Analysis: per-scope section header + audit strip */
   .ireach-sec-hdr{display:flex;align-items:baseline;gap:12px;
     padding:6px 2px 8px;border-bottom:1px solid var(--border-primary)}
+  /* Fixed-height scroll container for every scope — short tables (Account
+     with 3 rows) no longer leave a big empty gap below on the page; long
+     tables (Adset with 1,587 rows) scroll internally. Card background
+     fills the whole area so it always feels intentional. */
+  .ireach-scroll{
+    overflow:auto; margin-top:6px;
+    height:calc(100vh - 260px);
+    background:var(--bg-white);
+    border:1px solid var(--border-soft); border-radius:8px;
+  }
   .ireach-sec-ttl{font-family:'Space Grotesk',sans-serif;font-weight:700;
     font-size:13px;color:var(--text-primary);letter-spacing:.3px}
   .ireach-sec-sub{font-family:'JetBrains Mono',monospace;font-size:11px;

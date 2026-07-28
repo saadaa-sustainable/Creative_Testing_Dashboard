@@ -1172,7 +1172,8 @@
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
       <!-- Toggle: which grouping to show. Both aggregations are computed
            on Apply; the toggle just flips which table is visible. -->
-      <div class="life-toggle" id="ireachScope">
+      <div class="life-toggle" id="ireachScope"
+           title="Pick which grain to display — only the selected section is shown.">
         <button class="lt-btn"        data-scope="account" type="button" title="Aggregate at the ad-account level (Meta cumulative unique reach at account level from ireach_cumulative_daily)">Account</button>
         <button class="lt-btn active" data-scope="camp"    type="button">Campaign</button>
         <button class="lt-btn"        data-scope="adset"   type="button">Adset</button>
@@ -1238,7 +1239,7 @@
         </span>
         <span class="ireach-sec-sub" id="ireachAccountCount">—</span>
       </div>
-      <div style="overflow:auto;max-height:calc(100vh - 260px);margin-top:6px">
+      <div class="ireach-scroll">
         <table class="tbl ae-tbl" id="ireachTblAccount" style="margin:0;table-layout:fixed;width:100%">
           <colgroup>
             <col style="width:36%"><col style="width:70px"><col style="width:90px">
@@ -1270,7 +1271,7 @@
         <span class="ireach-sec-ttl">Campaign level</span>
         <span class="ireach-sec-sub" id="ireachCampCount">—</span>
       </div>
-      <div style="overflow:auto;max-height:calc(100vh - 260px);margin-top:6px">
+      <div class="ireach-scroll">
         <table class="tbl ae-tbl" id="ireachTblCamp" style="margin:0;table-layout:fixed;width:100%">
           <colgroup>
             <col style="width:36%"><col style="width:70px"><col style="width:90px">
@@ -1302,7 +1303,7 @@
         <span class="ireach-sec-ttl">Adset level</span>
         <span class="ireach-sec-sub" id="ireachAdsetCount">—</span>
       </div>
-      <div style="overflow:auto;max-height:calc(100vh - 260px);margin-top:6px">
+      <div class="ireach-scroll">
         <table class="tbl ae-tbl" id="ireachTblAdset" style="margin:0;table-layout:fixed;width:100%">
           <colgroup>
             <col style="width:36%"><col style="width:70px"><col style="width:90px">
@@ -2611,6 +2612,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ae_shop_roas_col"></script>
+<script src="assets/dashboard.js?v=ai_l30_helper_table"></script>
 </body>
 </html>

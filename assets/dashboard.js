@@ -2991,22 +2991,21 @@ async function fetchAeShopifyRollups(){
   aeShopifyByAdset    = nextAdset;
   aeShopifyByCampaign = nextCamp;
 }
-// Windowed reach fetch — calls the get_reach_by_window RPC (same one the
-// removed Incremental Reach Analysis modal used) so the per-ad numbers here
-// are bit-for-bit identical to what that modal showed. Server aggregation
-// runs against ae_daily_agg_mat with a lifted statement_timeout and
-// returns:
-//   reach_first  = reach on the earliest day the ad had reach > 0 in window
-//   reach_last   = reach on the latest   day the ad had reach > 0 in window
-//   reach_incr   = GREATEST(reach_last − reach_first, 0) — capped, never neg
-//   reach_sum    = sum of daily reach across the window (for reach_peak too)
-//   spend_sum    = sum of spend across the window
+// Windowed reach fetch — now calls get_ireach_incremental_analysis with
+// level_arg='ad'. Same RPC as the Incremental Analysis section uses for
+// campaign/adset/account, extended to support ad-grain. Reads Meta's own
+// deduped cumulative reach (public.ireach_cumulative_daily where level='ad')
+// and computes:
+//   cum_at_start_prev = cumulative reach on the last day BEFORE from_date
+//   cum_at_end        = cumulative reach on the last day ON or BEFORE to_date
+//   incr_reach        = MAX(0, cum_at_end - cum_at_start_prev)
+//                       = new unique users the ad reached DURING the window
+//   spend             = SUM of daily spend from primary_table ∪ backfill_table
+//                       (primary wins on (ad_id, date) collisions)
+//   cost_per_1k_incr  = spend * 1000 / incr_reach  (NULL when incr = 0)
+// Frontend field names kept as reach_first / reach_last / reach_incr for
+// backward compat with aeApplyWindow(); values now carry Meta-dedup semantics.
 async function fetchAeWindowReach(){
-  // If no explicit date range is set, feed the RPC the mode's default
-  // window so the Prev/Latest/Incr columns describe meaningful numbers.
-  //   Ads Analyse (current mode)  → HISTORIC_CUTOFF (2025-01-01) → today
-  //   Historic Ads Analysis        → 2023-01-01 → 2024-12-31
-  // Explicit date-picker values always override the default.
   const inpFrom = document.getElementById('aeDateFrom').value || '';
   const inpTo   = document.getElementById('aeDateTo').value   || '';
   const isHist  = historicMode.ae;
@@ -3014,7 +3013,7 @@ async function fetchAeWindowReach(){
   const _defaultFrom = isHist ? '2023-01-01' : HISTORIC_CUTOFF;
   const _defaultTo   = isHist
     ? (function(){ const c = new Date(HISTORIC_CUTOFF); c.setDate(c.getDate()-1);
-                   return c.toISOString().slice(0,10); })()   // 2024-12-31
+                   return c.toISOString().slice(0,10); })()
     : _todayIso;
   const from = inpFrom || _defaultFrom;
   const to   = inpTo   || _defaultTo;
@@ -3023,11 +3022,11 @@ async function fetchAeWindowReach(){
   _aeWindowReachKey = key;
   if (!SUPABASE_URL || !SUPABASE_ANON){ aeWindowReachByAdId = {}; return; }
   try {
-    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_reach_by_window', {
+    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_ireach_incremental_analysis', {
       method: 'POST',
       headers: {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
                 'Content-Type':'application/json'},
-      body: JSON.stringify({from_date: from, to_date: to}),
+      body: JSON.stringify({from_date: from, to_date: to, level_arg: 'ad'}),
     });
     if (!r.ok){
       console.warn('[fetchAeWindowReach] RPC HTTP', r.status,
@@ -3037,15 +3036,20 @@ async function fetchAeWindowReach(){
     const rows = await r.json();
     const out = {};
     for (const row of rows){
-      if (!row.ad_id) continue;
-      out[row.ad_id] = {
-        reach_first: +row.reach_first || 0,
-        reach_last:  +row.reach_last  || 0,
-        reach_incr:  +row.reach_incr  || 0,   // already GREATEST(..., 0) by RPC
-        reach_sum:   +row.reach_sum   || 0,
-        reach_peak:  +row.reach_peak  || 0,
-        spend_sum:   +row.spend_sum   || 0,
-        days_active: +row.days_active || 0,
+      const ad_id = row.entity_id;
+      if (!ad_id) continue;
+      const cumStart = +row.cum_at_start_prev || 0;
+      const cumEnd   = +row.cum_at_end        || 0;
+      const incr     = +row.incr_reach        || 0;
+      const spend    = +row.spend             || 0;
+      out[ad_id] = {
+        reach_first: cumStart,   // "Prev Reach"  = cumulative at (from-1)
+        reach_last:  cumEnd,     // "Latest Reach"= cumulative at end
+        reach_incr:  incr,       // "Incr Reach"  = Meta-dedup delta
+        reach_sum:   incr,       // legacy alias — same as reach_incr now
+        reach_peak:  cumEnd,     // legacy alias — no separate peak concept
+        spend_sum:   spend,
+        days_active: +row.n_days || 0,
       };
     }
     aeWindowReachByAdId = out;
@@ -4328,17 +4332,22 @@ async function aiFetchOrders(fromIso, toIso, perfBudgetMs){
                 'utm_source','utm_medium','utm_campaign','utm_content','utm_term',
                 'matched_tier','matched_value','has_match',
                 'ad_id','ad_name','campaign_name','adset_id',
-                // customer_id + customer_num_orders + contact_email were
-                // added by shopify_ad_attribution_add_customer_cols
-                // migration (2026-07-14) and populated by
-                // backfill_customer_info.py.  Show as "—" while the
-                // backfill is still catching up on historical rows.
                 'customer_id','customer_num_orders','contact_email'].join(',');
+  // Pick a table: when the requested window sits inside the last-30-day
+  // subset that _build_shopify_l30.py maintains, hit that pre-filtered
+  // 41k-row helper instead of the 720k-row full table. Cuts pagination
+  // scan from ~30 REST hops on the full table to ~5 hops here.
+  const l30MinIso = (function(){
+    const d = new Date(); d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0,10);
+  })();
+  const useL30 = fromIso && fromIso >= l30MinIso;   // window is fully within L30
+  const table  = useL30 ? 'shopify_ad_attribution_l30' : 'shopify_ad_attribution';
   const BATCH = 1000;
   let offset = 0, out = [], pages = 0;
   const t0 = performance.now();
   while (true){
-    let url = SUPABASE_URL+'/rest/v1/shopify_ad_attribution?select='+cols+
+    let url = SUPABASE_URL+'/rest/v1/'+table+'?select='+cols+
               '&order=order_created_at.desc&limit='+BATCH+'&offset='+offset;
     if (fromIso) url += '&order_created_at=gte.'+fromIso+'T00:00:00';
     if (toIso)   url += '&order_created_at=lte.'+toIso  +'T23:59:59';
@@ -5646,9 +5655,12 @@ const CAT_CLASS = {
 };
 
 /* Overlay windowed metrics onto an ae row when a date range is set.
- * Falls through to the row's lifetime values if the ad had no delivery
- * in the window. Category and F-flags stay lifetime-based on purpose —
- * they're the ad's overall verdict, not "was this ad a winner on Jun 29?" */
+ * If a date window IS set but the ad had zero delivery in the window, force
+ * all delivery + conversion columns to 0 (previously they fell through to
+ * lifetime values — which made a PAUSED ad appear to have lifetime spend/
+ * conv/purchases when the user filtered to "last 30 days"). Category and
+ * F-flags stay lifetime-based on purpose — they're the ad's overall
+ * verdict, not "was this ad a winner on Jun 29?" */
 function aeApplyWindow(r){
   const w  = aeWindowMetricsByAdId[r.ad_id];
   const s  = aeWindowShopifyByAdId[r.ad_id];
@@ -5673,6 +5685,30 @@ function aeApplyWindow(r){
       ncp_count:       w.ncp_count,
       _isWindowed:     true,
     });
+  } else if (_aeWindowMetricsKey){
+    // Date range explicitly set but this ad had NO delivery in the window.
+    // Zero out delivery + conversion metrics so users see the honest
+    // windowed answer, not stale lifetime values (fixes the case where a
+    // PAUSED ad still reported its lifetime conv_value under a 30-day
+    // filter). _aeWindowMetricsKey is only non-empty when both aeDateFrom
+    // and aeDateTo are populated — see fetchAeWindowMetrics(), line 2840.
+    Object.assign(out, {
+      impressions:     0,
+      reach:           0,
+      amount_spent:    0,
+      frequency:       0,
+      cost_per_1000:   0,
+      ctr_pct:         0,
+      roas_ma:         0,
+      cost_per_ftewv:  0,
+      cost_per_ncp:    0,
+      conv_value:      0,
+      purchases:       0,
+      link_clicks_raw: 0,
+      ftewv_count:     0,
+      ncp_count:       0,
+      _isWindowed:     true,
+    });
   }
   // Shopify overlay: replace the lifetime shopify_orders / shopify_sales
   // with the windowed aggregate. When the window has no matched orders for
@@ -5693,22 +5729,19 @@ function aeApplyWindow(r){
     const _shop = +out.shopify_sales || 0;
     out.meta_shop_diff_pct = _conv > 0 ? ((_shop - _conv) / _conv) * 100 : null;
   }
-  // Reach overlay — reads from get_reach_by_window RPC. Aligns with the
-  // reference incremental-logic sheet: Incr Reach for a window = SUM of
-  // daily incremental reach across days = SUM(daily_reach) = rr.reach_sum.
-  // (Old first-vs-last snapshot delta didn't represent user coverage — an
-  // ad whose daily reach was 1,000 on day 1 AND day 30 would show incr=0
-  // even though it reached ~30k people cumulatively over the window.)
-  //   Prev Reach     = reach_first    (daily reach on first delivering day)
-  //   Latest Reach   = reach_last     (daily reach on last  delivering day)
-  //   Incr. Reach    = reach_sum      (sum of daily reach across window)
-  //   Cost / 1k Incr = spend_sum × 1000 / reach_sum
+  // Reach overlay — reads from get_ireach_incremental_analysis RPC
+  // (level='ad'). Same Meta-dedup logic as Incremental Analysis section:
+  //   Prev Reach     = cumulative reach on the day BEFORE window start
+  //   Latest Reach   = cumulative reach on window end date
+  //   Incr. Reach    = latest − previous (new unique users during window)
+  //   Cost / 1k Incr = spend_sum × 1000 / Incr. Reach
+  // Values sourced from public.ireach_cumulative_daily where level='ad'.
   if (_aeWindowReachKey && rr){
-    out.previous_reach    = rr.reach_first;
-    out.latest_reach      = rr.reach_last;
-    out.incremental_reach = Math.max(0, rr.reach_sum || 0);
-    out.cost_per_1000_incremental_reach = rr.reach_sum > 0
-      ? (rr.spend_sum * 1000) / rr.reach_sum
+    out.previous_reach    = rr.reach_first;   // cum_at_start_prev
+    out.latest_reach      = rr.reach_last;    // cum_at_end
+    out.incremental_reach = Math.max(0, rr.reach_incr || 0);
+    out.cost_per_1000_incremental_reach = rr.reach_incr > 0
+      ? (rr.spend_sum * 1000) / rr.reach_incr
       : null;
   }
   // If `rr` is missing (ad has no reach in the current window, OR the
@@ -5971,7 +6004,7 @@ let ireachState = {
   from:'', to:'',
   search:'',
   status:'',                    // '' | 'ACTIVE' | 'PAUSED' | ... — filters groups by ad_status
-  scope:'camp',                 // 'account' | 'camp' | 'adset' — which table is visible
+  scope:'camp',                 // 'account' | 'camp' | 'adset' — which section is visible
   account: { sortKey:'incr_reach', sortDir:'desc', rows:[] },
   camp:    { sortKey:'incr_reach', sortDir:'desc', rows:[] },
   adset:   { sortKey:'incr_reach', sortDir:'desc', rows:[] },
@@ -6009,26 +6042,61 @@ async function _ireachFetch(from, to){
   //   cum_at_start_prev = same, at (window_start - 1). Diff = new users in window.
   //   spend / cost_per_1k_incr aggregated from the per-day *_daily tables.
   const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
-                   'Content-Type':'application/json', Prefer:'count=none'};
+                   'Content-Type':'application/json',
+                   'Accept':'application/json',
+                   Prefer:'count=none'};
+  const errors = {};
   const call = async (level) => {
     const url = SUPABASE_URL + '/rest/v1/rpc/get_ireach_incremental_analysis';
     const body = JSON.stringify({from_date: from, to_date: to, level_arg: level});
-    const r = await fetch(url, {method:'POST', headers, body});
-    if (!r.ok) throw new Error('ireach RPC ' + level + ' HTTP ' + r.status);
-    const j = await r.json();
-    return Array.isArray(j) ? j : [];
+    let r;
+    try {
+      r = await fetch(url, {method:'POST', headers, body});
+    } catch (e){
+      const msg = 'network error: ' + (e?.message || e);
+      errors[level] = msg;
+      console.error('[ireach RPC ' + level + '] ' + msg);
+      return [];
+    }
+    if (!r.ok){
+      const txt = await r.text().catch(() => '');
+      const msg = 'HTTP ' + r.status + ' ' + txt.slice(0, 200);
+      errors[level] = msg;
+      console.error('[ireach RPC ' + level + '] ' + msg);
+      return [];
+    }
+    let j;
+    try {
+      j = await r.json();
+    } catch (e){
+      const msg = 'JSON parse: ' + (e?.message || e);
+      errors[level] = msg;
+      console.error('[ireach RPC ' + level + '] ' + msg);
+      return [];
+    }
+    if (!Array.isArray(j)){
+      const msg = 'non-array response: ' + JSON.stringify(j).slice(0, 200);
+      errors[level] = msg;
+      console.warn('[ireach RPC ' + level + '] ' + msg);
+      return [];
+    }
+    console.log('[ireach RPC ' + level + '] ' + j.length + ' rows');
+    return j;
   };
-  const [account, camp, adset] = await Promise.all([
-    call('account').catch(() => []),
-    call('campaign').catch(() => []),
-    call('adset').catch(() => []),
-  ]);
+  // SEQUENTIAL — parallel calls to the same PostgREST RPC were dropping the
+  // adset payload (silently returning 0 rows even though the underlying
+  // query completes in ~900ms). Serialising them makes the fetch bulletproof
+  // at the cost of an extra ~2s round-trip.
+  const account = await call('account');
+  const camp    = await call('campaign');
+  const adset   = await call('adset');
   return {
     account, camp, adset,
     audit: {
       account_rows: account.length,
       camp_rows: camp.length,
       adset_rows: adset.length,
+      errors,
     },
   };
 }
@@ -6162,16 +6230,20 @@ function _ireachRenderScope(scope){
 function _ireachSetScope(scope){
   if (scope !== 'camp' && scope !== 'adset' && scope !== 'account') return;
   ireachState.scope = scope;
-  // Show only the selected table
+  // Show only the picked section — the other two are hidden.
   const acc   = document.getElementById('ireachSecAccount');
   const camp  = document.getElementById('ireachSecCamp');
   const adset = document.getElementById('ireachSecAdset');
   if (acc)   acc.style.display   = scope === 'account' ? '' : 'none';
   if (camp)  camp.style.display  = scope === 'camp'    ? '' : 'none';
   if (adset) adset.style.display = scope === 'adset'   ? '' : 'none';
-  // Sync the toggle buttons
+  // Sync the toggle buttons' visual "active" state.
   document.querySelectorAll('#ireachScope .lt-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.scope === scope));
+  // Force a fresh paint of the newly-visible scope. Guards against stale
+  // "Pick a window and click Apply" placeholders when the initial fetch
+  // resolved but the render happened before scope was flipped.
+  if (typeof _ireachRenderScope === 'function') _ireachRenderScope(scope);
 }
 function _ireachRender(){
   // Render all three tables (cheap; ~few hundred rows total) so switching
@@ -6211,12 +6283,18 @@ function _ireachRenderAudit(){
   const el = document.getElementById('ireachAudit');
   if (!a || !el){ if (el) el.style.display = 'none'; return; }
   el.style.display = '';
+  const errs = a.errors || {};
+  const errList = Object.keys(errs).length
+    ? '<br><span style="color:var(--error-text,#b94a3d)">⚠ ' +
+        Object.entries(errs).map(([lvl, msg]) => `<b>${lvl}</b>: ${msg}`).join(' · ') +
+      '</span>'
+    : '';
   el.innerHTML =
     '<span>Source · <b>ireach_cumulative_daily</b> (Meta unique reach, growing time_range from ORIGIN=2025-01-01) via '+
     '<b>get_ireach_incremental_analysis()</b> RPC · returned '+
       fmtInt(a.account_rows)+' accounts, '+
       fmtInt(a.camp_rows)+' campaigns, '+
-      fmtInt(a.adset_rows)+' adsets · spend joined from ireach_*_daily</span>';
+      fmtInt(a.adset_rows)+' adsets · spend joined from ireach_*_daily</span>' + errList;
 }
 
 async function _ireachApply(){
