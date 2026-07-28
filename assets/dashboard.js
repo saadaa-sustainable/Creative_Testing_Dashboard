@@ -2833,6 +2833,12 @@ let _aeShopifyRollupKey = '';
 // on "from|to"; recomputed on every date-range change.
 let aeWindowReachByAdId = {};
 let _aeWindowReachKey    = '';
+// True once the RPC response for the current _aeWindowReachKey has
+// landed (success or error). Renders during the transitional loading
+// state keep showing ae_reach_recent's snapshot values so the table
+// isn't blank; a second render (after the RPC resolves) overrides
+// with correct Meta-dedup values.
+let _aeWindowReachLoaded = false;
 async function fetchAeWindowMetrics(){
   const from = document.getElementById('aeDateFrom').value || '';
   const to   = document.getElementById('aeDateTo').value   || '';
@@ -3063,10 +3069,6 @@ async function fetchAeWindowReach(){
     _aeWindowReachLoaded = true;
   }
 }
-// Set to true once the RPC response for the current _aeWindowReachKey has
-// landed (success or error). Renders in the transitional "loading" state
-// keep showing ae_reach_recent's snapshot values so the table isn't blank.
-let _aeWindowReachLoaded = false;
 // Cache: window key ("from|to") → Set<ad_id> so repeated ranges are instant.
 const _aeDeliveryCache = new Map();
 async function aeRebuildDeliverySet(){
