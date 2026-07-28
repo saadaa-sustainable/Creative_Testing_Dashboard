@@ -3019,8 +3019,11 @@ async function fetchAeWindowReach(){
   const to   = inpTo   || _defaultTo;
   const key  = from + '|' + to;
   if (key === _aeWindowReachKey) return;
-  _aeWindowReachKey = key;
-  if (!SUPABASE_URL || !SUPABASE_ANON){ aeWindowReachByAdId = {}; return; }
+  _aeWindowReachKey    = key;
+  _aeWindowReachLoaded = false;   // reset until the response for this key arrives
+  if (!SUPABASE_URL || !SUPABASE_ANON){
+    aeWindowReachByAdId = {}; _aeWindowReachLoaded = true; return;
+  }
   try {
     const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_ireach_incremental_analysis', {
       method: 'POST',
@@ -3031,7 +3034,7 @@ async function fetchAeWindowReach(){
     if (!r.ok){
       console.warn('[fetchAeWindowReach] RPC HTTP', r.status,
                    await r.text().catch(()=>''));
-      aeWindowReachByAdId = {}; return;
+      aeWindowReachByAdId = {}; _aeWindowReachLoaded = true; return;
     }
     const rows = await r.json();
     const out = {};
@@ -3052,12 +3055,18 @@ async function fetchAeWindowReach(){
         days_active: +row.n_days || 0,
       };
     }
-    aeWindowReachByAdId = out;
+    aeWindowReachByAdId  = out;
+    _aeWindowReachLoaded = true;
   } catch (e){
     console.warn('[fetchAeWindowReach] network error', e);
-    aeWindowReachByAdId = {};
+    aeWindowReachByAdId  = {};
+    _aeWindowReachLoaded = true;
   }
 }
+// Set to true once the RPC response for the current _aeWindowReachKey has
+// landed (success or error). Renders in the transitional "loading" state
+// keep showing ae_reach_recent's snapshot values so the table isn't blank.
+let _aeWindowReachLoaded = false;
 // Cache: window key ("from|to") → Set<ad_id> so repeated ranges are instant.
 const _aeDeliveryCache = new Map();
 async function aeRebuildDeliverySet(){
@@ -5791,12 +5800,13 @@ function aeApplyWindow(r){
   //   Incr. Reach    = latest − previous (new unique users during window)
   //   Cost / 1k Incr = spend_sum × 1000 / Incr. Reach
   // Values sourced from public.ireach_cumulative_daily where level='ad'.
-  if (_aeWindowReachKey){
-    // A window is active — the ONLY correct source of Prev / Latest / Incr
-    // is the RPC (cumulative-reach based). If the ad isn't in the RPC
-    // response (no delivery in window OR fetch still resolving) treat it as
-    // zero — never fall back to ae_reach_recent, whose values are yesterday
-    // vs day-before single-day reaches and are nonsense for a window view.
+  if (_aeWindowReachKey && _aeWindowReachLoaded){
+    // The RPC has responded for the current window. The ONLY correct
+    // source of Prev / Latest / Incr Reach is the RPC (cumulative-reach
+    // based). If the ad isn't in the response, it had no delivery in the
+    // window — show zeros. Never fall back to ae_reach_recent, whose
+    // values are yesterday vs day-before single-day reaches and are
+    // nonsense for a windowed view.
     if (rr){
       out.previous_reach    = rr.reach_first;   // cum_at_start_prev
       out.latest_reach      = rr.reach_last;    // cum_at_end
@@ -5811,6 +5821,10 @@ function aeApplyWindow(r){
       out.cost_per_1000_incremental_reach = null;
     }
   }
+  // else: RPC is still in flight for this window — keep ae_reach_recent's
+  // snapshot values that got merged in earlier, so the row isn't blank.
+  // The next render (after the RPC resolves) will override with correct
+  // Meta-dedup values.
   // No window active — keep ae_reach_recent's last-two-days snapshot values
   // that were merged in earlier (that's the intended lifetime-table view).
   // Still clamp a negative incremental to 0 (Meta's per-day unique reach
@@ -7299,17 +7313,17 @@ document.getElementById('aeBtnExport').onclick = () => {
     filenamePrefix: 'ads_analyse',
     deriveRow: r => {
       const rr = aeWindowReachByAdId[r.ad_id];
-      // When a window is active, use RPC values only (0 when ad isn't in
-      // the response). Never surface ae_reach_recent's single-day snapshot
-      // as if it were a windowed cumulative — that was the "wrong numbers"
-      // bug on the AE table.
-      const inWindow = !!_aeWindowReachKey;
+      // Only override with RPC values once the RPC has actually returned
+      // for the current window. If it's still loading, keep whatever the
+      // row already has (ae_reach_recent snapshot) — CSV export mirrors
+      // what's on-screen at export time.
+      const useRpc = !!_aeWindowReachKey && _aeWindowReachLoaded;
       return {
         ...r,
         asset_id:              assetIdByAdId[r.ad_id] || '',
-        previous_reach:        inWindow ? (rr ? rr.reach_first : 0) : r.previous_reach,
-        latest_reach:          inWindow ? (rr ? rr.reach_last  : 0) : r.latest_reach,
-        incremental_reach:     inWindow ? (rr ? Math.max(0, rr.reach_incr) : 0) : r.incremental_reach,
+        previous_reach:        useRpc ? (rr ? rr.reach_first : 0) : r.previous_reach,
+        latest_reach:          useRpc ? (rr ? rr.reach_last  : 0) : r.latest_reach,
+        incremental_reach:     useRpc ? (rr ? Math.max(0, rr.reach_incr) : 0) : r.incremental_reach,
       };
     },
   });
