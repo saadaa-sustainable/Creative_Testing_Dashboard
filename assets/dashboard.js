@@ -3041,10 +3041,16 @@ async function fetchAeWindowReach(){
     aeWindowReachByAdId = {}; _aeWindowReachLoaded = true; return;
   }
   try {
-    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_ireach_incremental_analysis', {
+    // level=ad returns one row per ad in ireach_cumulative_daily (~10k+ rows).
+    // Supabase's default response cap is 1000, which was silently truncating
+    // 9k+ ads and causing the "reach = 0 for all ads" symptom in the AE view.
+    // ?limit=50000 tells PostgREST to lift the cap; matches the RPC's actual
+    // row count with comfortable headroom for future ad growth.
+    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_ireach_incremental_analysis?limit=50000', {
       method: 'POST',
       headers: {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
-                'Content-Type':'application/json'},
+                'Content-Type':'application/json',
+                Prefer:'count=none'},
       body: JSON.stringify({from_date: from, to_date: to, level_arg: 'ad'}),
     });
     if (!r.ok){
