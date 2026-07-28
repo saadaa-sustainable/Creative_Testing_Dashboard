@@ -6509,14 +6509,14 @@ function renderAE(){
     if (footer) footer.textContent = 'Loading ae_table_view — filters will apply once the 15k-row fetch completes';
     return;
   }
-  // Lazy-trigger the windowed reach fetch once — with no explicit range
-  // it hits the RPC with the ad-lifetime bounds so the Prev/Latest/Incr
-  // columns describe the ad's entire life instead of the last 2 days
-  // from ae_reach_recent's snapshot. Fires once; the fetch cache-keys on
-  // "from|to" so identical no-window renders don't re-hit the RPC.
-  if (!_aeWindowReachKey){
-    fetchAeWindowReach().then(() => renderAE()).catch(()=>{});
-  }
+  // Windowed reach is fetched by drpPreset('last30') on first AE-view open
+  // and by any subsequent date-picker change. No lazy lifetime-window fire
+  // here — that used to speculatively trigger the RPC on every renderAE
+  // (including from the Creative Testing rerender path) with a full
+  // lifetime range that would time out on Supabase's PostgREST anon-role
+  // statement_timeout. Any AE render that reaches this point without a
+  // window key just uses ae_reach_recent's snapshot values (the "no
+  // window" default) until the user explicitly picks a range.
   // Trigger overlay when ANY of the three windowed maps is loaded — metrics,
   // Shopify, or reach. Missing the reach check meant that when the user had
   // no explicit window but the lifetime-reach fallback populated
