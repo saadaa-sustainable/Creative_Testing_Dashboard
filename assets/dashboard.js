@@ -4343,7 +4343,10 @@ async function aiFetchOrders(fromIso, toIso, perfBudgetMs){
   })();
   const useL30 = fromIso && fromIso >= l30MinIso;   // window is fully within L30
   const table  = useL30 ? 'shopify_ad_attribution_l30' : 'shopify_ad_attribution';
-  const BATCH = 1000;
+  // 10k rows per batch — Supabase honors it (other code paths in this file
+  // already use limit=20000). At the previous BATCH=1000, a 40k-row L30
+  // fetch cost 41 HTTP round-trips; at 10k it's ~4 round-trips.
+  const BATCH = 10000;
   // Keyset pagination — never use OFFSET because at offset=40000 PostgreSQL
   // still has to walk the earlier 40k rows on the date-desc index. That
   // O(pageIdx²) blowup was the entire reason a 41k-row L30 fetch was still
