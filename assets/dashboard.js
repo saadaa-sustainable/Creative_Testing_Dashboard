@@ -2242,6 +2242,16 @@ document.querySelectorAll('.sb-item').forEach(it => {
     // Lazy-load per-view data
     if (v === 'lifecycle' && allAds.length) renderLifecycle();
     if (v === 'ae'        && allAds.length) {
+      // First open: seed the DRP to Last 30 Days so the reach columns
+      // land on a meaningful window (lifetime shows 0 as Prev Reach for
+      // every ad born after 2025-01-01, which was confusing). drpPreset
+      // calls drpApply() internally, which awaits the reach RPC and
+      // triggers renderAE — so we don't need a manual renderAE() below
+      // in this branch. Only fires once per session (VIEW_LOADED.ae).
+      if (!VIEW_LOADED.ae){
+        VIEW_LOADED.ae = true;
+        try { drpPreset('last30'); } catch(_){}
+      }
       // Kick off group-level Shopify RPCs so the level toggle has
       // authoritative data ready the moment the user flips a pill.
       // No-op after the first call for a given window; safe fire-and-forget.
