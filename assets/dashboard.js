@@ -3041,18 +3041,30 @@ async function fetchAeWindowReach(){
     aeWindowReachByAdId = {}; _aeWindowReachLoaded = true; return;
   }
   try {
-    // level=ad returns one row per ad in ireach_cumulative_daily (~10k+ rows).
-    // Supabase's default response cap is 1000, which was silently truncating
-    // 9k+ ads and causing the "reach = 0 for all ads" symptom in the AE view.
-    // ?limit=50000 tells PostgREST to lift the cap; matches the RPC's actual
-    // row count with comfortable headroom for future ad growth.
-    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_ireach_incremental_analysis?limit=50000', {
-      method: 'POST',
-      headers: {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
-                'Content-Type':'application/json',
-                Prefer:'count=none'},
-      body: JSON.stringify({from_date: from, to_date: to, level_arg: 'ad'}),
-    });
+    // level=ad returns one row per active ad (~1.5k for a 30-day window).
+    // ?limit=50000 lifts PostgREST's 1000-row cap; comfortable headroom for
+    // future growth. First few cold calls can hit statement_timeout
+    // (Supabase anon-role ~3s) because different pool workers all need
+    // their query plans warmed independently. Retry with backoff until one
+    // lands on a warm worker.
+    const _fetchOnce = () => fetch(
+      SUPABASE_URL + '/rest/v1/rpc/get_ireach_incremental_analysis?limit=50000',
+      {
+        method: 'POST',
+        headers: {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                  'Content-Type':'application/json',
+                  Prefer:'count=none'},
+        body: JSON.stringify({from_date: from, to_date: to, level_arg: 'ad'}),
+      }
+    );
+    let r;
+    const _pauses = [0, 800, 1600, 2400];   // 4 attempts total, ~5s max wait
+    for (let attempt = 0; attempt < _pauses.length; attempt++){
+      if (_pauses[attempt]) await new Promise(res => setTimeout(res, _pauses[attempt]));
+      r = await _fetchOnce();
+      if (r.ok) break;                       // success — stop retrying
+      if (r.status !== 500) break;           // non-timeout error — stop retrying
+    }
     if (!r.ok){
       console.warn('[fetchAeWindowReach] RPC HTTP', r.status,
                    await r.text().catch(()=>''));
