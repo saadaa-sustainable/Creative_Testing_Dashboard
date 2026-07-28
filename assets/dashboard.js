@@ -4568,14 +4568,37 @@ function aiUpdateSourceLabel(srcCounts){
   }
 }
 
+// Read a compound text filter (input + IN/EX + OR/AND pill triple) into a
+// predicate. Returns null when the input is empty — caller should skip the
+// filter step in that case. Splits comma-separated terms so users can search
+// for several substrings at once.
+function _aiReadTextFilter(inputId, fieldGetter){
+  const inp = document.getElementById(inputId);
+  if (!inp) return null;
+  const raw = (inp.value || '').trim();
+  if (!raw) return null;
+  const terms = raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (!terms.length) return null;
+  const modeBtn = document.querySelector('.fg-mode-btn[data-target="'+inputId+'"]');
+  const opBtn   = document.querySelector('.fg-op-btn[data-target="'+inputId+'"]');
+  const mode = modeBtn ? (modeBtn.dataset.mode || 'include') : 'include';
+  const op   = opBtn   ? (opBtn.dataset.op    || 'or')      : 'or';
+  return row => {
+    const v = (fieldGetter(row) || '').toLowerCase();
+    const hits = terms.map(t => v.includes(t));
+    const match = (op === 'and') ? hits.every(Boolean) : hits.some(Boolean);
+    return (mode === 'exclude') ? !match : match;
+  };
+}
+
 function aiFiltered(){
   const tier   = document.getElementById('aiTierSel').value;
   const med    = document.getElementById('aiUtmMedium').value;
   const adSt   = document.getElementById('aiAdStatus').value;
-  const cam    = (document.getElementById('aiUtmCampaign').value || '').trim().toLowerCase();
-  const cnt    = (document.getElementById('aiUtmContent' ).value || '').trim().toLowerCase();
-  const trm    = (document.getElementById('aiUtmTerm'    ).value || '').trim().toLowerCase();
-  const mv     = (document.getElementById('aiMatchedValue').value|| '').trim().toLowerCase();
+  const fCam = _aiReadTextFilter('aiUtmCampaign',   r => r.utm_campaign);
+  const fCnt = _aiReadTextFilter('aiUtmContent',    r => r.utm_content);
+  const fTrm = _aiReadTextFilter('aiUtmTerm',       r => r.utm_term);
+  const fMv  = _aiReadTextFilter('aiMatchedValue',  r => r.matched_value);
   let rows = aiOrders;
   // A row is "matched" if either the Meta cascade or the Google cascade
   // placed it in a non-__none__ bucket.
@@ -4594,11 +4617,11 @@ function aiFiltered(){
   }
   // Multi-select utm_source — empty Set means "all"
   else if (aiUtmSourceSel.size) rows = rows.filter(r => aiUtmSourceSel.has(aiSourceKey(r)));
-  if (med) rows = rows.filter(r => r.utm_medium === med);
-  if (cam) rows = rows.filter(r => (r.utm_campaign || '').toLowerCase().includes(cam));
-  if (cnt) rows = rows.filter(r => (r.utm_content  || '').toLowerCase().includes(cnt));
-  if (trm) rows = rows.filter(r => (r.utm_term     || '').toLowerCase().includes(trm));
-  if (mv)  rows = rows.filter(r => (r.matched_value || '').toLowerCase().includes(mv));
+  if (med)  rows = rows.filter(r => r.utm_medium === med);
+  if (fCam) rows = rows.filter(fCam);
+  if (fCnt) rows = rows.filter(fCnt);
+  if (fTrm) rows = rows.filter(fTrm);
+  if (fMv)  rows = rows.filter(fMv);
   if (adSt){
     rows = rows.filter(r => {
       if (!r.ad_id) return adSt === 'INACTIVE';
@@ -5257,6 +5280,23 @@ function initAdIntel(){
       clearTimeout(window._aiDb);
       window._aiDb = setTimeout(() => { aiPage = 0; aiRenderTable(); }, 220);
     }));
+  // IN/EX + OR/AND pill buttons for the four text filters. Each button
+  // stores its state on data-mode / data-op; the aiFiltered() predicate
+  // reads them at render time via _aiReadTextFilter().
+  document.querySelectorAll('.fg-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.dataset.mode = btn.dataset.mode === 'include' ? 'exclude' : 'include';
+      btn.textContent  = btn.dataset.mode === 'include' ? 'IN' : 'EX';
+      aiPage = 0; aiRenderTable();
+    });
+  });
+  document.querySelectorAll('.fg-op-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.dataset.op  = btn.dataset.op === 'or' ? 'and' : 'or';
+      btn.textContent = btn.dataset.op.toUpperCase();
+      aiPage = 0; aiRenderTable();
+    });
+  });
   document.getElementById('aiPageSize').addEventListener('change', () => { aiPage = 0; aiRenderTable(); });
   document.getElementById('aiPrevPage').addEventListener('click', () => { if (aiPage > 0){ aiPage--; aiRenderTable(); } });
   document.getElementById('aiNextPage').addEventListener('click', () => { aiPage++; aiRenderTable(); });

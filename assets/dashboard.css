@@ -186,6 +186,21 @@
   .fg-input:hover,.fg-select:hover{border-color:var(--border-mid)}
   .fg-input:focus,.fg-select:focus{outline:none;border-color:var(--accent-yellow);
     box-shadow:0 0 0 3px rgba(240,198,30,.18)}
+  /* Ad Intelligence — compound filter: input + IN/EX + OR/AND pills */
+  .fg-filter-wrap{display:flex;align-items:stretch;gap:0;min-width:0}
+  .fg-filter-wrap .fg-input{flex:1;min-width:0;border-radius:7px 0 0 7px}
+  .fg-mode-btn,.fg-op-btn{
+    border:1px solid var(--border-primary);border-left:none;background:var(--bg-white);
+    font-family:'Space Grotesk',sans-serif;font-size:10.5px;font-weight:700;
+    letter-spacing:.5px;color:var(--text-secondary);cursor:pointer;padding:0 10px;
+    min-width:38px;min-height:40px;transition:background-color .12s,color .12s,border-color .12s;
+    display:flex;align-items:center;justify-content:center}
+  .fg-mode-btn:hover,.fg-op-btn:hover{background:var(--bg-tinted,#f6f6f4)}
+  .fg-mode-btn[data-mode="include"]{color:#0f766e;background:#ecfdf5;border-color:#a7f3d0}
+  .fg-mode-btn[data-mode="exclude"]{color:#b91c1c;background:#fef2f2;border-color:#fecaca}
+  .fg-op-btn{border-radius:0 7px 7px 0}
+  .fg-op-btn[data-op="or"]{color:var(--text-secondary)}
+  .fg-op-btn[data-op="and"]{color:#0369a1;background:#f0f9ff;border-color:#bae6fd}
   /* Date inputs — lightly tinted background so they read as interactive date pickers */
   .fg-input[type="date"]{background:var(--accent-warm-tint);
     border-color:var(--accent-yellow);cursor:pointer;font-weight:600}

@@ -1683,19 +1683,35 @@
     </div>
     <div class="fg-field">
       <label class="fg-lbl">utm_campaign</label>
-      <input class="fg-input" id="aiUtmCampaign" placeholder="contains…">
+      <div class="fg-filter-wrap">
+        <input class="fg-input" id="aiUtmCampaign" placeholder="term or term1, term2…">
+        <button type="button" class="fg-mode-btn" data-target="aiUtmCampaign" data-mode="include" title="Include (contains) vs Exclude (does not contain)">IN</button>
+        <button type="button" class="fg-op-btn"   data-target="aiUtmCampaign" data-op="or"        title="Combine multiple terms with OR (any) or AND (all)">OR</button>
+      </div>
     </div>
     <div class="fg-field">
       <label class="fg-lbl">utm_content</label>
-      <input class="fg-input" id="aiUtmContent" placeholder="contains…">
+      <div class="fg-filter-wrap">
+        <input class="fg-input" id="aiUtmContent" placeholder="term or term1, term2…">
+        <button type="button" class="fg-mode-btn" data-target="aiUtmContent" data-mode="include" title="Include (contains) vs Exclude (does not contain)">IN</button>
+        <button type="button" class="fg-op-btn"   data-target="aiUtmContent" data-op="or"        title="Combine multiple terms with OR (any) or AND (all)">OR</button>
+      </div>
     </div>
     <div class="fg-field">
       <label class="fg-lbl">utm_term</label>
-      <input class="fg-input" id="aiUtmTerm" placeholder="contains…">
+      <div class="fg-filter-wrap">
+        <input class="fg-input" id="aiUtmTerm" placeholder="term or term1, term2…">
+        <button type="button" class="fg-mode-btn" data-target="aiUtmTerm" data-mode="include" title="Include (contains) vs Exclude (does not contain)">IN</button>
+        <button type="button" class="fg-op-btn"   data-target="aiUtmTerm" data-op="or"        title="Combine multiple terms with OR (any) or AND (all)">OR</button>
+      </div>
     </div>
     <div class="fg-field">
       <label class="fg-lbl">matched_value</label>
-      <input class="fg-input" id="aiMatchedValue" placeholder="contains…">
+      <div class="fg-filter-wrap">
+        <input class="fg-input" id="aiMatchedValue" placeholder="term or term1, term2…">
+        <button type="button" class="fg-mode-btn" data-target="aiMatchedValue" data-mode="include" title="Include (contains) vs Exclude (does not contain)">IN</button>
+        <button type="button" class="fg-op-btn"   data-target="aiMatchedValue" data-op="or"        title="Combine multiple terms with OR (any) or AND (all)">OR</button>
+      </div>
     </div>
   </div>
 
@@ -2612,6 +2628,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ai_batch_10k"></script>
+<script src="assets/dashboard.js?v=ai_exclude_filters"></script>
 </body>
 </html>
