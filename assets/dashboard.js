@@ -6353,6 +6353,10 @@ function _ireachSetScope(scope){
   // "Pick a window and click Apply" placeholders when the initial fetch
   // resolved but the render happened before scope was flipped.
   if (typeof _ireachRenderScope === 'function') _ireachRenderScope(scope);
+  // Lazy-render the saturation curve for the just-shown scope. Chart.js
+  // requires the canvas to be visible when created, so we defer until
+  // scope-switch rather than pre-rendering all three.
+  if (typeof _ireachRenderSaturation === 'function') _ireachRenderSaturation(scope);
 }
 function _ireachRender(){
   // Render all three tables (cheap; ~few hundred rows total) so switching
@@ -6447,12 +6451,170 @@ async function _ireachApply(){
       fmtInt(ireachState.camp.rows.length)+'</b> campaigns and <b>'+
       fmtInt(ireachState.adset.rows.length)+'</b> adsets · sheet model (cum(end)−cum(start−1)) · '+dt+'s';
     _ireachRender();
+    // Fire-and-forget: fetch saturation-curve data for all three scopes so
+    // the chart renders as soon as the user switches. Runs after the tables
+    // paint so the primary read isn't blocked.
+    _ireachRefreshSaturation(from, to);
   } catch (e){
     status.textContent = 'Error: ' + (e.message || e);
     ireachState.camp.rows = ireachState.adset.rows = ireachState.account.rows = [];
     ireachState.audit = null;
     _ireachRender();
   }
+}
+
+/* ────────────────────────────────────────────────────────────────
+   Saturation curve — Spend × Incremental Reach per entity per scope.
+   Reads get_ireach_saturation_curve RPC (per-day cumulative points),
+   groups by entity_id, sorts by total_spend desc, keeps the top-20,
+   renders one Chart.js line per entity on the scope's canvas.
+   ──────────────────────────────────────────────────────────────── */
+const _ireachSatState = {
+  charts: {},          // scope → Chart.js instance
+  data:   {},          // scope → grouped {label, points, color}[]  cached per window
+  window: '',          // "from|to" key for cache
+};
+
+// Stable distinct-hue palette (~20 lines).
+const _IREACH_SAT_PALETTE = [
+  '#4F9EDA', '#E96B4A', '#57B15C', '#B269C0', '#D9922A', '#3AB0AB',
+  '#D34C6E', '#7C7CE8', '#8FBB4B', '#C57A2F', '#4CA9B1', '#B15E4D',
+  '#8967B3', '#6DA95C', '#D97AAA', '#4F8BB6', '#C6934C', '#5E9E82',
+  '#B04C9F', '#B7A73E',
+];
+
+async function _ireachRefreshSaturation(from, to){
+  const key = from + '|' + to;
+  _ireachSatState.window = key;
+  _ireachSatState.data   = {};
+  // Destroy any prior chart instance to avoid canvas overlap on re-render
+  for (const scope of ['account','camp','adset']){
+    const c = _ireachSatState.charts[scope];
+    if (c && typeof c.destroy === 'function'){ c.destroy(); }
+    _ireachSatState.charts[scope] = null;
+  }
+  const url = SUPABASE_URL + '/rest/v1/rpc/get_ireach_saturation_curve';
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                   'Content-Type':'application/json', Prefer:'count=none'};
+  // Map dashboard scope names → RPC level_arg values
+  const levelFor = { account:'account', camp:'campaign', adset:'adset' };
+  const fetchOne = async scope => {
+    const body = JSON.stringify({from_date: from, to_date: to, level_arg: levelFor[scope]});
+    try {
+      const r = await fetch(url, {method:'POST', headers, body});
+      if (!r.ok) return [];
+      const rows = await r.json();
+      if (!Array.isArray(rows)) return [];
+      // Group per entity_id → sorted-by-date points
+      const byId = new Map();
+      for (const rr of rows){
+        const id = rr.entity_id; if (!id) continue;
+        let e = byId.get(id);
+        if (!e){
+          e = { id, name: rr.entity_name || '(unnamed)', total: +rr.total_spend || 0, pts: [] };
+          byId.set(id, e);
+        }
+        e.pts.push({ x: +rr.cum_spend || 0, y: +rr.cum_reach || 0 });
+      }
+      return Array.from(byId.values())
+        .sort((a,b) => b.total - a.total)
+        .slice(0, 20)                       // top-20 by spend
+        .map((e, i) => ({
+          label:  e.name,
+          points: e.pts.sort((a,b) => a.x - b.x),
+          color:  _IREACH_SAT_PALETTE[i % _IREACH_SAT_PALETTE.length],
+          total:  e.total,
+        }));
+    } catch (_){ return []; }
+  };
+  const [acc, cmp, ads] = await Promise.all([
+    fetchOne('account'), fetchOne('camp'), fetchOne('adset'),
+  ]);
+  // Cache-key check — if the user changed the window during the fetch,
+  // don't overwrite the newer state.
+  if (_ireachSatState.window !== key) return;
+  _ireachSatState.data.account = acc;
+  _ireachSatState.data.camp    = cmp;
+  _ireachSatState.data.adset   = ads;
+  // Render whichever scope is currently visible; others render on switch.
+  _ireachRenderSaturation(ireachState.scope || 'camp');
+}
+
+function _ireachRenderSaturation(scope){
+  const canvasId = { account:'ireachSatCanvasAccount',
+                     camp:   'ireachSatCanvasCamp',
+                     adset:  'ireachSatCanvasAdset' }[scope];
+  if (!canvasId) return;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || typeof Chart === 'undefined') return;
+  // If we already have a chart for this scope, just leave it (Chart.js
+  // handles resize on its own; we destroy on window change instead).
+  if (_ireachSatState.charts[scope]) return;
+  const series = (_ireachSatState.data[scope] || []);
+  if (!series.length){
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+  const datasets = series.map(s => ({
+    label:       s.label,
+    data:        s.points,
+    borderColor: s.color,
+    backgroundColor: s.color + '20',
+    borderWidth: 1.5,
+    pointRadius: 0,
+    pointHoverRadius: 4,
+    tension:     0.15,     // slight smoothing — the data is inherently monotone
+    fill:        false,
+  }));
+  _ireachSatState.charts[scope] = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      parsing: false,             // datasets are already {x,y} points
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: {
+          display: true, position: 'top', align: 'start',
+          labels: { boxWidth: 10, boxHeight: 6, font: { size: 10 } },
+        },
+        tooltip: {
+          callbacks: {
+            title: () => '',
+            label: c => {
+              const s = c.dataset.label;
+              const x = 'Rs ' + (c.parsed.x || 0).toLocaleString('en-IN', {maximumFractionDigits:0});
+              const y = (c.parsed.y || 0).toLocaleString('en-IN') + ' new users';
+              return s + '  ·  ' + x + '  →  ' + y;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          type: 'linear', title: { display:true, text:'Cumulative spend in window (Rs)' },
+          ticks: {
+            callback: v => 'Rs ' + (v >= 1e5
+              ? (v/1e5).toFixed(1) + 'L'
+              : v >= 1e3 ? (v/1e3).toFixed(0) + 'k' : v),
+            font: { size: 10 },
+          },
+          grid: { color: 'rgba(0,0,0,0.05)' },
+        },
+        y: {
+          type: 'linear', title: { display:true, text:'Cumulative incremental reach' },
+          ticks: {
+            callback: v => v >= 1e6 ? (v/1e6).toFixed(1) + 'M'
+                          : v >= 1e3 ? (v/1e3).toFixed(0) + 'k' : v,
+            font: { size: 10 },
+          },
+          grid: { color: 'rgba(0,0,0,0.05)' },
+        },
+      },
+    },
+  });
 }
 
 document.querySelector('#view-ireach .preset-row').addEventListener('click', e => {

@@ -1239,6 +1239,13 @@
         </span>
         <span class="ireach-sec-sub" id="ireachAccountCount">—</span>
       </div>
+      <div class="ireach-sat-wrap">
+        <div class="ireach-sat-hdr">
+          <span class="ireach-sat-ttl">Saturation curve · Spend × Incremental Reach</span>
+          <span class="ireach-sat-note">Each line is one account · X = cumulative spend in window (Rs) · Y = cumulative new-unique-users. Curve flattening = saturation.</span>
+        </div>
+        <div class="ireach-sat-body"><canvas id="ireachSatCanvasAccount" height="220"></canvas></div>
+      </div>
       <div class="ireach-scroll">
         <table class="tbl ae-tbl" id="ireachTblAccount" style="margin:0;table-layout:fixed;width:100%">
           <colgroup>
@@ -1271,6 +1278,13 @@
         <span class="ireach-sec-ttl">Campaign level</span>
         <span class="ireach-sec-sub" id="ireachCampCount">—</span>
       </div>
+      <div class="ireach-sat-wrap">
+        <div class="ireach-sat-hdr">
+          <span class="ireach-sat-ttl">Saturation curve · Spend × Incremental Reach</span>
+          <span class="ireach-sat-note">Top-20 campaigns by spend · X = cumulative spend in window (Rs) · Y = cumulative new-unique-users. Steeper = cheaper new reach.</span>
+        </div>
+        <div class="ireach-sat-body"><canvas id="ireachSatCanvasCamp" height="220"></canvas></div>
+      </div>
       <div class="ireach-scroll">
         <table class="tbl ae-tbl" id="ireachTblCamp" style="margin:0;table-layout:fixed;width:100%">
           <colgroup>
@@ -1302,6 +1316,13 @@
       <div class="ireach-sec-hdr">
         <span class="ireach-sec-ttl">Adset level</span>
         <span class="ireach-sec-sub" id="ireachAdsetCount">—</span>
+      </div>
+      <div class="ireach-sat-wrap">
+        <div class="ireach-sat-hdr">
+          <span class="ireach-sat-ttl">Saturation curve · Spend × Incremental Reach</span>
+          <span class="ireach-sat-note">Top-20 adsets by spend · X = cumulative spend in window (Rs) · Y = cumulative new-unique-users. Flat top = audience saturated.</span>
+        </div>
+        <div class="ireach-sat-body"><canvas id="ireachSatCanvasAdset" height="220"></canvas></div>
       </div>
       <div class="ireach-scroll">
         <table class="tbl ae-tbl" id="ireachTblAdset" style="margin:0;table-layout:fixed;width:100%">
@@ -2628,6 +2649,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ae_reach_retry_x4"></script>
+<script src="assets/dashboard.js?v=ireach_saturation_curve"></script>
 </body>
 </html>

@@ -1666,6 +1666,17 @@
   }
   .ireach-sec-ttl{font-family:'Space Grotesk',sans-serif;font-weight:700;
     font-size:13px;color:var(--text-primary);letter-spacing:.3px}
+  /* Saturation-curve panel — sits under each scope header, above the table */
+  .ireach-sat-wrap{margin:8px 0 12px;padding:10px 12px;background:var(--bg-white);
+    border:1px solid var(--border-soft);border-radius:8px}
+  .ireach-sat-hdr{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+    padding:0 0 6px;margin-bottom:6px;border-bottom:1px dashed var(--border-soft)}
+  .ireach-sat-ttl{font-family:'Space Grotesk',sans-serif;font-weight:700;
+    font-size:12px;letter-spacing:.4px;color:var(--text-primary)}
+  .ireach-sat-note{font-family:'Inter',sans-serif;font-size:10.5px;
+    color:var(--text-tertiary);flex:1;min-width:0}
+  .ireach-sat-body{position:relative;height:240px}
+  .ireach-sat-body canvas{max-width:100%}
   .ireach-sec-sub{font-family:'JetBrains Mono',monospace;font-size:11px;
     color:var(--text-tertiary)}
   #ireachAudit b{color:var(--text-primary);font-weight:700}
