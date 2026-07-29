@@ -1677,7 +1677,21 @@
     color:var(--text-tertiary);flex:1;min-width:0}
   .ireach-sat-body{position:relative;height:360px}
   .ireach-sat-body canvas{max-width:100%}
-  /* Account-level tab strip above the daily-bars chart */
+  /* Account-level timeline preset row + account tab strip */
+  .ireach-acct-controls{display:flex;align-items:center;gap:16px;margin:0 0 8px;flex-wrap:wrap}
+  .ireach-acct-timeline{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .ireach-acct-timeline-lbl{font-family:'Space Grotesk',sans-serif;font-size:10.5px;
+    font-weight:700;letter-spacing:.5px;color:var(--text-secondary);text-transform:uppercase}
+  .ireach-acct-timeline .acct-range{
+    padding:4px 10px;font-family:'Inter',sans-serif;font-size:11px;font-weight:600;
+    color:var(--text-secondary);background:var(--bg-white);
+    border:1px solid var(--border-primary);border-radius:14px;cursor:pointer;
+    transition:background-color .12s, border-color .12s, color .12s;
+  }
+  .ireach-acct-timeline .acct-range:hover{border-color:var(--border-mid)}
+  .ireach-acct-timeline .acct-range.active{
+    background:#3b3b3b;border-color:#3b3b3b;color:#fff;
+  }
   .ireach-acct-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
   .ireach-acct-tabs .acct-tab{
     padding:6px 12px;font-family:'Inter',sans-serif;font-size:11.5px;

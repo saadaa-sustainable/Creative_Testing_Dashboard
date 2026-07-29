@@ -6542,9 +6542,19 @@ async function _ireachRefreshSaturation(from, to){
 }
 
 function _ireachRenderSaturation(scope){
-  // Account level gets a specialised daily-bar chart (only 3 entities;
+  // Account level gets a specialised daily-line chart (only 3 entities;
   // saturation curves for 3 lines is overkill). See _ireachRenderAccountBars.
-  if (scope === 'account') return _ireachRenderAccountBars();
+  if (scope === 'account'){
+    // Trigger the timeline-driven fetch on first render (or when the
+    // timeline preset changed). _ireachAcctFetchRange handles the
+    // cache-hit fast-path and calls the renderer on completion.
+    if (!_ireachAcctState.data || !_ireachAcctState.windowKey){
+      _ireachAcctFetchRange();
+    } else {
+      _ireachRenderAccountBars();
+    }
+    return;
+  }
   const canvasId = { camp:   'ireachSatCanvasCamp',
                      adset:  'ireachSatCanvasAdset' }[scope];
   if (!canvasId) return;
@@ -6646,18 +6656,108 @@ function _ireachRenderSaturation(scope){
   });
 }
 
+// Delegated click handler for the account-timeline chips. Attached once
+// after DOM parse (element exists at load time inside #view-ireach).
+document.addEventListener('DOMContentLoaded', () => {
+  const row = document.querySelector('.ireach-acct-timeline');
+  if (!row) return;
+  row.addEventListener('click', e => {
+    const btn = e.target.closest('.acct-range'); if (!btn) return;
+    const range = btn.dataset.range; if (!range) return;
+    _ireachAcctState.range = range;
+    row.querySelectorAll('.acct-range').forEach(b =>
+      b.classList.toggle('active', b === btn));
+    _ireachAcctFetchRange();
+  });
+});
+
 // ── Account-level daily bars ─────────────────────────────────────────
 // The saturation-curve view is not useful with just 3 accounts. Instead
 // show a daily time-series bar chart per account: blue = daily
 // incremental reach (left Y), red = daily spend (right Y). Tabs above
 // the chart switch between the accounts.
-const _ireachAcctState = { selected: null };
+const _ireachAcctState = {
+  selected: null,
+  range:    '90d',      // active timeline preset chip
+  data:     null,       // fetched series for the current range: [{label, points, total}]
+  fetching: false,
+  windowKey:'',         // "from|to" of the last successful fetch (cache guard)
+};
+
+// Compute [from, to] iso strings for a timeline chip.
+function _ireachAcctResolveRange(range){
+  const iso = d => d.toISOString().slice(0,10);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const to = iso(today);
+  let from = today;
+  if      (range === '7d')       { from = new Date(today); from.setDate(today.getDate()-6); }
+  else if (range === '30d')      { from = new Date(today); from.setDate(today.getDate()-29); }
+  else if (range === '90d')      { from = new Date(today); from.setDate(today.getDate()-89); }
+  else if (range === 'ytd')      { from = new Date(today.getFullYear(), 0, 1); }
+  else if (range === 'lifetime') { from = new Date(HISTORIC_CUTOFF + 'T00:00:00'); }
+  // Never dip below the historic cutoff — ireach_cumulative_daily doesn't have data before it
+  const cutoff = new Date(HISTORIC_CUTOFF + 'T00:00:00');
+  if (from < cutoff) from = cutoff;
+  return { from: iso(from), to };
+}
+
+// Fetch account-level saturation curve for the picked timeline. Fires a
+// dedicated RPC call so the account chart can span a wider (or narrower)
+// range than the main window filter without disturbing camp/adset data.
+async function _ireachAcctFetchRange(){
+  const { from, to } = _ireachAcctResolveRange(_ireachAcctState.range);
+  const key = from + '|' + to;
+  if (key === _ireachAcctState.windowKey && _ireachAcctState.data) {
+    _ireachRenderAccountBars();
+    return;
+  }
+  _ireachAcctState.fetching = true;
+  try {
+    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_ireach_saturation_curve', {
+      method: 'POST',
+      headers: {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                'Content-Type':'application/json', Prefer:'count=none'},
+      body: JSON.stringify({from_date: from, to_date: to, level_arg: 'account'}),
+    });
+    if (!r.ok){ throw new Error('HTTP ' + r.status); }
+    const rows = await r.json();
+    // Group per entity — same shape as _ireachSatState.data.account
+    const byId = new Map();
+    for (const rr of rows){
+      const id = rr.entity_id; if (!id) continue;
+      let e = byId.get(id);
+      if (!e){
+        e = { id, name: rr.entity_name || '(unnamed)', total: +rr.total_spend || 0, pts: [] };
+        byId.set(id, e);
+      }
+      e.pts.push({ x: +rr.cum_spend || 0, y: +rr.cum_reach || 0 });
+    }
+    _ireachAcctState.data = Array.from(byId.values())
+      .sort((a,b) => b.total - a.total)
+      .map((e, i) => ({
+        label:  e.name,
+        points: e.pts.sort((a,b) => a.x - b.x),
+        total:  e.total,
+      }));
+    _ireachAcctState.windowKey = key;
+    _ireachAcctState.rangeFrom = from;      // remember the fetched window so _ireachDrawAccountChart can label X properly
+    _ireachAcctState.rangeTo   = to;
+  } catch (e){
+    console.warn('[ireach account range] fetch failed', e);
+    _ireachAcctState.data = [];
+  } finally {
+    _ireachAcctState.fetching = false;
+  }
+  _ireachRenderAccountBars();
+}
 
 function _ireachRenderAccountBars(){
   const canvas = document.getElementById('ireachSatCanvasAccount');
   const tabsEl = document.getElementById('ireachAcctTabs');
   if (!canvas || !tabsEl || typeof Chart === 'undefined') return;
-  const accounts = _ireachSatState.data.account || [];
+  // Prefer the dedicated timeline-range fetch; fall back to the main-window
+  // dataset on first paint before the timeline fetch resolves.
+  const accounts = _ireachAcctState.data || _ireachSatState.data.account || [];
   // (Re)populate the tab strip. Each series entry has {label, points, total}.
   tabsEl.innerHTML = accounts.map((a, i) => {
     const cls = 'acct-tab' + (a.label === _ireachAcctState.selected ? ' active' : '');
@@ -6693,7 +6793,7 @@ function _ireachDrawAccountChart(){
   const prior = _ireachSatState.charts.account;
   if (prior && typeof prior.destroy === 'function'){ prior.destroy(); }
   _ireachSatState.charts.account = null;
-  const accounts = _ireachSatState.data.account || [];
+  const accounts = _ireachAcctState.data || _ireachSatState.data.account || [];
   const sel = accounts.find(a => a.label === _ireachAcctState.selected);
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -6713,8 +6813,10 @@ function _ireachDrawAccountChart(){
     });
   }
   // Build date labels from window bounds. We only need one label per
-  // day; every RPC row is one day.
-  const fromIso = ireachState.from || '';
+  // day; every RPC row is one day. Prefer the timeline-picked range's
+  // from-date so labels stay accurate when the user zooms out beyond
+  // the main-view window.
+  const fromIso = _ireachAcctState.rangeFrom || ireachState.from || '';
   const labels = daily.map((_, i) => {
     if (!fromIso) return String(i + 1);
     const d = new Date(fromIso + 'T00:00:00');
