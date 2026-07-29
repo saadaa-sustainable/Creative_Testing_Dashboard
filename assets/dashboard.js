@@ -6542,8 +6542,10 @@ async function _ireachRefreshSaturation(from, to){
 }
 
 function _ireachRenderSaturation(scope){
-  const canvasId = { account:'ireachSatCanvasAccount',
-                     camp:   'ireachSatCanvasCamp',
+  // Account level gets a specialised daily-bar chart (only 3 entities;
+  // saturation curves for 3 lines is overkill). See _ireachRenderAccountBars.
+  if (scope === 'account') return _ireachRenderAccountBars();
+  const canvasId = { camp:   'ireachSatCanvasCamp',
                      adset:  'ireachSatCanvasAdset' }[scope];
   if (!canvasId) return;
   const canvas = document.getElementById(canvasId);
@@ -6638,6 +6640,158 @@ function _ireachRenderSaturation(scope){
             font: { size: 10 },
           },
           grid: { color: 'rgba(0,0,0,0.05)' },
+        },
+      },
+    },
+  });
+}
+
+// ── Account-level daily bars ─────────────────────────────────────────
+// The saturation-curve view is not useful with just 3 accounts. Instead
+// show a daily time-series bar chart per account: blue = daily
+// incremental reach (left Y), red = daily spend (right Y). Tabs above
+// the chart switch between the accounts.
+const _ireachAcctState = { selected: null };
+
+function _ireachRenderAccountBars(){
+  const canvas = document.getElementById('ireachSatCanvasAccount');
+  const tabsEl = document.getElementById('ireachAcctTabs');
+  if (!canvas || !tabsEl || typeof Chart === 'undefined') return;
+  const accounts = _ireachSatState.data.account || [];
+  // (Re)populate the tab strip. Each series entry has {label, points, total}.
+  tabsEl.innerHTML = accounts.map((a, i) => {
+    const cls = 'acct-tab' + (a.label === _ireachAcctState.selected ? ' active' : '');
+    const short = (a.label || '').length > 40 ? a.label.slice(0, 39) + '…' : (a.label || '');
+    return `<button type="button" class="${cls}" data-acct="${(a.label || '').replace(/"/g, '&quot;')}">${short}</button>`;
+  }).join('') || '<span style="font-size:11px;color:var(--text-tertiary)">No account data for this window.</span>';
+  // Wire tab clicks
+  tabsEl.querySelectorAll('.acct-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _ireachAcctState.selected = btn.dataset.acct;
+      tabsEl.querySelectorAll('.acct-tab').forEach(b => b.classList.toggle('active', b === btn));
+      _ireachDrawAccountChart();
+    });
+  });
+  // Default selection: first (highest-spend) account if none picked or the
+  // previously-picked one is no longer in the data.
+  if (!_ireachAcctState.selected ||
+      !accounts.some(a => a.label === _ireachAcctState.selected)) {
+    _ireachAcctState.selected = accounts.length ? accounts[0].label : null;
+    // Reflect visual state
+    tabsEl.querySelectorAll('.acct-tab').forEach((b, i) =>
+      b.classList.toggle('active', i === 0));
+  }
+  _ireachDrawAccountChart();
+}
+
+function _ireachDrawAccountChart(){
+  const canvas = document.getElementById('ireachSatCanvasAccount');
+  if (!canvas) return;
+  // Destroy any existing Chart.js instance on this canvas (we swap out
+  // the chart when the tab changes; leaving the old one attached would
+  // double-render).
+  const prior = _ireachSatState.charts.account;
+  if (prior && typeof prior.destroy === 'function'){ prior.destroy(); }
+  _ireachSatState.charts.account = null;
+  const accounts = _ireachSatState.data.account || [];
+  const sel = accounts.find(a => a.label === _ireachAcctState.selected);
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!sel || !sel.points.length) return;
+  // Points are per-day CUMULATIVE (spend, reach). Derive daily deltas.
+  // Points are already sorted by cumulative-spend, which for a
+  // time-monotonic series equals sorted-by-date. If we ever change
+  // that assumption, re-sort by an explicit date key first.
+  const daily = [];
+  for (let i = 0; i < sel.points.length; i++){
+    const p = sel.points[i];
+    const prev = i > 0 ? sel.points[i-1] : {x:0, y:0};
+    daily.push({
+      idx:    i,
+      reach:  Math.max(0, p.y - prev.y),
+      spend:  Math.max(0, p.x - prev.x),
+    });
+  }
+  // Build date labels from window bounds. We only need one label per
+  // day; every RPC row is one day.
+  const fromIso = ireachState.from || '';
+  const labels = daily.map((_, i) => {
+    if (!fromIso) return String(i + 1);
+    const d = new Date(fromIso + 'T00:00:00');
+    d.setDate(d.getDate() + i);
+    return d.toISOString().slice(5, 10);   // MM-DD
+  });
+  _ireachSatState.charts.account = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          type:           'bar',
+          label:          'Daily incremental reach',
+          data:           daily.map(d => d.reach),
+          backgroundColor:'#4F9EDA',           // blue
+          borderColor:    '#4F9EDA',
+          yAxisID:        'y',
+          order:          2,
+        },
+        {
+          type:           'bar',
+          label:          'Daily spend (Rs)',
+          data:           daily.map(d => d.spend),
+          backgroundColor:'#E4574A',           // red
+          borderColor:    '#E4574A',
+          yAxisID:        'y1',
+          order:          1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true, position: 'top', align: 'end',
+          labels: { boxWidth: 10, boxHeight: 6, font: { size: 11 } },
+        },
+        tooltip: {
+          callbacks: {
+            title: items => items && items.length ? 'Date: ' + items[0].label : '',
+            label: c => {
+              const v = c.parsed.y || 0;
+              if (c.dataset.yAxisID === 'y1') return 'Spend: Rs ' + v.toLocaleString('en-IN', {maximumFractionDigits:0});
+              return 'Incr reach: ' + v.toLocaleString('en-IN') + ' new users';
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Date', font: { size: 11 } },
+          ticks: { autoSkip: true, maxTicksLimit: 15, font: { size: 10 } },
+          grid: { display: false },
+        },
+        y: {
+          type: 'linear', position: 'left', beginAtZero: true,
+          title: { display: true, text: 'Incremental reach (users)', font: { size: 11 }, color: '#4F9EDA' },
+          ticks: {
+            callback: v => v >= 1e6 ? (v/1e6).toFixed(1) + 'M'
+                          : v >= 1e3 ? (v/1e3).toFixed(0) + 'k' : v,
+            font: { size: 10 }, color: '#4F9EDA',
+          },
+          grid: { color: 'rgba(0,0,0,0.05)' },
+        },
+        y1: {
+          type: 'linear', position: 'right', beginAtZero: true,
+          title: { display: true, text: 'Spend (Rs)', font: { size: 11 }, color: '#E4574A' },
+          ticks: {
+            callback: v => 'Rs ' + (v >= 1e7 ? (v/1e7).toFixed(1) + 'Cr'
+                                  : v >= 1e5 ? (v/1e5).toFixed(1) + 'L'
+                                  : v >= 1e3 ? (v/1e3).toFixed(0) + 'k' : v),
+            font: { size: 10 }, color: '#E4574A',
+          },
+          grid: { display: false },
         },
       },
     },

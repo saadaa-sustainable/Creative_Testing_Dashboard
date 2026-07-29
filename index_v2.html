@@ -1241,8 +1241,11 @@
       </div>
       <div class="ireach-sat-wrap">
         <div class="ireach-sat-hdr">
-          <span class="ireach-sat-ttl">Saturation curve · Spend × Incremental Reach</span>
-          <span class="ireach-sat-note">Each line is one account · X = cumulative spend in window (Rs) · Y = cumulative new-unique-users. Curve flattening = saturation.</span>
+          <span class="ireach-sat-ttl">Daily reach × spend</span>
+          <span class="ireach-sat-note">Blue bars = incremental reach that day (left) · Red bars = spend that day (right). Pick an account below.</span>
+        </div>
+        <div class="ireach-acct-tabs" id="ireachAcctTabs">
+          <!-- populated dynamically from RPC data -->
         </div>
         <div class="ireach-sat-body"><canvas id="ireachSatCanvasAccount" height="360"></canvas></div>
       </div>
@@ -2649,6 +2652,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ireach_sat_log_v2"></script>
+<script src="assets/dashboard.js?v=ireach_account_daily_bars"></script>
 </body>
 </html>

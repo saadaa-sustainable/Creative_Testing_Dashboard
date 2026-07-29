@@ -1677,6 +1677,20 @@
     color:var(--text-tertiary);flex:1;min-width:0}
   .ireach-sat-body{position:relative;height:360px}
   .ireach-sat-body canvas{max-width:100%}
+  /* Account-level tab strip above the daily-bars chart */
+  .ireach-acct-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+  .ireach-acct-tabs .acct-tab{
+    padding:6px 12px;font-family:'Inter',sans-serif;font-size:11.5px;
+    font-weight:600;color:var(--text-secondary);background:var(--bg-white);
+    border:1px solid var(--border-primary);border-radius:16px;cursor:pointer;
+    transition:background-color .12s, border-color .12s, color .12s;
+    white-space:nowrap;
+  }
+  .ireach-acct-tabs .acct-tab:hover{border-color:var(--border-mid)}
+  .ireach-acct-tabs .acct-tab.active{
+    background:var(--accent-warm-tint);border-color:var(--accent-yellow);
+    color:var(--text-primary);
+  }
   .ireach-sec-sub{font-family:'JetBrains Mono',monospace;font-size:11px;
     color:var(--text-tertiary)}
   #ireachAudit b{color:var(--text-primary);font-weight:700}
