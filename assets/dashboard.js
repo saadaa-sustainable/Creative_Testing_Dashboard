@@ -6722,27 +6722,37 @@ function _ireachDrawAccountChart(){
     return d.toISOString().slice(5, 10);   // MM-DD
   });
   _ireachSatState.charts.account = new Chart(ctx, {
-    type: 'bar',
+    type: 'line',
     data: {
       labels,
       datasets: [
         {
-          type:           'bar',
-          label:          'Daily incremental reach',
-          data:           daily.map(d => d.reach),
-          backgroundColor:'#4F9EDA',           // blue
-          borderColor:    '#4F9EDA',
-          yAxisID:        'y',
-          order:          2,
+          type:              'line',
+          label:             'Daily incremental reach',
+          data:              daily.map(d => d.reach),
+          borderColor:       '#4F9EDA',           // blue
+          backgroundColor:   'rgba(79, 158, 218, 0.14)',
+          borderWidth:       2,
+          pointRadius:       0,
+          pointHoverRadius:  4,
+          tension:           0.25,
+          fill:              true,
+          yAxisID:           'y',
+          order:             2,
         },
         {
-          type:           'bar',
-          label:          'Daily spend (Rs)',
-          data:           daily.map(d => d.spend),
-          backgroundColor:'#E4574A',           // red
-          borderColor:    '#E4574A',
-          yAxisID:        'y1',
-          order:          1,
+          type:              'line',
+          label:             'Daily spend (Rs)',
+          data:              daily.map(d => d.spend),
+          borderColor:       '#E4574A',           // red
+          backgroundColor:   'rgba(228, 87, 74, 0.10)',
+          borderWidth:       2,
+          pointRadius:       0,
+          pointHoverRadius:  4,
+          tension:           0.25,
+          fill:              true,
+          yAxisID:           'y1',
+          order:             1,
         },
       ],
     },
