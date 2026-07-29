@@ -6518,9 +6518,10 @@ async function _ireachRefreshSaturation(from, to){
       }
       return Array.from(byId.values())
         .sort((a,b) => b.total - a.total)
-        .slice(0, 20)                       // top-20 by spend
+        .slice(0, 10)                       // top-10 by spend — beyond this the chart just gets noisy
         .map((e, i) => ({
           label:  e.name,
+          labelShort: (e.name && e.name.length > 26) ? (e.name.slice(0, 25) + '…') : e.name,
           points: e.pts.sort((a,b) => a.x - b.x),
           color:  _IREACH_SAT_PALETTE[i % _IREACH_SAT_PALETTE.length],
           total:  e.total,
@@ -6556,16 +6557,18 @@ function _ireachRenderSaturation(scope){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     return;
   }
+  // Log Y needs strictly positive points, so filter out zero-reach rows.
   const datasets = series.map(s => ({
-    label:       s.label,
-    data:        s.points,
-    borderColor: s.color,
-    backgroundColor: s.color + '20',
-    borderWidth: 1.5,
-    pointRadius: 0,
+    label:            s.labelShort || s.label,
+    fullLabel:        s.label,
+    data:             s.points.filter(p => p.y > 0 && p.x > 0),
+    borderColor:      s.color,
+    backgroundColor:  s.color + '20',
+    borderWidth:      1.6,
+    pointRadius:      0,
     pointHoverRadius: 4,
-    tension:     0.15,     // slight smoothing — the data is inherently monotone
-    fill:        false,
+    tension:          0.15,
+    fill:             false,
   }));
   _ireachSatState.charts[scope] = new Chart(canvas.getContext('2d'), {
     type: 'line',
@@ -6573,40 +6576,64 @@ function _ireachRenderSaturation(scope){
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      parsing: false,             // datasets are already {x,y} points
+      parsing: false,
       interaction: { mode: 'nearest', intersect: false },
       plugins: {
         legend: {
-          display: true, position: 'top', align: 'start',
-          labels: { boxWidth: 10, boxHeight: 6, font: { size: 10 } },
+          display: true,
+          position: 'right',             // vertical stack on the right — reclaims chart height
+          align: 'start',
+          labels: {
+            boxWidth: 10, boxHeight: 6, font: { size: 10 },
+            padding: 6,
+            generateLabels: (chart) => {
+              return chart.data.datasets.map((d, i) => ({
+                text:        d.label,
+                fillStyle:   d.borderColor,
+                strokeStyle: d.borderColor,
+                lineWidth:   0,
+                hidden:      !chart.isDatasetVisible(i),
+                datasetIndex: i,
+              }));
+            },
+          },
+          onHover:  (e, item, legend) => { legend.chart.canvas.style.cursor = 'pointer'; },
+          onLeave:  (e, item, legend) => { legend.chart.canvas.style.cursor = 'default'; },
         },
         tooltip: {
           callbacks: {
             title: () => '',
             label: c => {
-              const s = c.dataset.label;
+              const full = c.dataset.fullLabel || c.dataset.label;
               const x = 'Rs ' + (c.parsed.x || 0).toLocaleString('en-IN', {maximumFractionDigits:0});
               const y = (c.parsed.y || 0).toLocaleString('en-IN') + ' new users';
-              return s + '  ·  ' + x + '  →  ' + y;
+              return full + '  ·  ' + x + '  →  ' + y;
             },
           },
         },
       },
       scales: {
         x: {
-          type: 'linear', title: { display:true, text:'Cumulative spend in window (Rs)' },
+          type: 'linear',
+          title: { display:true, text:'Cumulative spend in window (Rs)', font:{size:11} },
           ticks: {
-            callback: v => 'Rs ' + (v >= 1e5
-              ? (v/1e5).toFixed(1) + 'L'
+            callback: v => 'Rs ' + (v >= 1e7
+              ? (v/1e7).toFixed(1) + 'Cr'
+              : v >= 1e5 ? (v/1e5).toFixed(1) + 'L'
               : v >= 1e3 ? (v/1e3).toFixed(0) + 'k' : v),
             font: { size: 10 },
           },
           grid: { color: 'rgba(0,0,0,0.05)' },
         },
         y: {
-          type: 'linear', title: { display:true, text:'Cumulative incremental reach' },
+          // Log scale so a 40× outlier doesn't crush the other 9 lines to a
+          // flat pile at the bottom of the chart. Linear was the problem in
+          // the earlier version.
+          type: 'logarithmic',
+          title: { display:true, text:'Cumulative incremental reach (log)', font:{size:11} },
           ticks: {
-            callback: v => v >= 1e6 ? (v/1e6).toFixed(1) + 'M'
+            callback: v => v >= 1e7 ? (v/1e7).toFixed(1) + 'Cr'
+                          : v >= 1e6 ? (v/1e6).toFixed(1) + 'M'
                           : v >= 1e3 ? (v/1e3).toFixed(0) + 'k' : v,
             font: { size: 10 },
           },

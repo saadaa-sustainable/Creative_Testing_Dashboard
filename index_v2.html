@@ -1244,7 +1244,7 @@
           <span class="ireach-sat-ttl">Saturation curve · Spend × Incremental Reach</span>
           <span class="ireach-sat-note">Each line is one account · X = cumulative spend in window (Rs) · Y = cumulative new-unique-users. Curve flattening = saturation.</span>
         </div>
-        <div class="ireach-sat-body"><canvas id="ireachSatCanvasAccount" height="220"></canvas></div>
+        <div class="ireach-sat-body"><canvas id="ireachSatCanvasAccount" height="360"></canvas></div>
       </div>
       <div class="ireach-scroll">
         <table class="tbl ae-tbl" id="ireachTblAccount" style="margin:0;table-layout:fixed;width:100%">
@@ -1281,9 +1281,9 @@
       <div class="ireach-sat-wrap">
         <div class="ireach-sat-hdr">
           <span class="ireach-sat-ttl">Saturation curve · Spend × Incremental Reach</span>
-          <span class="ireach-sat-note">Top-20 campaigns by spend · X = cumulative spend in window (Rs) · Y = cumulative new-unique-users. Steeper = cheaper new reach.</span>
+          <span class="ireach-sat-note">Top-10 campaigns by spend · X = cumulative spend (Rs) · Y = cumulative new-unique-users (log scale so scale outliers don't crush the other lines). Steeper = cheaper new reach.</span>
         </div>
-        <div class="ireach-sat-body"><canvas id="ireachSatCanvasCamp" height="220"></canvas></div>
+        <div class="ireach-sat-body"><canvas id="ireachSatCanvasCamp" height="360"></canvas></div>
       </div>
       <div class="ireach-scroll">
         <table class="tbl ae-tbl" id="ireachTblCamp" style="margin:0;table-layout:fixed;width:100%">
@@ -1320,9 +1320,9 @@
       <div class="ireach-sat-wrap">
         <div class="ireach-sat-hdr">
           <span class="ireach-sat-ttl">Saturation curve · Spend × Incremental Reach</span>
-          <span class="ireach-sat-note">Top-20 adsets by spend · X = cumulative spend in window (Rs) · Y = cumulative new-unique-users. Flat top = audience saturated.</span>
+          <span class="ireach-sat-note">Top-10 adsets by spend · X = cumulative spend (Rs) · Y = cumulative new-unique-users (log scale). Flat top = audience saturated.</span>
         </div>
-        <div class="ireach-sat-body"><canvas id="ireachSatCanvasAdset" height="220"></canvas></div>
+        <div class="ireach-sat-body"><canvas id="ireachSatCanvasAdset" height="360"></canvas></div>
       </div>
       <div class="ireach-scroll">
         <table class="tbl ae-tbl" id="ireachTblAdset" style="margin:0;table-layout:fixed;width:100%">
@@ -2649,6 +2649,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ireach_saturation_curve"></script>
+<script src="assets/dashboard.js?v=ireach_sat_log_v2"></script>
 </body>
 </html>

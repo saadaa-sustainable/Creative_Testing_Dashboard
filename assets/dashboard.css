@@ -1675,7 +1675,7 @@
     font-size:12px;letter-spacing:.4px;color:var(--text-primary)}
   .ireach-sat-note{font-family:'Inter',sans-serif;font-size:10.5px;
     color:var(--text-tertiary);flex:1;min-width:0}
-  .ireach-sat-body{position:relative;height:240px}
+  .ireach-sat-body{position:relative;height:360px}
   .ireach-sat-body canvas{max-width:100%}
   .ireach-sec-sub{font-family:'JetBrains Mono',monospace;font-size:11px;
     color:var(--text-tertiary)}
