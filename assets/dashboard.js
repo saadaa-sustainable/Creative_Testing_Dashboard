@@ -6701,9 +6701,9 @@ function _ireachAcctResolveRange(range){
   return { from: iso(from), to };
 }
 
-// Fetch account-level saturation curve for the picked timeline. Fires a
-// dedicated RPC call so the account chart can span a wider (or narrower)
-// range than the main window filter without disturbing camp/adset data.
+// Fetch account-level daily reach + daily spend for the picked timeline.
+// Two parallel queries so we always show ALL 3 accounts (including ones
+// with 0 spend in the window like Third Ad Account when paused).
 async function _ireachAcctFetchRange(){
   const { from, to } = _ireachAcctResolveRange(_ireachAcctState.range);
   const key = from + '|' + to;
@@ -6712,35 +6712,83 @@ async function _ireachAcctFetchRange(){
     return;
   }
   _ireachAcctState.fetching = true;
+  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                   'Content-Type':'application/json', Prefer:'count=none'};
   try {
-    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_ireach_saturation_curve', {
-      method: 'POST',
-      headers: {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
-                'Content-Type':'application/json', Prefer:'count=none'},
-      body: JSON.stringify({from_date: from, to_date: to, level_arg: 'account'}),
-    });
-    if (!r.ok){ throw new Error('HTTP ' + r.status); }
-    const rows = await r.json();
-    // Group per entity — same shape as _ireachSatState.data.account
+    // 1) ALL account rows in the reach table for the window — no spend filter
+    const reachUrl = SUPABASE_URL +
+      '/rest/v1/ireach_cumulative_daily?select=entity_id,entity_name,date,cumulative_reach' +
+      '&level=eq.account&date=gte.' + from + '&date=lte.' + to +
+      '&order=entity_id,date&limit=50000';
+    // 2) Daily spend per (account_id, date) — sum campaign_daily rows
+    const spendUrl = SUPABASE_URL +
+      '/rest/v1/ireach_campaign_daily?select=account_id,date,spend_daily' +
+      '&date=gte.' + from + '&date=lte.' + to + '&limit=50000';
+    const [reachResp, spendResp] = await Promise.all([
+      fetch(reachUrl, { headers }),
+      fetch(spendUrl, { headers }),
+    ]);
+    if (!reachResp.ok) throw new Error('reach HTTP ' + reachResp.status);
+    if (!spendResp.ok) throw new Error('spend HTTP ' + spendResp.status);
+    const reachRows = await reachResp.json();
+    const spendRows = await spendResp.json();
+    // 3) Pre-window cum_at_start_prev per account (single query, tiny)
+    const startUrl = SUPABASE_URL +
+      '/rest/v1/ireach_cumulative_daily?select=entity_id,cumulative_reach,date' +
+      '&level=eq.account&date=lt.' + from + '&order=entity_id,date.desc' +
+      '&limit=200';
+    const startResp = await fetch(startUrl, { headers });
+    const startRows = startResp.ok ? await startResp.json() : [];
+    // Take the LATEST pre-window row per entity
+    const startByEntity = {};
+    for (const r of startRows){
+      if (!(r.entity_id in startByEntity)) startByEntity[r.entity_id] = +r.cumulative_reach || 0;
+    }
+    // 4) Aggregate spend per (account_id, date) — server may return multiple
+    //    campaigns per account; sum them here.
+    const spendByAcctDate = {};        // { account_id: { date: totalSpend } }
+    for (const r of spendRows){
+      const a = r.account_id, d = r.date, s = +r.spend_daily || 0;
+      if (!a || !d) continue;
+      if (!spendByAcctDate[a]) spendByAcctDate[a] = {};
+      spendByAcctDate[a][d] = (spendByAcctDate[a][d] || 0) + s;
+    }
+    // 5) Group reach rows per entity, sorted by date, subtracting cum_at_start_prev
     const byId = new Map();
-    for (const rr of rows){
-      const id = rr.entity_id; if (!id) continue;
+    for (const r of reachRows){
+      const id = r.entity_id; if (!id) continue;
       let e = byId.get(id);
       if (!e){
-        e = { id, name: rr.entity_name || '(unnamed)', total: +rr.total_spend || 0, pts: [] };
+        e = { id, name: r.entity_name || '(unnamed)', pts: [], total: 0 };
         byId.set(id, e);
       }
-      e.pts.push({ x: +rr.cum_spend || 0, y: +rr.cum_reach || 0 });
+      e.pts.push({ date: r.date, cum_reach: +r.cumulative_reach || 0 });
     }
-    _ireachAcctState.data = Array.from(byId.values())
-      .sort((a,b) => b.total - a.total)
-      .map((e, i) => ({
-        label:  e.name,
-        points: e.pts.sort((a,b) => a.x - b.x),
-        total:  e.total,
-      }));
+    // 6) Build the shape the renderer expects: {label, points:[{x:cum_spend,y:cum_reach}], total}
+    const list = [];
+    for (const e of byId.values()){
+      e.pts.sort((a,b) => a.date.localeCompare(b.date));
+      const startCum = startByEntity[e.id] || 0;
+      const spendMap = spendByAcctDate[e.id] || {};
+      let cumSpend = 0;
+      const outPts = e.pts.map(p => {
+        cumSpend += spendMap[p.date] || 0;
+        return {
+          x:       cumSpend,
+          y:       Math.max(0, p.cum_reach - startCum),
+          date:    p.date,
+          spend:   spendMap[p.date] || 0,
+        };
+      });
+      const total = cumSpend;
+      list.push({ label: e.name, points: outPts, total });
+    }
+    // Sort by total spend desc; but keep 0-spend accounts LAST rather than
+    // filtered out, so the user can still click their tab.
+    list.sort((a,b) => b.total - a.total);
+    _ireachAcctState.data      = list;
     _ireachAcctState.windowKey = key;
-    _ireachAcctState.rangeFrom = from;      // remember the fetched window so _ireachDrawAccountChart can label X properly
+    _ireachAcctState.rangeFrom = from;
     _ireachAcctState.rangeTo   = to;
   } catch (e){
     console.warn('[ireach account range] fetch failed', e);
@@ -6797,32 +6845,62 @@ function _ireachDrawAccountChart(){
   const sel = accounts.find(a => a.label === _ireachAcctState.selected);
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!sel || !sel.points.length) return;
-  // Points are per-day CUMULATIVE (spend, reach). Derive daily deltas.
-  // Points are already sorted by cumulative-spend, which for a
-  // time-monotonic series equals sorted-by-date. If we ever change
-  // that assumption, re-sort by an explicit date key first.
+  const kpisEl = document.getElementById('ireachAcctKpis');
+  if (!sel || !sel.points.length){
+    if (kpisEl) kpisEl.innerHTML =
+      '<div class="ireach-acct-empty">No delivery for this account in the selected timeline.</div>';
+    return;
+  }
+  // Points may carry explicit .date + .spend from the two-query path, or
+  // fall back to the cumulative (x, y) delta form from the RPC path.
   const daily = [];
   for (let i = 0; i < sel.points.length; i++){
     const p = sel.points[i];
-    const prev = i > 0 ? sel.points[i-1] : {x:0, y:0};
+    const prev = i > 0 ? sel.points[i-1] : { x:0, y:0 };
     daily.push({
-      idx:    i,
-      reach:  Math.max(0, p.y - prev.y),
-      spend:  Math.max(0, p.x - prev.x),
+      date:   p.date || null,
+      reach:  Math.max(0, (p.y || 0) - (prev.y || 0)),
+      spend:  ('spend' in p) ? (+p.spend || 0)
+                             : Math.max(0, (p.x || 0) - (prev.x || 0)),
     });
   }
-  // Build date labels from window bounds. We only need one label per
-  // day; every RPC row is one day. Prefer the timeline-picked range's
-  // from-date so labels stay accurate when the user zooms out beyond
-  // the main-view window.
+  // Date labels — prefer explicit date, else derive from range start.
   const fromIso = _ireachAcctState.rangeFrom || ireachState.from || '';
-  const labels = daily.map((_, i) => {
+  const labels = daily.map((d, i) => {
+    if (d.date) return d.date.slice(5, 10);
     if (!fromIso) return String(i + 1);
-    const d = new Date(fromIso + 'T00:00:00');
-    d.setDate(d.getDate() + i);
-    return d.toISOString().slice(5, 10);   // MM-DD
+    const dt = new Date(fromIso + 'T00:00:00');
+    dt.setDate(dt.getDate() + i);
+    return dt.toISOString().slice(5, 10);
   });
+  // KPI aggregates
+  const totalReach = daily.reduce((s,d) => s + d.reach, 0);
+  const totalSpend = daily.reduce((s,d) => s + d.spend, 0);
+  const nDays      = daily.length || 1;
+  const avgReach   = totalReach / nDays;
+  const avgSpend   = totalSpend / nDays;
+  const costPerK   = totalReach > 0 ? (totalSpend * 1000) / totalReach : null;
+  const fmtInt     = v => (v == null ? '—' : Math.round(v).toLocaleString('en-IN'));
+  const fmtRs      = v => v == null ? '—'
+                        : v >= 1e7 ? 'Rs ' + (v/1e7).toFixed(2) + ' Cr'
+                        : v >= 1e5 ? 'Rs ' + (v/1e5).toFixed(2) + ' L'
+                        : v >= 1e3 ? 'Rs ' + (v/1e3).toFixed(1) + 'k'
+                        : 'Rs ' + Math.round(v).toLocaleString('en-IN');
+  if (kpisEl){
+    kpisEl.innerHTML = [
+      ['Total incremental reach', fmtInt(totalReach)],
+      ['Total spend',             fmtRs(totalSpend)],
+      ['Avg daily reach',         fmtInt(avgReach)],
+      ['Avg daily spend',         fmtRs(avgSpend)],
+      ['Cost / 1k new reach',     fmtRs(costPerK)],
+      ['Days in view',            fmtInt(nDays)],
+    ].map(([lbl, val]) =>
+      `<div class="ireach-acct-kpi">
+         <span class="ireach-acct-kpi-lbl">${lbl}</span>
+         <span class="ireach-acct-kpi-val">${val}</span>
+       </div>`
+    ).join('');
+  }
   _ireachSatState.charts.account = new Chart(ctx, {
     type: 'line',
     data: {

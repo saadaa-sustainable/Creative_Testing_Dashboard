@@ -1693,6 +1693,22 @@
     background:#3b3b3b;border-color:#3b3b3b;color:#fff;
   }
   .ireach-acct-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+  /* KPI strip below the account chart */
+  .ireach-acct-kpis{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:8px;margin:10px 0 4px;
+  }
+  .ireach-acct-kpi{
+    background:var(--bg-page-alt);border:1px solid var(--border-soft);
+    border-radius:8px;padding:8px 10px;
+  }
+  .ireach-acct-kpi-lbl{font-family:'Space Grotesk',sans-serif;font-size:9.5px;
+    font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+    color:var(--text-secondary);display:block;margin-bottom:3px}
+  .ireach-acct-kpi-val{font-family:'JetBrains Mono',monospace;font-size:16px;
+    font-weight:700;color:var(--text-primary)}
+  .ireach-acct-empty{padding:32px;text-align:center;color:var(--text-tertiary);
+    font-family:'Inter',sans-serif;font-size:12px}
   .ireach-acct-tabs .acct-tab{
     padding:6px 12px;font-family:'Inter',sans-serif;font-size:11.5px;
     font-weight:600;color:var(--text-secondary);background:var(--bg-white);
