@@ -366,7 +366,7 @@ def _s(v):
     s = str(v).strip()
     return s if s else None
 
-def _to_row(m, ig_username, ig_id, ins, status, boost_count):
+def _to_row(m, ig_username, ig_id, ins, status, boost_count, bio_link=None):
     owner  = m.get('owner')  or {}
     kids   = m.get('children') or {}
     collab = m.get('collaborators') or {}
@@ -441,6 +441,9 @@ def _to_row(m, ig_username, ig_id, ins, status, boost_count):
         json.dumps(bei) if isinstance(bei, dict) and bei else None,
         children_ids,
         collab_json,
+        bio_link,   # bio_link_at_fetch — snapshot of the account's bio-link
+                    # URL at fetch time, so organic-post → session joins
+                    # can filter shopify_sessions by landing_url match.
     )
 
 UPSERT_COLS = [
@@ -463,6 +466,7 @@ UPSERT_COLS = [
     'total_comments_count','total_like_count','total_views_count',
     'copyright_check_status','copyright_check_info','boost_eligibility_info',
     'children_ids','collaborators',
+    'bio_link_at_fetch',
 ]
 _update = ','.join(f'{c}=EXCLUDED.{c}' for c in UPSERT_COLS if c != 'media_id')
 # synced_at column has a DEFAULT NOW() on the table, so we let the DB
@@ -509,6 +513,19 @@ def main():
         batch = []
         count = 0
 
+        # Snapshot the account's current bio-link URL. IG's API doesn't
+        # expose a per-post destination URL for organic feed/reel posts,
+        # so this is the only URL those posts route clicks through —
+        # store it on every row for organic-post → session joins.
+        bio_link = None
+        try:
+            _prof = _get(f'{API}/{ig_id}', {'fields':'website','access_token':TOK})
+            if isinstance(_prof, dict) and _prof.get('website'):
+                bio_link = _prof.get('website')
+                log(f"  bio_link = {bio_link}")
+        except Exception as _e:
+            log(f"  [!] bio_link fetch failed: {type(_e).__name__}: {_e}")
+
         for m in _walk_media(ig_id):
             mid = m.get('id')
             if not mid: continue
@@ -527,7 +544,7 @@ def main():
             extras = _fetch_extra_fields(mid)
             if extras: m.update(extras)
             status, boost_count = _fetch_boost_state(mid, m.get('boost_eligibility_info'))
-            row = _to_row(m, uname, ig_id, ins, status, boost_count)
+            row = _to_row(m, uname, ig_id, ins, status, boost_count, bio_link)
             batch.append(row)
             seen_this_acct.add(mid)
 
