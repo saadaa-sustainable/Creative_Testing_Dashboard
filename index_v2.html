@@ -2404,7 +2404,7 @@
             <tr style="border-bottom:1px solid #e0dbd0"><td style="padding:8px 8px 8px 0;font-weight:600">#Ads</td>
               <td style="padding:8px"><b>Distinct ad_ids</b> whose name contains the master SKU with ≥1 delivery day in the window. <b>Click any master row</b> to open the Ads Explorer.</td></tr>
             <tr style="border-bottom:1px solid #e0dbd0"><td style="padding:8px 8px 8px 0;font-weight:600">Cost/NCP</td>
-              <td style="padding:8px"><code>ad_spend ÷ Σ ncp_count</code> across the matched ads (window-scoped).</td></tr>
+              <td style="padding:8px"><b>Arithmetic mean of each matched ad's own Cost/NCP</b> — each ad counts equally regardless of size. For every ad_id in the window: sum its daily spend + NCP, compute <code>ad_spend ÷ ad_ncp</code>, then average across all ads (ads with 0 NCP are excluded). This is a normalized CAC — one high-volume ad can't dominate.</td></tr>
             <tr style="border-bottom:1px solid #e0dbd0"><td style="padding:8px 8px 8px 0;font-weight:600">ROAS</td>
               <td style="padding:8px"><b>Return on Ad Spend</b> = <code>total_sales ÷ ad_spend</code>. Shown as <code>N.NNx</code>.</td></tr>
             <tr><td style="padding:8px 8px 8px 0;font-weight:600">CPIS</td>
@@ -3067,6 +3067,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=cpis_defs_and_ads_modal"></script>
+<script src="assets/dashboard.js?v=cpis_mean_cpn"></script>
 </body>
 </html>

@@ -299,16 +299,28 @@ def compute_ad_spend(cur, master_skus, days=None):
     for sku in master_skus:
         needle = sku.lower()
         if len(needle) < 4: continue     # guard: too-short prefixes hit false positives
-        spend, ncp = 0.0, 0
-        ad_ids = set()
+        # Aggregate PER-AD first — one entry per ad_id holding that ad's
+        # window-total spend + NCP. Multiple daily rows per ad get summed.
+        per_ad = {}   # ad_id → [spend, ncp]
         for aid, name_lc, sp, np_ in lc_ads:
             if needle in name_lc:
-                spend += float(sp or 0)
-                ncp   += int(np_ or 0)
-                ad_ids.add(aid)
-        if ad_ids:
-            out[sku] = {"spend": spend, "ncp": ncp,
-                        "matched_ad_count": len(ad_ids)}   # DISTINCT ad_ids
+                e = per_ad.get(aid)
+                if e is None: e = [0.0, 0]; per_ad[aid] = e
+                e[0] += float(sp or 0)
+                e[1] += int(np_ or 0)
+        if not per_ad: continue
+        total_spend = sum(e[0] for e in per_ad.values())
+        total_ncp   = sum(e[1] for e in per_ad.values())
+        # NEW: arithmetic MEAN of each ad's own cost_per_ncp (each ad
+        # counted equally regardless of size). Ads with 0 NCP are excluded
+        # from the average — they'd otherwise be divide-by-zero, and even a
+        # 0-NCP ad with big spend would poison a "normalized CAC" measure.
+        per_ad_cpn = [e[0] / e[1] for e in per_ad.values() if e[1] > 0]
+        avg_cpn = (sum(per_ad_cpn) / len(per_ad_cpn)) if per_ad_cpn else None
+        out[sku] = {"spend": total_spend, "ncp": total_ncp,
+                    "matched_ad_count": len(per_ad),
+                    "avg_cost_per_ncp": avg_cpn,
+                    "ads_with_ncp": len(per_ad_cpn)}
     print(f"  [match] {len(out)} master SKUs had ≥1 matching ad")
     return out
 
@@ -402,11 +414,12 @@ def build_window(cur, window_key, days):
         net_items = float(s.get("net_items_sold", 0))
         doq = (net_items / days) if days > 0 else None
         if level == "master":
-            a = ad_map.get(sku, {"spend": 0.0, "ncp": 0, "matched_ad_count": 0})
+            a = ad_map.get(sku, {"spend": 0.0, "ncp": 0, "matched_ad_count": 0,
+                                 "avg_cost_per_ncp": None})
             spend, ncp, macnt = a["spend"], a["ncp"], a["matched_ad_count"]
+            cpn = a.get("avg_cost_per_ncp")     # arithmetic mean per ad
         else:
-            spend, ncp, macnt = None, None, None
-        cpn = (spend / ncp) if (spend is not None and ncp and ncp > 0) else None
+            spend, ncp, macnt, cpn = None, None, None, None
         inv_int = int(inv)
         doh = (inv_int / doq) if (doq and doq > 0) else None
         roas = (float(s.get("total_sales", 0)) / spend) if (spend and spend > 0) else None
