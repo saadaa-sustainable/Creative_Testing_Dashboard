@@ -9038,6 +9038,7 @@ function _utNormalizeVideo(r){
     media_type:          'video',
     is_tested:           !!r.computed_is_tested,
     tested_signal:       r.matched_ad_id || r.ad_id || '',
+    matched_ad_id:       r.matched_ad_id || '',
     matched_ad_name:     r.matched_ad_name || '',
     asset_kind:          r.asset_type,      // Campaign / Standalone Brief / …
     sub_kind:            r.creative_effort_type,
@@ -9054,13 +9055,21 @@ function _utNormalizeVideo(r){
 }
 
 function _utNormalizeGraphic(r){
-  const tested = String(r.summary_status || '').toLowerCase() === 'tested';
+  // Same rule as Video — tested is derived server-side via
+  // fetch_graphic_sheet.py (requisition_id/nomenclature substring in
+  // primary_table.ad_name). Falls back to sheet's summary_status if the
+  // compute hasn't populated yet.
+  const computed = r.computed_is_tested;
+  const tested = (computed === true) ||
+                 (computed == null && String(r.summary_status || '').toLowerCase() === 'tested');
   return {
     asset_id:            r.requisition_id,
     name:                r.nomenclature || r.creative,
     media_type:          'graphic',
     is_tested:           tested,
-    tested_signal:       r.summary_status || r.test_status || '',
+    tested_signal:       r.matched_ad_id || r.summary_status || r.test_status || '',
+    matched_ad_id:       r.matched_ad_id || '',
+    matched_ad_name:     r.matched_ad_name || '',
     asset_kind:          r.graphic_type,    // Static / Carousel
     sub_kind:            r.audience_type,
     content_theme:       r.creative,        // creative code (SDWLP_USP_ADSC)
@@ -9097,8 +9106,11 @@ async function loadUntestedAssets(force){
                   'link_1','link_2','link_3','ad_id','summary_status','summary_result',
                   'test_status','test_results','status_of_completion','status_of_testing',
                   'total_count','count_9_16','count_4_5','count_16_9','count_1_1',
-                  'mirrored_at'].join(',');
+                  'mirrored_at','computed_is_tested','matched_ad_id','matched_ad_name'].join(',');
+    // Belt-and-suspenders: mirror also purges link-less rows, but this
+    // guards against a stale mirror. PostgREST 'or' filter syntax.
     url = SUPABASE_URL + '/rest/v1/content_graphic_register?select=' + cols +
+          '&or=(link_1.not.is.null,link_2.not.is.null,link_3.not.is.null)' +
           '&order=asset_date.desc.nullslast&limit=5000';
     normalize = _utNormalizeGraphic;
   } else {
@@ -9214,11 +9226,22 @@ function _utRender(){
       : '<span style="color:var(--text-tertiary)">—</span>';
     // Tested pill — content differs by source: video shows ad_id,
     // graphic shows summary_status ('Tested' / 'Pending').
-    const signal = r.tested_signal || '';
-    const hover  = r.matched_ad_name ? ('Matched ad: ' + r.matched_ad_name) : (r.ad_status || '');
-    const testedCell = r.is_tested
-      ? '<span class="mono" style="color:var(--sage,#4a7c6f)" title="' + _esc(hover) + '">' + _esc(signal || '✓') + '</span>'
-      : '<span style="color:var(--text-tertiary);font-size:11px">' + (signal ? _esc(signal) : '—') + '</span>';
+    // Tested cell shows matched ad_id + ad_name (2 lines). Untested shows
+    // the sheet's raw status if any, else em-dash.
+    let testedCell;
+    if (r.is_tested){
+      const aid  = r.matched_ad_id || r.tested_signal || '';
+      const name = r.matched_ad_name || '';
+      const nameShort = name.length > 32 ? name.slice(0, 30) + '…' : name;
+      testedCell =
+        '<div style="display:flex;flex-direction:column;line-height:1.2">' +
+          '<span class="mono" style="color:var(--sage,#4a7c6f);font-size:11px" title="' + _esc(name) + '">' + _esc(aid || '✓') + '</span>' +
+          (name ? '<span style="font-size:10px;color:var(--text-tertiary);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + _esc(name) + '">' + _esc(nameShort) + '</span>' : '') +
+        '</div>';
+    } else {
+      const signal = r.tested_signal || '';
+      testedCell = '<span style="color:var(--text-tertiary);font-size:11px">' + (signal ? _esc(signal) : '—') + '</span>';
+    }
     const mediaPill = r.media_type === 'graphic'
       ? '<span style="display:inline-block;padding:2px 7px;border-radius:100px;font-size:10px;font-weight:700;background:var(--gold-lt,#fdf5e6);color:var(--gold,#b8883a)">GRAPHIC</span>'
       : '<span style="display:inline-block;padding:2px 7px;border-radius:100px;font-size:10px;font-weight:700;background:var(--slate-lt,#eaf0f8);color:var(--slate,#4a6fa5)">VIDEO</span>';

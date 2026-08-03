@@ -9,7 +9,7 @@ USAGE
   python fetch_graphic_sheet.py --dry-run      # fetch + summarise, no writes
 """
 from __future__ import annotations
-import os, sys, csv, io, re, argparse, requests, psycopg2
+import os, sys, csv, io, re, time, argparse, requests, psycopg2
 from datetime import datetime, timezone, date
 from dotenv import load_dotenv
 from pathlib import Path
@@ -169,7 +169,74 @@ create table if not exists {TABLE} (
 create index if not exists content_graphic_register_ad_id_idx     on {TABLE} (ad_id);
 create index if not exists content_graphic_register_status_idx    on {TABLE} (status_of_testing);
 create index if not exists content_graphic_register_asset_date_idx on {TABLE} (asset_date desc);
+alter table {TABLE}
+    add column if not exists computed_is_tested boolean default false,
+    add column if not exists matched_ad_id      text,
+    add column if not exists matched_ad_name    text;
 """
+
+
+def _compute_tested(cur):
+    """Mirror of the video-side rule: match requisition_id substring against
+    primary_table.ad_name Python-side (Supabase ILIKE cross-join blows past
+    the 30-s statement timeout). Also matches nomenclature as a fallback."""
+    cur.execute(f"""
+        select requisition_id, nomenclature
+          from {TABLE}
+         where (link_1 is not null and link_1 <> '')
+            or (link_2 is not null and link_2 <> '')
+            or (link_3 is not null and link_3 <> '')
+    """)
+    assets = cur.fetchall()   # (requisition_id, nomenclature)
+    print(f"[compute] {len(assets)} link-bearing assets to match")
+
+    cur.execute("select ad_id::text, ad_name from public.primary_table "
+                "where ad_name is not null")
+    ads = cur.fetchall()
+    print(f"[compute] scanning {len(ads):,} ad_names")
+    lc_ads = [(aid, name, name.lower()) for aid, name in ads]
+
+    matches = {}
+    for rid, nomen in assets:
+        needles = []
+        if rid   and len(rid)   >= 4: needles.append(rid.lower())
+        if nomen and len(nomen) >= 4 and nomen.lower() not in needles:
+            needles.append(nomen.lower())
+        hit = None
+        for needle in needles:
+            for aid, name, name_lc in lc_ads:
+                if needle in name_lc:
+                    hit = (aid, name); break
+            if hit: break
+        if hit: matches[rid] = hit
+
+    tested   = len(matches)
+    untested = len(assets) - tested
+    print(f"[compute] tested={tested}  untested={untested}")
+
+    payload_hit  = [(aid, name, key) for key, (aid, name) in matches.items()]
+    payload_miss = [(key,) for (key, _) in assets if key not in matches]
+    execute_values(
+        cur,
+        f"""update {TABLE} c set
+              computed_is_tested = true,
+              matched_ad_id      = v.ad_id,
+              matched_ad_name    = v.ad_name
+             from (values %s) as v(ad_id, ad_name, requisition_id)
+            where c.requisition_id = v.requisition_id""",
+        payload_hit, page_size=500,
+    )
+    if payload_miss:
+        execute_values(
+            cur,
+            f"""update {TABLE} c set
+                  computed_is_tested = false,
+                  matched_ad_id      = null,
+                  matched_ad_name    = null
+                 from (values %s) as v(requisition_id)
+                where c.requisition_id = v.requisition_id""",
+            payload_miss, page_size=500,
+        )
 
 def fetch_csv():
     url = (f"https://docs.google.com/spreadsheets/d/{SHEET_ID}"
@@ -194,25 +261,27 @@ def main():
     if len(rows) < 2:
         sys.exit("[fatal] no data rows")
 
-    # Parse each row into a dict keyed by table_column.
+    # Parse each row into a dict keyed by table_column, and keep only
+    # rows that actually represent an asset — i.e. at least one of
+    # link_1 / link_2 / link_3 has a value. Rows with only a
+    # requisition_id but no link are planning placeholders.
     parsed = []
     skipped_blank = 0
+    skipped_nolink = 0
     for r in rows[1:]:  # skip header
-        # Pad short rows (last row may have trailing blanks trimmed)
         if len(r) < 43:
             r = r + [""] * (43 - len(r))
         rec = {}
         for header, col, idx in COL_MAP:
             rec[col] = _coerce(col, r[idx] if idx < len(r) else None)
         if not rec["requisition_id"]:
-            skipped_blank += 1
-            continue
+            skipped_blank += 1; continue
+        if not any((rec.get(k) or "").strip() for k in ("link_1","link_2","link_3")):
+            skipped_nolink += 1; continue
         parsed.append(rec)
 
-    tested   = sum(1 for r in parsed if r.get("ad_id"))
-    untested = len(parsed) - tested
-    print(f"[parsed] total={len(parsed)}  tested(ad_id set)={tested}  untested={untested}"
-          f"  skipped_blank={skipped_blank}")
+    print(f"[parsed] kept={len(parsed)}  skipped_no_requisition={skipped_blank}"
+          f"  skipped_no_link={skipped_nolink}")
 
     if args.dry_run:
         print("[dry-run] skipping DB writes"); return
@@ -240,11 +309,29 @@ def main():
             conn.commit()
             print(f"[upsert] {len(payload)} rows")
 
-            cur.execute(f"select count(*) filter (where ad_id is null) as untested, "
-                        f"count(*) filter (where ad_id is not null) as tested, "
-                        f"count(*) as total from {TABLE}")
-            u, t, tot = cur.fetchone()
-            print(f"[verify] total={tot}  tested={t}  untested={u}")
+            # Purge older rows that no longer have any link (invariant:
+            # graphic_register only holds real assets with at least one link).
+            cur.execute(f"delete from {TABLE} "
+                        f"where coalesce(link_1,'')='' and coalesce(link_2,'')='' "
+                        f"  and coalesce(link_3,'')=''")
+            n_purged = cur.rowcount; conn.commit()
+            print(f"[purge] removed {n_purged} rows without any link_1/2/3")
+
+            # Match against primary_table.ad_name using the same rule as Video.
+            print("[compute] matching requisition_id → primary_table.ad_name …")
+            t_compute = time.time()
+            _compute_tested(cur); conn.commit()
+            print(f"[compute] done in {time.time()-t_compute:.1f}s")
+
+            cur.execute(f"""
+              select count(*) as total,
+                     count(*) filter (where computed_is_tested)        as tested,
+                     count(*) filter (where not computed_is_tested)    as untested,
+                     count(*) filter (where matched_ad_id is not null) as with_matched
+                from {TABLE}
+            """)
+            tot, t, u, m = cur.fetchone()
+            print(f"[verify] total={tot}  tested={t}  untested={u}  matched_ad_id_populated={m}")
     finally:
         conn.close()
 
