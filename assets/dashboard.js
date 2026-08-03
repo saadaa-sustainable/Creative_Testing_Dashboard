@@ -9488,3 +9488,160 @@ function _hvRender(){
     });
   });
 })();
+
+/* ============================================================
+   COGS (Inventory sub-tab) — reads public.cogs_by_sku, one row per
+   (window_key, master_sku). Refreshed by backend/fetch_cogs_by_sku.py.
+   ============================================================ */
+let _cgRowsByWin = { '1d': null, '7d': null, '30d': null };
+let _cgWin = '7d';
+let _cgChart = null;
+
+async function loadCogsBySku(force){
+  const body = document.getElementById('cgTableBody');
+  if (!body) return;
+  const win = _cgWin;
+  if (_cgRowsByWin[win] && !force){ _cgRender(); return; }
+  body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading '+win+'…</td></tr>';
+  if (!SUPABASE_URL || !SUPABASE_ANON){
+    body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">SUPABASE_URL / anon key missing.</td></tr>';
+    return;
+  }
+  const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
+  const url = SUPABASE_URL + '/rest/v1/cogs_by_sku?select=*&window_key=eq.' + win +
+              '&order=total_sales.desc&limit=5000';
+  try {
+    const r = await fetch(url, { headers: hdrs });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    _cgRowsByWin[win] = await r.json();
+    _cgRender();
+  } catch (e){
+    body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
+  }
+}
+
+function _cgFilterAndSort(){
+  let rows = (_cgRowsByWin[_cgWin] || []).slice();
+  const q = (document.getElementById('cgSearch')?.value || '').trim().toLowerCase();
+  if (q) rows = rows.filter(r =>
+    (r.master_sku || '').toLowerCase().includes(q) ||
+    (r.product_title || '').toLowerCase().includes(q) ||
+    (r.product_vendor || '').toLowerCase().includes(q));
+  const sk = document.getElementById('cgSort')?.value || 'total_sales';
+  rows.sort((a,b) => (+b[sk] || 0) - (+a[sk] || 0));
+  return rows;
+}
+
+function _cgRender(){
+  const rows = _cgFilterAndSort();
+  const all  = _cgRowsByWin[_cgWin] || [];
+  const totSales = all.reduce((a,r) => a + (+r.total_sales || 0), 0);
+  const totItems = all.reduce((a,r) => a + (+r.net_items_sold || 0), 0);
+  const totSpend = all.reduce((a,r) => a + (+r.ad_spend || 0), 0);
+  const totNcp   = all.reduce((a,r) => a + (+r.ad_ncp || 0), 0);
+  const cpn      = totNcp > 0 ? (totSpend / totNcp) : null;
+  const withSales = all.filter(r => (+r.total_sales || 0) > 0).length;
+  document.getElementById('cgKpSales').textContent = fmtRs(totSales);
+  document.getElementById('cgKpItems').textContent = fmtInt(totItems);
+  document.getElementById('cgKpSkus').textContent  = fmtInt(withSales);
+  document.getElementById('cgKpSpend').textContent = fmtRs(totSpend);
+  document.getElementById('cgKpCPN').textContent   = cpn != null ? fmtRs(cpn) : '—';
+  const winLbl = _cgWin === '1d' ? 'last 1 day' : _cgWin === '30d' ? 'last 30 days' : 'last 7 days';
+  document.getElementById('cgKpSalesSub').textContent = winLbl;
+  const lastRefresh = all[0]?.computed_at || '';
+  document.getElementById('cgKpRefreshed').textContent =
+    lastRefresh ? lastRefresh.slice(0,10) + ' ' + lastRefresh.slice(11,16) : '—';
+
+  const _esc = s => String(s == null ? '' : s).replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const _fmtNum = v => (v == null || v === '' || isNaN(+v)) ? '—' : fmtInt(+v);
+  const _fmtDec = v => (v == null || v === '' || isNaN(+v)) ? '—' : (+v).toFixed(2);
+  const TOPN = 500;
+  const shown = rows.slice(0, TOPN);
+  const body = document.getElementById('cgTableBody');
+  body.innerHTML = shown.map(r => {
+    const variants = Array.isArray(r.variant_skus) ? r.variant_skus : [];
+    const vShort = variants.slice(0, 6).join(', ') + (variants.length > 6 ? ' +' + (variants.length - 6) : '');
+    return '<tr>' +
+      '<td class="mono" style="font-weight:600">' + _esc(r.master_sku) + '</td>' +
+      '<td class="mono" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"' +
+        ' title="' + _esc(r.product_title) + '">' + _esc(r.product_title) + '</td>' +
+      '<td class="mono" style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"' +
+        ' title="' + _esc(variants.join(', ')) + '">' + _esc(vShort) + '</td>' +
+      '<td class="mono" style="text-align:right">' + _fmtDec(r.doq) + '</td>' +
+      '<td class="mono" style="text-align:right">' + _fmtNum(r.inventory_total) + '</td>' +
+      '<td class="mono" style="text-align:right">' + fmtRs(r.total_sales || 0) + '</td>' +
+      '<td class="mono" style="text-align:right">' + _fmtNum(r.net_items_sold) + '</td>' +
+      '<td class="mono" style="text-align:right">' + fmtRs(r.ad_spend || 0) + '</td>' +
+      '<td class="mono" style="text-align:right">' + (r.cost_per_ncp != null ? fmtRs(r.cost_per_ncp) : '—') + '</td>' +
+      '<td class="mono" style="text-align:right;color:var(--text-tertiary)">' + (r.cogs != null ? fmtRs(r.cogs) : '—') + '</td>' +
+      '</tr>';
+  }).join('') || '<tr><td colspan="10" style="text-align:center;padding:14px;color:var(--text-tertiary)">No SKUs match.</td></tr>';
+  const foot = document.getElementById('cgTableFooter');
+  if (foot){
+    const extra = rows.length > TOPN ? ' (top ' + TOPN + ' shown)' : '';
+    foot.textContent = 'Showing ' + fmtInt(shown.length) + ' of ' + fmtInt(rows.length) +
+                       ' master SKUs · window total ' + fmtInt(all.length) + extra;
+  }
+
+  // Horizontal bar chart — top 20 by total_sales.
+  _cgRenderChart(rows.slice(0, 20));
+}
+
+function _cgRenderChart(rows){
+  const el = document.getElementById('cgChart');
+  if (!el || typeof Chart === 'undefined') return;
+  const labels = rows.map(r => r.master_sku);
+  const data   = rows.map(r => +r.total_sales || 0);
+  if (_cgChart) { _cgChart.destroy(); _cgChart = null; }
+  _cgChart = new Chart(el, {
+    type: 'bar',
+    data: { labels, datasets: [{
+      label: 'Total sales (₹)', data,
+      backgroundColor: 'rgba(74,124,111,0.55)',
+      borderColor: '#4a7c6f', borderWidth: 1,
+    }]},
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+                 tooltip: { callbacks: { label: c => '₹' + Number(c.parsed.x).toLocaleString('en-IN') } } },
+      scales: { x: { ticks: { callback: v => '₹' + Number(v).toLocaleString('en-IN') } } },
+    },
+  });
+}
+
+// Wire once. Inventory sub-tab toggle + COGS controls.
+(function _cgWire(){
+  const on = (id, ev, fn) => { const el = document.getElementById(id); if (el && !el._cgBound){ el.addEventListener(ev, fn); el._cgBound = true; } };
+  on('cgSearch', 'input',  _cgRender);
+  on('cgSort',   'change', _cgRender);
+  document.querySelectorAll('.lp-viewtog-btn[data-cg-win]').forEach(btn => {
+    if (btn._cgBound) return; btn._cgBound = true;
+    btn.addEventListener('click', () => {
+      _cgWin = btn.dataset.cgWin;
+      document.querySelectorAll('.lp-viewtog-btn[data-cg-win]').forEach(b => {
+        const on2 = b.dataset.cgWin === _cgWin;
+        b.classList.toggle('active', on2);
+        b.setAttribute('aria-selected', on2 ? 'true' : 'false');
+      });
+      loadCogsBySku();
+    });
+  });
+  // Inventory sub-tab toggle (Products ↔ COGS)
+  document.querySelectorAll('.lp-viewtog-btn[data-inv-tab]').forEach(btn => {
+    if (btn._cgBound) return; btn._cgBound = true;
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.invTab;
+      document.querySelectorAll('.lp-viewtog-btn[data-inv-tab]').forEach(b => {
+        const on2 = b.dataset.invTab === tab;
+        b.classList.toggle('active', on2);
+        b.setAttribute('aria-selected', on2 ? 'true' : 'false');
+      });
+      const pp = document.getElementById('invPanelProducts');
+      const pc = document.getElementById('invPanelCogs');
+      if (pp) pp.style.display = tab === 'products' ? '' : 'none';
+      if (pc) pc.style.display = tab === 'cogs'     ? '' : 'none';
+      if (tab === 'cogs') loadCogsBySku();
+    });
+  });
+})();

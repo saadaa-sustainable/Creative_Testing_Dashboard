@@ -2057,6 +2057,20 @@
     </div>
   </div>
 
+  <!-- Sub-tab toggle: Products (default) ↔ COGS (per-master-SKU sales) -->
+  <div class="lp-viewtog" role="tablist" style="margin-bottom:14px"
+       title="Switch between the products table and the master-SKU sales rollup">
+    <button class="lp-viewtog-btn active" data-inv-tab="products" type="button"
+            role="tab" aria-selected="true">Products</button>
+    <button class="lp-viewtog-btn" data-inv-tab="cogs" type="button"
+            role="tab" aria-selected="false">COGS</button>
+  </div>
+
+  <!-- Wrap all existing product-inventory content in a div so the tab toggle
+       can hide/show it as a whole. The closing </div> matches at the end of
+       the previous inventory content (before the /view-inventory close). -->
+  <div id="invPanelProducts">
+
   <!-- Shopify credentials panel — stored in localStorage so the config
        persists across reloads without needing URL params. -->
   <div id="invConfigPanel" style="display:none;background:var(--bg-white);
@@ -2250,6 +2264,86 @@
     Configure Shopify access via URL params:
     <code style="background:#fff;padding:2px 6px;border-radius:4px;border:1px solid var(--border-warm)">?shopDomain=&lt;shop&gt;.myshopify.com&amp;shopifyToken=&lt;admin_token&gt;</code>
   </div>
+  </div><!-- /invPanelProducts -->
+
+  <!-- ═══ COGS SUB-PANEL — per-master-SKU sales × inventory × ad-cost ═══
+       Data source: public.cogs_by_sku (mirrored by backend/fetch_cogs_by_sku.py).
+       Row grain: one row per (window_key, master_sku). Live inventory is
+       refreshed each time the fetch script runs. COGS column is a placeholder
+       pending the formula. -->
+  <div id="invPanelCogs" style="display:none">
+    <div class="kpi-row" style="grid-template-columns:repeat(auto-fit, minmax(160px, 1fr))">
+      <div class="kpi"><div class="k-lbl">Total sales</div><div class="k-val mono" id="cgKpSales">—</div><div class="k-sub" id="cgKpSalesSub">selected window</div></div>
+      <div class="kpi"><div class="k-lbl">Net items sold</div><div class="k-val mono" id="cgKpItems">—</div><div class="k-sub">units</div></div>
+      <div class="kpi"><div class="k-lbl">Master SKUs</div><div class="k-val mono" id="cgKpSkus">—</div><div class="k-sub">with sales</div></div>
+      <div class="kpi"><div class="k-lbl">Ad spend</div><div class="k-val mono" id="cgKpSpend">—</div><div class="k-sub">matched by master SKU</div></div>
+      <div class="kpi"><div class="k-lbl">Wtd Cost/NCP</div><div class="k-val mono" id="cgKpCPN">—</div><div class="k-sub">spend ÷ NCP</div></div>
+      <div class="kpi"><div class="k-lbl">Last refresh</div><div class="k-val mono" id="cgKpRefreshed" style="font-size:14px">—</div><div class="k-sub">from fetch script</div></div>
+    </div>
+
+    <div class="funnel-card" style="padding:12px 16px;margin-top:10px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="lp-viewtog" role="tablist" title="Precomputed sales windows">
+          <button class="lp-viewtog-btn"        data-cg-win="1d"  type="button" role="tab">Day</button>
+          <button class="lp-viewtog-btn active" data-cg-win="7d"  type="button" role="tab" aria-selected="true">Week</button>
+          <button class="lp-viewtog-btn"        data-cg-win="30d" type="button" role="tab">30 days</button>
+        </div>
+        <input class="fg-input" id="cgSearch" type="search"
+               placeholder="filter master SKU / product / vendor…"
+               style="padding:5px 10px;font-size:12px;flex:1;min-width:220px">
+        <select class="fg-select" id="cgSort" style="padding:5px 8px;font-size:12px">
+          <option value="total_sales">Sort: Total sales ↓</option>
+          <option value="net_items_sold">Sort: Items sold ↓</option>
+          <option value="doq">Sort: DoQ ↓</option>
+          <option value="inventory_total">Sort: Inventory ↓</option>
+          <option value="cost_per_ncp">Sort: Cost/NCP ↓</option>
+          <option value="ad_spend">Sort: Ad spend ↓</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Horizontal bar chart of top 20 by total_sales. Chart.js is already
+         loaded in the page for other visualisations. -->
+    <div class="funnel-card" style="padding:14px 16px;margin-top:10px">
+      <div class="funnel-hdr" style="padding:6px 4px 12px">
+        <h3>Top masters by total sales <span class="h-sub" id="cgChartSub">horizontal bar · top 20</span></h3>
+      </div>
+      <div style="position:relative;height:400px">
+        <canvas id="cgChart"></canvas>
+      </div>
+    </div>
+
+    <div class="funnel-card" style="padding:14px 16px;margin-top:10px">
+      <div class="funnel-hdr" style="padding:6px 4px 12px">
+        <h3 id="cgTableTitle">COGS by master SKU
+          <span class="h-sub" id="cgTableSub">joined with Meta ads · master SKU only</span>
+        </h3>
+      </div>
+      <div class="ae-tbl-wrap">
+        <table class="tbl" id="cgTable">
+          <thead>
+            <tr>
+              <th style="width:110px" data-sort="master_sku">Master SKU</th>
+              <th data-sort="product_title">Product</th>
+              <th data-sort="variant_skus" title="Color-variant SKUs (last 2 chars = colour code)">Variants</th>
+              <th class="mono" style="text-align:right" data-sort="doq" title="Daily Order Quantity = net items sold ÷ days in window">DoQ</th>
+              <th class="mono" style="text-align:right" data-sort="inventory_total" title="Sum of variantsInventoryQuantity (live from Shopify at refresh time)">Inventory</th>
+              <th class="mono" style="text-align:right" data-sort="total_sales">Total sales</th>
+              <th class="mono" style="text-align:right" data-sort="net_items_sold">Items</th>
+              <th class="mono" style="text-align:right" data-sort="ad_spend">Ad spend</th>
+              <th class="mono" style="text-align:right" data-sort="cost_per_ncp">Cost/NCP</th>
+              <th class="mono" style="text-align:right" data-sort="cogs" title="COGS — formula pending">COGS</th>
+            </tr>
+          </thead>
+          <tbody id="cgTableBody">
+            <tr><td colspan="10" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text-tertiary)" id="cgTableFooter">—</div>
+    </div>
+  </div><!-- /invPanelCogs -->
+
 </div><!-- /view-inventory -->
 
 <!-- ─── VIEW: UNTESTED ASSETS ────────────────────────────────────────
@@ -2867,6 +2961,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=historic_video_assets"></script>
+<script src="assets/dashboard.js?v=cogs_sku"></script>
 </body>
 </html>
