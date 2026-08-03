@@ -2302,6 +2302,9 @@ document.querySelectorAll('.sb-item').forEach(it => {
       try { loadLandingPageStatus(); } catch(_){}
       try { loadLandingPageTable(); } catch(_){}
     }
+    if (v === 'untested'){
+      try { loadUntestedAssets(); } catch(_){}
+    }
     // Auto-close the mobile sidebar after selection
     if (window.innerWidth <= 900) document.getElementById('sidebar').classList.remove('open');
   });
@@ -9006,4 +9009,273 @@ document.getElementById('invExport').onclick = () => {
   // the primary-derived set so its options match the visible KPI counts.
   populateCampaignDropdown(primaryAds);
   rerender();
+})();
+
+/* ============================================================
+   UNTESTED ASSETS — reads Meta_ads_data.public.content_asset_register
+   (mirrored from content_workflow_optimiser.asset_register by
+   backend/fetch_content_asset_register.py). Tested = ad_id NOT NULL.
+   ============================================================ */
+// Video and Graphic are two INDEPENDENT data sources:
+//   video   → content_asset_register  (mirror of asset_register)
+//   graphic → content_graphic_register (mirror of CTP-Asset_Sheet_v1 Graphic tab,
+//             tested signal = summary_status='Tested', ad_id column always blank)
+// Each source is normalised into a common row shape by _utNormalize* below
+// so the render code doesn't branch on media type.
+let _utRowsByMedia = { video: null, graphic: null };
+let _utMode = 'untested'; // 'untested' | 'tested' | 'all'
+let _utMedia = 'video';   // 'video' | 'graphic'
+let _utLoadedByMedia = { video: false, graphic: false };
+
+function _utNormalizeVideo(r){
+  return {
+    asset_id:            r.asset_id,
+    name:                r.planning_nomenclature,
+    media_type:          'video',
+    is_tested:           !!r.ad_id,
+    tested_signal:       r.ad_id || '',
+    asset_kind:          r.asset_type,      // Campaign / Standalone Brief / …
+    sub_kind:            r.creative_effort_type,
+    content_theme:       r.type_of_content,
+    source:              r.source,
+    parent:              r.source_parent,
+    date_added:          r.created_at,
+    date_produced:       r.date_of_production,
+    link:                r.link_to_asset,
+    ad_status:           r.ads_status,
+    mirrored_at:         r.mirrored_at,
+    raw:                 r,
+  };
+}
+
+function _utNormalizeGraphic(r){
+  const tested = String(r.summary_status || '').toLowerCase() === 'tested';
+  return {
+    asset_id:            r.requisition_id,
+    name:                r.nomenclature || r.creative,
+    media_type:          'graphic',
+    is_tested:           tested,
+    tested_signal:       r.summary_status || r.test_status || '',
+    asset_kind:          r.graphic_type,    // Static / Carousel
+    sub_kind:            r.audience_type,
+    content_theme:       r.creative,        // creative code (SDWLP_USP_ADSC)
+    source:              r.platform,
+    parent:              r.product,
+    date_added:          r.asset_date,
+    date_produced:       r.date_of_completion,
+    link:                r.link_1 || r.link_2 || r.link_3,
+    ad_status:           r.summary_result,
+    mirrored_at:         r.mirrored_at,
+    raw:                 r,
+  };
+}
+
+// Public alias — the row-level classifier is now trivial since each source
+// is inherently one media type. Kept for legacy call sites.
+function _utClassifyMedia(r){ return r.media_type || _utMedia; }
+
+async function loadUntestedAssets(force){
+  const body = document.getElementById('utTableBody');
+  if (!body) return;
+  const media = _utMedia;
+  if (_utLoadedByMedia[media] && !force){ _utRender(); return; }
+  body.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading ' + media + '…</td></tr>';
+  if (!SUPABASE_URL || !SUPABASE_ANON){
+    body.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">SUPABASE_URL / anon key missing — open dashboard with ?supabaseUrl=…&amp;supabaseAnon=… params.</td></tr>';
+    return;
+  }
+  const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
+  let url, normalize;
+  if (media === 'graphic'){
+    const cols = ['requisition_id','nomenclature','creative','graphic_type','audience_type',
+                  'product','platform','asset_date','due_date','date_of_completion',
+                  'link_1','link_2','link_3','ad_id','summary_status','summary_result',
+                  'test_status','test_results','status_of_completion','status_of_testing',
+                  'total_count','count_9_16','count_4_5','count_16_9','count_1_1',
+                  'mirrored_at'].join(',');
+    url = SUPABASE_URL + '/rest/v1/content_graphic_register?select=' + cols +
+          '&order=asset_date.desc.nullslast&limit=5000';
+    normalize = _utNormalizeGraphic;
+  } else {
+    const cols = ['asset_id','planning_nomenclature','asset_type','source_parent',
+                  'source','creative_effort_type','type_of_content',
+                  'created_at','date_of_production','link_to_asset','ad_id',
+                  'is_test','ads_testing_status','ads_status','mirrored_at',
+                  'brief_shoot_required','brief_aspect_ratio'].join(',');
+    url = SUPABASE_URL + '/rest/v1/content_asset_register?select=' + cols +
+          '&order=created_at.desc&limit=5000';
+    normalize = _utNormalizeVideo;
+  }
+  try {
+    const r = await fetch(url, { headers: hdrs });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const raw = await r.json();
+    _utRowsByMedia[media] = raw.map(normalize);
+    _utLoadedByMedia[media] = true;
+    _utPopulateFilters();
+    _utRender();
+  } catch (e){
+    body.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
+  }
+}
+
+function _utPopulateFilters(){
+  const rows = _utRowsByMedia[_utMedia] || [];
+  const _fill = (sel, values, placeholder) => {
+    const el = document.getElementById(sel);
+    if (!el) return;
+    const current = el.value;
+    const sorted = Array.from(new Set(values.filter(Boolean))).sort();
+    el.innerHTML = '<option value="">' + placeholder + '</option>' +
+      sorted.map(v => '<option value="' + String(v).replace(/"/g,'&quot;') + '">' + String(v).replace(/</g,'&lt;') + '</option>').join('');
+    if (current && sorted.includes(current)) el.value = current;
+  };
+  const typeLbl   = _utMedia === 'graphic' ? 'All graphic types' : 'All asset types';
+  const sourceLbl = _utMedia === 'graphic' ? 'All platforms'     : 'All sources';
+  const parentLbl = _utMedia === 'graphic' ? 'All products'      : 'All source parents';
+  _fill('utFilterType',   rows.map(r => r.asset_kind), typeLbl);
+  _fill('utFilterSource', rows.map(r => r.source),     sourceLbl);
+  _fill('utFilterParent', rows.map(r => r.parent),     parentLbl);
+}
+
+function _utFilterAndSort(){
+  let rows = (_utRowsByMedia[_utMedia] || []).slice();
+  // Mode (tested / untested / all)
+  if (_utMode === 'untested') rows = rows.filter(r => !r.is_tested);
+  else if (_utMode === 'tested') rows = rows.filter(r => r.is_tested);
+  // Dropdown filters
+  const ft = document.getElementById('utFilterType')?.value || '';
+  const fs = document.getElementById('utFilterSource')?.value || '';
+  const fp = document.getElementById('utFilterParent')?.value || '';
+  if (ft) rows = rows.filter(r => (r.asset_kind || '') === ft);
+  if (fs) rows = rows.filter(r => (r.source || '')     === fs);
+  if (fp) rows = rows.filter(r => (r.parent || '')     === fp);
+  // Search — asset_id + name + tested_signal
+  const q = (document.getElementById('utSearch')?.value || '').trim().toLowerCase();
+  if (q) rows = rows.filter(r =>
+    (r.asset_id || '').toLowerCase().includes(q) ||
+    (r.name || '').toLowerCase().includes(q) ||
+    String(r.tested_signal || '').toLowerCase().includes(q));
+  // Sort
+  const sk = document.getElementById('utSort')?.value || 'created_desc';
+  const cmps = {
+    created_desc:  (a,b) => String(b.date_added || '').localeCompare(String(a.date_added || '')),
+    created_asc:   (a,b) => String(a.date_added || '').localeCompare(String(b.date_added || '')),
+    asset_id_asc:  (a,b) => (a.asset_id || '').localeCompare(b.asset_id || ''),
+    parent_asc:    (a,b) => (a.parent || '').localeCompare(b.parent || '') ||
+                            (a.asset_id || '').localeCompare(b.asset_id || ''),
+  };
+  rows.sort(cmps[sk] || cmps.created_desc);
+  return rows;
+}
+
+function _utRender(){
+  const rows = _utFilterAndSort();
+  const all  = _utRowsByMedia[_utMedia] || [];
+  const total    = all.length;
+  const untested = all.filter(r => !r.is_tested).length;
+  const tested   = total - untested;
+  const pct      = total ? (untested * 100 / total) : 0;
+  document.getElementById('utKpTotal').textContent    = fmtInt(total);
+  document.getElementById('utKpUntested').textContent = fmtInt(untested);
+  document.getElementById('utKpTested').textContent   = fmtInt(tested);
+  document.getElementById('utKpPct').textContent      = total ? pct.toFixed(1) + '%' : '—';
+  const mir = all[0]?.mirrored_at || '';
+  document.getElementById('utKpMirror').textContent = mir ? mir.slice(0,10) + ' ' + mir.slice(11,16) : '—';
+
+  const title = document.getElementById('utTableTitle');
+  const sub   = document.getElementById('utTableSub');
+  const foot  = document.getElementById('utTableFooter');
+  const lbl   = _utMode === 'untested' ? 'Untested assets'
+              : _utMode === 'tested'   ? 'Tested assets'
+              : 'All assets';
+  const subTxt = _utMode === 'untested' ? 'no ad_id linked yet'
+               : _utMode === 'tested'   ? 'placed into at least one Meta ad'
+               : 'complete registry';
+  if (title) title.firstChild.textContent = lbl + ' ';
+  if (sub)   sub.textContent = subTxt;
+
+  const _fmtDt = d => !d ? '—' : String(d).slice(0,10);
+  const TOPN = 500;
+  const shown = rows.slice(0, TOPN);
+  const body = document.getElementById('utTableBody');
+  const _esc = s => String(s == null ? '' : s).replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  body.innerHTML = shown.map(r => {
+    const linkCell = r.link
+      ? '<a href="' + _esc(r.link) + '" target="_blank" rel="noopener" title="Open in Drive" style="text-decoration:none">↗</a>'
+      : '<span style="color:var(--text-tertiary)">—</span>';
+    // Tested pill — content differs by source: video shows ad_id,
+    // graphic shows summary_status ('Tested' / 'Pending').
+    const signal = r.tested_signal || '';
+    const testedCell = r.is_tested
+      ? '<span class="mono" style="color:var(--sage,#4a7c6f)" title="' + _esc(r.ad_status || '') + '">' + _esc(signal || '✓') + '</span>'
+      : '<span style="color:var(--text-tertiary);font-size:11px">' + (signal ? _esc(signal) : '—') + '</span>';
+    const mediaPill = r.media_type === 'graphic'
+      ? '<span style="display:inline-block;padding:2px 7px;border-radius:100px;font-size:10px;font-weight:700;background:var(--gold-lt,#fdf5e6);color:var(--gold,#b8883a)">GRAPHIC</span>'
+      : '<span style="display:inline-block;padding:2px 7px;border-radius:100px;font-size:10px;font-weight:700;background:var(--slate-lt,#eaf0f8);color:var(--slate,#4a6fa5)">VIDEO</span>';
+    return '<tr>' +
+      '<td class="mono" style="font-weight:600">' + _esc(r.asset_id) + '</td>' +
+      '<td class="mono" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"' +
+        ' title="' + _esc(r.name) + '">' + _esc(r.name) + '</td>' +
+      '<td>' + mediaPill + '</td>' +
+      '<td>' + _esc(r.asset_kind) + '</td>' +
+      '<td class="mono">' + _esc(r.parent) + '</td>' +
+      '<td>' + _esc(r.source) + '</td>' +
+      '<td>' + _esc(r.sub_kind) + '</td>' +
+      '<td>' + _esc(r.content_theme) + '</td>' +
+      '<td class="mono" style="text-align:right">' + _fmtDt(r.date_added) + '</td>' +
+      '<td class="mono" style="text-align:right">' + _fmtDt(r.date_produced) + '</td>' +
+      '<td style="text-align:center">' + linkCell + '</td>' +
+      '<td>' + testedCell + '</td>' +
+      '</tr>';
+  }).join('') || '<tr><td colspan="12" style="text-align:center;padding:14px;color:var(--text-tertiary)">No assets match.</td></tr>';
+
+  if (foot){
+    const extra = rows.length > TOPN ? ' (top ' + TOPN + ' shown)' : '';
+    foot.textContent = 'Showing ' + fmtInt(shown.length) + ' of ' + fmtInt(rows.length) +
+                       ' filtered · registry total ' + fmtInt(total) + extra;
+  }
+}
+
+// Wire filter/toggle/search/sort UI (idempotent — attaches once even if the
+// view is re-entered).
+(function _utWire(){
+  const on = (id, ev, fn) => { const el = document.getElementById(id); if (el && !el._utBound){ el.addEventListener(ev, fn); el._utBound = true; } };
+  on('utFilterType',   'change', _utRender);
+  on('utFilterSource', 'change', _utRender);
+  on('utFilterParent', 'change', _utRender);
+  on('utSort',         'change', _utRender);
+  on('utSearch',       'input',  _utRender);
+  on('utRefresh',      'click',  () => loadUntestedAssets(true));
+  on('utExport',       'click',  () => {
+    const rows = _utFilterAndSort();
+    if (!rows.length) return;
+    exportVisibleTableCsv('#utTable', rows, {});
+  });
+  document.querySelectorAll('.lp-viewtog-btn[data-ut-mode]').forEach(btn => {
+    if (btn._utBound) return; btn._utBound = true;
+    btn.addEventListener('click', () => {
+      _utMode = btn.dataset.utMode;
+      document.querySelectorAll('.lp-viewtog-btn[data-ut-mode]').forEach(b => {
+        const active = b.dataset.utMode === _utMode;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      _utRender();
+    });
+  });
+  document.querySelectorAll('.lp-viewtog-btn[data-ut-media]').forEach(btn => {
+    if (btn._utBound) return; btn._utBound = true;
+    btn.addEventListener('click', () => {
+      _utMedia = btn.dataset.utMedia;
+      document.querySelectorAll('.lp-viewtog-btn[data-ut-media]').forEach(b => {
+        const active = b.dataset.utMedia === _utMedia;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      // Swap data source — lazy-load the newly-selected media type. If
+      // already loaded, this returns from cache and only re-renders.
+      loadUntestedAssets();
+    });
+  });
 })();

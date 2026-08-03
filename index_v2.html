@@ -34,6 +34,10 @@
     <span class="sb-info" title="Consolidated view of ad_status=ACTIVE ads with Ad / Adset / Campaign level toggle. Shopify orders + sales are aggregated authoritatively at the toggled level (adset & campaign totals come from shopify_ad_attribution rollups, not summed from ads).">ⓘ</span>
   </div>
   <div class="sb-item" data-view="ae" data-active-preset="ad" title="Active ads only — toggle Ad / Adset / Campaign level inside the view">Active</div>
+  <div class="sb-section">Content Workflow
+    <span class="sb-info" title="Mirrors content_workflow_optimiser.asset_register (npxpywoz…). Assets with no ad_id are 'Untested' — they haven't been placed into any Meta ad yet.">ⓘ</span>
+  </div>
+  <div class="sb-item" data-view="untested" title="Assets in the content pipeline that have never been placed into a Meta ad (ad_id is null in asset_register)">Untested Assets</div>
   <div class="sb-section">Catalog</div>
   <div class="sb-item" data-view="inventory">Inventory</div>
   <div class="sb-section">Historic
@@ -132,6 +136,20 @@
           <div class="hc-title">Active</div>
         </div>
         <div class="hc-desc">All ad_status=ACTIVE ads · Ad / Adset / Campaign level toggle · Meta vs Shop % gap</div>
+        <div class="hc-cta">Open →</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="home-group">
+    <div class="home-group-title">Content Workflow</div>
+    <div class="home-grid">
+      <div class="home-card" data-target-view="untested" data-tone="warm">
+        <div class="hc-row">
+          <div class="hc-icon">◇</div>
+          <div class="hc-title">Untested Assets</div>
+        </div>
+        <div class="hc-desc">Assets in the content register with no linked Meta ad · filter by source / type · Drive preview</div>
         <div class="hc-cta">Open →</div>
       </div>
     </div>
@@ -2225,6 +2243,107 @@
   </div>
 </div><!-- /view-inventory -->
 
+<!-- ─── VIEW: UNTESTED ASSETS ────────────────────────────────────────
+     Mirrors content_workflow_optimiser.asset_register into Meta_ads_data
+     as public.content_asset_register (refresh: fetch_content_asset_register.py).
+     Tested = ad_id IS NOT NULL. Default view = Untested only. -->
+<div class="view" id="view-untested" style="display:none">
+  <div class="page-hdr">
+    <div>
+      <h1 class="heading">Untested Assets</h1>
+      <div class="sub">Assets in the content register that have never been placed into a Meta ad · mirrored from content_workflow_optimiser.asset_register</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn ghost" id="utRefresh" type="button" title="Reload from content_asset_register (cached mirror)">↻ Refresh</button>
+      <button class="btn" id="utExport" type="button">Export CSV</button>
+    </div>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="kpi-row" id="utKpiRow" style="grid-template-columns:repeat(auto-fit, minmax(160px, 1fr))">
+    <div class="kpi"><div class="k-lbl">Total assets</div><div class="k-val mono" id="utKpTotal">—</div><div class="k-sub">in registry</div></div>
+    <div class="kpi"><div class="k-lbl">Untested</div><div class="k-val mono" id="utKpUntested" style="color:var(--terra, #c0603a)">—</div><div class="k-sub">no ad linked yet</div></div>
+    <div class="kpi"><div class="k-lbl">Tested</div><div class="k-val mono" id="utKpTested" style="color:var(--sage, #4a7c6f)">—</div><div class="k-sub">placed into a Meta ad</div></div>
+    <div class="kpi"><div class="k-lbl">Untested %</div><div class="k-val mono" id="utKpPct">—</div><div class="k-sub">share of register</div></div>
+    <div class="kpi"><div class="k-lbl">Last mirror</div><div class="k-val mono" id="utKpMirror" style="font-size:14px">—</div><div class="k-sub">from fetch script</div></div>
+  </div>
+
+  <!-- Filter row -->
+  <div class="funnel-card" id="utFilterCard" style="padding:12px 16px;margin-top:10px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <!-- Status toggle: Untested (default) / Tested / All -->
+      <div class="lp-viewtog" role="tablist" title="Filter by tested-status">
+        <button class="lp-viewtog-btn active" data-ut-mode="untested" type="button" role="tab" aria-selected="true"
+                title="Assets with no ad_id — never used in a Meta ad">Untested</button>
+        <button class="lp-viewtog-btn" data-ut-mode="tested" type="button" role="tab" aria-selected="false"
+                title="Assets that have been linked to at least one Meta ad">Tested</button>
+        <button class="lp-viewtog-btn" data-ut-mode="all" type="button" role="tab" aria-selected="false"
+                title="All assets in the register">All</button>
+      </div>
+      <!-- Media-type toggle: Video (content_asset_register from
+           content_workflow_optimiser) ↔ Graphic (content_graphic_register
+           mirrored from the CTP-Asset_Sheet_v1 Graphic tab). Independent
+           data sources — different columns, different tested signals. -->
+      <div class="lp-viewtog" role="tablist" title="Swap data source">
+        <button class="lp-viewtog-btn active" data-ut-media="video" type="button" role="tab" aria-selected="true"
+                title="Video assets — mirrored from asset_register (tested = ad_id set)">Video</button>
+        <button class="lp-viewtog-btn" data-ut-media="graphic" type="button" role="tab" aria-selected="false"
+                title="Graphic assets — mirrored from Graphic sheet (tested = summary_status='Tested')">Graphic</button>
+      </div>
+      <select class="fg-select" id="utFilterType" style="padding:5px 8px;font-size:12px">
+        <option value="">All asset types</option>
+      </select>
+      <select class="fg-select" id="utFilterSource" style="padding:5px 8px;font-size:12px">
+        <option value="">All sources</option>
+      </select>
+      <select class="fg-select" id="utFilterParent" style="padding:5px 8px;font-size:12px">
+        <option value="">All source parents</option>
+      </select>
+      <input class="fg-input" id="utSearch" type="search" placeholder="filter asset_id / nomenclature…"
+             style="padding:5px 10px;font-size:12px;flex:1;min-width:220px">
+      <select class="fg-select" id="utSort" style="padding:5px 8px;font-size:12px">
+        <option value="created_desc">Sort: Newest first</option>
+        <option value="created_asc">Sort: Oldest first</option>
+        <option value="asset_id_asc">Sort: Asset ID ↑</option>
+        <option value="parent_asc">Sort: Source parent ↑</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="funnel-card" id="utTableCard" style="padding:14px 16px;margin-top:10px">
+    <div class="funnel-hdr" style="padding:6px 4px 12px">
+      <h3 id="utTableTitle">Untested assets
+        <span class="h-sub" id="utTableSub">no ad_id linked yet</span>
+      </h3>
+    </div>
+    <div class="ae-tbl-wrap">
+      <table class="tbl" id="utTable">
+        <thead>
+          <tr>
+            <th style="width:120px" data-sort="asset_id">Asset ID</th>
+            <th data-sort="name">Nomenclature</th>
+            <th style="width:80px" data-sort="media_type">Media</th>
+            <th data-sort="asset_kind" title="Video: Campaign / Brief · Graphic: Static / Carousel">Type</th>
+            <th data-sort="parent" title="Video: source_parent · Graphic: product">Parent</th>
+            <th data-sort="source" title="Video: source · Graphic: platform">Source</th>
+            <th data-sort="sub_kind" title="Video: creative_effort · Graphic: audience type">Sub-type</th>
+            <th data-sort="content_theme" title="Video: content type · Graphic: creative code">Theme</th>
+            <th class="mono" style="text-align:right" data-sort="date_added">Added</th>
+            <th class="mono" style="text-align:right" data-sort="date_produced">Produced</th>
+            <th style="width:60px;text-align:center" data-sort="link">Link</th>
+            <th style="width:110px" title="Video: ad_id if tested · Graphic: summary_status" data-sort="tested_signal">Tested</th>
+          </tr>
+        </thead>
+        <tbody id="utTableBody">
+          <tr><td colspan="12" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--text-tertiary)" id="utTableFooter">—</div>
+  </div>
+</div><!-- /view-untested -->
+
 </main>
 
 <!-- ═════════════════ MODAL — Category definitions ═════════════════ -->
@@ -2665,6 +2784,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=ireach_account_kpis_all3"></script>
+<script src="assets/dashboard.js?v=untested_graphic_source"></script>
 </body>
 </html>
