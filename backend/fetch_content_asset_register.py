@@ -17,7 +17,7 @@ USAGE
   python fetch_content_asset_register.py --dry-run        # fetch, no writes
 """
 from __future__ import annotations
-import os, sys, json, argparse, urllib.request, urllib.error
+import os, sys, json, time, argparse, urllib.request, urllib.error
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 from pathlib import Path
@@ -121,8 +121,67 @@ create index if not exists content_asset_register_created_at_idx
     on public.content_asset_register (created_at desc);
 alter table public.content_asset_register
     add column if not exists brief_shoot_required text,
-    add column if not exists brief_aspect_ratio   text;
+    add column if not exists brief_aspect_ratio   text,
+    add column if not exists computed_is_tested   boolean default false,
+    add column if not exists matched_ad_id        text,
+    add column if not exists matched_ad_name      text;
 """
+
+# Tested-status compute runs Python-side, not in SQL: an ILIKE cross-join
+# between ~330 assets and ~200k primary_table rows blows past Supabase's
+# 30-s statement timeout. Instead we fetch all ad_name rows once, do the
+# substring match in memory (fast — Python C-string ops), then batch-UPDATE.
+def _compute_tested(cur):
+    cur.execute("""
+        select asset_id from public.content_asset_register
+         where link_to_asset is not null and link_to_asset <> ''
+           and length(asset_id) >= 4
+    """)
+    assets = [r[0] for r in cur.fetchall()]
+    print(f"[compute] {len(assets)} assets to match")
+
+    cur.execute("select ad_id::text, ad_name from public.primary_table "
+                "where ad_name is not null")
+    ads = cur.fetchall()
+    print(f"[compute] scanning {len(ads):,} ad_names")
+
+    # Case-insensitive substring match — first hit wins.
+    lc_ads = [(aid, name, name.lower()) for aid, name in ads]
+    matches = {}
+    for asset_id in assets:
+        needle = asset_id.lower()
+        for aid, name, name_lc in lc_ads:
+            if needle in name_lc:
+                matches[asset_id] = (aid, name)
+                break
+
+    tested = len(matches)
+    untested = len(assets) - tested
+    print(f"[compute] tested={tested}  untested={untested}")
+
+    # Batch update — one round-trip per 500 assets.
+    payload_hit  = [(aid, name, key) for key, (aid, name) in matches.items()]
+    payload_miss = [(key,) for key in assets if key not in matches]
+    execute_values(
+        cur,
+        """update public.content_asset_register c set
+              computed_is_tested = true,
+              matched_ad_id      = v.ad_id,
+              matched_ad_name    = v.ad_name
+             from (values %s) as v(ad_id, ad_name, asset_id)
+            where c.asset_id = v.asset_id""",
+        payload_hit, page_size=500,
+    )
+    execute_values(
+        cur,
+        """update public.content_asset_register c set
+              computed_is_tested = false,
+              matched_ad_id      = null,
+              matched_ad_name    = null
+             from (values %s) as v(asset_id)
+            where c.asset_id = v.asset_id""",
+        payload_miss, page_size=500,
+    )
 
 def http_get(path, extra=None, timeout=30):
     hdrs = {"apikey": CT_KEY, "Authorization": f"Bearer {CT_KEY}",
@@ -199,10 +258,12 @@ def main():
     t0 = datetime.now(timezone.utc)
     print(f"[{t0.isoformat()}] mirror start — src={CT_URL} → Meta_ads_data.public.content_asset_register")
 
-    rows = fetch_all()
-    tested   = sum(1 for r in rows if r.get("ad_id"))
-    untested = len(rows) - tested
-    print(f"[fetched] total={len(rows)}  tested(ad_id set)={tested}  untested={untested}")
+    rows_all = fetch_all()
+    # Rule: an asset only counts if it has a link_to_asset (Drive URL);
+    # rows without a link aren't real assets, they're placeholders.
+    rows = [r for r in rows_all if (r.get("link_to_asset") or "").strip()]
+    dropped = len(rows_all) - len(rows)
+    print(f"[filter] kept {len(rows)} with link_to_asset  ·  dropped {dropped} without link")
 
     if args.dry_run:
         print("[dry-run] skipping DB writes")
@@ -227,11 +288,32 @@ def main():
             conn.commit()
             print(f"[upsert] {len(payload)} rows")
 
-            cur.execute("select count(*) filter (where ad_id is null) as untested, "
-                        "count(*) filter (where ad_id is not null) as tested, "
-                        "count(*) as total from public.content_asset_register")
-            u, t, tot = cur.fetchone()
-            print(f"[verify] total={tot}  tested={t}  untested={u}")
+            # Purge any pre-existing rows that no longer have a link (e.g. a
+            # prior mirror stored placeholders). Keeps the table aligned
+            # with the "must have link_to_asset" invariant.
+            cur.execute("delete from public.content_asset_register "
+                        "where link_to_asset is null or link_to_asset = ''")
+            n_purged = cur.rowcount
+            conn.commit()
+            print(f"[purge] removed {n_purged} rows without link_to_asset")
+
+            # Derive computed_is_tested — fetch all ad_names once,
+            # substring-match in Python, then batch-UPDATE.
+            print("[compute] matching asset_id → primary_table.ad_name …")
+            t_compute = time.time()
+            _compute_tested(cur)
+            conn.commit()
+            print(f"[compute] done in {time.time()-t_compute:.1f}s")
+
+            cur.execute("""
+              select count(*) as total,
+                     count(*) filter (where computed_is_tested)          as tested,
+                     count(*) filter (where not computed_is_tested)      as untested,
+                     count(*) filter (where matched_ad_id is not null)   as with_matched_ad
+                from public.content_asset_register
+            """)
+            tot, t, u, m = cur.fetchone()
+            print(f"[verify] total={tot}  tested={t}  untested={u}  matched_ad_id_populated={m}")
     finally:
         conn.close()
 

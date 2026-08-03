@@ -9028,12 +9028,17 @@ let _utMedia = 'video';   // 'video' | 'graphic'
 let _utLoadedByMedia = { video: false, graphic: false };
 
 function _utNormalizeVideo(r){
+  // Tested/untested = derived server-side (fetch_content_asset_register.py):
+  // asset_id substring-matched against primary_table.ad_name in Meta ads
+  // manager. Sheet's raw ad_id field is ignored — the register's ad_id
+  // isn't always populated even for tested assets.
   return {
     asset_id:            r.asset_id,
     name:                r.planning_nomenclature,
     media_type:          'video',
-    is_tested:           !!r.ad_id,
-    tested_signal:       r.ad_id || '',
+    is_tested:           !!r.computed_is_tested,
+    tested_signal:       r.matched_ad_id || r.ad_id || '',
+    matched_ad_name:     r.matched_ad_name || '',
     asset_kind:          r.asset_type,      // Campaign / Standalone Brief / …
     sub_kind:            r.creative_effort_type,
     content_theme:       r.type_of_content,
@@ -9101,9 +9106,12 @@ async function loadUntestedAssets(force){
                   'source','creative_effort_type','type_of_content',
                   'created_at','date_of_production','link_to_asset','ad_id',
                   'is_test','ads_testing_status','ads_status','mirrored_at',
-                  'brief_shoot_required','brief_aspect_ratio'].join(',');
+                  'brief_shoot_required','brief_aspect_ratio',
+                  'computed_is_tested','matched_ad_id','matched_ad_name'].join(',');
+    // link_to_asset filter belt-and-suspenders — mirror already purges
+    // link-less rows, but this guards against a stale mirror.
     url = SUPABASE_URL + '/rest/v1/content_asset_register?select=' + cols +
-          '&order=created_at.desc&limit=5000';
+          '&link_to_asset=not.is.null&order=created_at.desc&limit=5000';
     normalize = _utNormalizeVideo;
   }
   try {
@@ -9207,8 +9215,9 @@ function _utRender(){
     // Tested pill — content differs by source: video shows ad_id,
     // graphic shows summary_status ('Tested' / 'Pending').
     const signal = r.tested_signal || '';
+    const hover  = r.matched_ad_name ? ('Matched ad: ' + r.matched_ad_name) : (r.ad_status || '');
     const testedCell = r.is_tested
-      ? '<span class="mono" style="color:var(--sage,#4a7c6f)" title="' + _esc(r.ad_status || '') + '">' + _esc(signal || '✓') + '</span>'
+      ? '<span class="mono" style="color:var(--sage,#4a7c6f)" title="' + _esc(hover) + '">' + _esc(signal || '✓') + '</span>'
       : '<span style="color:var(--text-tertiary);font-size:11px">' + (signal ? _esc(signal) : '—') + '</span>';
     const mediaPill = r.media_type === 'graphic'
       ? '<span style="display:inline-block;padding:2px 7px;border-radius:100px;font-size:10px;font-weight:700;background:var(--gold-lt,#fdf5e6);color:var(--gold,#b8883a)">GRAPHIC</span>'
