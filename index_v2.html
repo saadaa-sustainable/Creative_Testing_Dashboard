@@ -2439,11 +2439,12 @@
               <th class="mono" style="text-align:right;width:60px" title="NCP count inside the selected window">NCP</th>
               <th class="mono" style="text-align:right;width:90px" title="Ad's own spend ÷ ncp inside the window">Cost/NCP</th>
               <th class="mono" style="text-align:right;width:55px" title="Distinct delivery days for this ad inside the window">Days</th>
-              <th class="mono" style="text-align:right;width:110px;color:var(--text-tertiary)" title="This ad's LIFETIME spend (matches Ads Analyse). For comparison against the window slice.">Lifetime spend</th>
+              <th class="mono" style="text-align:right;width:100px" title="Ads Analyse spend for the SAME date range (calls get_ae_metrics_by_window). If AE's date picker matches this window, this column will match AE's Spend column exactly.">AE (same window)</th>
+              <th class="mono" style="text-align:right;width:100px;color:var(--text-tertiary)" title="This ad's LIFETIME spend from ae_table_view. Ignore this column if AE has a date filter — use AE (same window) for direct reconciliation.">Lifetime</th>
             </tr>
           </thead>
           <tbody id="cgAdsBody">
-            <tr><td colspan="7" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>
+            <tr><td colspan="8" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -3068,6 +3069,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=cpis_lifetime_col"></script>
+<script src="assets/dashboard.js?v=cpis_ae_reconcile"></script>
 </body>
 </html>

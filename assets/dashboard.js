@@ -9731,39 +9731,56 @@ async function openCpisAdsModal(master){
   title.textContent = 'Ads matching master SKU · ' + master;
   // Explicit scope banner — the same ad shows a different (lifetime) number
   // in Ads Analyse, so make it obvious this modal is window-scoped.
-  sub.innerHTML = '<span style="display:inline-block;background:var(--gold-lt,#fdf5e6);color:var(--gold,#b8883a);padding:2px 8px;border-radius:100px;font-weight:700;font-size:10.5px;letter-spacing:.3px">SCOPE: ' + winLbl.toUpperCase() + '</span>' +
+  const dToday2 = new Date(); const dFrom2 = new Date(dToday2.getTime() - winDays * 86400000);
+  sub.innerHTML = '<span style="display:inline-block;background:var(--gold-lt,#fdf5e6);color:var(--gold,#b8883a);padding:2px 8px;border-radius:100px;font-weight:700;font-size:10.5px;letter-spacing:.3px">SCOPE: ' + winLbl.toUpperCase() + ' &nbsp;·&nbsp; ' + dFrom2.toISOString().slice(0,10) + ' → ' + dToday2.toISOString().slice(0,10) + '</span>' +
     ' · matched via <code>primary_table.ad_name ILIKE %' + master + '%</code>' +
-    ' · <span style="color:var(--text-tertiary)">Ads Analyse shows lifetime totals; this modal is window-scoped, so numbers will be smaller.</span>';
-  body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>';
+    ' · <span style="color:var(--text-tertiary)"><b>To reconcile with Ads Analyse</b>, set its date range to the same window shown above (Reconciles column shows AE\'s answer for the same range).</span>';
+  body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>';
   modal.style.display = 'flex';
-  const iso = new Date(Date.now() - winDays * 86400000).toISOString().slice(0,10);
+  const dToday = new Date();
+  const dFrom  = new Date(dToday.getTime() - winDays * 86400000);
+  const isoFrom = dFrom.toISOString().slice(0,10);
+  const isoTo   = dToday.toISOString().slice(0,10);
   const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
   const like = encodeURIComponent('*' + master + '*');
   // Window slice (what the master row's #Ads / Ad-spend counted).
   const urlWin = SUPABASE_URL + '/rest/v1/primary_table'
                + '?select=ad_id,ad_name,amount_spent_inr,ncp_count,date'
                + '&ad_name=ilike.' + like
-               + '&date=gte.' + iso
+               + '&date=gte.' + isoFrom
                + '&order=amount_spent_inr.desc&limit=20000';
   // Lifetime totals per ad — pulled from ae_table_view (same source as
-  // the Ads Analyse table), which stores one row per ad with lifetime spend.
+  // Ads Analyse), which stores one row per ad with lifetime spend.
   const urlLife = SUPABASE_URL + '/rest/v1/ae_table_view'
                + '?select=ad_id,amount_spent'
                + '&ad_name=ilike.' + like
                + '&limit=20000';
+  // Ads Analyse window spend — call the EXACT same RPC (get_ae_metrics_by_window)
+  // that renderAE uses. This is the number that shows in Ads Analyse when its
+  // date picker is set to the same range — no room for "different sources".
+  const rpcAeWin = fetch(SUPABASE_URL + '/rest/v1/rpc/get_ae_metrics_by_window', {
+    method: 'POST', headers: { ...hdrs, 'Content-Type':'application/json' },
+    body: JSON.stringify({ from_date: isoFrom, to_date: isoTo }),
+  });
   try {
-    const [rWin, rLife] = await Promise.all([
+    const [rWin, rLife, rAe] = await Promise.all([
       fetch(urlWin,  { headers: hdrs }),
       fetch(urlLife, { headers: hdrs }),
+      rpcAeWin,
     ]);
     if (!rWin.ok)  throw new Error('primary_table HTTP ' + rWin.status);
     if (!rLife.ok) throw new Error('ae_table_view HTTP ' + rLife.status);
     const rows     = await rWin.json();
     const lifeRows = await rLife.json();
+    const aeRows   = rAe.ok ? await rAe.json() : [];
     // Lifetime map: ad_id → total lifetime spend.
     const lifeByAd = new Map();
     for (const r of lifeRows) lifeByAd.set(String(r.ad_id), Number(r.amount_spent) || 0);
-    // Window aggregation per ad_id.
+    // Ads Analyse RPC spend map: ad_id → window spend (same rows AE would show
+    // if its date range = [isoFrom, isoTo]).
+    const aeByAd = new Map();
+    for (const r of aeRows) aeByAd.set(String(r.ad_id), Number(r.spend) || 0);
+    // Window aggregation per ad_id from primary_table (our path).
     const agg = new Map();
     for (const row of rows){
       const k = String(row.ad_id);
@@ -9779,20 +9796,30 @@ async function openCpisAdsModal(master){
     body.innerHTML = items.map(a => {
       const cpn      = (a.ncp > 0) ? (a.spend / a.ncp) : null;
       const lifetime = lifeByAd.get(a.ad_id);
+      const aeWinSp  = aeByAd.get(a.ad_id);   // spend from AE RPC for the SAME window
+      // Reconciliation: our window spend vs AE RPC's window spend. If the
+      // primary_table + backfill_table sources are in sync, these should be
+      // near-identical. A big delta highlights an ETL lag or a data-source drift.
+      const delta = (aeWinSp != null) ? Math.abs((aeWinSp - a.spend)) : null;
+      const aeWinClr = (delta != null && a.spend > 0 && delta / Math.max(a.spend, 1) > 0.05) ? '#c0603a' : 'inherit';
+      const aeWinCell = (aeWinSp != null)
+        ? '<span style="color:' + aeWinClr + '" title="Ads Analyse RPC spend for the same date range. Delta vs primary_table: ' + (delta ?? 0).toFixed(0) + '">' + fmtRs(aeWinSp) + '</span>'
+        : '<span style="color:var(--text-tertiary)" title="Ad not returned by get_ae_metrics_by_window — had no delivery in this window per AE\'s source">₹0</span>';
       const lifeCell = (lifetime != null && lifetime > 0)
-        ? '<span title="This ad\'s lifetime spend from ae_table_view — matches Ads Analyse">' + fmtRs(lifetime) + '</span>'
+        ? '<span title="Lifetime spend from ae_table_view">' + fmtRs(lifetime) + '</span>'
         : '<span style="color:var(--text-tertiary)">—</span>';
       return '<tr>' +
         '<td class="mono" style="font-size:11px">' + _esc(a.ad_id) + '</td>' +
-        '<td class="mono" style="font-size:11px;max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"' +
+        '<td class="mono" style="font-size:11px;max-width:480px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"' +
           ' title="' + _esc(a.ad_name) + '">' + _esc(a.ad_name) + '</td>' +
         '<td class="mono" style="text-align:right">' + fmtRs(a.spend) + '</td>' +
         '<td class="mono" style="text-align:right">' + fmtInt(a.ncp) + '</td>' +
         '<td class="mono" style="text-align:right">' + (cpn != null ? fmtRs(cpn) : '—') + '</td>' +
         '<td class="mono" style="text-align:right">' + a.days.size + '</td>' +
+        '<td class="mono" style="text-align:right">' + aeWinCell + '</td>' +
         '<td class="mono" style="text-align:right;color:var(--text-tertiary)">' + lifeCell + '</td>' +
         '</tr>';
-    }).join('') || '<tr><td colspan="7" style="text-align:center;padding:14px;color:var(--text-tertiary)">No matching ads in this window.</td></tr>';
+    }).join('') || '<tr><td colspan="8" style="text-align:center;padding:14px;color:var(--text-tertiary)">No matching ads in this window.</td></tr>';
     const totalSpend = items.reduce((a,b) => a + b.spend, 0);
     const totalNcp   = items.reduce((a,b) => a + b.ncp, 0);
     const totalLife  = items.reduce((a,b) => a + (lifeByAd.get(b.ad_id) || 0), 0);
@@ -9801,6 +9828,6 @@ async function openCpisAdsModal(master){
                      + ' · Σ lifetime spend ' + fmtRs(totalLife)
                      + ' · Σ ' + winLbl + ' NCP ' + fmtInt(totalNcp);
   } catch (e){
-    body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
   }
 }
