@@ -9495,12 +9495,14 @@ function _hvRender(){
    #Ads, Cost/NCP, ROAS) recompute live from primary_table for whatever
    date range the user picks. Same delivery-date semantics as Ads Analyse.
    ============================================================ */
-let _cgBase   = null;                   // precomputed 30d rows (sales + inv base)
-let _cgAdAgg  = null;                   // Map: master_sku → {spend,ncp,ads,mean_cpn}
-let _cgFrom   = '';                     // ISO date string (from)
-let _cgTo     = '';                     // ISO date string (to)
-let _cgLevel  = 'master';               // 'master' | 'color'
-let _cgChart  = null;
+let _cgBase       = null;               // precomputed 30d rows (inventory base)
+let _cgAdAgg      = null;               // Map: master_sku → {spend,ncp,ads,mean_cpn}
+let _cgSalesAgg   = null;               // Map: level+'::'+sku → sales fields for the picked range
+let _cgSalesError = null;               // string — reason live sales couldn't be fetched
+let _cgFrom       = '';                 // ISO date string (from)
+let _cgTo         = '';                 // ISO date string (to)
+let _cgLevel      = 'master';           // 'master' | 'color'
+let _cgChart      = null;
 
 // Ensure both date inputs have values; seed to Last 30 days if empty.
 function _cgEnsureDates(){
@@ -9544,19 +9546,121 @@ async function loadCogsBySku(force){
               + '&date=lte.' + _cgTo
               + '&order=amount_spent_inr.desc&limit=100000';
   try {
-    const [rBase, rAds] = await Promise.all([
+    // (3) Also load the OTHER level's precomputed rows so we can build the
+    //     product_title → color_sku map that ShopifyQL joins against
+    //     (sales groups by product_title; we need to reach colour → master).
+    const otherLevel = _cgLevel === 'master' ? 'color' : 'master';
+    const otherUrl = SUPABASE_URL + '/rest/v1/cpis_by_sku?select=sku,parent_sku,product_title,level'
+                   + '&window_key=eq.30d&level=eq.' + otherLevel + '&limit=10000';
+    const [rBase, rAds, rOther] = await Promise.all([
       fetch(baseUrl, { headers: hdrs }),
       fetch(adUrl,   { headers: hdrs }),
+      fetch(otherUrl,{ headers: hdrs }),
     ]);
     if (!rBase.ok) throw new Error('cpis_by_sku HTTP ' + rBase.status);
     if (!rAds.ok)  throw new Error('primary_table HTTP ' + rAds.status);
     _cgBase = await rBase.json();
     const adRows = await rAds.json();
     _cgAdAgg = _cgAggregateAds(_cgBase, adRows);
+    // Colour rows always come from either _cgBase or rOther depending on level.
+    const colourRows = rOther.ok && (_cgLevel === 'master' ? await rOther.json() : _cgBase);
+    // Kick off live sales fetch in parallel with render — first render uses
+    // the 30d base, then when sales arrives we re-render with the live values.
+    _cgFetchLiveSales(colourRows).then(() => _cgRender()).catch(err => {
+      _cgSalesError = String(err?.message || err);
+      _cgRender();
+    });
     _cgRender();
   } catch (e){
     body.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
   }
+}
+
+/* Live ShopifyQL for the picked date range. Aggregates sales per master +
+   per colour SKU by joining product_title from ShopifyQL against the
+   colour-level cpis_by_sku rows (which carry product_title → color SKU →
+   parent master). Requires Shopify creds — falls back to precomputed 30d
+   if unavailable. */
+async function _cgFetchLiveSales(colourRows){
+  _cgSalesAgg   = null;
+  _cgSalesError = null;
+  if (!SHOPIFY_DOMAIN || !SHOPIFY_TOKEN){
+    _cgSalesError = 'Shopify credentials missing — set them via ⚙ Shopify config in the Products tab, then re-apply.';
+    return;
+  }
+  if (!colourRows || !colourRows.length){
+    _cgSalesError = 'no colour rows loaded (base rollup missing?)';
+    return;
+  }
+  // Build product_title (lowercased) → [{color_sku, master_sku}] map.
+  const titleMap = new Map();
+  for (const r of colourRows){
+    const t = (r.product_title || '').trim().toLowerCase();
+    if (!t) continue;
+    if (!titleMap.has(t)) titleMap.set(t, []);
+    titleMap.get(t).push({ sku: r.sku, parent: r.parent_sku });
+  }
+  const q = "FROM sales " +
+            "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales " +
+            "WHERE product_title IS NOT NULL " +
+            "SINCE " + _cgFrom + " UNTIL " + _cgTo + " " +
+            "GROUP BY product_title, product_vendor, product_type " +
+            "ORDER BY total_sales DESC LIMIT 1000";
+  const data = await shopifyGraphQL(
+    "query Q($q: String!){ shopifyqlQuery(query: $q){ tableData { columns { name dataType } rows } parseErrors } }",
+    { q }
+  );
+  const resp = data.shopifyqlQuery;
+  if (resp?.parseErrors?.length){
+    throw new Error('ShopifyQL: ' + JSON.stringify(resp.parseErrors));
+  }
+  const rows = resp?.tableData?.rows || [];
+  // Aggregate: for each sales row, look up its product_title in titleMap,
+  // split the row proportionally (evenly) across matching colour SKUs, then
+  // fold up into the parent master.
+  const salesByMaster = new Map();   // master → aggregates
+  const salesByColor  = new Map();   // color  → aggregates
+  const KEYS = ['net_items_sold','gross_sales','discounts','returns','net_sales','taxes','total_sales'];
+  const _add = (acc, key, row) => {
+    let e = acc.get(key);
+    if (!e){ e = { net_items_sold:0, gross_sales:0, discounts:0, sales_reversals:0, net_sales:0, taxes:0, total_sales:0 }; acc.set(key, e); }
+    e.net_items_sold += Number(row.net_items_sold) || 0;
+    e.gross_sales    += Number(row.gross_sales)    || 0;
+    e.discounts      += Number(row.discounts)      || 0;
+    e.sales_reversals+= Number(row.returns)        || 0;
+    e.net_sales      += Number(row.net_sales)      || 0;
+    e.taxes          += Number(row.taxes)          || 0;
+    e.total_sales    += Number(row.total_sales)    || 0;
+  };
+  const _addShare = (acc, key, row, share) => {
+    let e = acc.get(key);
+    if (!e){ e = { net_items_sold:0, gross_sales:0, discounts:0, sales_reversals:0, net_sales:0, taxes:0, total_sales:0 }; acc.set(key, e); }
+    e.net_items_sold += (Number(row.net_items_sold) || 0) * share;
+    e.gross_sales    += (Number(row.gross_sales)    || 0) * share;
+    e.discounts      += (Number(row.discounts)      || 0) * share;
+    e.sales_reversals+= (Number(row.returns)        || 0) * share;
+    e.net_sales      += (Number(row.net_sales)      || 0) * share;
+    e.taxes          += (Number(row.taxes)          || 0) * share;
+    e.total_sales    += (Number(row.total_sales)    || 0) * share;
+  };
+  let matchedTitles = 0, unmatchedTitles = 0;
+  for (const row of rows){
+    const t = (row.product_title || '').trim().toLowerCase();
+    const targets = titleMap.get(t) || [];
+    if (!targets.length){ unmatchedTitles++; continue; }
+    matchedTitles++;
+    const share = 1 / targets.length;
+    for (const tg of targets){
+      _addShare(salesByColor,  tg.sku,    row, share);
+      if (tg.parent) _addShare(salesByMaster, tg.parent, row, share);
+    }
+  }
+  // Merge into one map keyed by "level::sku" so the render can look up quickly.
+  const merged = new Map();
+  for (const [sku, agg] of salesByMaster) merged.set('master::' + sku, agg);
+  for (const [sku, agg] of salesByColor)  merged.set('color::'  + sku, agg);
+  _cgSalesAgg = merged;
+  console.log('[cpis] live sales: ' + rows.length + ' rows, ' + matchedTitles + ' matched titles, ' + unmatchedTitles + ' unmatched');
 }
 
 /* Aggregate primary_table rows into per-master ad metrics. Uses substring
@@ -9610,31 +9714,58 @@ function _cgAggregateAds(baseRows, adRows){
 
 function _cgCurrentRows(){ return _cgBase || []; }
 
-// Overlay ad-side metrics from _cgAdAgg onto a row (which is either master
-// or color-variant). For color rows, use the parent master's ad aggregates
-// (per user's spec: matching is master-only).
+// Overlay ad-side metrics from _cgAdAgg + live sales from _cgSalesAgg onto
+// a row. Ad-side is master-only per user's spec. Sales come from live
+// ShopifyQL when available, else the row's precomputed 30d value.
 function _cgWithAds(r){
-  if (!_cgAdAgg) return r;
-  const key = r.level === 'master' ? r.sku : r.parent_sku;
-  const a = key ? _cgAdAgg.get(key) : null;
-  if (!a) return Object.assign({}, r, {
-    ad_spend: r.level === 'master' ? 0    : null,
-    ad_ncp:   r.level === 'master' ? 0    : null,
-    cost_per_ncp:      null,
-    matched_ad_count:  r.level === 'master' ? 0 : null,
-    roas:              null,
-    doh:               (r.doq && r.doq > 0) ? (r.inventory_total / r.doq) : null,
-  });
-  const spend = a.spend, ncp = a.ncp;
-  const total_sales = Number(r.total_sales) || 0;
-  const roas = spend > 0 ? (total_sales / spend) : null;
+  // Live sales overlay (if fetched successfully). Fall back to the row's
+  // own precomputed values otherwise.
+  let net_items_sold = Number(r.net_items_sold) || 0;
+  let total_sales    = Number(r.total_sales)    || 0;
+  let gross_sales    = Number(r.gross_sales)    || 0;
+  let discounts      = Number(r.discounts)      || 0;
+  let sales_reversals= Number(r.sales_reversals)|| 0;
+  let net_sales      = Number(r.net_sales)      || 0;
+  let taxes          = Number(r.taxes)          || 0;
+  if (_cgSalesAgg){
+    const s = _cgSalesAgg.get(r.level + '::' + r.sku);
+    if (s){
+      net_items_sold = s.net_items_sold;
+      total_sales    = s.total_sales;
+      gross_sales    = s.gross_sales;
+      discounts      = s.discounts;
+      sales_reversals= s.sales_reversals;
+      net_sales      = s.net_sales;
+      taxes          = s.taxes;
+    } else {
+      // Live sales fetched, but this SKU had 0 sales in the window.
+      net_items_sold = 0; total_sales = 0; gross_sales = 0;
+      discounts = 0; sales_reversals = 0; net_sales = 0; taxes = 0;
+    }
+  }
+  // Recompute DoQ + DoH based on the actual date range days.
+  let doq = r.doq;
+  if (_cgSalesAgg && _cgFrom && _cgTo){
+    const ms   = new Date(_cgTo) - new Date(_cgFrom);
+    const days = Math.max(1, Math.round(ms / 86400000) + 1);
+    doq = net_items_sold / days;
+  }
+  const doh = (doq && doq > 0) ? (r.inventory_total / doq) : null;
+  // Ad-side overlay (master-only).
+  const adKey = r.level === 'master' ? r.sku : r.parent_sku;
+  const a     = _cgAdAgg && adKey ? _cgAdAgg.get(adKey) : null;
+  let ad_spend, ad_ncp, cost_per_ncp, matched_ad_count;
+  if (r.level === 'master'){
+    if (a){ ad_spend = a.spend; ad_ncp = a.ncp; cost_per_ncp = a.mean_cpn; matched_ad_count = a.ads; }
+    else  { ad_spend = 0;       ad_ncp = 0;    cost_per_ncp = null;       matched_ad_count = 0; }
+  } else {
+    ad_spend = ad_ncp = cost_per_ncp = matched_ad_count = null;
+  }
+  const roas = (ad_spend && ad_spend > 0) ? (total_sales / ad_spend) : null;
   return Object.assign({}, r, {
-    ad_spend:         r.level === 'master' ? spend : null,
-    ad_ncp:           r.level === 'master' ? ncp   : null,
-    cost_per_ncp:     r.level === 'master' ? a.mean_cpn : null,
-    matched_ad_count: r.level === 'master' ? a.ads : null,
-    roas:             r.level === 'master' ? roas  : null,
-    doh:              (r.doq && r.doq > 0) ? (r.inventory_total / r.doq) : null,
+    net_items_sold, total_sales, gross_sales, discounts, sales_reversals, net_sales, taxes,
+    doq, doh,
+    ad_spend, ad_ncp, cost_per_ncp, matched_ad_count, roas,
   });
 }
 
@@ -9668,14 +9799,21 @@ function _cgRender(){
   if (skusSub) skusSub.textContent = _cgLevel === 'master' ? 'master level' : 'color variant level';
   document.getElementById('cgKpSpend').textContent = _cgLevel === 'master' ? fmtRs(totSpend) : '—';
   document.getElementById('cgKpCPN').textContent   = (_cgLevel === 'master' && cpn != null) ? fmtRs(cpn) : '—';
-  document.getElementById('cgKpSalesSub').textContent = 'last 30 days (precomputed base)';
+  const liveSales = !!_cgSalesAgg;
+  document.getElementById('cgKpSalesSub').textContent = liveSales
+    ? 'live from ShopifyQL'
+    : (_cgSalesError ? 'precomputed 30d (live sales failed)' : 'loading live sales…');
   const rangeSummary = document.getElementById('cgRangeSummary');
   if (rangeSummary && _cgFrom && _cgTo){
     const ms   = (new Date(_cgTo) - new Date(_cgFrom));
     const days = Math.max(1, Math.round(ms / 86400000) + 1);
+    const salesLbl = liveSales
+      ? '<b style="color:var(--sage,#4a7c6f)">Sales</b>: live ShopifyQL for the same range'
+      : (_cgSalesError
+          ? '<b style="color:var(--terra,#c0603a)">Sales</b>: fallback to 30d (<span title="' + _cgSalesError.replace(/"/g,'&quot;') + '">live failed — hover</span>)'
+          : '<b>Sales</b>: loading live…');
     rangeSummary.innerHTML =
-      '<b>Ad-side</b>: ' + _cgFrom + ' → ' + _cgTo + ' (' + days + 'd)' +
-      ' &nbsp;·&nbsp; <b>Sales/Inv</b>: last 30d precomputed';
+      '<b>Range</b>: ' + _cgFrom + ' → ' + _cgTo + ' (' + days + 'd) &nbsp;·&nbsp; ' + salesLbl;
   }
   const lastRefresh = all[0]?.computed_at || '';
   document.getElementById('cgKpRefreshed').textContent =
