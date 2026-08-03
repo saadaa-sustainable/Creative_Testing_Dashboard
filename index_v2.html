@@ -38,6 +38,7 @@
     <span class="sb-info" title="Mirrors content_workflow_optimiser.asset_register (npxpywoz…). Assets with no ad_id are 'Untested' — they haven't been placed into any Meta ad yet.">ⓘ</span>
   </div>
   <div class="sb-item" data-view="untested" title="Assets in the content pipeline that have never been placed into a Meta ad (ad_id is null in asset_register)">Untested Assets</div>
+  <div class="sb-item" data-view="histuntested" title="Deprecated video-side tabs of CTP-Asset_Sheet_v1 (Deprecated Planning / Completed / Unplanned) — same tested/untested rule as the live Untested section">Historic Untested</div>
   <div class="sb-section">Catalog</div>
   <div class="sb-item" data-view="inventory">Inventory</div>
   <div class="sb-section">Historic
@@ -150,6 +151,14 @@
           <div class="hc-title">Untested Assets</div>
         </div>
         <div class="hc-desc">Assets in the content register with no linked Meta ad · filter by source / type · Drive preview</div>
+        <div class="hc-cta">Open →</div>
+      </div>
+      <div class="home-card" data-target-view="histuntested" data-tone="sand">
+        <div class="hc-row">
+          <div class="hc-icon">◈</div>
+          <div class="hc-title">Historic Untested</div>
+        </div>
+        <div class="hc-desc">Deprecated Planning / Completed / Unplanned video tabs · same tested rule against Meta ad_name</div>
         <div class="hc-cta">Open →</div>
       </div>
     </div>
@@ -2344,6 +2353,80 @@
   </div>
 </div><!-- /view-untested -->
 
+<!-- ─── VIEW: HISTORIC UNTESTED ASSETS ──────────────────────────────
+     Mirrors 3 deprecated video-side tabs from CTP-Asset_Sheet_v1 into
+     content_historic_video_register. Same tested rule as live Untested
+     (asset_id/nomenclature ⊂ primary_table.ad_name). -->
+<div class="view" id="view-histuntested" style="display:none">
+  <div class="page-hdr">
+    <div>
+      <h1 class="heading">Historic Untested Assets</h1>
+      <div class="sub">Deprecated video tabs of CTP-Asset_Sheet_v1 · Planning / Completed / Unplanned · tested = asset_id found in a Meta ad_name</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn ghost" id="hvRefresh" type="button" title="Reload from content_historic_video_register">↻ Refresh</button>
+      <button class="btn" id="hvExport" type="button">Export CSV</button>
+    </div>
+  </div>
+
+  <div class="kpi-row" id="hvKpiRow" style="grid-template-columns:repeat(auto-fit, minmax(160px, 1fr))">
+    <div class="kpi"><div class="k-lbl">Total assets</div><div class="k-val mono" id="hvKpTotal">—</div><div class="k-sub">with link URL</div></div>
+    <div class="kpi"><div class="k-lbl">Untested</div><div class="k-val mono" id="hvKpUntested" style="color:var(--terra, #c0603a)">—</div><div class="k-sub">no Meta ad match</div></div>
+    <div class="kpi"><div class="k-lbl">Tested</div><div class="k-val mono" id="hvKpTested" style="color:var(--sage, #4a7c6f)">—</div><div class="k-sub">found in a Meta ad</div></div>
+    <div class="kpi"><div class="k-lbl">Untested %</div><div class="k-val mono" id="hvKpPct">—</div><div class="k-sub">share of total</div></div>
+    <div class="kpi"><div class="k-lbl">Last mirror</div><div class="k-val mono" id="hvKpMirror" style="font-size:14px">—</div><div class="k-sub">from fetch script</div></div>
+  </div>
+
+  <div class="funnel-card" style="padding:12px 16px;margin-top:10px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div class="lp-viewtog" role="tablist" title="Filter by tested-status">
+        <button class="lp-viewtog-btn active" data-hv-mode="untested" type="button" role="tab" aria-selected="true">Untested</button>
+        <button class="lp-viewtog-btn"        data-hv-mode="tested"   type="button" role="tab" aria-selected="false">Tested</button>
+        <button class="lp-viewtog-btn"        data-hv-mode="all"      type="button" role="tab" aria-selected="false">All</button>
+      </div>
+      <div class="lp-viewtog" role="tablist" title="Filter by source tab">
+        <button class="lp-viewtog-btn active" data-hv-src="all"       type="button" role="tab" aria-selected="true">All tabs</button>
+        <button class="lp-viewtog-btn"        data-hv-src="planning"  type="button" role="tab" aria-selected="false" title="Deprecated Planning tab">Planning</button>
+        <button class="lp-viewtog-btn"        data-hv-src="completed" type="button" role="tab" aria-selected="false" title="Deprecated Completed File tab">Completed</button>
+        <button class="lp-viewtog-btn"        data-hv-src="unplanned" type="button" role="tab" aria-selected="false" title="Deprecated Unplanned Edited Content tab">Unplanned</button>
+      </div>
+      <input class="fg-input" id="hvSearch" type="search" placeholder="filter asset_id / nomenclature / ad name…"
+             style="padding:5px 10px;font-size:12px;flex:1;min-width:220px">
+      <select class="fg-select" id="hvSort" style="padding:5px 8px;font-size:12px">
+        <option value="asset_id_asc">Sort: Asset ID ↑</option>
+        <option value="source_asset">Sort: Source, then Asset ID</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="funnel-card" style="padding:14px 16px;margin-top:10px">
+    <div class="funnel-hdr" style="padding:6px 4px 12px">
+      <h3 id="hvTableTitle">Historic untested video assets <span class="h-sub" id="hvTableSub">across 3 deprecated tabs</span></h3>
+    </div>
+    <div class="ae-tbl-wrap">
+      <table class="tbl" id="hvTable">
+        <thead>
+          <tr>
+            <th style="width:120px" data-sort="asset_id">Asset ID</th>
+            <th data-sort="nomenclature">Nomenclature</th>
+            <th style="width:90px" data-sort="source_tab">Source tab</th>
+            <th data-sort="category">Category</th>
+            <th data-sort="primary_channel">Channel</th>
+            <th data-sort="production_type">Production</th>
+            <th data-sort="edited_by">Edited by</th>
+            <th style="width:60px;text-align:center" data-sort="link">Link</th>
+            <th style="width:150px" title="Matched Meta ad" data-sort="matched_ad_id">Tested</th>
+          </tr>
+        </thead>
+        <tbody id="hvTableBody">
+          <tr><td colspan="9" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--text-tertiary)" id="hvTableFooter">—</div>
+  </div>
+</div><!-- /view-histuntested -->
+
 </main>
 
 <!-- ═════════════════ MODAL — Category definitions ═════════════════ -->
@@ -2784,6 +2867,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=kpi_link_label"></script>
+<script src="assets/dashboard.js?v=historic_video_assets"></script>
 </body>
 </html>

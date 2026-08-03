@@ -2305,6 +2305,9 @@ document.querySelectorAll('.sb-item').forEach(it => {
     if (v === 'untested'){
       try { loadUntestedAssets(); } catch(_){}
     }
+    if (v === 'histuntested'){
+      try { loadHistoricVideoAssets(); } catch(_){}
+    }
     // Auto-close the mobile sidebar after selection
     if (window.innerWidth <= 900) document.getElementById('sidebar').classList.remove('open');
   });
@@ -9312,6 +9315,176 @@ function _utRender(){
       // Swap data source — lazy-load the newly-selected media type. If
       // already loaded, this returns from cache and only re-renders.
       loadUntestedAssets();
+    });
+  });
+})();
+
+/* ============================================================
+   HISTORIC UNTESTED — reads content_historic_video_register (mirror of
+   3 deprecated video-side tabs from CTP-Asset_Sheet_v1). Same tested
+   rule as Untested (asset_id/nomenclature ⊂ primary_table.ad_name).
+   Independent from the live Untested view — separate cache, own toggles.
+   ============================================================ */
+let _hvRows   = null;
+let _hvMode   = 'untested';   // 'untested' | 'tested' | 'all'
+let _hvSrc    = 'all';        // 'all' | 'planning' | 'completed' | 'unplanned'
+let _hvLoaded = false;
+
+async function loadHistoricVideoAssets(force){
+  const body = document.getElementById('hvTableBody');
+  if (!body) return;
+  if (_hvLoaded && !force){ _hvRender(); return; }
+  body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>';
+  if (!SUPABASE_URL || !SUPABASE_ANON){
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">SUPABASE_URL / anon key missing.</td></tr>';
+    return;
+  }
+  const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
+  const cols = ['source_tab','asset_id','nomenclature','link','ad_id_sheet',
+                'timestamp_raw','category','primary_channel','channel_page',
+                'production_type','audience_type','demographic','edited_by',
+                'core_theme','summary_status','summary_result',
+                'computed_is_tested','matched_ad_id','matched_ad_name',
+                'mirrored_at'].join(',');
+  const url = SUPABASE_URL + '/rest/v1/content_historic_video_register?select=' + cols +
+              '&order=source_tab.asc,asset_id.asc&limit=10000';
+  try {
+    const r = await fetch(url, { headers: hdrs });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    _hvRows = await r.json();
+    _hvLoaded = true;
+    _hvRender();
+  } catch (e){
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
+  }
+}
+
+function _hvFilterAndSort(){
+  let rows = (_hvRows || []).slice();
+  if (_hvSrc  !== 'all')      rows = rows.filter(r => r.source_tab === _hvSrc);
+  if (_hvMode === 'untested') rows = rows.filter(r => !r.computed_is_tested);
+  else if (_hvMode === 'tested') rows = rows.filter(r => !!r.computed_is_tested);
+  const q = (document.getElementById('hvSearch')?.value || '').trim().toLowerCase();
+  if (q) rows = rows.filter(r =>
+    (r.asset_id || '').toLowerCase().includes(q) ||
+    (r.nomenclature || '').toLowerCase().includes(q) ||
+    (r.matched_ad_name || '').toLowerCase().includes(q) ||
+    (r.matched_ad_id || '').toLowerCase().includes(q));
+  const sk = document.getElementById('hvSort')?.value || 'asset_id_asc';
+  if (sk === 'source_asset')
+    rows.sort((a,b) => (a.source_tab||'').localeCompare(b.source_tab||'') ||
+                       (a.asset_id||'').localeCompare(b.asset_id||''));
+  else
+    rows.sort((a,b) => (a.asset_id||'').localeCompare(b.asset_id||''));
+  return rows;
+}
+
+function _hvRender(){
+  const rows = _hvFilterAndSort();
+  // KPI scope = current source-tab filter (so counts move with the filter).
+  const scope = (_hvSrc === 'all') ? (_hvRows || [])
+              : (_hvRows || []).filter(r => r.source_tab === _hvSrc);
+  const total    = scope.length;
+  const untested = scope.filter(r => !r.computed_is_tested).length;
+  const tested   = total - untested;
+  const pct      = total ? (untested * 100 / total) : 0;
+  document.getElementById('hvKpTotal').textContent    = fmtInt(total);
+  document.getElementById('hvKpUntested').textContent = fmtInt(untested);
+  document.getElementById('hvKpTested').textContent   = fmtInt(tested);
+  document.getElementById('hvKpPct').textContent      = total ? pct.toFixed(1) + '%' : '—';
+  const mir = (_hvRows && _hvRows[0]?.mirrored_at) || '';
+  document.getElementById('hvKpMirror').textContent = mir ? mir.slice(0,10) + ' ' + mir.slice(11,16) : '—';
+
+  const title = document.getElementById('hvTableTitle');
+  const sub   = document.getElementById('hvTableSub');
+  const foot  = document.getElementById('hvTableFooter');
+  const modeLbl = _hvMode === 'untested' ? 'Untested' : _hvMode === 'tested' ? 'Tested' : 'All';
+  const srcLbl  = _hvSrc  === 'all'      ? 'all 3 deprecated tabs' : ('Deprecated ' + _hvSrc);
+  if (title) title.firstChild.textContent = modeLbl + ' historic video assets ';
+  if (sub)   sub.textContent = srcLbl;
+
+  const _esc = s => String(s == null ? '' : s).replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const TOPN = 500;
+  const shown = rows.slice(0, TOPN);
+  const body = document.getElementById('hvTableBody');
+  body.innerHTML = shown.map(r => {
+    const linkCell = (r.link && r.link.startsWith('http'))
+      ? '<a href="' + _esc(r.link) + '" target="_blank" rel="noopener" title="Open link" style="text-decoration:none">↗</a>'
+      : '<span style="color:var(--text-tertiary)">—</span>';
+    let testedCell;
+    if (r.computed_is_tested){
+      const aid  = r.matched_ad_id || '';
+      const name = r.matched_ad_name || '';
+      const nameShort = name.length > 32 ? name.slice(0, 30) + '…' : name;
+      testedCell =
+        '<div style="display:flex;flex-direction:column;line-height:1.2">' +
+          '<span class="mono" style="color:var(--sage,#4a7c6f);font-size:11px" title="' + _esc(name) + '">' + _esc(aid || '✓') + '</span>' +
+          (name ? '<span style="font-size:10px;color:var(--text-tertiary);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + _esc(name) + '">' + _esc(nameShort) + '</span>' : '') +
+        '</div>';
+    } else {
+      testedCell = '<span style="color:var(--text-tertiary);font-size:11px">—</span>';
+    }
+    const srcPillBg = r.source_tab === 'planning' ? 'var(--slate-lt,#eaf0f8)'
+                    : r.source_tab === 'completed' ? 'var(--sage-lt,#e6f0ee)'
+                    : 'var(--gold-lt,#fdf5e6)';
+    const srcPillFg = r.source_tab === 'planning' ? 'var(--slate,#4a6fa5)'
+                    : r.source_tab === 'completed' ? 'var(--sage,#4a7c6f)'
+                    : 'var(--gold,#b8883a)';
+    const srcPill = '<span style="display:inline-block;padding:2px 7px;border-radius:100px;font-size:10px;font-weight:700;background:' + srcPillBg + ';color:' + srcPillFg + '">' + _esc((r.source_tab || '').toUpperCase()) + '</span>';
+    return '<tr>' +
+      '<td class="mono" style="font-weight:600">' + _esc(r.asset_id) + '</td>' +
+      '<td class="mono" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"' +
+        ' title="' + _esc(r.nomenclature) + '">' + _esc(r.nomenclature) + '</td>' +
+      '<td>' + srcPill + '</td>' +
+      '<td>' + _esc(r.category) + '</td>' +
+      '<td>' + _esc(r.primary_channel) + '</td>' +
+      '<td>' + _esc(r.production_type) + '</td>' +
+      '<td>' + _esc(r.edited_by) + '</td>' +
+      '<td style="text-align:center">' + linkCell + '</td>' +
+      '<td>' + testedCell + '</td>' +
+      '</tr>';
+  }).join('') || '<tr><td colspan="9" style="text-align:center;padding:14px;color:var(--text-tertiary)">No assets match.</td></tr>';
+
+  if (foot){
+    const extra = rows.length > TOPN ? ' (top ' + TOPN + ' shown)' : '';
+    foot.textContent = 'Showing ' + fmtInt(shown.length) + ' of ' + fmtInt(rows.length) +
+                       ' filtered · scope total ' + fmtInt(total) + extra;
+  }
+}
+
+// Wire once. Idempotent guard via ._hvBound on each element.
+(function _hvWire(){
+  const on = (id, ev, fn) => { const el = document.getElementById(id); if (el && !el._hvBound){ el.addEventListener(ev, fn); el._hvBound = true; } };
+  on('hvSearch',  'input', _hvRender);
+  on('hvSort',    'change', _hvRender);
+  on('hvRefresh', 'click', () => loadHistoricVideoAssets(true));
+  on('hvExport',  'click', () => {
+    const rows = _hvFilterAndSort();
+    if (!rows.length) return;
+    exportVisibleTableCsv('#hvTable', rows, {});
+  });
+  document.querySelectorAll('.lp-viewtog-btn[data-hv-mode]').forEach(btn => {
+    if (btn._hvBound) return; btn._hvBound = true;
+    btn.addEventListener('click', () => {
+      _hvMode = btn.dataset.hvMode;
+      document.querySelectorAll('.lp-viewtog-btn[data-hv-mode]').forEach(b => {
+        const on2 = b.dataset.hvMode === _hvMode;
+        b.classList.toggle('active', on2);
+        b.setAttribute('aria-selected', on2 ? 'true' : 'false');
+      });
+      _hvRender();
+    });
+  });
+  document.querySelectorAll('.lp-viewtog-btn[data-hv-src]').forEach(btn => {
+    if (btn._hvBound) return; btn._hvBound = true;
+    btn.addEventListener('click', () => {
+      _hvSrc = btn.dataset.hvSrc;
+      document.querySelectorAll('.lp-viewtog-btn[data-hv-src]').forEach(b => {
+        const on2 = b.dataset.hvSrc === _hvSrc;
+        b.classList.toggle('active', on2);
+        b.setAttribute('aria-selected', on2 ? 'true' : 'false');
+      });
+      _hvRender();
     });
   });
 })();
