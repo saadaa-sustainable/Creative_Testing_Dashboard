@@ -2261,10 +2261,10 @@
 
   <!-- KPI strip -->
   <div class="kpi-row" id="utKpiRow" style="grid-template-columns:repeat(auto-fit, minmax(160px, 1fr))">
-    <div class="kpi"><div class="k-lbl">Total assets</div><div class="k-val mono" id="utKpTotal">—</div><div class="k-sub">in registry</div></div>
-    <div class="kpi"><div class="k-lbl">Untested</div><div class="k-val mono" id="utKpUntested" style="color:var(--terra, #c0603a)">—</div><div class="k-sub">no ad linked yet</div></div>
-    <div class="kpi"><div class="k-lbl">Tested</div><div class="k-val mono" id="utKpTested" style="color:var(--sage, #4a7c6f)">—</div><div class="k-sub">placed into a Meta ad</div></div>
-    <div class="kpi"><div class="k-lbl">Untested %</div><div class="k-val mono" id="utKpPct">—</div><div class="k-sub">share of register</div></div>
+    <div class="kpi"><div class="k-lbl">Total assets</div><div class="k-val mono" id="utKpTotal">—</div><div class="k-sub" id="utKpTotalSub">with drive link</div></div>
+    <div class="kpi"><div class="k-lbl">Untested</div><div class="k-val mono" id="utKpUntested" style="color:var(--terra, #c0603a)">—</div><div class="k-sub">no Meta ad match</div></div>
+    <div class="kpi"><div class="k-lbl">Tested</div><div class="k-val mono" id="utKpTested" style="color:var(--sage, #4a7c6f)">—</div><div class="k-sub">found in a Meta ad</div></div>
+    <div class="kpi"><div class="k-lbl">Untested %</div><div class="k-val mono" id="utKpPct">—</div><div class="k-sub">share of total</div></div>
     <div class="kpi"><div class="k-lbl">Last mirror</div><div class="k-val mono" id="utKpMirror" style="font-size:14px">—</div><div class="k-sub">from fetch script</div></div>
   </div>
 
@@ -2784,6 +2784,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=both_ad_mapping"></script>
+<script src="assets/dashboard.js?v=kpi_link_label"></script>
 </body>
 </html>

@@ -9200,6 +9200,10 @@ function _utRender(){
   document.getElementById('utKpUntested').textContent = fmtInt(untested);
   document.getElementById('utKpTested').textContent   = fmtInt(tested);
   document.getElementById('utKpPct').textContent      = total ? pct.toFixed(1) + '%' : '—';
+  // Retitle the total sub-label per media source.
+  const totalSub = document.getElementById('utKpTotalSub');
+  if (totalSub) totalSub.textContent = _utMedia === 'graphic'
+    ? 'with link 1/2/3'  : 'with drive link';
   const mir = all[0]?.mirrored_at || '';
   document.getElementById('utKpMirror').textContent = mir ? mir.slice(0,10) + ' ' + mir.slice(11,16) : '—';
 
