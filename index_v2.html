@@ -2435,14 +2435,15 @@
             <tr>
               <th style="width:130px">Ad ID</th>
               <th>Ad name</th>
-              <th class="mono" style="text-align:right;width:110px">Spend</th>
-              <th class="mono" style="text-align:right;width:70px">NCP</th>
-              <th class="mono" style="text-align:right;width:90px">Cost/NCP</th>
-              <th class="mono" style="text-align:right;width:60px">Days</th>
+              <th class="mono" style="text-align:right;width:100px" title="Spend inside the selected window">Spend</th>
+              <th class="mono" style="text-align:right;width:60px" title="NCP count inside the selected window">NCP</th>
+              <th class="mono" style="text-align:right;width:90px" title="Ad's own spend ÷ ncp inside the window">Cost/NCP</th>
+              <th class="mono" style="text-align:right;width:55px" title="Distinct delivery days for this ad inside the window">Days</th>
+              <th class="mono" style="text-align:right;width:110px;color:var(--text-tertiary)" title="This ad's LIFETIME spend (matches Ads Analyse). For comparison against the window slice.">Lifetime spend</th>
             </tr>
           </thead>
           <tbody id="cgAdsBody">
-            <tr><td colspan="6" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>
+            <tr><td colspan="7" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -3067,6 +3068,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=cpis_mean_cpn"></script>
+<script src="assets/dashboard.js?v=cpis_lifetime_col"></script>
 </body>
 </html>

@@ -9729,23 +9729,41 @@ async function openCpisAdsModal(master){
   const winDays = _cgWin === '1d' ? 1 : _cgWin === '30d' ? 30 : 7;
   const winLbl  = _cgWin === '1d' ? 'last 1 day' : _cgWin === '30d' ? 'last 30 days' : 'last 7 days';
   title.textContent = 'Ads matching master SKU · ' + master;
-  sub.textContent   = winLbl + ' · primary_table.ad_name ILIKE %' + master + '%';
-  body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>';
+  // Explicit scope banner — the same ad shows a different (lifetime) number
+  // in Ads Analyse, so make it obvious this modal is window-scoped.
+  sub.innerHTML = '<span style="display:inline-block;background:var(--gold-lt,#fdf5e6);color:var(--gold,#b8883a);padding:2px 8px;border-radius:100px;font-weight:700;font-size:10.5px;letter-spacing:.3px">SCOPE: ' + winLbl.toUpperCase() + '</span>' +
+    ' · matched via <code>primary_table.ad_name ILIKE %' + master + '%</code>' +
+    ' · <span style="color:var(--text-tertiary)">Ads Analyse shows lifetime totals; this modal is window-scoped, so numbers will be smaller.</span>';
+  body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>';
   modal.style.display = 'flex';
   const iso = new Date(Date.now() - winDays * 86400000).toISOString().slice(0,10);
   const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
-  // encodeURIComponent on the ILIKE pattern so URL-unsafe chars stay safe.
   const like = encodeURIComponent('*' + master + '*');
-  const url = SUPABASE_URL + '/rest/v1/primary_table'
-            + '?select=ad_id,ad_name,amount_spent_inr,ncp_count,date'
-            + '&ad_name=ilike.' + like
-            + '&date=gte.' + iso
-            + '&order=amount_spent_inr.desc&limit=20000';
+  // Window slice (what the master row's #Ads / Ad-spend counted).
+  const urlWin = SUPABASE_URL + '/rest/v1/primary_table'
+               + '?select=ad_id,ad_name,amount_spent_inr,ncp_count,date'
+               + '&ad_name=ilike.' + like
+               + '&date=gte.' + iso
+               + '&order=amount_spent_inr.desc&limit=20000';
+  // Lifetime totals per ad — pulled from ae_table_view (same source as
+  // the Ads Analyse table), which stores one row per ad with lifetime spend.
+  const urlLife = SUPABASE_URL + '/rest/v1/ae_table_view'
+               + '?select=ad_id,amount_spent'
+               + '&ad_name=ilike.' + like
+               + '&limit=20000';
   try {
-    const r = await fetch(url, { headers: hdrs });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const rows = await r.json();
-    // Group by ad_id
+    const [rWin, rLife] = await Promise.all([
+      fetch(urlWin,  { headers: hdrs }),
+      fetch(urlLife, { headers: hdrs }),
+    ]);
+    if (!rWin.ok)  throw new Error('primary_table HTTP ' + rWin.status);
+    if (!rLife.ok) throw new Error('ae_table_view HTTP ' + rLife.status);
+    const rows     = await rWin.json();
+    const lifeRows = await rLife.json();
+    // Lifetime map: ad_id → total lifetime spend.
+    const lifeByAd = new Map();
+    for (const r of lifeRows) lifeByAd.set(String(r.ad_id), Number(r.amount_spent) || 0);
+    // Window aggregation per ad_id.
     const agg = new Map();
     for (const row of rows){
       const k = String(row.ad_id);
@@ -9759,7 +9777,11 @@ async function openCpisAdsModal(master){
     const items = Array.from(agg.values()).sort((a,b) => b.spend - a.spend);
     const _esc = s => String(s == null ? '' : s).replace(/</g,'&lt;').replace(/"/g,'&quot;');
     body.innerHTML = items.map(a => {
-      const cpn = (a.ncp > 0) ? (a.spend / a.ncp) : null;
+      const cpn      = (a.ncp > 0) ? (a.spend / a.ncp) : null;
+      const lifetime = lifeByAd.get(a.ad_id);
+      const lifeCell = (lifetime != null && lifetime > 0)
+        ? '<span title="This ad\'s lifetime spend from ae_table_view — matches Ads Analyse">' + fmtRs(lifetime) + '</span>'
+        : '<span style="color:var(--text-tertiary)">—</span>';
       return '<tr>' +
         '<td class="mono" style="font-size:11px">' + _esc(a.ad_id) + '</td>' +
         '<td class="mono" style="font-size:11px;max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"' +
@@ -9768,13 +9790,17 @@ async function openCpisAdsModal(master){
         '<td class="mono" style="text-align:right">' + fmtInt(a.ncp) + '</td>' +
         '<td class="mono" style="text-align:right">' + (cpn != null ? fmtRs(cpn) : '—') + '</td>' +
         '<td class="mono" style="text-align:right">' + a.days.size + '</td>' +
+        '<td class="mono" style="text-align:right;color:var(--text-tertiary)">' + lifeCell + '</td>' +
         '</tr>';
-    }).join('') || '<tr><td colspan="6" style="text-align:center;padding:14px;color:var(--text-tertiary)">No matching ads in this window.</td></tr>';
+    }).join('') || '<tr><td colspan="7" style="text-align:center;padding:14px;color:var(--text-tertiary)">No matching ads in this window.</td></tr>';
     const totalSpend = items.reduce((a,b) => a + b.spend, 0);
     const totalNcp   = items.reduce((a,b) => a + b.ncp, 0);
-    foot.textContent = items.length + ' distinct ads · ' + rows.length + ' delivery rows · Σ spend '
-                     + fmtRs(totalSpend) + ' · Σ NCP ' + fmtInt(totalNcp);
+    const totalLife  = items.reduce((a,b) => a + (lifeByAd.get(b.ad_id) || 0), 0);
+    foot.textContent = items.length + ' distinct ads · ' + rows.length + ' delivery rows · '
+                     + 'Σ ' + winLbl + ' spend ' + fmtRs(totalSpend)
+                     + ' · Σ lifetime spend ' + fmtRs(totalLife)
+                     + ' · Σ ' + winLbl + ' NCP ' + fmtInt(totalNcp);
   } catch (e){
-    body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
   }
 }
