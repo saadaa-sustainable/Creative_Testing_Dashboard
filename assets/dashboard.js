@@ -9591,13 +9591,15 @@ function _cgAggregateAds(baseRows, adRows){
     }
   }
   // Fold into per-master aggregates + arithmetic-mean Cost/NCP.
+  // Only count ads with spend>0 into #Ads so the counter matches what
+  // get_ae_metrics_by_window returns (AE drops zero-delivery ads).
   const perMaster = new Map();
   for (const e of perAd.values()){
     let m = perMaster.get(e.master);
     if (!m){ m = { spend: 0, ncp: 0, ads: 0, cpn_sum: 0, cpn_count: 0 }; perMaster.set(e.master, m); }
     m.spend += e.spend;
     m.ncp   += e.ncp;
-    m.ads   += 1;
+    if (e.spend > 0) m.ads += 1;
     if (e.ncp > 0){ m.cpn_sum += (e.spend / e.ncp); m.cpn_count += 1; }
   }
   for (const m of perMaster.values()){
