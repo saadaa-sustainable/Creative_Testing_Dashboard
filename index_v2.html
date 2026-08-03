@@ -41,6 +41,7 @@
   <div class="sb-item" data-view="histuntested" title="Deprecated video-side tabs of CTP-Asset_Sheet_v1 (Deprecated Planning / Completed / Unplanned) — same tested/untested rule as the live Untested section">Historic Untested</div>
   <div class="sb-section">Catalog</div>
   <div class="sb-item" data-view="inventory">Inventory</div>
+  <div class="sb-item" data-view="cpis" title="Cost Per Item Sold — per-master-SKU sales × inventory × Meta cost. Date range picker syncs with Ads Analyse.">CPIS</div>
   <div class="sb-section">Historic
     <span class="sb-info" title="Data in this section is the full lifetime — every ad since 2023, no date cap.">ⓘ</span>
   </div>
@@ -173,6 +174,14 @@
           <div class="hc-title">Inventory</div>
         </div>
         <div class="hc-desc">All Shopify products · Stock status · Vendor + category rollups</div>
+        <div class="hc-cta">Open →</div>
+      </div>
+      <div class="home-card" data-target-view="cpis" data-tone="warm">
+        <div class="hc-row">
+          <div class="hc-icon">◆</div>
+          <div class="hc-title">CPIS</div>
+        </div>
+        <div class="hc-desc">Per-master-SKU sales × inventory × Meta cost · date range syncs with Ads Analyse</div>
         <div class="hc-cta">Open →</div>
       </div>
     </div>
@@ -2057,20 +2066,6 @@
     </div>
   </div>
 
-  <!-- Sub-tab toggle: Products (default) ↔ COGS (per-master-SKU sales) -->
-  <div class="lp-viewtog" role="tablist" style="margin-bottom:14px"
-       title="Switch between the products table and the master-SKU sales rollup">
-    <button class="lp-viewtog-btn active" data-inv-tab="products" type="button"
-            role="tab" aria-selected="true">Products</button>
-    <button class="lp-viewtog-btn" data-inv-tab="cpis" type="button"
-            role="tab" aria-selected="false">CPIS</button>
-  </div>
-
-  <!-- Wrap all existing product-inventory content in a div so the tab toggle
-       can hide/show it as a whole. The closing </div> matches at the end of
-       the previous inventory content (before the /view-inventory close). -->
-  <div id="invPanelProducts">
-
   <!-- Shopify credentials panel — stored in localStorage so the config
        persists across reloads without needing URL params. -->
   <div id="invConfigPanel" style="display:none;background:var(--bg-white);
@@ -2264,14 +2259,21 @@
     Configure Shopify access via URL params:
     <code style="background:#fff;padding:2px 6px;border-radius:4px;border:1px solid var(--border-warm)">?shopDomain=&lt;shop&gt;.myshopify.com&amp;shopifyToken=&lt;admin_token&gt;</code>
   </div>
-  </div><!-- /invPanelProducts -->
+</div><!-- /view-inventory -->
 
-  <!-- ═══ CPIS SUB-PANEL — per-SKU sales × inventory × ad-cost ═══
-       Data source: public.cpis_by_sku (mirrored by backend/fetch_cogs_by_sku.py).
-       Row grain: one row per (window_key, level, sku) — level ∈ {master, color}.
-       Live inventory is refreshed each time the fetch script runs.
-       CPIS column is a placeholder pending the formula. -->
-  <div id="invPanelCpis" style="display:none">
+<!-- ═══ VIEW: CPIS — Cost Per Item Sold ═══
+     Standalone Catalog view. Per-master-SKU sales × inventory × Meta cost.
+     Ad-side columns pull live from primary_table for the picked date range;
+     sales pull from public.cpis_daily_sales (populated by
+     backend/fetch_cpis_by_sku.py — daily grain, 120-day rolling window). -->
+<div class="view" id="view-cpis" style="display:none">
+  <div class="page-hdr">
+    <div>
+      <h1 class="heading">CPIS · Cost Per Item Sold</h1>
+      <div class="sub">Per-master-SKU sales × inventory × Meta cost · date range syncs with Ads Analyse</div>
+    </div>
+  </div>
+  <div id="invPanelCpis">
     <div class="kpi-row" style="grid-template-columns:repeat(auto-fit, minmax(160px, 1fr))">
       <div class="kpi"><div class="k-lbl">Total sales</div><div class="k-val mono" id="cgKpSales">—</div><div class="k-sub" id="cgKpSalesSub">selected window</div></div>
       <div class="kpi"><div class="k-lbl">Net items sold</div><div class="k-val mono" id="cgKpItems">—</div><div class="k-sub">units</div></div>
@@ -2466,7 +2468,7 @@
     </div>
   </div>
 
-</div><!-- /view-inventory -->
+</div><!-- /view-cpis -->
 
 <!-- ─── VIEW: UNTESTED ASSETS ────────────────────────────────────────
      Mirrors content_workflow_optimiser.asset_register into Meta_ads_data
@@ -3083,6 +3085,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=cpis_daily_sales_table"></script>
+<script src="assets/dashboard.js?v=cpis_standalone_view"></script>
 </body>
 </html>

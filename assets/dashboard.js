@@ -2305,6 +2305,9 @@ document.querySelectorAll('.sb-item').forEach(it => {
     if (v === 'untested'){
       try { loadUntestedAssets(); } catch(_){}
     }
+    if (v === 'cpis'){
+      try { loadCogsBySku(); } catch(_){}
+    }
     if (v === 'histuntested'){
       try { loadHistoricVideoAssets(); } catch(_){}
     }
@@ -9932,23 +9935,7 @@ function _cgRenderChart(rows){
       loadCogsBySku();
     });
   });
-  // Inventory sub-tab toggle (Products ↔ CPIS)
-  document.querySelectorAll('.lp-viewtog-btn[data-inv-tab]').forEach(btn => {
-    if (btn._cgBound) return; btn._cgBound = true;
-    btn.addEventListener('click', () => {
-      const tab = btn.dataset.invTab;
-      document.querySelectorAll('.lp-viewtog-btn[data-inv-tab]').forEach(b => {
-        const on2 = b.dataset.invTab === tab;
-        b.classList.toggle('active', on2);
-        b.setAttribute('aria-selected', on2 ? 'true' : 'false');
-      });
-      const pp = document.getElementById('invPanelProducts');
-      const pc = document.getElementById('invPanelCpis');
-      if (pp) pp.style.display = tab === 'products' ? '' : 'none';
-      if (pc) pc.style.display = tab === 'cpis'     ? '' : 'none';
-      if (tab === 'cpis') loadCogsBySku();
-    });
-  });
+  // CPIS is now a top-level sidebar view (Catalog > CPIS) — no inv-sub-tab toggle needed.
 
   // Definitions modal — open/close.
   const defsBtn   = document.getElementById('cgBtnDefs');
