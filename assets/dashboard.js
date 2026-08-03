@@ -9504,9 +9504,9 @@ async function loadCogsBySku(force){
   if (!body) return;
   const key = _cgWin + '::' + _cgLevel;
   if (_cgCache[key] && !force){ _cgRender(); return; }
-  body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading '+_cgWin+' · '+_cgLevel+'…</td></tr>';
+  body.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading '+_cgWin+' · '+_cgLevel+'…</td></tr>';
   if (!SUPABASE_URL || !SUPABASE_ANON){
-    body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">SUPABASE_URL / anon key missing.</td></tr>';
+    body.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">SUPABASE_URL / anon key missing.</td></tr>';
     return;
   }
   const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
@@ -9520,7 +9520,7 @@ async function loadCogsBySku(force){
     _cgCache[key] = await r.json();
     _cgRender();
   } catch (e){
-    body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
+    body.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
   }
 }
 
@@ -9587,13 +9587,16 @@ function _cgRender(){
         ' title="' + _esc(kids.join(', ')) + '">' + _esc(kShort) + '</td>' +
       '<td class="mono" style="text-align:right">' + _fmtDec(r.doq) + '</td>' +
       '<td class="mono" style="text-align:right">' + _fmtNum(r.inventory_total) + '</td>' +
+      '<td class="mono" style="text-align:right">' + (r.doh != null ? Number(r.doh).toFixed(0) + 'd' : '—') + '</td>' +
       '<td class="mono" style="text-align:right">' + fmtRs(r.total_sales || 0) + '</td>' +
       '<td class="mono" style="text-align:right">' + _fmtNum(r.net_items_sold) + '</td>' +
       '<td class="mono" style="text-align:right">' + (r.ad_spend != null ? fmtRs(r.ad_spend) : '—') + '</td>' +
+      '<td class="mono" style="text-align:right">' + (r.matched_ad_count != null ? _fmtNum(r.matched_ad_count) : '—') + '</td>' +
       '<td class="mono" style="text-align:right">' + (r.cost_per_ncp != null ? fmtRs(r.cost_per_ncp) : '—') + '</td>' +
+      '<td class="mono" style="text-align:right">' + (r.roas != null ? Number(r.roas).toFixed(2) + 'x' : '—') + '</td>' +
       '<td class="mono" style="text-align:right;color:var(--text-tertiary)">' + (r.cpis != null ? fmtRs(r.cpis) : '—') + '</td>' +
       '</tr>';
-  }).join('') || '<tr><td colspan="11" style="text-align:center;padding:14px;color:var(--text-tertiary)">No SKUs match.</td></tr>';
+  }).join('') || '<tr><td colspan="13" style="text-align:center;padding:14px;color:var(--text-tertiary)">No SKUs match.</td></tr>';
   const foot = document.getElementById('cgTableFooter');
   if (foot){
     const extra = rows.length > TOPN ? ' (top ' + TOPN + ' shown)' : '';

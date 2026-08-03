@@ -87,7 +87,9 @@ create table if not exists {TABLE} (
     ad_spend         numeric,              -- populated at MASTER level only
     ad_ncp           integer,              -- populated at MASTER level only
     cost_per_ncp     numeric,              -- ad_spend / ad_ncp
-    matched_ad_count integer,
+    matched_ad_count integer,              -- distinct ad_ids matching this master
+    doh              numeric,              -- inventory / doq = days of holding
+    roas             numeric,              -- total_sales / ad_spend
     cpis             numeric,              -- Cost Per Item Sold placeholder (formula pending)
     computed_at      timestamptz not null default now(),
     primary key (window_key, level, sku)
@@ -95,6 +97,10 @@ create table if not exists {TABLE} (
 create index if not exists cpis_by_sku_window_idx on {TABLE} (window_key);
 create index if not exists cpis_by_sku_level_idx  on {TABLE} (level);
 create index if not exists cpis_by_sku_parent_idx on {TABLE} (parent_sku);
+-- New columns added after initial ship — safe on re-runs.
+alter table {TABLE}
+    add column if not exists doh  numeric,
+    add column if not exists roas numeric;
 """
 
 def gql(query, variables=None, timeout=60):
@@ -266,29 +272,43 @@ def color_code_of(sku):
     return cv[-2:]
 
 # ──────────────────────── ad-spend match (Python) ────────────────────────
-def compute_ad_spend(cur, master_skus):
+def compute_ad_spend(cur, master_skus, days=None):
     """For each master_sku, scan primary_table.ad_name for a substring match
-    (case-insensitive) and sum spend + ncp across matched ads. Also counts
-    the distinct matched ads. Returns dict master_sku → dict of aggregates.
-    primary_table's spend column is amount_spent_inr; NCP is ncp_count."""
+    (case-insensitive) and sum spend + ncp across matched ads WITHIN THE
+    SAME DATE WINDOW as the sales rollup. Counts DISTINCT matching ad_ids.
+
+    primary_table has one row per (ad_id, date). Without the date filter
+    we were summing lifetime spend, inflating a single master from the
+    real ~₹2L/week to ~₹1.4Cr."""
     if not master_skus: return {}
-    cur.execute("select ad_id::text, ad_name, amount_spent_inr, ncp_count "
-                "from public.primary_table where ad_name is not null")
+    if days:
+        cur.execute(
+            "select ad_id::text, ad_name, amount_spent_inr, ncp_count "
+            "from public.primary_table "
+            "where ad_name is not null "
+            "and date >= current_date - (%s || ' days')::interval",
+            (str(days),)
+        )
+    else:
+        cur.execute("select ad_id::text, ad_name, amount_spent_inr, ncp_count "
+                    "from public.primary_table where ad_name is not null")
     ads = cur.fetchall()
-    print(f"  [match] scanning {len(ads):,} primary_table rows")
+    print(f"  [match] scanning {len(ads):,} primary_table rows (window={days}d)")
     lc_ads = [(aid, name.lower(), spend, ncp) for aid, name, spend, ncp in ads]
     out = {}
     for sku in master_skus:
         needle = sku.lower()
         if len(needle) < 4: continue     # guard: too-short prefixes hit false positives
-        spend, ncp, cnt = 0.0, 0, 0
+        spend, ncp = 0.0, 0
+        ad_ids = set()
         for aid, name_lc, sp, np_ in lc_ads:
             if needle in name_lc:
                 spend += float(sp or 0)
                 ncp   += int(np_ or 0)
-                cnt   += 1
-        if cnt:
-            out[sku] = {"spend": spend, "ncp": ncp, "matched_ad_count": cnt}
+                ad_ids.add(aid)
+        if ad_ids:
+            out[sku] = {"spend": spend, "ncp": ncp,
+                        "matched_ad_count": len(ad_ids)}   # DISTINCT ad_ids
     print(f"  [match] {len(out)} master SKUs had ≥1 matching ad")
     return out
 
@@ -370,9 +390,11 @@ def build_window(cur, window_key, days):
           f"{unmatched_titles} titles unmatched")
 
     # 3. Ad spend / NCP — MASTER LEVEL ONLY (per user rule: "only map master
-    #    sku names with ad's name, not color variants").
+    #    sku names with ad's name, not color variants"). Scoped to the SAME
+    #    date window as the sales — without this, one master pulled its
+    #    lifetime spend (~₹1.4Cr) instead of the week's ~₹2L.
     all_masters = set(var_by_master.keys())
-    ad_by_master = compute_ad_spend(cur, all_masters) if cur else {}
+    ad_by_master = compute_ad_spend(cur, all_masters, days=days) if cur else {}
 
     # 4. Assemble rows. Emit one row per (level, sku).
     def _assemble(level, sku, parent, code, kids, inv, sales_map, ad_map, title):
@@ -385,6 +407,9 @@ def build_window(cur, window_key, days):
         else:
             spend, ncp, macnt = None, None, None
         cpn = (spend / ncp) if (spend is not None and ncp and ncp > 0) else None
+        inv_int = int(inv)
+        doh = (inv_int / doq) if (doq and doq > 0) else None
+        roas = (float(s.get("total_sales", 0)) / spend) if (spend and spend > 0) else None
         vendor = vendor_by_master.get(parent or sku)
         ptype  = ptype_by_master.get(parent or sku)
         return {
@@ -412,6 +437,8 @@ def build_window(cur, window_key, days):
             "ad_ncp":           ncp,
             "cost_per_ncp":     cpn,
             "matched_ad_count": macnt,
+            "doh":              doh,
+            "roas":             roas,
             "cpis":             None,
         }
 
@@ -432,7 +459,8 @@ COLS = ["window_key","level","sku","parent_sku","color_code","variant_skus",
         "product_title","product_vendor","product_type",
         "net_items_sold","gross_sales","discounts","sales_reversals",
         "net_sales","taxes","total_sales","days_in_window","doq","inventory_total",
-        "variants_count","ad_spend","ad_ncp","cost_per_ncp","matched_ad_count","cpis"]
+        "variants_count","ad_spend","ad_ncp","cost_per_ncp","matched_ad_count",
+        "doh","roas","cpis"]
 
 def main():
     ap = argparse.ArgumentParser()

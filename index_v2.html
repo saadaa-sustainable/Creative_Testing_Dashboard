@@ -2304,6 +2304,9 @@
           <option value="inventory_total">Sort: Inventory ↓</option>
           <option value="cost_per_ncp">Sort: Cost/NCP ↓</option>
           <option value="ad_spend">Sort: Ad spend ↓</option>
+          <option value="roas">Sort: ROAS ↓</option>
+          <option value="doh">Sort: DoH ↓</option>
+          <option value="matched_ad_count">Sort: #Ads ↓</option>
         </select>
       </div>
     </div>
@@ -2334,16 +2337,19 @@
               <th data-sort="product_title">Product</th>
               <th data-sort="variant_skus" title="Master row: colour-variant SKUs (SMCPBL, SMCPGR, …). Color row: size-variant SKUs (SMCPBL_L, SMCPBL_XL, …).">Variants</th>
               <th class="mono" style="text-align:right" data-sort="doq" title="Daily Order Quantity = net items sold ÷ days in window">DoQ</th>
-              <th class="mono" style="text-align:right" data-sort="inventory_total" title="Sum of variantsInventoryQuantity (live from Shopify at refresh time)">Inventory</th>
+              <th class="mono" style="text-align:right" data-sort="inventory_total" title="Sum of variantsInventoryQuantity (live from Shopify at refresh time — ACTIVE products only)">Inv</th>
+              <th class="mono" style="text-align:right" data-sort="doh" title="Days of Holding = inventory ÷ DoQ · how many days current stock lasts at current sale rate">DoH</th>
               <th class="mono" style="text-align:right" data-sort="total_sales">Total sales</th>
               <th class="mono" style="text-align:right" data-sort="net_items_sold">Items</th>
-              <th class="mono" style="text-align:right" data-sort="ad_spend" title="Populated at Master level only">Ad spend</th>
+              <th class="mono" style="text-align:right" data-sort="ad_spend" title="Sum of amount_spent_inr in primary_table where ad_name matches this master SKU, scoped to the selected window. Master level only.">Ad spend</th>
+              <th class="mono" style="text-align:right" data-sort="matched_ad_count" title="Distinct ad_ids that had ≥1 delivery day in this window and whose name contains this master SKU">#Ads</th>
               <th class="mono" style="text-align:right" data-sort="cost_per_ncp">Cost/NCP</th>
+              <th class="mono" style="text-align:right" data-sort="roas" title="Return on Ad Spend = total_sales ÷ ad_spend">ROAS</th>
               <th class="mono" style="text-align:right" data-sort="cpis" title="CPIS — formula pending">CPIS</th>
             </tr>
           </thead>
           <tbody id="cgTableBody">
-            <tr><td colspan="11" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>
+            <tr><td colspan="13" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -2968,6 +2974,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=cpis_active_titles"></script>
+<script src="assets/dashboard.js?v=cpis_window_spend"></script>
 </body>
 </html>
