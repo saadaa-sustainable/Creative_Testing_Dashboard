@@ -1,8 +1,14 @@
-"""fetch_cogs_by_sku.py — precompute per-master-SKU sales × inventory × Meta
-cost, mirrored into Meta_ads_data.public.cogs_by_sku.
+"""fetch_cogs_by_sku.py — precompute per-SKU sales × inventory × Meta cost
+at TWO levels (master + color variant), mirrored into public.cpis_by_sku.
 
-Master SKU = variant SKU with the last 2 chars stripped (color code).
-For example: SDCPGR / SDCPBL → SDCP.
+SKU hierarchy (per user's naming convention):
+  variant SKU (finest)   e.g. SMCPBL_L    = master + color + _size
+  color variant SKU      e.g. SMCPBL      = master + color
+  master SKU (product)   e.g. SMCP        = product code
+
+Derivation rules:
+  color_of(sku)  = strip '_<size>' suffix if present     (SMCPBL_L → SMCPBL)
+  master_of(sku) = color_of(sku) with last 2 chars stripped (SMCPBL → SMCP)
 
 Sources
 -------
@@ -48,7 +54,7 @@ GQL_URL  = f"https://{SHOP.replace('https://','').rstrip('/')}/admin/api/{API_VE
 if not (DB_URL and TOKEN):
     sys.exit("[fatal] need SUPABASE_DB_URL + ADMIN_ACCESS_TOKEN in .env")
 
-TABLE = "public.cogs_by_sku"
+TABLE = "public.cpis_by_sku"
 
 WINDOWS = {
     "1d":  1,
@@ -59,9 +65,12 @@ WINDOWS = {
 DDL = f"""
 create table if not exists {TABLE} (
     window_key       text not null,        -- '1d' | '7d' | '30d' | custom label
-    master_sku       text not null,
-    variant_skus     text[],               -- ['SDCPGR','SDCPBL',…]
-    product_title    text,                 -- most common / first-seen title
+    level            text not null,        -- 'master' | 'color'
+    sku              text not null,        -- master SKU or color-variant SKU
+    parent_sku       text,                 -- master for color rows; null for master rows
+    color_code       text,                 -- last 2 chars for color rows (GR/BL/…)
+    variant_skus     text[],               -- child SKUs rolled up into this row
+    product_title    text,
     product_vendor   text,
     product_type     text,
     net_items_sold   numeric,
@@ -75,15 +84,17 @@ create table if not exists {TABLE} (
     doq              numeric,              -- net_items_sold / days_in_window
     inventory_total  bigint,               -- sum of variantsInventoryQuantity
     variants_count   integer,
-    ad_spend         numeric,
-    ad_ncp           integer,
+    ad_spend         numeric,              -- populated at MASTER level only
+    ad_ncp           integer,              -- populated at MASTER level only
     cost_per_ncp     numeric,              -- ad_spend / ad_ncp
     matched_ad_count integer,
-    cogs             numeric,              -- placeholder (formula pending)
+    cpis             numeric,              -- Cost Per Item Sold placeholder (formula pending)
     computed_at      timestamptz not null default now(),
-    primary key (window_key, master_sku)
+    primary key (window_key, level, sku)
 );
-create index if not exists cogs_by_sku_window_idx on {TABLE} (window_key);
+create index if not exists cpis_by_sku_window_idx on {TABLE} (window_key);
+create index if not exists cpis_by_sku_level_idx  on {TABLE} (level);
+create index if not exists cpis_by_sku_parent_idx on {TABLE} (parent_sku);
 """
 
 def gql(query, variables=None, timeout=60):
@@ -180,14 +191,28 @@ def fetch_all_variants():
     print(f"  [variants] total {len(variants)}")
     return variants
 
-# ────────────────────────── master SKU derivation ────────────────────────
-def master_of(sku):
-    """Master SKU = variant SKU with last 2 chars stripped. Guard against
-    SKUs shorter than 3 chars (return None so we drop them)."""
+# ────────────────────────── SKU-level derivation ─────────────────────────
+def color_of(sku):
+    """Color-variant SKU = variant SKU with the '_<size>' suffix stripped.
+    SMCPBL_L → SMCPBL   ·   SMCPBL → SMCPBL   ·   SMCP → SMCP."""
     if not sku or not isinstance(sku, str): return None
     s = sku.strip()
-    if len(s) < 4: return None
-    return s[:-2]
+    if not s: return None
+    # Split once on first underscore. Anything after '_' is treated as size.
+    return s.split("_", 1)[0]
+
+def master_of(sku):
+    """Master SKU = color_variant with last 2 chars (colour code) stripped.
+    SMCPBL_L → SMCP   ·   SMCPBL → SMCP   ·   SMCP → None (too short)."""
+    cv = color_of(sku)
+    if not cv or len(cv) < 4: return None
+    return cv[:-2]
+
+def color_code_of(sku):
+    """The 2-char colour suffix. SMCPBL_L → 'BL'; None if not derivable."""
+    cv = color_of(sku)
+    if not cv or len(cv) < 4: return None
+    return cv[-2:]
 
 # ──────────────────────── ad-spend match (Python) ────────────────────────
 def compute_ad_spend(cur, master_skus):
@@ -222,64 +247,95 @@ def build_window(cur, window_key, days):
     sales, since, until = fetch_sales(days)
     variants = fetch_all_variants()
 
-    # 1. Group variant SKUs by master SKU
+    # 1. Group variant SKUs by BOTH master and color-variant.
+    #    variant SKU (finest) → color variant (SMCPBL) → master (SMCP)
     var_by_master = defaultdict(list)
+    var_by_color  = defaultdict(list)
     inv_by_master = defaultdict(int)
-    product_by_master = {}      # master_sku → (title, vendor, productType) - first-seen
+    inv_by_color  = defaultdict(int)
+    color_by_master = defaultdict(set)          # master → set of color variants
+    product_by_master = {}                       # master → (title,vendor,type)
+    product_by_color  = {}                       # color → (title,vendor,type,parent_master,code)
     for v in variants:
-        sku = (v.get("sku") or "").strip()
-        m = master_of(sku)
+        raw = (v.get("sku") or "").strip()
+        m   = master_of(raw)
+        c   = color_of(raw)
         if not m: continue
-        var_by_master[m].append(sku)
+        var_by_master[m].append(raw)
         inv_by_master[m] += int(v.get("inventoryQuantity") or 0)
         prod = v.get("product") or {}
         if m not in product_by_master:
             product_by_master[m] = (prod.get("title"), prod.get("vendor"), prod.get("productType"))
+        if c and c != m:
+            var_by_color[c].append(raw)
+            inv_by_color[c] += int(v.get("inventoryQuantity") or 0)
+            color_by_master[m].add(c)
+            if c not in product_by_color:
+                product_by_color[c] = (prod.get("title"), prod.get("vendor"),
+                                       prod.get("productType"), m, color_code_of(raw))
 
-    # 2. Roll sales up to master SKU by matching product_title.
-    #    Sales ShopifyQL groups by product_title — no direct SKU. We map
-    #    product_title → master_skus via the variants' parent product.title.
-    #    A product usually maps to ONE master SKU (all variants share prefix).
-    title_to_masters = defaultdict(set)
-    for m, (title, _, _) in product_by_master.items():
-        if title: title_to_masters[title.strip().lower()].add(m)
+    # 2. Roll ShopifyQL sales up by matching product_title. Sales come only
+    #    at product_title grain (no direct SKU), so we split the row's total
+    #    proportionally between all COLOR variants of that product (weighted
+    #    by inventory as a proxy; falls back to even split).
+    title_to_colors = defaultdict(list)          # title → [color_variants]
+    for c, (title, _, _, _, _) in product_by_color.items():
+        if title: title_to_colors[title.strip().lower()].append(c)
 
     sales_by_master = defaultdict(lambda: defaultdict(float))
+    sales_by_color  = defaultdict(lambda: defaultdict(float))
     unmatched_titles = 0
+    KEYS = ("net_items_sold","gross_sales","discounts","sales_reversals",
+            "net_sales","taxes","total_sales")
     for row in sales:
-        title = (row.get("product_title") or "").strip().lower()
-        masters = title_to_masters.get(title, set())
-        if not masters:
+        title  = (row.get("product_title") or "").strip().lower()
+        colors = title_to_colors.get(title, [])
+        if not colors:
             unmatched_titles += 1
             continue
-        # Split evenly if a title maps to multiple masters (rare).
-        share = 1.0 / len(masters)
-        for m in masters:
-            for k in ("net_items_sold","gross_sales","discounts","sales_reversals",
-                      "net_sales","taxes","total_sales"):
-                sales_by_master[m][k] += float(row.get(k) or 0) * share
-    print(f"  [rollup] {len(sales_by_master)} masters had sales; "
+        # Weight = inventory (fallback to 1 if all-zero). Skips negative inventory.
+        weights = [max(1, inv_by_color.get(c, 0)) for c in colors]
+        total_w = float(sum(weights)) or 1.0
+        for c, w in zip(colors, weights):
+            share = w / total_w
+            parent = product_by_color[c][3]      # master
+            for k in KEYS:
+                v = float(row.get(k) or 0) * share
+                sales_by_color[c][k]  += v
+                sales_by_master[parent][k] += v
+    print(f"  [rollup] {sum(1 for s in sales_by_master.values() if s)} masters had sales · "
+          f"{sum(1 for s in sales_by_color.values() if s)} color variants had sales · "
           f"{unmatched_titles} titles unmatched")
 
-    # 3. Ad spend / NCP per master SKU (needs primary_table access; skip in dry-run)
+    # 3. Ad spend / NCP — MASTER LEVEL ONLY (per user rule: "only map master
+    #    sku names with ad's name, not color variants").
     all_masters = set(var_by_master.keys())
     ad_by_master = compute_ad_spend(cur, all_masters) if cur else {}
 
-    # 4. Assemble rows (one per master SKU that had EITHER sales OR ad spend
-    #    OR inventory — i.e. anything to report).
-    rows = []
-    for m in all_masters:
-        s = sales_by_master.get(m, {})
-        a = ad_by_master.get(m, {"spend": 0.0, "ncp": 0, "matched_ad_count": 0})
-        inv = int(inv_by_master.get(m, 0))
-        title, vendor, ptype = product_by_master.get(m, (None, None, None))
+    # 4. Assemble rows. Emit one row per (level, sku).
+    def _assemble(level, sku, parent, code, kids, inv, sales_map, ad_map):
+        s = sales_map.get(sku, {})
         net_items = float(s.get("net_items_sold", 0))
         doq = (net_items / days) if days > 0 else None
-        cpn = (a["spend"] / a["ncp"]) if a["ncp"] > 0 else None
-        rows.append({
+        if level == "master":
+            a = ad_map.get(sku, {"spend": 0.0, "ncp": 0, "matched_ad_count": 0})
+            spend, ncp, macnt = a["spend"], a["ncp"], a["matched_ad_count"]
+        else:
+            spend, ncp, macnt = None, None, None
+        cpn = (spend / ncp) if (spend is not None and ncp and ncp > 0) else None
+        title, vendor, ptype = (None, None, None)
+        if level == "master":
+            title, vendor, ptype = product_by_master.get(sku, (None, None, None))
+        else:
+            row = product_by_color.get(sku)
+            if row: title, vendor, ptype = row[0], row[1], row[2]
+        return {
             "window_key":       window_key,
-            "master_sku":       m,
-            "variant_skus":     sorted(set(var_by_master[m])),
+            "level":            level,
+            "sku":              sku,
+            "parent_sku":       parent,
+            "color_code":       code,
+            "variant_skus":     sorted(set(kids)),
             "product_title":    title,
             "product_vendor":   vendor,
             "product_type":     ptype,
@@ -292,20 +348,31 @@ def build_window(cur, window_key, days):
             "total_sales":      float(s.get("total_sales", 0)),
             "days_in_window":   days,
             "doq":              doq,
-            "inventory_total":  inv,
-            "variants_count":   len(var_by_master[m]),
-            "ad_spend":         a["spend"],
-            "ad_ncp":           a["ncp"],
+            "inventory_total":  int(inv),
+            "variants_count":   len(kids),
+            "ad_spend":         spend,
+            "ad_ncp":           ncp,
             "cost_per_ncp":     cpn,
-            "matched_ad_count": a["matched_ad_count"],
-            "cogs":             None,   # formula pending
-        })
+            "matched_ad_count": macnt,
+            "cpis":             None,
+        }
+
+    rows = []
+    for m in all_masters:
+        rows.append(_assemble("master", m, None, None,
+                              var_by_master[m], inv_by_master[m],
+                              sales_by_master, ad_by_master))
+    for c, (_, _, _, parent, code) in product_by_color.items():
+        rows.append(_assemble("color", c, parent, code,
+                              var_by_color[c], inv_by_color[c],
+                              sales_by_color, {}))
     return rows
 
-COLS = ["window_key","master_sku","variant_skus","product_title","product_vendor",
-        "product_type","net_items_sold","gross_sales","discounts","sales_reversals",
+COLS = ["window_key","level","sku","parent_sku","color_code","variant_skus",
+        "product_title","product_vendor","product_type",
+        "net_items_sold","gross_sales","discounts","sales_reversals",
         "net_sales","taxes","total_sales","days_in_window","doq","inventory_total",
-        "variants_count","ad_spend","ad_ncp","cost_per_ncp","matched_ad_count","cogs"]
+        "variants_count","ad_spend","ad_ncp","cost_per_ncp","matched_ad_count","cpis"]
 
 def main():
     ap = argparse.ArgumentParser()

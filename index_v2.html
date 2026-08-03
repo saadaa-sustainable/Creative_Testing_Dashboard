@@ -2062,8 +2062,8 @@
        title="Switch between the products table and the master-SKU sales rollup">
     <button class="lp-viewtog-btn active" data-inv-tab="products" type="button"
             role="tab" aria-selected="true">Products</button>
-    <button class="lp-viewtog-btn" data-inv-tab="cogs" type="button"
-            role="tab" aria-selected="false">COGS</button>
+    <button class="lp-viewtog-btn" data-inv-tab="cpis" type="button"
+            role="tab" aria-selected="false">CPIS</button>
   </div>
 
   <!-- Wrap all existing product-inventory content in a div so the tab toggle
@@ -2266,16 +2266,16 @@
   </div>
   </div><!-- /invPanelProducts -->
 
-  <!-- ═══ COGS SUB-PANEL — per-master-SKU sales × inventory × ad-cost ═══
-       Data source: public.cogs_by_sku (mirrored by backend/fetch_cogs_by_sku.py).
-       Row grain: one row per (window_key, master_sku). Live inventory is
-       refreshed each time the fetch script runs. COGS column is a placeholder
-       pending the formula. -->
-  <div id="invPanelCogs" style="display:none">
+  <!-- ═══ CPIS SUB-PANEL — per-SKU sales × inventory × ad-cost ═══
+       Data source: public.cpis_by_sku (mirrored by backend/fetch_cogs_by_sku.py).
+       Row grain: one row per (window_key, level, sku) — level ∈ {master, color}.
+       Live inventory is refreshed each time the fetch script runs.
+       CPIS column is a placeholder pending the formula. -->
+  <div id="invPanelCpis" style="display:none">
     <div class="kpi-row" style="grid-template-columns:repeat(auto-fit, minmax(160px, 1fr))">
       <div class="kpi"><div class="k-lbl">Total sales</div><div class="k-val mono" id="cgKpSales">—</div><div class="k-sub" id="cgKpSalesSub">selected window</div></div>
       <div class="kpi"><div class="k-lbl">Net items sold</div><div class="k-val mono" id="cgKpItems">—</div><div class="k-sub">units</div></div>
-      <div class="kpi"><div class="k-lbl">Master SKUs</div><div class="k-val mono" id="cgKpSkus">—</div><div class="k-sub">with sales</div></div>
+      <div class="kpi"><div class="k-lbl">SKUs w/ sales</div><div class="k-val mono" id="cgKpSkus">—</div><div class="k-sub" id="cgKpSkusSub">master level</div></div>
       <div class="kpi"><div class="k-lbl">Ad spend</div><div class="k-val mono" id="cgKpSpend">—</div><div class="k-sub">matched by master SKU</div></div>
       <div class="kpi"><div class="k-lbl">Wtd Cost/NCP</div><div class="k-val mono" id="cgKpCPN">—</div><div class="k-sub">spend ÷ NCP</div></div>
       <div class="kpi"><div class="k-lbl">Last refresh</div><div class="k-val mono" id="cgKpRefreshed" style="font-size:14px">—</div><div class="k-sub">from fetch script</div></div>
@@ -2288,8 +2288,14 @@
           <button class="lp-viewtog-btn active" data-cg-win="7d"  type="button" role="tab" aria-selected="true">Week</button>
           <button class="lp-viewtog-btn"        data-cg-win="30d" type="button" role="tab">30 days</button>
         </div>
+        <div class="lp-viewtog" role="tablist" title="SKU hierarchy level">
+          <button class="lp-viewtog-btn active" data-cg-level="master" type="button" role="tab" aria-selected="true"
+                  title="Product-level SKU (e.g. SMCP, SDCP, SDFSK) — rolls up all color variants">Master SKU</button>
+          <button class="lp-viewtog-btn" data-cg-level="color" type="button" role="tab" aria-selected="false"
+                  title="Color-variant SKU (e.g. SMCPGR, SMCPBL) — rolls up all sizes; ad spend shown only at master level">Color Variant</button>
+        </div>
         <input class="fg-input" id="cgSearch" type="search"
-               placeholder="filter master SKU / product / vendor…"
+               placeholder="filter SKU / product / vendor…"
                style="padding:5px 10px;font-size:12px;flex:1;min-width:220px">
         <select class="fg-select" id="cgSort" style="padding:5px 8px;font-size:12px">
           <option value="total_sales">Sort: Total sales ↓</option>
@@ -2315,7 +2321,7 @@
 
     <div class="funnel-card" style="padding:14px 16px;margin-top:10px">
       <div class="funnel-hdr" style="padding:6px 4px 12px">
-        <h3 id="cgTableTitle">COGS by master SKU
+        <h3 id="cgTableTitle">CPIS by master SKU
           <span class="h-sub" id="cgTableSub">joined with Meta ads · master SKU only</span>
         </h3>
       </div>
@@ -2323,20 +2329,21 @@
         <table class="tbl" id="cgTable">
           <thead>
             <tr>
-              <th style="width:110px" data-sort="master_sku">Master SKU</th>
+              <th style="width:110px" data-sort="sku">SKU</th>
+              <th style="width:90px" data-sort="parent_sku" title="Master SKU (only meaningful for Color Variant rows)">Master</th>
               <th data-sort="product_title">Product</th>
-              <th data-sort="variant_skus" title="Color-variant SKUs (last 2 chars = colour code)">Variants</th>
+              <th data-sort="variant_skus" title="Child SKUs rolled up into this row">Children</th>
               <th class="mono" style="text-align:right" data-sort="doq" title="Daily Order Quantity = net items sold ÷ days in window">DoQ</th>
               <th class="mono" style="text-align:right" data-sort="inventory_total" title="Sum of variantsInventoryQuantity (live from Shopify at refresh time)">Inventory</th>
               <th class="mono" style="text-align:right" data-sort="total_sales">Total sales</th>
               <th class="mono" style="text-align:right" data-sort="net_items_sold">Items</th>
-              <th class="mono" style="text-align:right" data-sort="ad_spend">Ad spend</th>
+              <th class="mono" style="text-align:right" data-sort="ad_spend" title="Populated at Master level only">Ad spend</th>
               <th class="mono" style="text-align:right" data-sort="cost_per_ncp">Cost/NCP</th>
-              <th class="mono" style="text-align:right" data-sort="cogs" title="COGS — formula pending">COGS</th>
+              <th class="mono" style="text-align:right" data-sort="cpis" title="CPIS — formula pending">CPIS</th>
             </tr>
           </thead>
           <tbody id="cgTableBody">
-            <tr><td colspan="10" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>
+            <tr><td colspan="11" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -2961,6 +2968,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=cogs_sku"></script>
+<script src="assets/dashboard.js?v=cpis_master_color"></script>
 </body>
 </html>
