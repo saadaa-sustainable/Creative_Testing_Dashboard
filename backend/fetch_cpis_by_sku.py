@@ -159,7 +159,7 @@ def fetch_sales(days):
 # ─────────────────────────── Product variants ────────────────────────────
 VARIANTS_QUERY = """
 query VariantsPage($after: String) {
-  productVariants(first: 250, after: $after) {
+  productVariants(first: 250, after: $after, query: "product_status:active") {
     edges {
       node {
         sku
@@ -175,21 +175,72 @@ query VariantsPage($after: String) {
 """
 
 def fetch_all_variants():
-    """Paginate all product variants — SKU, inventory, and parent product info."""
+    """Paginate all product variants — SKU, inventory, and parent product info.
+    Server-side filter to product_status:active — archived / draft products
+    carry stale inventory that used to inflate the master rollup (a single
+    master could sum to 30k+ units otherwise). Belt-and-suspenders check
+    inside Python in case the query filter is loosened in a future API."""
     variants = []
     after = None
     while True:
         data = gql(VARIANTS_QUERY, {"after": after})
         pv = data["productVariants"]
         for e in pv["edges"]:
-            variants.append(e["node"])
+            n = e["node"]
+            prod = n.get("product") or {}
+            if str(prod.get("status", "")).upper() != "ACTIVE": continue
+            variants.append(n)
         pi = pv["pageInfo"]
         if not pi["hasNextPage"]:
             break
         after = pi["endCursor"]
         print(f"    [variants] fetched {len(variants)} so far …", flush=True)
-    print(f"  [variants] total {len(variants)}")
+    print(f"  [variants] total {len(variants)}  (ACTIVE products only)")
     return variants
+
+# ─────────────────────────── canonical title ─────────────────────────────
+# Words we strip when computing a master product name from the colour-variant
+# titles — colour names + a few packaging / gender / model modifiers that
+# creep into individual product titles.
+_COLOR_WORDS = set("""
+black white red blue green yellow pink purple orange brown grey gray navy
+olive maroon beige tan cream ivory gold silver khaki wine burgundy teal mint
+coral lavender mustard rust peach salmon lilac plum turquoise indigo magenta
+fuchsia sky sage charcoal aqua lemon lime royal midnight rose ruby emerald
+sapphire onyx pearl bronze copper cobalt cyan taupe mauve saffron scarlet
+tangerine mocha nude walnut cocoa amber jade forest slate stone off-white
+""".split())
+
+def canonical_master_title(titles):
+    """Given a list of colour-variant product titles, return a single
+    master product name by keeping only words that appear in ALL titles
+    AND are not obvious colour words. Falls back to the shortest title.
+
+    Examples
+      ["Men Navy Blue Cotton Pant","Men Green Cotton Pant","Men Black Cotton Pant"]
+        → "Men Cotton Pant"
+      ["Women White Cotton Pant"]
+        → "Women Cotton Pant"
+    """
+    clean = [t for t in titles if t]
+    if not clean: return None
+    if len(clean) == 1:
+        toks = [w for w in clean[0].split()
+                if w.lower().strip(",.-") not in _COLOR_WORDS]
+        return " ".join(toks) or clean[0]
+    # Intersection of words across every title (case-insensitive).
+    common = None
+    for t in clean:
+        toks = {w.lower().strip(",.-") for w in t.split()}
+        common = toks if common is None else (common & toks)
+    if not common: return min(clean, key=len)
+    # Reconstruct in the order of the FIRST title, dropping colour words + dupes.
+    seen, out = set(), []
+    for w in clean[0].split():
+        key = w.lower().strip(",.-")
+        if key in common and key not in _COLOR_WORDS and key not in seen:
+            out.append(w); seen.add(key)
+    return " ".join(out) or min(clean, key=len)
 
 # ────────────────────────── SKU-level derivation ─────────────────────────
 def color_of(sku):
@@ -249,30 +300,41 @@ def build_window(cur, window_key, days):
 
     # 1. Group variant SKUs by BOTH master and color-variant.
     #    variant SKU (finest) → color variant (SMCPBL) → master (SMCP)
-    var_by_master = defaultdict(list)
-    var_by_color  = defaultdict(list)
-    inv_by_master = defaultdict(int)
-    inv_by_color  = defaultdict(int)
-    color_by_master = defaultdict(set)          # master → set of color variants
-    product_by_master = {}                       # master → (title,vendor,type)
-    product_by_color  = {}                       # color → (title,vendor,type,parent_master,code)
+    #    inv only counted for non-negative quantities (drops returns/holds).
+    size_skus_by_color = defaultdict(list)     # color → [SMCPBL_L, SMCPBL_XL, …]
+    inv_by_color       = defaultdict(int)
+    color_by_master    = defaultdict(set)      # master → {SMCPBL, SMCPGR, …}
+    titles_by_master   = defaultdict(list)     # master → [color-variant product titles]
+    vendor_by_master   = {}
+    ptype_by_master    = {}
+    product_by_color   = {}                    # color → (title, vendor, type, parent_master, code)
     for v in variants:
         raw = (v.get("sku") or "").strip()
         m   = master_of(raw)
         c   = color_of(raw)
         if not m: continue
-        var_by_master[m].append(raw)
-        inv_by_master[m] += int(v.get("inventoryQuantity") or 0)
+        inv = max(0, int(v.get("inventoryQuantity") or 0))
         prod = v.get("product") or {}
-        if m not in product_by_master:
-            product_by_master[m] = (prod.get("title"), prod.get("vendor"), prod.get("productType"))
+        title = prod.get("title")
+        if m not in vendor_by_master:
+            vendor_by_master[m] = prod.get("vendor")
+            ptype_by_master[m]  = prod.get("productType")
         if c and c != m:
-            var_by_color[c].append(raw)
-            inv_by_color[c] += int(v.get("inventoryQuantity") or 0)
+            size_skus_by_color[c].append(raw)
+            inv_by_color[c] += inv
             color_by_master[m].add(c)
             if c not in product_by_color:
-                product_by_color[c] = (prod.get("title"), prod.get("vendor"),
+                product_by_color[c] = (title, prod.get("vendor"),
                                        prod.get("productType"), m, color_code_of(raw))
+                if title and title not in titles_by_master[m]:
+                    titles_by_master[m].append(title)
+    # Aggregate master inventory from its color variants (avoids double
+    # counting the raw variant sizes since those were already summed into
+    # inv_by_color per colour).
+    inv_by_master = {m: sum(inv_by_color[c] for c in colors)
+                     for m, colors in color_by_master.items()}
+    # variant_skus at master level = the colour-variant SKUs, sorted.
+    var_by_master = {m: sorted(colors) for m, colors in color_by_master.items()}
 
     # 2. Roll ShopifyQL sales up by matching product_title. Sales come only
     #    at product_title grain (no direct SKU), so we split the row's total
@@ -313,7 +375,7 @@ def build_window(cur, window_key, days):
     ad_by_master = compute_ad_spend(cur, all_masters) if cur else {}
 
     # 4. Assemble rows. Emit one row per (level, sku).
-    def _assemble(level, sku, parent, code, kids, inv, sales_map, ad_map):
+    def _assemble(level, sku, parent, code, kids, inv, sales_map, ad_map, title):
         s = sales_map.get(sku, {})
         net_items = float(s.get("net_items_sold", 0))
         doq = (net_items / days) if days > 0 else None
@@ -323,12 +385,8 @@ def build_window(cur, window_key, days):
         else:
             spend, ncp, macnt = None, None, None
         cpn = (spend / ncp) if (spend is not None and ncp and ncp > 0) else None
-        title, vendor, ptype = (None, None, None)
-        if level == "master":
-            title, vendor, ptype = product_by_master.get(sku, (None, None, None))
-        else:
-            row = product_by_color.get(sku)
-            if row: title, vendor, ptype = row[0], row[1], row[2]
+        vendor = vendor_by_master.get(parent or sku)
+        ptype  = ptype_by_master.get(parent or sku)
         return {
             "window_key":       window_key,
             "level":            level,
@@ -359,13 +417,15 @@ def build_window(cur, window_key, days):
 
     rows = []
     for m in all_masters:
+        master_title = canonical_master_title(titles_by_master.get(m, []))
         rows.append(_assemble("master", m, None, None,
-                              var_by_master[m], inv_by_master[m],
-                              sales_by_master, ad_by_master))
-    for c, (_, _, _, parent, code) in product_by_color.items():
+                              var_by_master.get(m, []), inv_by_master.get(m, 0),
+                              sales_by_master, ad_by_master, master_title))
+    for c, (title, _, _, parent, code) in product_by_color.items():
         rows.append(_assemble("color", c, parent, code,
-                              var_by_color[c], inv_by_color[c],
-                              sales_by_color, {}))
+                              sorted(set(size_skus_by_color.get(c, []))),
+                              inv_by_color.get(c, 0),
+                              sales_by_color, {}, title))
     return rows
 
 COLS = ["window_key","level","sku","parent_sku","color_code","variant_skus",

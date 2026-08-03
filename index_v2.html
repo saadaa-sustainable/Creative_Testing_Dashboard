@@ -2332,7 +2332,7 @@
               <th style="width:110px" data-sort="sku">SKU</th>
               <th style="width:90px" data-sort="parent_sku" title="Master SKU (only meaningful for Color Variant rows)">Master</th>
               <th data-sort="product_title">Product</th>
-              <th data-sort="variant_skus" title="Child SKUs rolled up into this row">Children</th>
+              <th data-sort="variant_skus" title="Master row: colour-variant SKUs (SMCPBL, SMCPGR, …). Color row: size-variant SKUs (SMCPBL_L, SMCPBL_XL, …).">Variants</th>
               <th class="mono" style="text-align:right" data-sort="doq" title="Daily Order Quantity = net items sold ÷ days in window">DoQ</th>
               <th class="mono" style="text-align:right" data-sort="inventory_total" title="Sum of variantsInventoryQuantity (live from Shopify at refresh time)">Inventory</th>
               <th class="mono" style="text-align:right" data-sort="total_sales">Total sales</th>
@@ -2968,6 +2968,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=cpis_master_color"></script>
+<script src="assets/dashboard.js?v=cpis_active_titles"></script>
 </body>
 </html>
