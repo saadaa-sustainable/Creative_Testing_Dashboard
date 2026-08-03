@@ -2283,17 +2283,30 @@
 
     <div class="funnel-card" style="padding:12px 16px;margin-top:10px">
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <div class="lp-viewtog" role="tablist" title="Precomputed sales windows">
-          <button class="lp-viewtog-btn"        data-cg-win="1d"  type="button" role="tab">Day</button>
-          <button class="lp-viewtog-btn active" data-cg-win="7d"  type="button" role="tab" aria-selected="true">Week</button>
-          <button class="lp-viewtog-btn"        data-cg-win="30d" type="button" role="tab">30 days</button>
+        <!-- Date range picker — same delivery-date semantics as Ads Analyse.
+             Ad-side columns (Ad spend, #Ads, Cost/NCP, ROAS) recompute live
+             for whatever range is picked. Sales/inventory columns still come
+             from the precomputed 30d rollup — see footnote in the table. -->
+        <span style="font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.4px">Date range</span>
+        <input class="fg-input" id="cgDateFrom" type="date" style="padding:4px 8px;font-size:12px">
+        <span style="color:var(--text-tertiary)">→</span>
+        <input class="fg-input" id="cgDateTo" type="date" style="padding:4px 8px;font-size:12px">
+        <button class="btn ghost" id="cgApplyRange" type="button" style="padding:4px 12px;font-size:11px">Apply</button>
+        <button class="btn ghost" id="cgSyncAE"   type="button" style="padding:4px 12px;font-size:11px"
+                title="Copy the current date range from the Ads Analyse view">↻ Sync with AE</button>
+        <div class="lp-viewtog" role="tablist" title="Quick presets">
+          <button class="lp-viewtog-btn" data-cg-preset="7d"  type="button">7d</button>
+          <button class="lp-viewtog-btn active" data-cg-preset="30d" type="button" aria-selected="true">30d</button>
+          <button class="lp-viewtog-btn" data-cg-preset="90d" type="button">90d</button>
         </div>
-        <div class="lp-viewtog" role="tablist" title="SKU hierarchy level">
+        <div class="lp-viewtog" role="tablist" title="SKU hierarchy level" style="margin-left:auto">
           <button class="lp-viewtog-btn active" data-cg-level="master" type="button" role="tab" aria-selected="true"
                   title="Product-level SKU (e.g. SMCP, SDCP, SDFSK) — rolls up all color variants">Master SKU</button>
           <button class="lp-viewtog-btn" data-cg-level="color" type="button" role="tab" aria-selected="false"
                   title="Color-variant SKU (e.g. SMCPGR, SMCPBL) — rolls up all sizes; ad spend shown only at master level">Color Variant</button>
         </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px">
         <input class="fg-input" id="cgSearch" type="search"
                placeholder="filter SKU / product / vendor…"
                style="padding:5px 10px;font-size:12px;flex:1;min-width:220px">
@@ -2308,6 +2321,7 @@
           <option value="doh">Sort: DoH ↓</option>
           <option value="matched_ad_count">Sort: #Ads ↓</option>
         </select>
+        <span id="cgRangeSummary" style="font-size:11px;color:var(--text-tertiary);margin-left:auto"></span>
       </div>
     </div>
 
@@ -3069,6 +3083,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=cpis_ae_reconcile"></script>
+<script src="assets/dashboard.js?v=cpis_date_range_picker"></script>
 </body>
 </html>

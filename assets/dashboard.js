@@ -9490,44 +9490,155 @@ function _hvRender(){
 })();
 
 /* ============================================================
-   CPIS (Inventory sub-tab) — reads public.cpis_by_sku, one row per
-   (window_key, level, sku). Refreshed by backend/fetch_cogs_by_sku.py.
+   CPIS (Inventory sub-tab) — public.cpis_by_sku provides the sales +
+   inventory base (precomputed 30d rollup); ad-side columns (Ad spend,
+   #Ads, Cost/NCP, ROAS) recompute live from primary_table for whatever
+   date range the user picks. Same delivery-date semantics as Ads Analyse.
    ============================================================ */
-// Cache keyed by "<window>::<level>" so switching axes doesn't refetch.
-let _cgCache  = {};                     // "7d::master" → rows[]
-let _cgWin    = '7d';                   // '1d' | '7d' | '30d'
+let _cgBase   = null;                   // precomputed 30d rows (sales + inv base)
+let _cgAdAgg  = null;                   // Map: master_sku → {spend,ncp,ads,mean_cpn}
+let _cgFrom   = '';                     // ISO date string (from)
+let _cgTo     = '';                     // ISO date string (to)
 let _cgLevel  = 'master';               // 'master' | 'color'
 let _cgChart  = null;
+
+// Ensure both date inputs have values; seed to Last 30 days if empty.
+function _cgEnsureDates(){
+  const fromEl = document.getElementById('cgDateFrom');
+  const toEl   = document.getElementById('cgDateTo');
+  if (!fromEl || !toEl) return;
+  if (!fromEl.value){
+    const d = new Date(); d.setDate(d.getDate() - 30);
+    fromEl.value = d.toISOString().slice(0,10);
+  }
+  if (!toEl.value){
+    toEl.value = new Date().toISOString().slice(0,10);
+  }
+  _cgFrom = fromEl.value; _cgTo = toEl.value;
+}
 
 async function loadCogsBySku(force){
   const body = document.getElementById('cgTableBody');
   if (!body) return;
-  const key = _cgWin + '::' + _cgLevel;
-  if (_cgCache[key] && !force){ _cgRender(); return; }
-  body.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading '+_cgWin+' · '+_cgLevel+'…</td></tr>';
+  _cgEnsureDates();
+  body.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>';
   if (!SUPABASE_URL || !SUPABASE_ANON){
     body.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">SUPABASE_URL / anon key missing.</td></tr>';
     return;
   }
   const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
-  const url = SUPABASE_URL + '/rest/v1/cpis_by_sku?select=*'
-            + '&window_key=eq.' + _cgWin
-            + '&level=eq.'      + _cgLevel
-            + '&order=total_sales.desc&limit=10000';
+  // (1) SALES + INVENTORY base — precomputed 30d rollup, filtered by level.
+  //     Sales stays scoped to the 30d preset (footnote in the header explains
+  //     this) because we don't precompute arbitrary ranges. Inventory is
+  //     window-independent so this is exact.
+  const baseUrl = SUPABASE_URL + '/rest/v1/cpis_by_sku?select=*'
+                + '&window_key=eq.30d'
+                + '&level=eq.'      + _cgLevel
+                + '&order=total_sales.desc&limit=10000';
+  // (2) AD-SIDE metrics — LIVE from primary_table for [from, to]. Same delivery
+  //     date semantics as the Ads Analyse RPC. Aggregated per master client-side.
+  const adUrl = SUPABASE_URL + '/rest/v1/primary_table'
+              + '?select=ad_id,ad_name,amount_spent_inr,ncp_count,date'
+              + '&ad_name=not.is.null'
+              + '&date=gte.' + _cgFrom
+              + '&date=lte.' + _cgTo
+              + '&order=amount_spent_inr.desc&limit=100000';
   try {
-    const r = await fetch(url, { headers: hdrs });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    _cgCache[key] = await r.json();
+    const [rBase, rAds] = await Promise.all([
+      fetch(baseUrl, { headers: hdrs }),
+      fetch(adUrl,   { headers: hdrs }),
+    ]);
+    if (!rBase.ok) throw new Error('cpis_by_sku HTTP ' + rBase.status);
+    if (!rAds.ok)  throw new Error('primary_table HTTP ' + rAds.status);
+    _cgBase = await rBase.json();
+    const adRows = await rAds.json();
+    _cgAdAgg = _cgAggregateAds(_cgBase, adRows);
     _cgRender();
   } catch (e){
     body.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
   }
 }
 
-function _cgCurrentRows(){ return _cgCache[_cgWin + '::' + _cgLevel] || []; }
+/* Aggregate primary_table rows into per-master ad metrics. Uses substring
+   match on lowercased ad_name — mirrors the backend fetcher's rule so the
+   numbers match what precompute would produce for the same range. */
+function _cgAggregateAds(baseRows, adRows){
+  // Collect all master SKUs to match against — from the base rows, whichever
+  // level we're on. When level='color', we still need the parent master for
+  // matching (colour SKUs have no ad-spend attribution).
+  const masters = new Set();
+  for (const r of baseRows){
+    if (r.level === 'master') masters.add(r.sku);
+    else if (r.parent_sku)    masters.add(r.parent_sku);
+  }
+  // Group primary_table rows per (ad_id, matched_master). One ad may match
+  // multiple masters via substring — count it into each.
+  const perAd = new Map();   // key: `${ad_id}::${master}` → {ad_id, master, spend, ncp, days:Set}
+  const nameLcCache = new Map();
+  for (const row of adRows){
+    if (!row.ad_name) continue;
+    let nameLc = nameLcCache.get(row.ad_name);
+    if (nameLc == null){ nameLc = row.ad_name.toLowerCase(); nameLcCache.set(row.ad_name, nameLc); }
+    for (const m of masters){
+      if (m.length < 4) continue;
+      if (!nameLc.includes(m.toLowerCase())) continue;
+      const key = row.ad_id + '::' + m;
+      let e = perAd.get(key);
+      if (!e){ e = { ad_id: row.ad_id, master: m, spend: 0, ncp: 0, days: new Set() }; perAd.set(key, e); }
+      e.spend += Number(row.amount_spent_inr) || 0;
+      e.ncp   += Number(row.ncp_count) || 0;
+      if (row.date) e.days.add(row.date);
+    }
+  }
+  // Fold into per-master aggregates + arithmetic-mean Cost/NCP.
+  const perMaster = new Map();
+  for (const e of perAd.values()){
+    let m = perMaster.get(e.master);
+    if (!m){ m = { spend: 0, ncp: 0, ads: 0, cpn_sum: 0, cpn_count: 0 }; perMaster.set(e.master, m); }
+    m.spend += e.spend;
+    m.ncp   += e.ncp;
+    m.ads   += 1;
+    if (e.ncp > 0){ m.cpn_sum += (e.spend / e.ncp); m.cpn_count += 1; }
+  }
+  for (const m of perMaster.values()){
+    m.mean_cpn = m.cpn_count > 0 ? (m.cpn_sum / m.cpn_count) : null;
+  }
+  return perMaster;
+}
+
+function _cgCurrentRows(){ return _cgBase || []; }
+
+// Overlay ad-side metrics from _cgAdAgg onto a row (which is either master
+// or color-variant). For color rows, use the parent master's ad aggregates
+// (per user's spec: matching is master-only).
+function _cgWithAds(r){
+  if (!_cgAdAgg) return r;
+  const key = r.level === 'master' ? r.sku : r.parent_sku;
+  const a = key ? _cgAdAgg.get(key) : null;
+  if (!a) return Object.assign({}, r, {
+    ad_spend: r.level === 'master' ? 0    : null,
+    ad_ncp:   r.level === 'master' ? 0    : null,
+    cost_per_ncp:      null,
+    matched_ad_count:  r.level === 'master' ? 0 : null,
+    roas:              null,
+    doh:               (r.doq && r.doq > 0) ? (r.inventory_total / r.doq) : null,
+  });
+  const spend = a.spend, ncp = a.ncp;
+  const total_sales = Number(r.total_sales) || 0;
+  const roas = spend > 0 ? (total_sales / spend) : null;
+  return Object.assign({}, r, {
+    ad_spend:         r.level === 'master' ? spend : null,
+    ad_ncp:           r.level === 'master' ? ncp   : null,
+    cost_per_ncp:     r.level === 'master' ? a.mean_cpn : null,
+    matched_ad_count: r.level === 'master' ? a.ads : null,
+    roas:             r.level === 'master' ? roas  : null,
+    doh:              (r.doq && r.doq > 0) ? (r.inventory_total / r.doq) : null,
+  });
+}
 
 function _cgFilterAndSort(){
-  let rows = _cgCurrentRows().slice();
+  // Overlay live ad-side metrics onto each base row before filtering/sorting.
+  let rows = _cgCurrentRows().map(_cgWithAds);
   const q = (document.getElementById('cgSearch')?.value || '').trim().toLowerCase();
   if (q) rows = rows.filter(r =>
     (r.sku || '').toLowerCase().includes(q) ||
@@ -9555,8 +9666,15 @@ function _cgRender(){
   if (skusSub) skusSub.textContent = _cgLevel === 'master' ? 'master level' : 'color variant level';
   document.getElementById('cgKpSpend').textContent = _cgLevel === 'master' ? fmtRs(totSpend) : '—';
   document.getElementById('cgKpCPN').textContent   = (_cgLevel === 'master' && cpn != null) ? fmtRs(cpn) : '—';
-  const winLbl = _cgWin === '1d' ? 'last 1 day' : _cgWin === '30d' ? 'last 30 days' : 'last 7 days';
-  document.getElementById('cgKpSalesSub').textContent = winLbl;
+  document.getElementById('cgKpSalesSub').textContent = 'last 30 days (precomputed base)';
+  const rangeSummary = document.getElementById('cgRangeSummary');
+  if (rangeSummary && _cgFrom && _cgTo){
+    const ms   = (new Date(_cgTo) - new Date(_cgFrom));
+    const days = Math.max(1, Math.round(ms / 86400000) + 1);
+    rangeSummary.innerHTML =
+      '<b>Ad-side</b>: ' + _cgFrom + ' → ' + _cgTo + ' (' + days + 'd)' +
+      ' &nbsp;·&nbsp; <b>Sales/Inv</b>: last 30d precomputed';
+  }
   const lastRefresh = all[0]?.computed_at || '';
   document.getElementById('cgKpRefreshed').textContent =
     lastRefresh ? lastRefresh.slice(0,10) + ' ' + lastRefresh.slice(11,16) : '—';
@@ -9639,16 +9757,42 @@ function _cgRenderChart(rows){
   const on = (id, ev, fn) => { const el = document.getElementById(id); if (el && !el._cgBound){ el.addEventListener(ev, fn); el._cgBound = true; } };
   on('cgSearch', 'input',  _cgRender);
   on('cgSort',   'change', _cgRender);
-  document.querySelectorAll('.lp-viewtog-btn[data-cg-win]').forEach(btn => {
+  // Date range: Apply button re-fetches for the current from/to inputs.
+  const applyBtn = document.getElementById('cgApplyRange');
+  if (applyBtn && !applyBtn._cgBound){ applyBtn._cgBound = true;
+    applyBtn.addEventListener('click', () => loadCogsBySku(true));
+  }
+  // Sync-with-AE: copy the current date range from the Ads Analyse date inputs.
+  const syncBtn = document.getElementById('cgSyncAE');
+  if (syncBtn && !syncBtn._cgBound){ syncBtn._cgBound = true;
+    syncBtn.addEventListener('click', () => {
+      const aeFrom = document.getElementById('aeDateFrom')?.value || '';
+      const aeTo   = document.getElementById('aeDateTo')?.value   || '';
+      if (!aeFrom || !aeTo){
+        alert('Ads Analyse has no date range set. Open the AE view, pick a range, then click Sync again.');
+        return;
+      }
+      document.getElementById('cgDateFrom').value = aeFrom;
+      document.getElementById('cgDateTo').value   = aeTo;
+      loadCogsBySku(true);
+    });
+  }
+  // Preset chips (7d / 30d / 90d).
+  document.querySelectorAll('.lp-viewtog-btn[data-cg-preset]').forEach(btn => {
     if (btn._cgBound) return; btn._cgBound = true;
     btn.addEventListener('click', () => {
-      _cgWin = btn.dataset.cgWin;
-      document.querySelectorAll('.lp-viewtog-btn[data-cg-win]').forEach(b => {
-        const on2 = b.dataset.cgWin === _cgWin;
+      const p = btn.dataset.cgPreset;
+      const days = p === '7d' ? 7 : p === '90d' ? 90 : 30;
+      const to   = new Date();
+      const from = new Date(); from.setDate(from.getDate() - days);
+      document.getElementById('cgDateFrom').value = from.toISOString().slice(0,10);
+      document.getElementById('cgDateTo').value   = to.toISOString().slice(0,10);
+      document.querySelectorAll('.lp-viewtog-btn[data-cg-preset]').forEach(b => {
+        const on2 = b.dataset.cgPreset === p;
         b.classList.toggle('active', on2);
         b.setAttribute('aria-selected', on2 ? 'true' : 'false');
       });
-      loadCogsBySku();
+      loadCogsBySku(true);
     });
   });
   document.querySelectorAll('.lp-viewtog-btn[data-cg-level]').forEach(btn => {
@@ -9726,28 +9870,27 @@ async function openCpisAdsModal(master){
   const sub   = document.getElementById('cgAdsSub');
   const foot  = document.getElementById('cgAdsFooter');
   if (!modal || !body) return;
-  const winDays = _cgWin === '1d' ? 1 : _cgWin === '30d' ? 30 : 7;
-  const winLbl  = _cgWin === '1d' ? 'last 1 day' : _cgWin === '30d' ? 'last 30 days' : 'last 7 days';
+  _cgEnsureDates();
+  const isoFrom = _cgFrom, isoTo = _cgTo;
+  const ms      = new Date(isoTo) - new Date(isoFrom);
+  const winDays = Math.max(1, Math.round(ms / 86400000) + 1);
+  const winLbl  = isoFrom + ' → ' + isoTo + ' (' + winDays + 'd)';
   title.textContent = 'Ads matching master SKU · ' + master;
-  // Explicit scope banner — the same ad shows a different (lifetime) number
-  // in Ads Analyse, so make it obvious this modal is window-scoped.
-  const dToday2 = new Date(); const dFrom2 = new Date(dToday2.getTime() - winDays * 86400000);
-  sub.innerHTML = '<span style="display:inline-block;background:var(--gold-lt,#fdf5e6);color:var(--gold,#b8883a);padding:2px 8px;border-radius:100px;font-weight:700;font-size:10.5px;letter-spacing:.3px">SCOPE: ' + winLbl.toUpperCase() + ' &nbsp;·&nbsp; ' + dFrom2.toISOString().slice(0,10) + ' → ' + dToday2.toISOString().slice(0,10) + '</span>' +
+  sub.innerHTML = '<span style="display:inline-block;background:var(--gold-lt,#fdf5e6);color:var(--gold,#b8883a);padding:2px 8px;border-radius:100px;font-weight:700;font-size:10.5px;letter-spacing:.3px">SCOPE: ' + winLbl + '</span>' +
     ' · matched via <code>primary_table.ad_name ILIKE %' + master + '%</code>' +
-    ' · <span style="color:var(--text-tertiary)"><b>To reconcile with Ads Analyse</b>, set its date range to the same window shown above (Reconciles column shows AE\'s answer for the same range).</span>';
+    ' · <span style="color:var(--text-tertiary)">Set Ads Analyse date range to the same window to reconcile — the AE (same window) column calls AE\'s RPC with these dates.</span>';
   body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>';
   modal.style.display = 'flex';
-  const dToday = new Date();
-  const dFrom  = new Date(dToday.getTime() - winDays * 86400000);
-  const isoFrom = dFrom.toISOString().slice(0,10);
-  const isoTo   = dToday.toISOString().slice(0,10);
+  // isoFrom / isoTo already come from the outer _cgFrom/_cgTo picker.
   const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
   const like = encodeURIComponent('*' + master + '*');
-  // Window slice (what the master row's #Ads / Ad-spend counted).
+  // Window slice (what the master row's #Ads / Ad-spend counted) — bounded
+  // on BOTH ends now that the user picks an arbitrary range.
   const urlWin = SUPABASE_URL + '/rest/v1/primary_table'
                + '?select=ad_id,ad_name,amount_spent_inr,ncp_count,date'
                + '&ad_name=ilike.' + like
                + '&date=gte.' + isoFrom
+               + '&date=lte.' + isoTo
                + '&order=amount_spent_inr.desc&limit=20000';
   // Lifetime totals per ad — pulled from ae_table_view (same source as
   // Ads Analyse), which stores one row per ad with lifetime spend.
