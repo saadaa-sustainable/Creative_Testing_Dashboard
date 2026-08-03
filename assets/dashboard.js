@@ -9576,18 +9576,19 @@ async function loadCogsBySku(force){
   }
 }
 
-/* Live ShopifyQL for the picked date range. Aggregates sales per master +
-   per colour SKU by joining product_title from ShopifyQL against the
-   colour-level cpis_by_sku rows (which carry product_title → color SKU →
-   parent master). Requires Shopify creds — falls back to precomputed 30d
-   if unavailable. */
+/* Sales overlay for the picked date range. Reads public.cpis_daily_sales
+   (populated by fetch_cpis_by_sku.py — one row per day per product_title)
+   and folds up to per-master and per-colour aggregates via the same
+   product_title → colour → parent mapping the backend uses.
+
+   NOTE: This used to fire a live ShopifyQL call from the browser, but Shopify
+   Admin API doesn't send CORS headers → every browser call gets blocked
+   (net::ERR_FAILED). Precomputed daily rollup + client-side date filter is
+   the only viable path from the browser. Refresh the daily table by re-running
+   the fetcher (backend/fetch_cpis_by_sku.py). */
 async function _cgFetchLiveSales(colourRows){
   _cgSalesAgg   = null;
   _cgSalesError = null;
-  if (!SHOPIFY_DOMAIN || !SHOPIFY_TOKEN){
-    _cgSalesError = 'Shopify credentials missing — set them via ⚙ Shopify config in the Products tab, then re-apply.';
-    return;
-  }
   if (!colourRows || !colourRows.length){
     _cgSalesError = 'no colour rows loaded (base rollup missing?)';
     return;
@@ -9600,54 +9601,37 @@ async function _cgFetchLiveSales(colourRows){
     if (!titleMap.has(t)) titleMap.set(t, []);
     titleMap.get(t).push({ sku: r.sku, parent: r.parent_sku });
   }
-  const q = "FROM sales " +
-            "SHOW net_items_sold, gross_sales, discounts, returns, net_sales, taxes, total_sales " +
-            "WHERE product_title IS NOT NULL " +
-            "SINCE " + _cgFrom + " UNTIL " + _cgTo + " " +
-            "GROUP BY product_title, product_vendor, product_type " +
-            "ORDER BY total_sales DESC LIMIT 1000";
-  const data = await shopifyGraphQL(
-    "query Q($q: String!){ shopifyqlQuery(query: $q){ tableData { columns { name dataType } rows } parseErrors } }",
-    { q }
-  );
-  const resp = data.shopifyqlQuery;
-  if (resp?.parseErrors?.length){
-    throw new Error('ShopifyQL: ' + JSON.stringify(resp.parseErrors));
+  const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
+  const url = SUPABASE_URL + '/rest/v1/cpis_daily_sales?select=*'
+            + '&day=gte.' + _cgFrom + '&day=lte.' + _cgTo
+            + '&limit=100000';
+  const r = await fetch(url, { headers: hdrs });
+  if (!r.ok){
+    throw new Error('cpis_daily_sales HTTP ' + r.status + ' — run backend/fetch_cpis_by_sku.py to populate');
   }
-  const rows = resp?.tableData?.rows || [];
-  // Aggregate: for each sales row, look up its product_title in titleMap,
-  // split the row proportionally (evenly) across matching colour SKUs, then
-  // fold up into the parent master.
-  const salesByMaster = new Map();   // master → aggregates
-  const salesByColor  = new Map();   // color  → aggregates
-  const KEYS = ['net_items_sold','gross_sales','discounts','returns','net_sales','taxes','total_sales'];
-  const _add = (acc, key, row) => {
-    let e = acc.get(key);
-    if (!e){ e = { net_items_sold:0, gross_sales:0, discounts:0, sales_reversals:0, net_sales:0, taxes:0, total_sales:0 }; acc.set(key, e); }
-    e.net_items_sold += Number(row.net_items_sold) || 0;
-    e.gross_sales    += Number(row.gross_sales)    || 0;
-    e.discounts      += Number(row.discounts)      || 0;
-    e.sales_reversals+= Number(row.returns)        || 0;
-    e.net_sales      += Number(row.net_sales)      || 0;
-    e.taxes          += Number(row.taxes)          || 0;
-    e.total_sales    += Number(row.total_sales)    || 0;
-  };
+  const rows = await r.json();
+  if (!rows.length){
+    _cgSalesError = 'no daily rows in this range — the daily rollup covers the last 120 days. Run backend/fetch_cpis_by_sku.py to refresh.';
+  }
+  const salesByMaster = new Map();
+  const salesByColor  = new Map();
   const _addShare = (acc, key, row, share) => {
     let e = acc.get(key);
     if (!e){ e = { net_items_sold:0, gross_sales:0, discounts:0, sales_reversals:0, net_sales:0, taxes:0, total_sales:0 }; acc.set(key, e); }
     e.net_items_sold += (Number(row.net_items_sold) || 0) * share;
     e.gross_sales    += (Number(row.gross_sales)    || 0) * share;
     e.discounts      += (Number(row.discounts)      || 0) * share;
-    e.sales_reversals+= (Number(row.returns)        || 0) * share;
+    e.sales_reversals+= (Number(row.sales_reversals)|| 0) * share;
     e.net_sales      += (Number(row.net_sales)      || 0) * share;
     e.taxes          += (Number(row.taxes)          || 0) * share;
     e.total_sales    += (Number(row.total_sales)    || 0) * share;
   };
   let matchedTitles = 0, unmatchedTitles = 0;
+  const unmatchedSet = new Set();
   for (const row of rows){
     const t = (row.product_title || '').trim().toLowerCase();
     const targets = titleMap.get(t) || [];
-    if (!targets.length){ unmatchedTitles++; continue; }
+    if (!targets.length){ unmatchedTitles++; unmatchedSet.add(t); continue; }
     matchedTitles++;
     const share = 1 / targets.length;
     for (const tg of targets){
@@ -9655,12 +9639,13 @@ async function _cgFetchLiveSales(colourRows){
       if (tg.parent) _addShare(salesByMaster, tg.parent, row, share);
     }
   }
-  // Merge into one map keyed by "level::sku" so the render can look up quickly.
   const merged = new Map();
   for (const [sku, agg] of salesByMaster) merged.set('master::' + sku, agg);
   for (const [sku, agg] of salesByColor)  merged.set('color::'  + sku, agg);
   _cgSalesAgg = merged;
-  console.log('[cpis] live sales: ' + rows.length + ' rows, ' + matchedTitles + ' matched titles, ' + unmatchedTitles + ' unmatched');
+  console.log('[cpis] daily sales overlay: ' + rows.length + ' daily rows, '
+              + matchedTitles + ' matched, ' + unmatchedTitles + ' unmatched ('
+              + unmatchedSet.size + ' distinct titles unmatched)');
 }
 
 /* Aggregate primary_table rows into per-master ad metrics. Uses substring

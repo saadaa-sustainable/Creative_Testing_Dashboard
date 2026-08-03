@@ -54,7 +54,8 @@ GQL_URL  = f"https://{SHOP.replace('https://','').rstrip('/')}/admin/api/{API_VE
 if not (DB_URL and TOKEN):
     sys.exit("[fatal] need SUPABASE_DB_URL + ADMIN_ACCESS_TOKEN in .env")
 
-TABLE = "public.cpis_by_sku"
+TABLE       = "public.cpis_by_sku"
+DAILY_TABLE = "public.cpis_daily_sales"
 
 WINDOWS = {
     "1d":  1,
@@ -101,6 +102,25 @@ create index if not exists cpis_by_sku_parent_idx on {TABLE} (parent_sku);
 alter table {TABLE}
     add column if not exists doh  numeric,
     add column if not exists roas numeric;
+-- Daily per-product sales rollup. Frontend filters WHERE day BETWEEN from AND to
+-- and aggregates per master (via same product_title → colour → parent mapping)
+-- so sales columns move with the CPIS date range picker.
+create table if not exists {DAILY_TABLE} (
+    day             date not null,
+    product_title   text not null,
+    product_vendor  text,
+    product_type    text,
+    net_items_sold  numeric,
+    gross_sales     numeric,
+    discounts       numeric,
+    sales_reversals numeric,
+    net_sales       numeric,
+    taxes           numeric,
+    total_sales     numeric,
+    mirrored_at     timestamptz not null default now(),
+    primary key (day, product_title)
+);
+create index if not exists cpis_daily_sales_day_idx on {DAILY_TABLE} (day desc);
 """
 
 def gql(query, variables=None, timeout=60):
@@ -131,6 +151,36 @@ def _to_num(v):
     if v is None: return 0.0
     try: return float(str(v).replace(",", ""))
     except Exception: return 0.0
+
+def fetch_daily_sales(days=120):
+    """Pull per-day per-product sales for the trailing N days via ShopifyQL
+    (GROUP BY day). Used by the frontend to filter by arbitrary date range
+    without hitting Shopify (CORS-blocked from browsers)."""
+    since = (date.today() - timedelta(days=days)).isoformat()
+    until = date.today().isoformat()
+    # GROUP BY day, product_title only. Adding vendor/type as dimensions
+    # would fragment the data — one product with variant vendor/type across
+    # days emits multiple rows per (day, product_title), and our upsert
+    # (which is dedup'd on that pair) then drops half the volume.
+    q = (f"FROM sales SHOW net_items_sold, gross_sales, discounts, returns, "
+         f"net_sales, taxes, total_sales "
+         f"WHERE product_title IS NOT NULL "
+         f"SINCE {since} UNTIL {until} "
+         f"GROUP BY day, product_title "
+         f"ORDER BY day DESC LIMIT 200000")
+    data = gql(SHOPIFYQL_SALES, {"q": q})
+    resp = data["shopifyqlQuery"]
+    if resp.get("parseErrors"):
+        raise RuntimeError(f"ShopifyQL parse errors: {resp['parseErrors']}")
+    rows = resp.get("tableData", {}).get("rows") or []
+    for r in rows:
+        if "returns" in r and "sales_reversals" not in r:
+            r["sales_reversals"] = r.pop("returns")
+        for k in ("net_items_sold","gross_sales","discounts","sales_reversals",
+                  "net_sales","taxes","total_sales"):
+            if k in r: r[k] = _to_num(r.get(k))
+    print(f"  [shopifyql daily] {len(rows)} rows for {days}d window ({since}→{until})")
+    return rows
 
 def fetch_sales(days):
     """Runs the sales ShopifyQL over the last N days grouped by product."""
@@ -503,6 +553,37 @@ def main():
                        payload, template=placeholders, page_size=500)
         conn.commit()
         print(f"  [upsert] window {k} = {len(payload)} rows")
+
+    # Daily rollup — one ShopifyQL call for the last 120 days, per-product-per-day.
+    # Frontend queries this + aggregates client-side so sales moves with any range.
+    if conn:
+        print(f"\n=== daily rollup ===")
+        daily_rows = fetch_daily_sales(days=120)
+        cur = conn.cursor()
+        # Wipe and refill (small enough — max ~120 days × ~500 products = 60k rows).
+        cur.execute(f"truncate table {DAILY_TABLE}")
+        DCOLS = ["day","product_title","product_vendor","product_type",
+                 "net_items_sold","gross_sales","discounts","sales_reversals",
+                 "net_sales","taxes","total_sales"]
+        payload = [tuple(r.get(c) for c in DCOLS) for r in daily_rows if r.get("day") and r.get("product_title")]
+        # Dedup on (day, product_title) — SUMS all metric columns so a
+        # product that emits multiple rows per (day, title) still stores its
+        # full volume. Earlier "last wins" logic dropped half the data.
+        merged = {}
+        NUM_COL_IDX = [4,5,6,7,8,9,10]  # positions of numeric metric columns
+        for row in payload:
+            key = (row[0], row[1])
+            if key not in merged:
+                merged[key] = list(row)
+            else:
+                for i in NUM_COL_IDX:
+                    merged[key][i] = (merged[key][i] or 0) + (row[i] or 0)
+        payload = [tuple(v) for v in merged.values()]
+        execute_values(cur,
+            f"insert into {DAILY_TABLE} ({', '.join(DCOLS)}) values %s",
+            payload, page_size=1000)
+        conn.commit()
+        print(f"  [daily upsert] {len(payload)} (day, product_title) rows")
 
     if conn: conn.close()
     print(f"\n[done] {(datetime.now(timezone.utc)-t0).total_seconds():.1f}s")
