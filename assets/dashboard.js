@@ -9578,7 +9578,11 @@ function _cgRender(){
   body.innerHTML = shown.map(r => {
     const kids = Array.isArray(r.variant_skus) ? r.variant_skus : [];
     const kShort = kids.slice(0, 6).join(', ') + (kids.length > 6 ? ' +' + (kids.length - 6) : '');
-    return '<tr>' +
+    // Master rows are clickable → open the Ads Explorer modal. Colour rows
+    // aren't (ad spend is attributed at master level only).
+    const clickable = r.level === 'master';
+    const clickAttr = clickable ? (' data-cg-master="' + _esc(r.sku) + '" style="cursor:pointer" title="Click to see matching ads"') : '';
+    return '<tr' + clickAttr + '>' +
       '<td class="mono" style="font-weight:600">' + _esc(r.sku) + '</td>' +
       '<td class="mono" style="color:var(--text-tertiary)">' + _esc(r.parent_sku || '') + '</td>' +
       '<td class="mono" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"' +
@@ -9676,4 +9680,101 @@ function _cgRenderChart(rows){
       if (tab === 'cpis') loadCogsBySku();
     });
   });
+
+  // Definitions modal — open/close.
+  const defsBtn   = document.getElementById('cgBtnDefs');
+  const defsModal = document.getElementById('cgDefsModal');
+  const defsClose = document.getElementById('cgDefsClose');
+  if (defsBtn && !defsBtn._cgBound){ defsBtn._cgBound = true;
+    defsBtn.addEventListener('click', () => { if (defsModal) defsModal.style.display = 'flex'; });
+  }
+  if (defsClose && !defsClose._cgBound){ defsClose._cgBound = true;
+    defsClose.addEventListener('click', () => { defsModal.style.display = 'none'; });
+  }
+  if (defsModal && !defsModal._cgBound){ defsModal._cgBound = true;
+    defsModal.addEventListener('click', e => { if (e.target === defsModal) defsModal.style.display = 'none'; });
+  }
+
+  // Ads Explorer modal — open on master row click, close on ✕ / backdrop.
+  const adsModal = document.getElementById('cgAdsModal');
+  const adsClose = document.getElementById('cgAdsClose');
+  if (adsClose && !adsClose._cgBound){ adsClose._cgBound = true;
+    adsClose.addEventListener('click', () => { adsModal.style.display = 'none'; });
+  }
+  if (adsModal && !adsModal._cgBound){ adsModal._cgBound = true;
+    adsModal.addEventListener('click', e => { if (e.target === adsModal) adsModal.style.display = 'none'; });
+  }
+  // Event-delegated click on any row with data-cg-master (survives re-renders).
+  const cpisBody = document.getElementById('cgTableBody');
+  if (cpisBody && !cpisBody._cgClickBound){ cpisBody._cgClickBound = true;
+    cpisBody.addEventListener('click', e => {
+      const tr = e.target.closest('tr[data-cg-master]');
+      if (!tr) return;
+      openCpisAdsModal(tr.dataset.cgMaster);
+    });
+  }
 })();
+
+/* Ads Explorer — fetch primary_table rows where ad_name contains the master
+   SKU, scoped to the currently-selected window. Aggregate per ad_id in JS
+   (PostgREST doesn't do easy GROUP BY). Same rule as the mirror script so
+   the row-level totals reconcile with the master row's totals. */
+async function openCpisAdsModal(master){
+  const modal = document.getElementById('cgAdsModal');
+  const body  = document.getElementById('cgAdsBody');
+  const title = document.getElementById('cgAdsTitle');
+  const sub   = document.getElementById('cgAdsSub');
+  const foot  = document.getElementById('cgAdsFooter');
+  if (!modal || !body) return;
+  const winDays = _cgWin === '1d' ? 1 : _cgWin === '30d' ? 30 : 7;
+  const winLbl  = _cgWin === '1d' ? 'last 1 day' : _cgWin === '30d' ? 'last 30 days' : 'last 7 days';
+  title.textContent = 'Ads matching master SKU · ' + master;
+  sub.textContent   = winLbl + ' · primary_table.ad_name ILIKE %' + master + '%';
+  body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>';
+  modal.style.display = 'flex';
+  const iso = new Date(Date.now() - winDays * 86400000).toISOString().slice(0,10);
+  const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
+  // encodeURIComponent on the ILIKE pattern so URL-unsafe chars stay safe.
+  const like = encodeURIComponent('*' + master + '*');
+  const url = SUPABASE_URL + '/rest/v1/primary_table'
+            + '?select=ad_id,ad_name,amount_spent_inr,ncp_count,date'
+            + '&ad_name=ilike.' + like
+            + '&date=gte.' + iso
+            + '&order=amount_spent_inr.desc&limit=20000';
+  try {
+    const r = await fetch(url, { headers: hdrs });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const rows = await r.json();
+    // Group by ad_id
+    const agg = new Map();
+    for (const row of rows){
+      const k = String(row.ad_id);
+      if (!agg.has(k)) agg.set(k, { ad_id: k, ad_name: row.ad_name, spend: 0, ncp: 0, days: new Set() });
+      const a = agg.get(k);
+      a.spend += Number(row.amount_spent_inr) || 0;
+      a.ncp   += Number(row.ncp_count) || 0;
+      if (row.date) a.days.add(row.date);
+      if (!a.ad_name && row.ad_name) a.ad_name = row.ad_name;
+    }
+    const items = Array.from(agg.values()).sort((a,b) => b.spend - a.spend);
+    const _esc = s => String(s == null ? '' : s).replace(/</g,'&lt;').replace(/"/g,'&quot;');
+    body.innerHTML = items.map(a => {
+      const cpn = (a.ncp > 0) ? (a.spend / a.ncp) : null;
+      return '<tr>' +
+        '<td class="mono" style="font-size:11px">' + _esc(a.ad_id) + '</td>' +
+        '<td class="mono" style="font-size:11px;max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"' +
+          ' title="' + _esc(a.ad_name) + '">' + _esc(a.ad_name) + '</td>' +
+        '<td class="mono" style="text-align:right">' + fmtRs(a.spend) + '</td>' +
+        '<td class="mono" style="text-align:right">' + fmtInt(a.ncp) + '</td>' +
+        '<td class="mono" style="text-align:right">' + (cpn != null ? fmtRs(cpn) : '—') + '</td>' +
+        '<td class="mono" style="text-align:right">' + a.days.size + '</td>' +
+        '</tr>';
+    }).join('') || '<tr><td colspan="6" style="text-align:center;padding:14px;color:var(--text-tertiary)">No matching ads in this window.</td></tr>';
+    const totalSpend = items.reduce((a,b) => a + b.spend, 0);
+    const totalNcp   = items.reduce((a,b) => a + b.ncp, 0);
+    foot.textContent = items.length + ' distinct ads · ' + rows.length + ' delivery rows · Σ spend '
+                     + fmtRs(totalSpend) + ' · Σ NCP ' + fmtInt(totalNcp);
+  } catch (e){
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
+  }
+}

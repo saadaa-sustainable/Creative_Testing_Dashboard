@@ -2323,10 +2323,12 @@
     </div>
 
     <div class="funnel-card" style="padding:14px 16px;margin-top:10px">
-      <div class="funnel-hdr" style="padding:6px 4px 12px">
+      <div class="funnel-hdr" style="padding:6px 4px 12px;display:flex;align-items:center;justify-content:space-between">
         <h3 id="cgTableTitle">CPIS by master SKU
           <span class="h-sub" id="cgTableSub">joined with Meta ads · master SKU only</span>
         </h3>
+        <button class="btn ghost" id="cgBtnDefs" type="button" style="font-size:11px"
+                title="How each column is calculated">ⓘ Definitions</button>
       </div>
       <div class="ae-tbl-wrap">
         <table class="tbl" id="cgTable">
@@ -2355,7 +2357,98 @@
       </div>
       <div style="margin-top:8px;font-size:11px;color:var(--text-tertiary)" id="cgTableFooter">—</div>
     </div>
-  </div><!-- /invPanelCogs -->
+  </div><!-- /invPanelCpis -->
+
+  <!-- ═══ MODAL: CPIS column definitions ═══ -->
+  <div id="cgDefsModal" role="dialog" aria-hidden="true"
+       style="position:fixed;inset:0;background:rgba(44,36,32,0.55);backdrop-filter:blur(4px);
+              z-index:120;display:none;align-items:center;justify-content:center;padding:24px">
+    <div class="modal-card" style="max-width:820px;max-height:90vh;overflow-y:auto;background:#fff;border-radius:14px;padding:24px 28px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+        <div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px">CPIS column definitions</div>
+          <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px">All values re-computed by <code>backend/fetch_cpis_by_sku.py</code></div>
+        </div>
+        <button class="btn ghost" id="cgDefsClose" style="font-size:16px">✕</button>
+      </div>
+      <div style="font-size:13px;line-height:1.55">
+        <div style="font-weight:700;margin-top:12px;color:var(--terra,#c0603a)">SKU hierarchy</div>
+        <ul style="margin-left:18px">
+          <li><b>Master SKU</b> — product-level code (SMCP, SDCP, SDFSK). Derived from a colour-variant SKU by stripping the last 2 chars.</li>
+          <li><b>Color Variant SKU</b> — master + 2-char colour code (SMCPBL, SMCPGR). Derived from a raw variant SKU by stripping the <code>_&lt;size&gt;</code> suffix.</li>
+          <li><b>Variant SKU (raw)</b> — the finest grain sold by Shopify (SMCPBL_L, SMCPBL_XL).</li>
+        </ul>
+        <div style="font-weight:700;margin-top:14px;color:var(--terra,#c0603a)">Columns</div>
+        <table style="width:100%;border-collapse:collapse;margin-top:6px">
+          <thead><tr style="border-bottom:1px solid #e0dbd0;text-align:left">
+            <th style="padding:6px 8px 6px 0;width:120px">Column</th>
+            <th style="padding:6px 8px">How it's computed</th>
+          </tr></thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #e0dbd0"><td style="padding:8px 8px 8px 0;font-weight:600">Product</td>
+              <td style="padding:8px">Canonical master name — the intersection of words across every colour-variant's <code>product.title</code>, minus colour words. <code>[Men Navy Blue Cotton Pant, Men Green Cotton Pant]</code> → <b>Men Cotton Pant</b>.</td></tr>
+            <tr style="border-bottom:1px solid #e0dbd0"><td style="padding:8px 8px 8px 0;font-weight:600">Variants</td>
+              <td style="padding:8px">Master row: sorted list of <b>colour-variant SKUs</b>. Color row: sorted list of <b>size-variant SKUs</b>.</td></tr>
+            <tr style="border-bottom:1px solid #e0dbd0"><td style="padding:8px 8px 8px 0;font-weight:600">DoQ</td>
+              <td style="padding:8px"><b>Daily Order Quantity</b> = <code>net_items_sold ÷ days_in_window</code>. Uses <code>ShopifyQL sales.net_items_sold</code> for the selected window.</td></tr>
+            <tr style="border-bottom:1px solid #e0dbd0"><td style="padding:8px 8px 8px 0;font-weight:600">Inv</td>
+              <td style="padding:8px">Sum of <code>variant.inventoryQuantity</code> live from Shopify Admin GraphQL at refresh time. <b>ACTIVE products only</b>; variants with negative inventory (returns / holds) are dropped.</td></tr>
+            <tr style="border-bottom:1px solid #e0dbd0"><td style="padding:8px 8px 8px 0;font-weight:600">DoH</td>
+              <td style="padding:8px"><b>Days of Holding</b> = <code>Inv ÷ DoQ</code>. How many days the current inventory lasts at the current sell rate.</td></tr>
+            <tr style="border-bottom:1px solid #e0dbd0"><td style="padding:8px 8px 8px 0;font-weight:600">Total sales</td>
+              <td style="padding:8px">Sum of <code>ShopifyQL sales.total_sales</code> for the window, split proportionally across the master's colour variants (inventory-weighted), then aggregated back up.</td></tr>
+            <tr style="border-bottom:1px solid #e0dbd0"><td style="padding:8px 8px 8px 0;font-weight:600">Items</td>
+              <td style="padding:8px">Sum of <code>ShopifyQL sales.net_items_sold</code> for the window (same split logic).</td></tr>
+            <tr style="border-bottom:1px solid #e0dbd0"><td style="padding:8px 8px 8px 0;font-weight:600">Ad spend</td>
+              <td style="padding:8px">Sum of <code>primary_table.amount_spent_inr</code> WHERE <code>ad_name ILIKE '%&lt;master&gt;%'</code> AND <code>date ≥ today − &lt;window&gt;</code>. <b>Master rows only</b>; colour rows show <b>—</b>.</td></tr>
+            <tr style="border-bottom:1px solid #e0dbd0"><td style="padding:8px 8px 8px 0;font-weight:600">#Ads</td>
+              <td style="padding:8px"><b>Distinct ad_ids</b> whose name contains the master SKU with ≥1 delivery day in the window. <b>Click any master row</b> to open the Ads Explorer.</td></tr>
+            <tr style="border-bottom:1px solid #e0dbd0"><td style="padding:8px 8px 8px 0;font-weight:600">Cost/NCP</td>
+              <td style="padding:8px"><code>ad_spend ÷ Σ ncp_count</code> across the matched ads (window-scoped).</td></tr>
+            <tr style="border-bottom:1px solid #e0dbd0"><td style="padding:8px 8px 8px 0;font-weight:600">ROAS</td>
+              <td style="padding:8px"><b>Return on Ad Spend</b> = <code>total_sales ÷ ad_spend</code>. Shown as <code>N.NNx</code>.</td></tr>
+            <tr><td style="padding:8px 8px 8px 0;font-weight:600">CPIS</td>
+              <td style="padding:8px;color:var(--text-tertiary)">Cost Per Item Sold — <em>formula pending</em>. Column stays <b>—</b> until the formula is provided.</td></tr>
+          </tbody>
+        </table>
+        <div style="font-weight:700;margin-top:16px;color:var(--terra,#c0603a)">Match rule caveat</div>
+        <div style="margin-top:4px">Because the match is a plain substring, an ad named <code>SDCSP-…</code> also counts toward the <code>SDCS</code> master (prefix collision). Use the Ads Explorer (click a master row) to see the exact ads counted.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL: Ads Explorer — per-master ad breakdown ═══ -->
+  <div id="cgAdsModal" role="dialog" aria-hidden="true"
+       style="position:fixed;inset:0;background:rgba(44,36,32,0.55);backdrop-filter:blur(4px);
+              z-index:120;display:none;align-items:center;justify-content:center;padding:24px">
+    <div class="modal-card" style="max-width:1100px;width:100%;max-height:90vh;overflow-y:auto;background:#fff;border-radius:14px;padding:24px 28px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+        <div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px" id="cgAdsTitle">Ads matching master SKU</div>
+          <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px" id="cgAdsSub">—</div>
+        </div>
+        <button class="btn ghost" id="cgAdsClose" style="font-size:16px">✕</button>
+      </div>
+      <div class="ae-tbl-wrap">
+        <table class="tbl" id="cgAdsTable">
+          <thead>
+            <tr>
+              <th style="width:130px">Ad ID</th>
+              <th>Ad name</th>
+              <th class="mono" style="text-align:right;width:110px">Spend</th>
+              <th class="mono" style="text-align:right;width:70px">NCP</th>
+              <th class="mono" style="text-align:right;width:90px">Cost/NCP</th>
+              <th class="mono" style="text-align:right;width:60px">Days</th>
+            </tr>
+          </thead>
+          <tbody id="cgAdsBody">
+            <tr><td colspan="6" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text-tertiary)" id="cgAdsFooter">—</div>
+    </div>
+  </div>
 
 </div><!-- /view-inventory -->
 
@@ -2974,6 +3067,6 @@
   </div>
 </aside>
 
-<script src="assets/dashboard.js?v=cpis_window_spend"></script>
+<script src="assets/dashboard.js?v=cpis_defs_and_ads_modal"></script>
 </body>
 </html>
