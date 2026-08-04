@@ -9540,14 +9540,15 @@ async function loadCogsBySku(force){
                 + '&window_key=eq.30d'
                 + '&level=eq.'      + _cgLevel
                 + '&order=total_sales.desc&limit=10000';
-  // (2) AD-SIDE metrics — LIVE from primary_table for [from, to]. Same delivery
-  //     date semantics as the Ads Analyse RPC. Aggregated per master client-side.
-  const adUrl = SUPABASE_URL + '/rest/v1/primary_table'
-              + '?select=ad_id,ad_name,amount_spent_inr,ncp_count,date'
-              + '&ad_name=not.is.null'
-              + '&date=gte.' + _cgFrom
-              + '&date=lte.' + _cgTo
-              + '&order=amount_spent_inr.desc&limit=100000';
+  // (2) AD-SIDE metrics — call the get_cpis_ad_stats RPC which aggregates
+  //     per-master in Postgres from cpis_daily_ad_stats. Returns ~130 rows
+  //     (one per master) — replaces the prior 100k+ primary_table scan.
+  const adUrl = SUPABASE_URL + '/rest/v1/rpc/get_cpis_ad_stats';
+  const adFetchOpts = {
+    method: 'POST',
+    headers: { ...hdrs, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from_date: _cgFrom, to_date: _cgTo }),
+  };
   try {
     // (3) Also load the OTHER level's precomputed rows so we can build the
     //     product_title → color_sku map that ShopifyQL joins against
@@ -9557,14 +9558,14 @@ async function loadCogsBySku(force){
                    + '&window_key=eq.30d&level=eq.' + otherLevel + '&limit=10000';
     const [rBase, rAds, rOther] = await Promise.all([
       fetch(baseUrl, { headers: hdrs }),
-      fetch(adUrl,   { headers: hdrs }),
+      fetch(adUrl,   adFetchOpts),
       fetch(otherUrl,{ headers: hdrs }),
     ]);
     if (!rBase.ok) throw new Error('cpis_by_sku HTTP ' + rBase.status);
-    if (!rAds.ok)  throw new Error('primary_table HTTP ' + rAds.status);
+    if (!rAds.ok)  throw new Error('get_cpis_ad_stats HTTP ' + rAds.status);
     _cgBase = await rBase.json();
-    const adRows = await rAds.json();
-    _cgAdAgg = _cgAggregateAds(_cgBase, adRows);
+    const adRows = await rAds.json();   // ~130 pre-aggregated rows
+    _cgAdAgg = _cgIngestAdRpc(adRows);
     // Colour rows always come from either _cgBase or rOther depending on level.
     const colourRows = rOther.ok && (_cgLevel === 'master' ? await rOther.json() : _cgBase);
     // Kick off live sales fetch in parallel with render — first render uses
@@ -9651,9 +9652,25 @@ async function _cgFetchLiveSales(colourRows){
               + unmatchedSet.size + ' distinct titles unmatched)');
 }
 
-/* Aggregate primary_table rows into per-master ad metrics. Uses substring
-   match on lowercased ad_name — mirrors the backend fetcher's rule so the
-   numbers match what precompute would produce for the same range. */
+/* Fold rows returned by the get_cpis_ad_stats RPC into the Map
+   shape the render code expects (master → {spend,ncp,ads,mean_cpn}).
+   The RPC already did substring-match + per-ad aggregation server-side. */
+function _cgIngestAdRpc(rows){
+  const out = new Map();
+  for (const r of rows || []){
+    out.set(r.master_sku, {
+      spend: Number(r.spend) || 0,
+      ncp:   Number(r.ncp)   || 0,
+      ads:   Number(r.ads_count) || 0,
+      mean_cpn: (r.mean_cost_per_ncp == null) ? null : Number(r.mean_cost_per_ncp),
+    });
+  }
+  return out;
+}
+
+/* LEGACY — client-side aggregation of raw primary_table rows. Kept for
+   reference; the live path now uses the get_cpis_ad_stats RPC (see above)
+   because pulling 100k rows into the browser was slow. */
 function _cgAggregateAds(baseRows, adRows){
   // Collect all master SKUs to match against — from the base rows, whichever
   // level we're on. When level='color', we still need the parent master for

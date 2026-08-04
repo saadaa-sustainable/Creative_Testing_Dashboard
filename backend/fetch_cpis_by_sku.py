@@ -54,8 +54,9 @@ GQL_URL  = f"https://{SHOP.replace('https://','').rstrip('/')}/admin/api/{API_VE
 if not (DB_URL and TOKEN):
     sys.exit("[fatal] need SUPABASE_DB_URL + ADMIN_ACCESS_TOKEN in .env")
 
-TABLE       = "public.cpis_by_sku"
-DAILY_TABLE = "public.cpis_daily_sales"
+TABLE          = "public.cpis_by_sku"
+DAILY_TABLE    = "public.cpis_daily_sales"
+AD_STATS_TABLE = "public.cpis_daily_ad_stats"   # (day, master, ad_id) grain
 
 WINDOWS = {
     "1d":  1,
@@ -121,6 +122,48 @@ create table if not exists {DAILY_TABLE} (
     primary key (day, product_title)
 );
 create index if not exists cpis_daily_sales_day_idx on {DAILY_TABLE} (day desc);
+
+-- Daily per-(master, ad_id) ad stats. Frontend gets per-master rollups for
+-- ANY date range via the get_cpis_ad_stats RPC (below), which aggregates
+-- in Postgres — no big payload, no client scan.
+create table if not exists {AD_STATS_TABLE} (
+    day         date not null,
+    master_sku  text not null,
+    ad_id       text not null,
+    spend       numeric not null default 0,
+    ncp         integer not null default 0,
+    primary key (day, master_sku, ad_id)
+);
+create index if not exists cpis_daily_ad_stats_day_idx    on {AD_STATS_TABLE} (day desc);
+create index if not exists cpis_daily_ad_stats_master_idx on {AD_STATS_TABLE} (master_sku);
+
+-- Aggregate per master for [from, to]. Also preserves the arithmetic-mean
+-- per-ad Cost/NCP (each ad counts equally regardless of size).
+create or replace function public.get_cpis_ad_stats(from_date date, to_date date)
+returns table (
+    master_sku        text,
+    spend             numeric,
+    ncp               integer,
+    ads_count         integer,
+    mean_cost_per_ncp numeric
+) language sql stable as $$
+    with per_ad as (
+        select master_sku, ad_id,
+               sum(spend)::numeric as ad_spend,
+               sum(ncp)::int       as ad_ncp
+          from {AD_STATS_TABLE}
+         where day between from_date and to_date
+         group by master_sku, ad_id
+    )
+    select master_sku,
+           sum(ad_spend)::numeric                                          as spend,
+           sum(ad_ncp)::int                                                as ncp,
+           count(*) filter (where ad_spend > 0)::int                       as ads_count,
+           avg(ad_spend / nullif(ad_ncp, 0)) filter (where ad_ncp > 0)     as mean_cost_per_ncp
+      from per_ad
+     group by master_sku;
+$$;
+grant execute on function public.get_cpis_ad_stats(date, date) to anon, authenticated;
 """
 
 def gql(query, variables=None, timeout=60):
@@ -553,6 +596,48 @@ def main():
                        payload, template=placeholders, page_size=500)
         conn.commit()
         print(f"  [upsert] window {k} = {len(payload)} rows")
+
+    # Per-(day, master, ad_id) ad stats — pulls last 120 days of primary_table
+    # once, matches every row against all masters via substring, upserts.
+    # Frontend queries via get_cpis_ad_stats RPC (Postgres-side aggregation).
+    if conn:
+        print(f"\n=== daily ad stats (last 120 days) ===")
+        cur = conn.cursor()
+        cur.execute("""
+            select ad_id::text, ad_name, date, amount_spent_inr, ncp_count
+              from public.primary_table
+             where ad_name is not null
+               and date >= current_date - interval '120 days'
+        """)
+        rows = cur.fetchall()
+        print(f"  [scan] {len(rows):,} primary_table rows")
+        # All masters we care about — sourced from cpis_by_sku so we don't
+        # match unrelated SKUs.
+        cur.execute(f"select distinct sku from {TABLE} where level='master' and length(sku) >= 4")
+        masters = [r[0] for r in cur.fetchall()]
+        masters_lc = [(m, m.lower()) for m in masters]
+        print(f"  [match] against {len(masters)} masters")
+        # Build (day, master, ad_id) → (spend, ncp) aggregates
+        agg = {}
+        for ad_id, ad_name, day, sp, np_ in rows:
+            name_lc = ad_name.lower()
+            sp_v = float(sp or 0); np_v = int(np_ or 0)
+            for m, m_lc in masters_lc:
+                if m_lc in name_lc:
+                    key = (day, m, ad_id)
+                    if key not in agg: agg[key] = [0.0, 0]
+                    agg[key][0] += sp_v
+                    agg[key][1] += np_v
+        print(f"  [aggregate] {len(agg):,} (day, master, ad_id) triples")
+        cur.execute(f"truncate table {AD_STATS_TABLE}")
+        payload = [(d, m, aid, sp, np_) for (d, m, aid), (sp, np_) in agg.items()]
+        execute_values(
+            cur,
+            f"insert into {AD_STATS_TABLE} (day, master_sku, ad_id, spend, ncp) values %s",
+            payload, page_size=2000,
+        )
+        conn.commit()
+        print(f"  [upsert] {len(payload):,} rows")
 
     # Daily rollup — one ShopifyQL call for the last 120 days, per-product-per-day.
     # Frontend queries this + aggregates client-side so sales moves with any range.
