@@ -9053,7 +9053,11 @@ function _utNormalizeVideo(r){
     parent:              r.source_parent,
     date_added:          r.created_at,
     date_produced:       r.date_of_production,
-    link:                r.link_to_asset,
+    // Video only has one link (link_to_asset). Slot it into link_1 so the
+    // shared 3-column render works; L2 / L3 stay null for video rows.
+    link_1:              r.link_to_asset,
+    link_2:              null,
+    link_3:              null,
     ad_status:           r.ads_status,
     mirrored_at:         r.mirrored_at,
     raw:                 r,
@@ -9083,7 +9087,9 @@ function _utNormalizeGraphic(r){
     parent:              r.product,
     date_added:          r.asset_date,
     date_produced:       r.date_of_completion,
-    link:                r.link_1 || r.link_2 || r.link_3,
+    link_1:              r.link_1,
+    link_2:              r.link_2,
+    link_3:              r.link_3,
     ad_status:           r.summary_result,
     mirrored_at:         r.mirrored_at,
     raw:                 r,
@@ -9099,9 +9105,9 @@ async function loadUntestedAssets(force){
   if (!body) return;
   const media = _utMedia;
   if (_utLoadedByMedia[media] && !force){ _utRender(); return; }
-  body.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading ' + media + '…</td></tr>';
+  body.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading ' + media + '…</td></tr>';
   if (!SUPABASE_URL || !SUPABASE_ANON){
-    body.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">SUPABASE_URL / anon key missing — open dashboard with ?supabaseUrl=…&amp;supabaseAnon=… params.</td></tr>';
+    body.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">SUPABASE_URL / anon key missing — open dashboard with ?supabaseUrl=…&amp;supabaseAnon=… params.</td></tr>';
     return;
   }
   const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
@@ -9141,7 +9147,7 @@ async function loadUntestedAssets(force){
     _utPopulateFilters();
     _utRender();
   } catch (e){
-    body.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
+    body.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
   }
 }
 
@@ -9231,9 +9237,17 @@ function _utRender(){
   const body = document.getElementById('utTableBody');
   const _esc = s => String(s == null ? '' : s).replace(/</g,'&lt;').replace(/"/g,'&quot;');
   body.innerHTML = shown.map(r => {
-    const linkCell = r.link
-      ? '<a href="' + _esc(r.link) + '" target="_blank" rel="noopener" title="Open in Drive" style="text-decoration:none">↗</a>'
-      : '<span style="color:var(--text-tertiary)">—</span>';
+    // 3 independent link cells (L1 / L2 / L3). Video only populates L1;
+    // Graphic can populate any / all three from the sheet's Links 1/2/3 cols.
+    const _link = (u, n) => {
+      const isUrl = u && String(u).toLowerCase().startsWith('http');
+      return isUrl
+        ? '<a href="' + _esc(u) + '" target="_blank" rel="noopener" title="Open link ' + n + '" style="text-decoration:none">↗</a>'
+        : '<span style="color:var(--text-tertiary)">—</span>';
+    };
+    const link1Cell = _link(r.link_1, 1);
+    const link2Cell = _link(r.link_2, 2);
+    const link3Cell = _link(r.link_3, 3);
     // Tested pill — content differs by source: video shows ad_id,
     // graphic shows summary_status ('Tested' / 'Pending').
     // Tested cell shows matched ad_id + ad_name (2 lines). Untested shows
@@ -9267,10 +9281,12 @@ function _utRender(){
       '<td>' + _esc(r.content_theme) + '</td>' +
       '<td class="mono" style="text-align:right">' + _fmtDt(r.date_added) + '</td>' +
       '<td class="mono" style="text-align:right">' + _fmtDt(r.date_produced) + '</td>' +
-      '<td style="text-align:center">' + linkCell + '</td>' +
+      '<td style="text-align:center">' + link1Cell + '</td>' +
+      '<td style="text-align:center">' + link2Cell + '</td>' +
+      '<td style="text-align:center">' + link3Cell + '</td>' +
       '<td>' + testedCell + '</td>' +
       '</tr>';
-  }).join('') || '<tr><td colspan="12" style="text-align:center;padding:14px;color:var(--text-tertiary)">No assets match.</td></tr>';
+  }).join('') || '<tr><td colspan="14" style="text-align:center;padding:14px;color:var(--text-tertiary)">No assets match.</td></tr>';
 
   if (foot){
     const extra = rows.length > TOPN ? ' (top ' + TOPN + ' shown)' : '';
