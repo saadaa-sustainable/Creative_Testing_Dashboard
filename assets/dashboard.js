@@ -9064,6 +9064,23 @@ function _utNormalizeVideo(r){
   };
 }
 
+// Some graphic rows have a null 'Product' column but the SKU code lives at
+// the start of the nomenclature (e.g. 'SMFSK_USP_SG_GF_GAD-…'). First
+// token before '_' is a candidate. Rejects known content-type codes
+// (USP/VRP/BST/…) so we don't fabricate parents from theme codes.
+const _CONTENT_TYPE_CODES = new Set([
+  'USP','VRP','MC','BST','UGC','OFF','EDU','TBG','MP','MAR','GEN','NNC',
+  'ITE','MTW','BR','STANDALONE','SG','GF','MH','ADSC','ADGF','PD','CR',
+  'ADS','TT','KW','IGP','NA','IHP','OSP','CTP','CLP','SIF','GAD','VID'
+]);
+function _extractSkuFromName(nomen){
+  if (!nomen) return null;
+  const first = String(nomen).split('_')[0].trim();
+  if (!/^[A-Z]{3,6}$/.test(first)) return null;
+  if (_CONTENT_TYPE_CODES.has(first)) return null;
+  return first;
+}
+
 function _utNormalizeGraphic(r){
   // Same rule as Video — tested is derived server-side via
   // fetch_graphic_sheet.py (requisition_id/nomenclature substring in
@@ -9072,6 +9089,7 @@ function _utNormalizeGraphic(r){
   const computed = r.computed_is_tested;
   const tested = (computed === true) ||
                  (computed == null && String(r.summary_status || '').toLowerCase() === 'tested');
+  const parent = r.product || _extractSkuFromName(r.nomenclature) || _extractSkuFromName(r.creative);
   return {
     asset_id:            r.requisition_id,
     name:                r.nomenclature || r.creative,
@@ -9084,7 +9102,7 @@ function _utNormalizeGraphic(r){
     sub_kind:            r.audience_type,
     content_theme:       r.creative,        // creative code (SDWLP_USP_ADSC)
     source:              r.platform,
-    parent:              r.product,
+    parent:              parent,
     date_added:          r.asset_date,
     date_produced:       r.date_of_completion,
     link_1:              r.link_1,
