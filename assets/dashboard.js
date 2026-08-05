@@ -9064,21 +9064,17 @@ function _utNormalizeVideo(r){
   };
 }
 
-// Some graphic rows have a null 'Product' column but the SKU code lives at
-// the start of the nomenclature (e.g. 'SMFSK_USP_SG_GF_GAD-…'). First
-// token before '_' is a candidate. Rejects known content-type codes
-// (USP/VRP/BST/…) so we don't fabricate parents from theme codes.
-const _CONTENT_TYPE_CODES = new Set([
-  'USP','VRP','MC','BST','UGC','OFF','EDU','TBG','MP','MAR','GEN','NNC',
-  'ITE','MTW','BR','STANDALONE','SG','GF','MH','ADSC','ADGF','PD','CR',
-  'ADS','TT','KW','IGP','NA','IHP','OSP','CTP','CLP','SIF','GAD','VID'
-]);
+// Master SKUs always start with one of the three product-category prefixes:
+//   SD  women      SM  men      SU  unisex
+// Full code is that prefix + 1-4 more uppercase chars (SDCP, SDFLK, SMCP,
+// SUOST, etc.). Anything else (USP/VRP/BST/MC content-type codes, campaign
+// prefixes like CTP/CLP) is rejected. First token of the nomenclature is
+// the extraction target.
+const _SKU_RE = /^(SD|SM|SU)[A-Z]{1,4}$/;
 function _extractSkuFromName(nomen){
   if (!nomen) return null;
   const first = String(nomen).split('_')[0].trim();
-  if (!/^[A-Z]{3,6}$/.test(first)) return null;
-  if (_CONTENT_TYPE_CODES.has(first)) return null;
-  return first;
+  return _SKU_RE.test(first) ? first : null;
 }
 
 function _utNormalizeGraphic(r){
