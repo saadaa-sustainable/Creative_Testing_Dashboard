@@ -2,15 +2,20 @@
    v2 — data + interactions
    ============================================================ */
 const params      = new URLSearchParams(window.location.search);
-const SUPABASE_URL  = params.get('supabaseUrl')  || '';
-const SUPABASE_ANON = params.get('supabaseAnon') || '';
-// Optional FastAPI proxy (backend/api_ae.py). When set, the AE section
-// routes its four data calls through this service instead of PostgREST —
-// avoids anon PostgREST's statement-timeout and rate-limit issues that
-// were blanking the table after 3-5 min.
+// FastAPI gateway (backend/api_ae.py) — when apiBase is set it MIRRORS the
+// full PostgREST surface at /rest/v1/*, so every existing SUPABASE_URL call
+// (26 tables + RPCs the dashboard makes) routes through it. Direct psycopg2
+// hits bypass anon PostgREST's statement-timeout and rate-limit issues.
 //   Launch: python backend/api_ae.py       (listens on http://127.0.0.1:8766)
-//   Dashboard URL:  index_v2.html?...&apiBase=http://127.0.0.1:8766
+//   Dashboard URL:  index_v2.html?apiBase=http://127.0.0.1:8766
 const API_BASE = (params.get('apiBase') || '').replace(/\/$/, '');
+// If apiBase is set, use it AS the SUPABASE_URL so all existing fetch()
+// calls in this file route through the gateway with zero per-endpoint edits.
+// SUPABASE_ANON is still needed as a header even when hitting the gateway
+// (the gateway ignores it; unset by default so we send a dummy string so
+// no fetch throws on the header being null).
+const SUPABASE_URL  = API_BASE || params.get('supabaseUrl') || '';
+const SUPABASE_ANON = params.get('supabaseAnon') || 'gateway';
 // Saada_Shopify_Data project (siymyhhrpzzbowfqtauf) — dashboarding needs
 // direct read access to the sessions rollup for the Landing Page Focus
 // overlay. RLS is disabled on public.sessions so this anon key can only
