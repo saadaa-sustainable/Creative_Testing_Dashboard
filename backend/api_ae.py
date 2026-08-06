@@ -127,19 +127,29 @@ _AE_COLS = [
 ]
 
 @app.get("/api/ads")
-def ads(status: str = "ACTIVE", since: str = "2025-01-01"):
-    """Mirror of what the frontend's fetchAds() pulls from ae_table_view."""
+def ads(status: str | None = None, since: str = "2025-01-01"):
+    """Mirror of what the frontend's fetchAds() pulls from ae_table_view.
+
+    IMPORTANT: NO ad_status filter by default — dashboard.js pulls the full
+    universe into `allAds` and the AE Status dropdown does client-side
+    narrowing. Filtering to ACTIVE here would hide the ~14k paused /
+    archived / campaign_paused / adset_paused / with_issues ads from
+    every AE view. Pass ?status=ACTIVE explicitly if you want the filter.
+    """
+    where = ["reporting_ends >= %s"]
+    params: list = [since]
+    if status:
+        where.append("UPPER(COALESCE(ad_status,'')) = %s")
+        params.append(status.upper())
     sql = f"""
       SELECT {', '.join(_AE_COLS)}
       FROM public.ae_table_view
-      WHERE UPPER(COALESCE(ad_status,'')) = %s
-        AND reporting_ends >= %s
+      WHERE {' AND '.join(where)}
       ORDER BY amount_spent DESC NULLS LAST
     """
     with cursor() as cur:
-        cur.execute(sql, (status.upper(), since))
+        cur.execute(sql, tuple(params))
         rows = cur.fetchall()
-        # Convert non-JSON types (Decimal, date) to strings/numbers
         return {"rows": _jsonify(rows), "count": len(rows)}
 
 # ── /api/delivery ───────────────────────────────────────────────────
