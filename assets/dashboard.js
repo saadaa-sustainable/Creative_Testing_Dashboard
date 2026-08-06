@@ -4,6 +4,13 @@
 const params      = new URLSearchParams(window.location.search);
 const SUPABASE_URL  = params.get('supabaseUrl')  || '';
 const SUPABASE_ANON = params.get('supabaseAnon') || '';
+// Optional FastAPI proxy (backend/api_ae.py). When set, the AE section
+// routes its four data calls through this service instead of PostgREST —
+// avoids anon PostgREST's statement-timeout and rate-limit issues that
+// were blanking the table after 3-5 min.
+//   Launch: python backend/api_ae.py       (listens on http://127.0.0.1:8766)
+//   Dashboard URL:  index_v2.html?...&apiBase=http://127.0.0.1:8766
+const API_BASE = (params.get('apiBase') || '').replace(/\/$/, '');
 // Saada_Shopify_Data project (siymyhhrpzzbowfqtauf) — dashboarding needs
 // direct read access to the sessions rollup for the Landing Page Focus
 // overlay. RLS is disabled on public.sessions so this anon key can only
@@ -110,6 +117,21 @@ function detectCtype(name){
 }
 
 async function fetchAds(){
+  // FastAPI proxy path — bypasses PostgREST for reliability.
+  if (API_BASE){
+    dbStat.innerHTML = 'Loading via API <span class="spinner"></span>';
+    try {
+      const r = await fetch(API_BASE + '/api/ads');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      const out = j.rows || [];
+      dbStat.innerHTML = 'Loaded <span class="mono">'+fmtInt(out.length)+'</span> ads (API)';
+      return out;
+    } catch (e){
+      console.warn('[fetchAds via API_BASE failed]', e, '— falling back to PostgREST');
+      // fall through
+    }
+  }
   if (!SUPABASE_URL || !SUPABASE_ANON){
     dbStat.textContent = 'Missing ?supabaseUrl & ?supabaseAnon';
     return [];
@@ -2887,9 +2909,28 @@ async function fetchAeWindowMetrics(){
   }
   if (key === _aeWindowMetricsKey) return;  // already fetched for this range
   _aeWindowMetricsKey = key;
+  // FastAPI proxy path — direct psycopg2 to Postgres, avoids anon PostgREST
+  // statement-timeout/rate-limit issues.
+  let r;
+  if (API_BASE){
+    try {
+      const url = API_BASE + '/api/window_metrics?from=' + encodeURIComponent(from) +
+                                                '&to='   + encodeURIComponent(to);
+      r = await fetch(url);
+      if (r.ok){
+        const j = await r.json();
+        _absorbWindowMetrics(j.rows || []);
+        return;
+      }
+      console.warn('[fetchAeWindowMetrics via API_BASE] HTTP', r.status);
+    } catch (e){
+      console.warn('[fetchAeWindowMetrics via API_BASE] network error', e);
+    }
+    // fall through to PostgREST
+  }
   if (!SUPABASE_URL || !SUPABASE_ANON){ aeWindowMetricsByAdId = {}; return; }
   try {
-    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_ae_metrics_by_window', {
+    r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_ae_metrics_by_window', {
       method:'POST',
       headers:{apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
                'Content-Type':'application/json'},
@@ -2905,42 +2946,48 @@ async function fetchAeWindowMetrics(){
       _aeWindowMetricsKey = ''; return;
     }
     const rows = await r.json();
-    const out = {};
-    for (const row of rows){
-      if (!row.ad_id) continue;
-      const impr  = +row.impressions || 0;
-      const reach = +row.reach_sum   || 0;
-      const spend = +row.spend       || 0;
-      const conv  = +row.conv_value  || 0;
-      const ftewv = +row.ftewv       || 0;
-      const ncp   = +row.ncp         || 0;
-      out[row.ad_id] = {
-        days_active:     +row.days_active || 0,
-        impressions:     impr,
-        reach:           reach,
-        reach_peak:      +row.reach_peak || 0,
-        amount_spent:    spend,
-        conv_value:      conv,
-        purchases:       +row.purchases  || 0,
-        link_clicks_raw: +row.link_clicks || 0,
-        ftewv_count:     ftewv,
-        ncp_count:       ncp,
-        // Derived
-        frequency:       reach > 0 ? impr / reach : 0,
-        cost_per_1000:   impr  > 0 ? spend / impr * 1000 : 0,
-        ctr_pct:         impr  > 0 ? (+row.link_clicks || 0) / impr * 100 : 0,
-        roas_ma:         spend > 0 ? conv / spend : 0,
-        cost_per_ftewv:  ftewv > 0 ? spend / ftewv : 0,
-        cost_per_ncp:    ncp   > 0 ? spend / ncp   : 0,
-      };
-    }
-    aeWindowMetricsByAdId = out;
+    _absorbWindowMetrics(rows);
   } catch (e){
     console.warn('[fetchAeWindowMetrics] network error', e);
     // Same reasoning as the HTTP-error branch above — keep the previous
     // aeWindowMetricsByAdId so the visible table doesn't blank out.
     _aeWindowMetricsKey = '';
   }
+}
+// Shared row-absorption helper — both the FastAPI path and the PostgREST
+// path emit the same row shape (get_ae_metrics_by_window / /api/window_metrics).
+function _absorbWindowMetrics(rows){
+  if (!Array.isArray(rows)) return;
+  const out = {};
+  for (const row of rows){
+    if (!row.ad_id) continue;
+    const impr  = +row.impressions || 0;
+    const reach = +row.reach_sum   || 0;
+    const spend = +row.spend       || 0;
+    const conv  = +row.conv_value  || 0;
+    const ftewv = +row.ftewv       || 0;
+    const ncp   = +row.ncp         || 0;
+    out[row.ad_id] = {
+      days_active:     +row.days_active || 0,
+      impressions:     impr,
+      reach:           reach,
+      reach_peak:      +row.reach_peak || 0,
+      amount_spent:    spend,
+      conv_value:      conv,
+      purchases:       +row.purchases  || 0,
+      link_clicks_raw: +row.link_clicks || 0,
+      ftewv_count:     ftewv,
+      ncp_count:       ncp,
+      // Derived
+      frequency:       reach > 0 ? impr / reach : 0,
+      cost_per_1000:   impr  > 0 ? spend / impr * 1000 : 0,
+      ctr_pct:         impr  > 0 ? (+row.link_clicks || 0) / impr * 100 : 0,
+      roas_ma:         spend > 0 ? conv / spend : 0,
+      cost_per_ftewv:  ftewv > 0 ? spend / ftewv : 0,
+      cost_per_ncp:    ncp   > 0 ? spend / ncp   : 0,
+    };
+  }
+  aeWindowMetricsByAdId = out;
 }
 // Fetch windowed Shopify metrics — pulls attribution rows in the AE date
 // range and aggregates by ad_id (orders count + sum(total_price)). Paginates
@@ -2955,6 +3002,29 @@ async function fetchAeWindowShopify(){
   }
   if (key === _aeWindowShopifyKey) return;
   _aeWindowShopifyKey = key;
+  // FastAPI proxy path — one-shot server-side aggregate (avoids paginating
+  // shopify_ad_attribution client-side through PostgREST).
+  if (API_BASE){
+    try {
+      const url = API_BASE + '/api/window_shopify?from=' + encodeURIComponent(from) +
+                                                 '&to='   + encodeURIComponent(to);
+      const r = await fetch(url);
+      if (r.ok){
+        const j = await r.json();
+        const agg = {};
+        for (const row of (j.rows || [])){
+          if (!row.ad_id) continue;
+          agg[row.ad_id] = {orders: +row.orders || 0, sales: +row.sales || 0};
+        }
+        aeWindowShopifyByAdId = agg;
+        return;
+      }
+      console.warn('[fetchAeWindowShopify via API_BASE] HTTP', r.status);
+    } catch (e){
+      console.warn('[fetchAeWindowShopify via API_BASE] network error', e);
+    }
+    // fall through
+  }
   if (!SUPABASE_URL || !SUPABASE_ANON){ aeWindowShopifyByAdId = {}; return; }
   try {
     const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
@@ -3151,33 +3221,51 @@ async function aeRebuildDeliverySet(){
     aeDeliverySet = _aeDeliveryCache.get(key);
     return;
   }
-  aeDeliverySet = null;   // clear stale result while we fetch
-  if (!SUPABASE_URL || !SUPABASE_ANON) return;
+  // aeDeliverySet stays at its previous value while we refetch — clearing
+  // it to null shows all rows until the new set lands, but on a partial
+  // failure that state is preserved (see the `succeeded` guard below).
   const dbStatEl = document.getElementById('dbStat');
   if (dbStatEl) dbStatEl.innerHTML = 'Loading delivery ads <span class="spinner"></span>';
-  const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
-                   'Content-Type':'application/json', Prefer:'count=none'};
-  // Single RPC call — server-side DISTINCT against the ae_daily_agg_mat mat
-  // table. Replaces the 900k-row paginated crawl of primary + backfill that
-  // used to blow past anon's 3s statement_timeout for 30+ day windows.
   const ids = new Set();
   let succeeded = false;   // guard: only cache + assign on real success
-  try {
-    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_delivery_ads', {
-      method:'POST', headers,
-      body: JSON.stringify({from_date: from || '1970-01-01',
-                            to_date:   to   || '2100-01-01'}),
-    });
-    if (r.ok){
-      const j = await r.json();
-      if (Array.isArray(j)) for (const row of j){ if (row.ad_id) ids.add(row.ad_id); }
-      succeeded = true;
-    } else {
-      console.warn('[aeRebuildDeliverySet] RPC HTTP', r.status,
-                   await r.text().catch(()=>''));
+  // FastAPI proxy path — bypasses anon PostgREST reliability issues.
+  if (API_BASE){
+    try {
+      const url = API_BASE + '/api/delivery?from=' + encodeURIComponent(from) +
+                                          '&to='   + encodeURIComponent(to);
+      const r = await fetch(url);
+      if (r.ok){
+        const j = await r.json();
+        if (j && Array.isArray(j.ad_ids)) for (const id of j.ad_ids) ids.add(id);
+        succeeded = true;
+      } else {
+        console.warn('[aeRebuildDeliverySet via API_BASE] HTTP', r.status);
+      }
+    } catch (e){
+      console.warn('[aeRebuildDeliverySet via API_BASE] network error', e);
     }
-  } catch (e){
-    console.warn('[aeRebuildDeliverySet] network error', e);
+  }
+  // PostgREST fallback
+  if (!succeeded && SUPABASE_URL && SUPABASE_ANON){
+    const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
+                     'Content-Type':'application/json', Prefer:'count=none'};
+    try {
+      const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_delivery_ads', {
+        method:'POST', headers,
+        body: JSON.stringify({from_date: from || '1970-01-01',
+                              to_date:   to   || '2100-01-01'}),
+      });
+      if (r.ok){
+        const j = await r.json();
+        if (Array.isArray(j)) for (const row of j){ if (row.ad_id) ids.add(row.ad_id); }
+        succeeded = true;
+      } else {
+        console.warn('[aeRebuildDeliverySet] RPC HTTP', r.status,
+                     await r.text().catch(()=>''));
+      }
+    } catch (e){
+      console.warn('[aeRebuildDeliverySet] network error', e);
+    }
   }
   if (succeeded){
     _aeDeliveryCache.set(key, ids);
