@@ -2909,6 +2909,10 @@ async function fetchAeWindowMetrics(){
   }
   if (key === _aeWindowMetricsKey) return;  // already fetched for this range
   _aeWindowMetricsKey = key;
+  // Surface the fetch in the bottom-left status pill so users see something is
+  // happening. Kept short — one-line "Loading windowed metrics" plus spinner.
+  const _stat = document.getElementById('dbStat');
+  if (_stat) _stat.innerHTML = 'Loading windowed metrics <span class="spinner"></span>';
   // FastAPI proxy path — direct psycopg2 to Postgres, avoids anon PostgREST
   // statement-timeout/rate-limit issues.
   let r;
@@ -2920,6 +2924,8 @@ async function fetchAeWindowMetrics(){
       if (r.ok){
         const j = await r.json();
         _absorbWindowMetrics(j.rows || []);
+        if (_stat) _stat.innerHTML = 'Windowed metrics: <span class="mono">'+
+          fmtInt((j.rows || []).length) + '</span> ads';
         return;
       }
       console.warn('[fetchAeWindowMetrics via API_BASE] HTTP', r.status);
@@ -3002,6 +3008,8 @@ async function fetchAeWindowShopify(){
   }
   if (key === _aeWindowShopifyKey) return;
   _aeWindowShopifyKey = key;
+  const _stat = document.getElementById('dbStat');
+  if (_stat) _stat.innerHTML = 'Loading windowed Shopify <span class="spinner"></span>';
   // FastAPI proxy path — one-shot server-side aggregate (avoids paginating
   // shopify_ad_attribution client-side through PostgREST).
   if (API_BASE){
@@ -3017,6 +3025,8 @@ async function fetchAeWindowShopify(){
           agg[row.ad_id] = {orders: +row.orders || 0, sales: +row.sales || 0};
         }
         aeWindowShopifyByAdId = agg;
+        if (_stat) _stat.innerHTML = 'Windowed Shopify: <span class="mono">'+
+          fmtInt(Object.keys(agg).length) + '</span> ads';
         return;
       }
       console.warn('[fetchAeWindowShopify via API_BASE] HTTP', r.status);
