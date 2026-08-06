@@ -27,22 +27,6 @@ const SHOPIFY_URL  = params.get('shopifyUrl') ||
 const SHOPIFY_ANON = params.get('shopifyAnon') ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpeW15aGhycHp6Ym93ZnF0YXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMTQwODEsImV4cCI6MjA5Mzg5MDA4MX0.ocx4jlY3KeXdF_-5JI3_SDcLekmk8hrfWXba7EXEDgo';
 const dbStat = document.getElementById('dbStat');
-// Mirror dbStat into the floating bottom-left pill so the loading indicator
-// is visible even on the home view (where the sidebar is hidden). Uses a
-// MutationObserver so every existing dbStat.innerHTML / .textContent update
-// automatically replicates — no per-call code change needed.
-(function initDbStatFloat(){
-  const float = document.getElementById('dbStatFloat');
-  if (!float || !dbStat) return;
-  const sync = () => {
-    float.innerHTML = dbStat.innerHTML;
-    float.classList.toggle('idle', (dbStat.textContent || '').trim() === 'Idle');
-  };
-  sync();
-  new MutationObserver(sync).observe(dbStat, {
-    childList: true, characterData: true, subtree: true,
-  });
-})();
 
 const fmtInt = n => (n==null||isNaN(n)) ? '—' : Math.round(+n).toLocaleString('en-IN');
 const fmtRs  = n => (n==null||isNaN(n)) ? '—' : '₹' + fmtInt(n);
