@@ -53,10 +53,10 @@ function onOpen() {
     .addToUi();
   SpreadsheetApp.getUi()
     .createMenu('Ad Intel Daily')
-      .addItem('Refresh 30-day breakdown',        'refreshDailyTable')
+      .addItem('Refresh 30-day breakdown',         'refreshDailyTable')
       .addSeparator()
-      .addItem('Install daily refresh trigger',   'installDailyTrigger')
-      .addItem('Uninstall daily refresh trigger', 'D30_uninstallTrigger')
+      .addItem('Install hourly refresh trigger',   'installDailyTrigger')
+      .addItem('Uninstall hourly refresh trigger', 'D30_uninstallTrigger')
     .addToUi();
   SpreadsheetApp.getUi()
     .createMenu('Ad Intel 90d')

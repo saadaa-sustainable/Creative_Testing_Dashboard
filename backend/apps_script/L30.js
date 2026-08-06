@@ -22,8 +22,8 @@
  *       .createMenu('Ad Intel Daily')
  *         .addItem('Refresh 30-day breakdown',         'refreshDailyTable')
  *         .addSeparator()
- *         .addItem('Install daily refresh trigger',    'installDailyTrigger')
- *         .addItem('Uninstall daily refresh trigger',  'D30_uninstallTrigger')
+ *         .addItem('Install hourly refresh trigger',   'installDailyTrigger')
+ *         .addItem('Uninstall hourly refresh trigger', 'D30_uninstallTrigger')
  *       .addToUi();
  *   }
  *
@@ -345,11 +345,14 @@ function D30_writeToSheet_(rows) {
 }
 
 // ── Triggers (unique names — install/uninstall the daily job only) ─────
+// Runs hourly so the sheet auto-catches any DB refresh (pipeline runs
+// overnight + daily). Google's time-based triggers fire server-side, so
+// the sheet updates even when the user's laptop is asleep or off.
 function installDailyTrigger() {
   D30_uninstallTrigger();
-  ScriptApp.newTrigger('refreshDailyTable').timeBased().everyDays(1).atHour(3).create();
+  ScriptApp.newTrigger('refreshDailyTable').timeBased().everyHours(1).create();
   SpreadsheetApp.getActiveSpreadsheet()
-    .toast('Daily 3am refresh trigger installed.', 'AE Daily', 4);
+    .toast('Hourly refresh trigger installed.', 'AE Daily', 4);
 }
 function D30_uninstallTrigger() {
   ScriptApp.getProjectTriggers().forEach(function(t) {
