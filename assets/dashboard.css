@@ -129,6 +129,21 @@
   .sb-bottom{margin-top:auto;padding:14px 18px;border-top:1px solid rgba(231,226,210,0.18);
     font-size:11px;color:rgba(250,248,245,0.55)}
 
+  /* Floating loading pill — bottom-left, always visible.
+     Faded when the value is "Idle" so it doesn't distract; lights up
+     during any dbStat update (fetch, RPC, spinner ping). */
+  .db-stat-float{
+    position:fixed; left:12px; bottom:12px; z-index:9999;
+    padding:6px 12px; border-radius:14px;
+    background:rgba(45,42,36,0.92); color:rgba(250,248,245,0.92);
+    border:1px solid rgba(231,226,210,0.25);
+    font-size:11px; letter-spacing:.3px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.25);
+    max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    transition:opacity .15s ease;
+  }
+  .db-stat-float.idle{opacity:.35}
+
   /* ── Main shell ──────────────────────────────────────────────────── */
   #main{margin-left:212px;padding:22px 26px 56px}
   .page-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
