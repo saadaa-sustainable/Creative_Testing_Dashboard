@@ -2898,7 +2898,11 @@ async function fetchAeWindowMetrics(){
     if (!r.ok){
       console.warn('[fetchAeWindowMetrics] HTTP', r.status,
                    await r.text().catch(()=>''));
-      aeWindowMetricsByAdId = {}; return;
+      // Keep previous window data intact on transient failure — clearing
+      // to {} makes every row's windowed columns render as zero after 3-5 min
+      // of idle when a background request briefly fails or times out. Reset
+      // the cache key so the next explicit user action retries the fetch.
+      _aeWindowMetricsKey = ''; return;
     }
     const rows = await r.json();
     const out = {};
@@ -2933,7 +2937,9 @@ async function fetchAeWindowMetrics(){
     aeWindowMetricsByAdId = out;
   } catch (e){
     console.warn('[fetchAeWindowMetrics] network error', e);
-    aeWindowMetricsByAdId = {};
+    // Same reasoning as the HTTP-error branch above — keep the previous
+    // aeWindowMetricsByAdId so the visible table doesn't blank out.
+    _aeWindowMetricsKey = '';
   }
 }
 // Fetch windowed Shopify metrics — pulls attribution rows in the AE date
@@ -2981,7 +2987,10 @@ async function fetchAeWindowShopify(){
     aeWindowShopifyByAdId = agg;
   } catch (e){
     console.warn('[fetchAeWindowShopify] network error', e);
-    aeWindowShopifyByAdId = {};
+    // Preserve last-known windowed Shopify data on failure — clearing to {}
+    // makes shopify_orders/sales columns render as 0 for every row. Reset
+    // the cache key so the next explicit action retries.
+    _aeWindowShopifyKey = '';
   }
 }
 // Group-level Shopify rollups. Called on:
