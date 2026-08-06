@@ -87,7 +87,19 @@
   /* ── Sidebar (dark on ecru base) ─────────────────────────────────── */
   #sidebar{position:fixed;top:0;left:0;bottom:0;width:212px;
     background:var(--sb-bg);
-    display:flex;flex-direction:column;padding:18px 0;z-index:10}
+    display:flex;flex-direction:column;padding:18px 0;z-index:10;
+    /* Scroll inside the sidebar when the item list overflows the viewport
+       — otherwise Historic section + sb-bottom (dbStat) below CPIS get
+       clipped on shorter screens and there's no way to reach them. */
+    overflow-y:auto;overflow-x:hidden}
+  /* Thin scrollbar that matches the dark sidebar theme so it doesn't
+     look like a mistake — Firefox uses scrollbar-*, Chrome/Edge uses
+     ::-webkit-scrollbar. */
+  #sidebar{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.15) transparent}
+  #sidebar::-webkit-scrollbar{width:6px}
+  #sidebar::-webkit-scrollbar-track{background:transparent}
+  #sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:3px}
+  #sidebar::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.28)}
   .sb-logo{display:flex;align-items:center;gap:10px;padding:0 18px;margin-bottom:24px}
   .sb-logo .dot{width:28px;height:28px;border-radius:7px;
     background:var(--accent-yellow);
