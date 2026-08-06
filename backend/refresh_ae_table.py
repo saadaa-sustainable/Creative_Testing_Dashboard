@@ -212,9 +212,17 @@ per_ad AS (
         COALESCE(b.amount_spent,   0::numeric) AS amount_spent,
         COALESCE(b.outbound_clicks,0) AS outbound_clicks,
         COALESCE(p.link_clicks,    0) AS link_clicks,
-        COALESCE(p.purchases,      0::numeric) AS purchases,
-        COALESCE(p.ci,             0::numeric) AS ci,
-        COALESCE(p.atc,            0::numeric) AS atc,
+        -- Purchases / CI / ATC:
+        --   primary_table only has the rolling last-15-day window, so ads
+        --   whose delivery is older show 0 purchases even though Meta
+        --   reports many. ad_meta_lifetime is a per-ad Meta lifetime cache
+        --   fetched by backend/fetch_ad_lifetime_purchases.py. Prefer the
+        --   larger of (primary sum, Meta lifetime) — primary can occasionally
+        --   sit slightly higher on ads that got new purchases in the last
+        --   15 days after the last Meta refresh.
+        GREATEST(COALESCE(p.purchases, 0::numeric), COALESCE(lp.lifetime_purchases, 0::numeric)) AS purchases,
+        GREATEST(COALESCE(p.ci,        0::numeric), COALESCE(lp.lifetime_ci,        0::numeric)) AS ci,
+        GREATEST(COALESCE(p.atc,       0::numeric), COALESCE(lp.lifetime_atc,       0::numeric)) AS atc,
         COALESCE(b.conv_value,     0::numeric) AS conv_value,
         COALESCE(b.ftewv_count,    0) AS ftewv_count,
         COALESCE(b.ncp_count,      0) AS ncp_count,
@@ -228,6 +236,7 @@ per_ad AS (
     FROM all_ad_ids a
     LEFT JOIN backfill_agg b ON b.ad_id = a.ad_id
     LEFT JOIN primary_agg  p ON p.ad_id = a.ad_id
+    LEFT JOIN public.ad_meta_lifetime lp ON lp.ad_id = a.ad_id
 ),
 globals AS (
     SELECT
