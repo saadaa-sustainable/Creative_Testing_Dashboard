@@ -3161,6 +3161,7 @@ async function aeRebuildDeliverySet(){
   // table. Replaces the 900k-row paginated crawl of primary + backfill that
   // used to blow past anon's 3s statement_timeout for 30+ day windows.
   const ids = new Set();
+  let succeeded = false;   // guard: only cache + assign on real success
   try {
     const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_delivery_ads', {
       method:'POST', headers,
@@ -3170,6 +3171,7 @@ async function aeRebuildDeliverySet(){
     if (r.ok){
       const j = await r.json();
       if (Array.isArray(j)) for (const row of j){ if (row.ad_id) ids.add(row.ad_id); }
+      succeeded = true;
     } else {
       console.warn('[aeRebuildDeliverySet] RPC HTTP', r.status,
                    await r.text().catch(()=>''));
@@ -3177,10 +3179,21 @@ async function aeRebuildDeliverySet(){
   } catch (e){
     console.warn('[aeRebuildDeliverySet] network error', e);
   }
-  _aeDeliveryCache.set(key, ids);
-  aeDeliverySet = ids;
-  if (dbStatEl) dbStatEl.innerHTML = 'Delivered in window: <span class="mono">'+
-    fmtInt(ids.size)+'</span> ads';
+  if (succeeded){
+    _aeDeliveryCache.set(key, ids);
+    aeDeliverySet = ids;
+    if (dbStatEl) dbStatEl.innerHTML = 'Delivered in window: <span class="mono">'+
+      fmtInt(ids.size)+'</span> ads';
+  } else {
+    // Critical bug fix: on RPC failure, DO NOT cache/assign an empty Set.
+    // An empty Set is truthy in JS, so `if (aeDeliverySet)` passes and
+    // `filter(r => aeDeliverySet.has(r.ad_id))` in renderAE strips EVERY
+    // row — producing the "table blanks out 3-5 min after loading"
+    // symptom whenever a background refetch of this RPC hits a transient
+    // failure. Leaving aeDeliverySet at its previous value keeps the
+    // visible table intact; user's next explicit action retries.
+    if (dbStatEl) dbStatEl.innerHTML = 'Delivery ads RPC failed — kept previous set';
+  }
 }
 let ctRules    = [];            // Creative Testing multi-filter — same engine
 let aeDailyOpenKey = '';        // cache-key of the currently-open daily-row
