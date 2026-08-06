@@ -2204,6 +2204,10 @@ document.querySelectorAll('.sb-item').forEach(it => {
       if (activePreset === 'adset' || activePreset === 'campaign'){
         try { fetchAeShopifyRollups(); } catch(_){}
       }
+      // NOTE: data-date-preset (e.g. "Last 90 Days" sub-item) is applied
+      // in the seed block below AFTER the view switch — calling it here
+      // races with the view-init's drpPreset('last30') fallback and gets
+      // clobbered.
     } else if (v === 'ae' && !isHistoric){
       // Regular "Ads Analyse" — reset filters that the Active shortcut may
       // have left stuck. Users expect this button to be a "clean slate";
@@ -2242,15 +2246,27 @@ document.querySelectorAll('.sb-item').forEach(it => {
     // Lazy-load per-view data
     if (v === 'lifecycle' && allAds.length) renderLifecycle();
     if (v === 'ae'        && allAds.length) {
-      // First open: seed the DRP to Last 30 Days so the reach columns
-      // land on a meaningful window (lifetime shows 0 as Prev Reach for
-      // every ad born after 2025-01-01, which was confusing). drpPreset
-      // calls drpApply() internally, which awaits the reach RPC and
-      // triggers renderAE — so we don't need a manual renderAE() below
-      // in this branch. Only fires once per session (VIEW_LOADED.ae).
-      if (!VIEW_LOADED.ae){
+      // Decide which DRP preset to apply this click:
+      //   - sidebar item with data-date-preset  → that preset (e.g. "Last 90 Days" → last90)
+      //   - first-ever open                     → last30 (seed default so reach columns
+      //                                            land on a meaningful window)
+      //   - regular "Ads Analyse" click after already loaded, and NOT an Active
+      //     shortcut → reset to last30 so switching from a shortcut like
+      //     "Last 90 Days" back to Ads Analyse doesn't leave the picker stuck
+      //   - "Active" shortcut without a date preset → preserve current picker
+      let seedPreset = null;
+      if (it.dataset.datePreset){
+        seedPreset = it.dataset.datePreset;
+      } else if (!VIEW_LOADED.ae){
+        seedPreset = 'last30';
+      } else if (!isHistoric && !it.dataset.activePreset){
+        seedPreset = 'last30';
+      }
+      if (seedPreset){
         VIEW_LOADED.ae = true;
-        try { drpPreset('last30'); } catch(_){}
+        // drpPreset calls drpApply() internally which awaits the reach/
+        // window RPCs and then triggers renderAE. Safe fire-and-forget.
+        try { drpPreset(seedPreset); } catch(_){}
       }
       // Kick off group-level Shopify RPCs so the level toggle has
       // authoritative data ready the moment the user flips a pill.
@@ -7569,9 +7585,18 @@ document.getElementById('aePageSize').addEventListener('change', () => { aePage 
         );
       }
     }
+    // Reflow the table width to match visible column count. Without this,
+    // #aeMain's baked-in min-width:4400px (sized for all 68 columns) stays
+    // in force after hiding — the browser distributes the leftover space
+    // as whitespace after the last visible column, pushing e.g. AD ID far
+    // to the right. Scale ~130px per visible col, floor at 800px so a very
+    // narrow selection still looks like a proper table, cap at 4400px so
+    // the full-column case keeps its original layout.
+    const visibleCount = cols.length - hidden.size;
+    const targetMinPx  = Math.min(4400, Math.max(800, visibleCount * 130));
+    rules.push('#aeMain{min-width:' + targetMinPx + 'px !important}');
     styleEl.textContent = rules.join('\n');
     if (cntEl){
-      const visibleCount = cols.length - hidden.size;
       cntEl.textContent = '(' + visibleCount + '/' + cols.length + ')';
     }
   }

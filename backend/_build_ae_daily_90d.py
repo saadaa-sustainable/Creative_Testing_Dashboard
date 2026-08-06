@@ -1,5 +1,5 @@
-"""Create + populate public.ae_daily_30d — daywise ad×date rollup for the last
-30 days, aligned with per-day Shopify attribution.
+"""Create + populate public.ae_daily_90d — daywise ad×date rollup for the last
+90 days, aligned with per-day Shopify attribution.
 
 Scope:
   - Any ad_id that had ad_status = ACTIVE on at least one day in the window
@@ -12,7 +12,7 @@ Source tables:
                    (primary_table wins on conflict — more authoritative recent data).
   - Shopify     : shopify_ad_attribution grouped by (ad_id, DATE(order_created_at)).
 
-RLS: enabled on ae_daily_30d. No policies = only service_role can read
+RLS: enabled on ae_daily_90d. No policies = only service_role can read
 (matches the Google Apps Script + dashboard pattern).
 
 Idempotent: DROP + CREATE on every run. Safe to re-run daily.
@@ -25,12 +25,12 @@ conn = psycopg2.connect(os.environ['SUPABASE_DB_URL'], connect_timeout=30, keepa
                         keepalives_idle=30, keepalives_interval=10, keepalives_count=5)
 conn.autocommit = False
 
-DAYS = 30   # window length; today - 30 days .. today - 1 day  (30 full days ending yesterday)
+DAYS = 90   # window length; today - 90 days .. today - 1 day  (90 full days ending yesterday)
 
 DDL = """
-DROP TABLE IF EXISTS public.ae_daily_30d;
+DROP TABLE IF EXISTS public.ae_daily_90d;
 
-CREATE TABLE public.ae_daily_30d (
+CREATE TABLE public.ae_daily_90d (
     ad_id             text        NOT NULL,
     date              date        NOT NULL,
     -- structural metadata (as recorded on that day)
@@ -74,18 +74,18 @@ CREATE TABLE public.ae_daily_30d (
     PRIMARY KEY (ad_id, date)
 );
 -- source_table intentionally dropped (removed per user request 2026-07-25)
-CREATE INDEX ae_daily_30d_date_idx      ON public.ae_daily_30d (date);
-CREATE INDEX ae_daily_30d_status_idx    ON public.ae_daily_30d (ad_status);
-CREATE INDEX ae_daily_30d_campaign_idx  ON public.ae_daily_30d (campaign_id);
-CREATE INDEX ae_daily_30d_adset_idx     ON public.ae_daily_30d (adset_id);
+CREATE INDEX ae_daily_90d_date_idx      ON public.ae_daily_90d (date);
+CREATE INDEX ae_daily_90d_status_idx    ON public.ae_daily_90d (ad_status);
+CREATE INDEX ae_daily_90d_campaign_idx  ON public.ae_daily_90d (campaign_id);
+CREATE INDEX ae_daily_90d_adset_idx     ON public.ae_daily_90d (adset_id);
 
-ALTER TABLE public.ae_daily_30d ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ae_daily_90d ENABLE ROW LEVEL SECURITY;
 -- No policies → only service_role can read; matches the pattern already used by
 -- ae_shopify_enriched. Add a SELECT policy for anon later if the dashboard needs it.
 """
 
 INSERT_SQL = """
-INSERT INTO public.ae_daily_30d (
+INSERT INTO public.ae_daily_90d (
     ad_id, date,
     account_name, ad_name, ad_status, campaign_id, campaign_name, adset_id, adset_name,
     impressions, reach, frequency, amount_spent,
@@ -242,11 +242,11 @@ SELECT
 
 try:
     with conn.cursor() as cur:
-        print("[1/3] Dropping + creating public.ae_daily_30d ...")
+        print("[1/3] Dropping + creating public.ae_daily_90d ...")
         cur.execute(DDL)
 
         # The widened scope (all ads, not just ACTIVE) grew the working set
-        # from ~1k to ~8k ads × 30 days. Bump statement_timeout for this
+        # from ~1k to ~8k ads × 90 days. Bump statement_timeout for this
         # session so the single INSERT can complete — Supabase's default 8-min
         # cap was firing right around the 6-min mark on the joined build.
         cur.execute("SET LOCAL statement_timeout = '30min'")
@@ -262,7 +262,7 @@ try:
                               SUM(amount_spent)::numeric(14,2),
                               SUM(conversion_value)::numeric(14,2),
                               SUM(shopify_orders), SUM(shopify_sales)::numeric(14,2)
-                         FROM public.ae_daily_30d;""")
+                         FROM public.ae_daily_90d;""")
         r = cur.fetchone()
         print(f"[3/3] Sanity:")
         print(f"      total rows           : {r[0]:,}")
@@ -275,14 +275,14 @@ try:
 
         # Status distribution of scope ads
         cur.execute("""SELECT ad_status, COUNT(DISTINCT ad_id)
-                         FROM public.ae_daily_30d
+                         FROM public.ae_daily_90d
                         GROUP BY ad_status ORDER BY 2 DESC;""")
         print("\n      ad_status distribution across scope ads (latest day-status per ad):")
         for st, n in cur.fetchall():
             print(f"        {(st or '<null>'):<18}  {n:>6,}")
 
     conn.commit()
-    print("\n[COMMIT] ae_daily_30d built + populated.")
+    print("\n[COMMIT] ae_daily_90d built + populated.")
 
 except Exception as e:
     conn.rollback()

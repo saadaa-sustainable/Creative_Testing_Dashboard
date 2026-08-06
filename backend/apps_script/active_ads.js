@@ -59,6 +59,13 @@ function onOpen() {
       .addItem('Uninstall daily refresh trigger', 'D30_uninstallTrigger')
     .addToUi();
   SpreadsheetApp.getUi()
+    .createMenu('Ad Intel 90d')
+      .addItem('Refresh 90-day breakdown',        'refreshDailyTable90')
+      .addSeparator()
+      .addItem('Install daily refresh trigger',   'installDailyTrigger90')
+      .addItem('Uninstall daily refresh trigger', 'D90_uninstallTrigger')
+    .addToUi();
+  SpreadsheetApp.getUi()
     .createMenu('RCK Campaigns')
       .addItem('Refresh RCK sheet (L30)', 'refreshRckCampaigns')
       .addSeparator()

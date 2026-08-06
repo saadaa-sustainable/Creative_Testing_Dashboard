@@ -8,7 +8,7 @@ Checks:
        F1 = impressions >= 50,000
        F2 = roas_ma >= 3.2
        F3 = 0 < cost_per_ncp <= 525
-       F4 = 0 < cost_per_ftewv <= 25
+       F4 = 0 < cost_per_ftewv <= 12
   * Sums (impressions, spend, reach) reconcile against backfill_table
     lifetime totals (the source of truth for the tile "Total lifetime spend").
   * ROAS_ma is never negative.
@@ -22,7 +22,7 @@ from ._common import DB_URL, within_pct
 F1_IMP  = 50_000
 F2_ROAS = 3.2
 F3_CPN  = 525
-F4_CPF  = 25
+F4_CPF  = 12
 
 def run(suite):
     with psycopg2.connect(DB_URL) as c:

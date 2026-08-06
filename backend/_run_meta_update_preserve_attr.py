@@ -13,7 +13,8 @@ Steps kept (no attribution overwrite):
   fetch_google_ads_daily, refresh_google_ads_summary,
   result_classifier, fetch_shopify_sessions, sync_shopify_customers,
   import_asset_id_sheet, results_sync, fetch_ad_thumbnails,
-  _build_ad_utm_mode, _build_ae_daily_30d
+  _build_ad_utm_mode, _build_ae_daily_30d,
+  _build_rck_last30, _build_rck_daily_30d
 
 Step skipped (would clobber manual attribution):
   rebuild_attribution_orders   ← re-derives from raw UTMs, undoes manual fixes
@@ -43,6 +44,18 @@ STEPS = [
     ("refresh_ae_reach_recent",        ["refresh_ae_reach_recent.py"],      600),
     ("refresh_new_incr_table",         ["refresh_new_incr_table.py"],       300),
     ("fetch_meta_ireach_daily",        ["fetch_meta_ireach_daily.py"],     1800),
+    # Refresh Meta-deduped cumulative reach at the three light levels
+    # (~15-20 min total under throttle). Feeds the incr-reach RPC — was
+    # falling behind by a week because the pipeline never touched these.
+    # Ad-level cumulative is intentionally NOT run here — it takes several
+    # hours under Meta throttle and is handled by a separate long-running
+    # job (fetch_ireach_cumulative.py --level ad).
+    ("fetch_ireach_cumulative account",  ["fetch_ireach_cumulative.py","--level","account"], 1800),
+    ("fetch_ireach_cumulative campaign", ["fetch_ireach_cumulative.py","--level","campaign"], 1800),
+    ("fetch_ireach_cumulative adset",    ["fetch_ireach_cumulative.py","--level","adset"],    1800),
+    # Refresh ad-level spend helper (feeds Ads Analyse Incr Reach RPC —
+    # get_ireach_incremental_analysis pulls level='ad' spend from here).
+    ("_refresh_ireach_ad_daily",       ["_refresh_ireach_ad_daily.py"],     600),
     # ── Google Ads ───────────────────────────────────────────────────────
     ("fetch_google_ads_daily",         ["fetch_google_ads_daily.py"],       1800),
     ("refresh_google_ads_summary",     ["refresh_google_ads_summary.py"],    300),
@@ -63,6 +76,11 @@ STEPS = [
     # ── Helper tables for the Google Sheets ──────────────────────────────
     ("_build_ad_utm_mode",             ["_build_ad_utm_mode.py"],            600),
     ("_build_ae_daily_30d",            ["_build_ae_daily_30d.py"],           600),
+    ("_build_ae_daily_90d",            ["_build_ae_daily_90d.py"],          1800),
+    # RCK sheet backing tables. rck_last30 must run first — RCK_daily.js
+    # joins it for lifetime context (days_active, first/last_seen, shop_minus_meta).
+    ("_build_rck_last30",              ["_build_rck_last30.py"],             600),
+    ("_build_rck_daily_30d",           ["_build_rck_daily_30d.py"],          600),
 ]
 
 def log(msg):
@@ -108,3 +126,4 @@ log("REMINDER: manual attribution edits preserved. To pick them up in the")
 log("Google Sheet, refresh the two menus once this run completes:")
 log("  Ad Intel        → Refresh AE Table (ACTIVE only)")
 log("  Ad Intel Daily  → Refresh 30-day breakdown")
+log("  RCK Daily       → Refresh RCK 30-day breakdown")
