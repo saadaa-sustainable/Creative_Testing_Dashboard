@@ -2245,7 +2245,7 @@ document.querySelectorAll('.sb-item').forEach(it => {
     if (banner) banner.style.display = isHistoric ? 'inline-flex' : 'none';
     // Lazy-load per-view data
     if (v === 'lifecycle' && allAds.length) renderLifecycle();
-    if (v === 'ae'        && allAds.length) {
+    if (v === 'ae') {
       // Decide which DRP preset to apply this click:
       //   - sidebar item with data-date-preset  → that preset (e.g. "Last 90 Days" → last90)
       //   - first-ever open                     → last30 (seed default so reach columns
@@ -2254,6 +2254,10 @@ document.querySelectorAll('.sb-item').forEach(it => {
       //     shortcut → reset to last30 so switching from a shortcut like
       //     "Last 90 Days" back to Ads Analyse doesn't leave the picker stuck
       //   - "Active" shortcut without a date preset → preserve current picker
+      // NOTE: this must fire even if allAds isn't loaded yet — the DRP fetches
+      // (deliverySet, window metrics, shopify) run against Supabase directly
+      // and are independent of allAds. renderAE() bails harmlessly on empty
+      // allAds and the later rerender() picks up the fresh state.
       let seedPreset = null;
       if (it.dataset.datePreset){
         seedPreset = it.dataset.datePreset;
@@ -2264,15 +2268,15 @@ document.querySelectorAll('.sb-item').forEach(it => {
       }
       if (seedPreset){
         VIEW_LOADED.ae = true;
-        // drpPreset calls drpApply() internally which awaits the reach/
-        // window RPCs and then triggers renderAE. Safe fire-and-forget.
         try { drpPreset(seedPreset); } catch(_){}
       }
-      // Kick off group-level Shopify RPCs so the level toggle has
-      // authoritative data ready the moment the user flips a pill.
-      // No-op after the first call for a given window; safe fire-and-forget.
-      try { fetchAeShopifyRollups().then(() => renderAE()); } catch(_){}
-      renderAE();
+      if (allAds.length){
+        // Kick off group-level Shopify RPCs so the level toggle has
+        // authoritative data ready the moment the user flips a pill.
+        // No-op after the first call for a given window; safe fire-and-forget.
+        try { fetchAeShopifyRollups().then(() => renderAE()); } catch(_){}
+        renderAE();
+      }
     }
     if (v === 'adintel'){
       // If historic-mode changed since last load, re-fetch with the new window.
