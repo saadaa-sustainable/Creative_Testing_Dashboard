@@ -26,6 +26,10 @@ const SHOPIFY_URL  = params.get('shopifyUrl') ||
   'https://siymyhhrpzzbowfqtauf.supabase.co';
 const SHOPIFY_ANON = params.get('shopifyAnon') ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpeW15aGhycHp6Ym93ZnF0YXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMTQwODEsImV4cCI6MjA5Mzg5MDA4MX0.ocx4jlY3KeXdF_-5JI3_SDcLekmk8hrfWXba7EXEDgo';
+// Influencer posts are mirrored from saadaa-creatorhub into our main
+// project as public.content_influencer_posts by fetch_creatorhub_posts.py,
+// so the dashboard reads them via SUPABASE_URL like every other section —
+// no cross-project auth, no separate key required.
 const dbStat = document.getElementById('dbStat');
 
 const fmtInt = n => (n==null||isNaN(n)) ? '—' : Math.round(+n).toLocaleString('en-IN');
@@ -9182,10 +9186,10 @@ document.getElementById('invExport').onclick = () => {
 //             tested signal = summary_status='Tested', ad_id column always blank)
 // Each source is normalised into a common row shape by _utNormalize* below
 // so the render code doesn't branch on media type.
-let _utRowsByMedia = { video: null, graphic: null };
+let _utRowsByMedia = { video: null, graphic: null, influencer: null };
 let _utMode = 'untested'; // 'untested' | 'tested' | 'all'
-let _utMedia = 'video';   // 'video' | 'graphic'
-let _utLoadedByMedia = { video: false, graphic: false };
+let _utMedia = 'video';   // 'video' | 'graphic' | 'influencer'
+let _utLoadedByMedia = { video: false, graphic: false, influencer: false };
 
 function _utNormalizeVideo(r){
   // Tested/untested = derived server-side (fetch_content_asset_register.py):
@@ -9264,6 +9268,41 @@ function _utNormalizeGraphic(r){
   };
 }
 
+// Influencer post from public.content_influencer_posts (mirror of
+// saadaa-creatorhub.posts populated by backend/fetch_creatorhub_posts.py).
+// "Tested" is server-computed: post_id_short (e.g. 'SIF-11686-P1-') found
+// as a substring inside a primary_table.ad_name. Falls back to the source's
+// own ads_status field when the compute hasn't populated yet.
+function _utNormalizeInfluencer(r){
+  const computed = r.computed_is_tested;
+  const rawStatus = String(r.ads_status || '').trim();
+  const tested = (computed === true) ||
+                 (computed == null && rawStatus !== '' &&
+                  rawStatus.toLowerCase() !== 'untested');
+  return {
+    asset_id:            r.post_id_short || r.post_id || r.nomenclature || String(r.id || ''),
+    name:                r.username ? ('@' + r.username) : (r.nomenclature || ''),
+    media_type:          'influencer',
+    is_tested:           tested,
+    tested_signal:       r.matched_ad_id || r.ads_results || rawStatus || r.workflow_status || '',
+    matched_ad_id:       r.matched_ad_id   || '',
+    matched_ad_name:     r.matched_ad_name || '',
+    asset_kind:          r.content_type,                  // VRP / UGC / EDU / Reel / Static / Story
+    sub_kind:            r.deliverable_type || r.deliverable_role,
+    content_theme:       r.nomenclature,                  // full nomenclature (visible in table)
+    source:              r.collab_type,                   // Barter / Commercial / Paid
+    parent:              r.campaign_id,                   // brand campaign
+    date_added:          r.post_date || r.created_at,
+    date_produced:       r.post_date,
+    link_1:              r.post_link      || null,        // public IG URL
+    link_2:              r.download_link  || null,        // raw asset for re-upload
+    link_3:              r.post_thumbnail || null,        // thumbnail preview
+    ad_status:           r.workflow_status,
+    mirrored_at:         r.mirrored_at || r.updated_at,
+    raw:                 r,
+  };
+}
+
 // Public alias — the row-level classifier is now trivial since each source
 // is inherently one media type. Kept for legacy call sites.
 function _utClassifyMedia(r){ return r.media_type || _utMedia; }
@@ -9274,6 +9313,7 @@ async function loadUntestedAssets(force){
   const media = _utMedia;
   if (_utLoadedByMedia[media] && !force){ _utRender(); return; }
   body.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading ' + media + '…</td></tr>';
+
   if (!SUPABASE_URL || !SUPABASE_ANON){
     body.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:14px;color:var(--error-text,#b94a3d)">SUPABASE_URL / anon key missing — open dashboard with ?supabaseUrl=…&amp;supabaseAnon=… params.</td></tr>';
     return;
@@ -9293,6 +9333,18 @@ async function loadUntestedAssets(force){
           '&or=(link_1.not.is.null,link_2.not.is.null,link_3.not.is.null)' +
           '&order=asset_date.desc.nullslast&limit=5000';
     normalize = _utNormalizeGraphic;
+  } else if (media === 'influencer'){
+    const cols = ['id','post_id','post_id_short','username','nomenclature',
+                  'content_type','deliverable_type','deliverable_role','collab_type',
+                  'campaign_id','post_date','created_at','updated_at',
+                  'workflow_status','partnership_status',
+                  'ads_status','ads_results','ads_usage_rights',
+                  'post_link','download_link','post_thumbnail',
+                  'computed_is_tested','matched_ad_id','matched_ad_name',
+                  'mirrored_at'].join(',');
+    url = SUPABASE_URL + '/rest/v1/content_influencer_posts?select=' + cols +
+          '&post_link=not.is.null&order=post_date.desc.nullslast&limit=5000';
+    normalize = _utNormalizeInfluencer;
   } else {
     const cols = ['asset_id','planning_nomenclature','asset_type','source_parent',
                   'source','creative_effort_type','type_of_content',
@@ -9330,9 +9382,15 @@ function _utPopulateFilters(){
       sorted.map(v => '<option value="' + String(v).replace(/"/g,'&quot;') + '">' + String(v).replace(/</g,'&lt;') + '</option>').join('');
     if (current && sorted.includes(current)) el.value = current;
   };
-  const typeLbl   = _utMedia === 'graphic' ? 'All graphic types' : 'All asset types';
-  const sourceLbl = _utMedia === 'graphic' ? 'All platforms'     : 'All sources';
-  const parentLbl = _utMedia === 'graphic' ? 'All products'      : 'All source parents';
+  const typeLbl   = _utMedia === 'graphic'    ? 'All graphic types'
+                  : _utMedia === 'influencer' ? 'All content types'
+                                              : 'All asset types';
+  const sourceLbl = _utMedia === 'graphic'    ? 'All platforms'
+                  : _utMedia === 'influencer' ? 'All collab types'
+                                              : 'All sources';
+  const parentLbl = _utMedia === 'graphic'    ? 'All products'
+                  : _utMedia === 'influencer' ? 'All campaigns'
+                                              : 'All source parents';
   _fill('utFilterType',   rows.map(r => r.asset_kind), typeLbl);
   _fill('utFilterSource', rows.map(r => r.source),     sourceLbl);
   _fill('utFilterParent', rows.map(r => r.parent),     parentLbl);
@@ -9382,8 +9440,9 @@ function _utRender(){
   document.getElementById('utKpPct').textContent      = total ? pct.toFixed(1) + '%' : '—';
   // Retitle the total sub-label per media source.
   const totalSub = document.getElementById('utKpTotalSub');
-  if (totalSub) totalSub.textContent = _utMedia === 'graphic'
-    ? 'with link 1/2/3'  : 'with drive link';
+  if (totalSub) totalSub.textContent = _utMedia === 'graphic'    ? 'with link 1/2/3'
+                                      : _utMedia === 'influencer' ? 'with post link'
+                                                                  : 'with drive link';
   const mir = all[0]?.mirrored_at || '';
   document.getElementById('utKpMirror').textContent = mir ? mir.slice(0,10) + ' ' + mir.slice(11,16) : '—';
 
