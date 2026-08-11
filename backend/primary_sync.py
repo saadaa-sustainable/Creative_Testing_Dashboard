@@ -104,6 +104,7 @@ META_FIELDS = ",".join(
         "action_values",
         "outbound_clicks",
         "inline_link_clicks",
+        "unique_inline_link_clicks",
         "inline_link_click_ctr",
         "cost_per_inline_link_click",
         "video_thruplay_watched_actions",
@@ -131,6 +132,7 @@ COLUMNS = [
     "amount_spent_inr",
     "outbound_clicks",
     "inline_link_clicks",
+    "unique_link_clicks",
     "ctr",
     "cpc",
     "cpm",
@@ -586,6 +588,7 @@ def parse_row(
     reach = float(row.get("reach", 0) or 0)
     frequency = float(row.get("frequency", 0) or 0)
     link_clicks = float(row.get("inline_link_clicks", 0) or 0)
+    unique_link_clicks = float(row.get("unique_inline_link_clicks", 0) or 0)
     ctr = float(row.get("inline_link_click_ctr", 0) or 0)
     cpc = float(row.get("cost_per_inline_link_click", 0) or 0)
 
@@ -676,6 +679,7 @@ def parse_row(
         "amount_spent_inr": round(spend, 2),
         "outbound_clicks": int(outbound),
         "inline_link_clicks": int(link_clicks),
+        "unique_link_clicks": int(unique_link_clicks),
         "ctr": round(ctr, 4),
         "cpc": round(cpc, 4),
         "cpm": round(cpm, 4),
@@ -951,6 +955,7 @@ def upsert_placeholders(
                     "amount_spent_inr": 0,
                     "outbound_clicks": 0,
                     "inline_link_clicks": 0,
+                    "unique_link_clicks": 0,
                     "ctr": 0,
                     "cpc": 0,
                     "cpm": 0,

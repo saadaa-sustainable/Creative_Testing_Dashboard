@@ -20,38 +20,47 @@
     <div class="name">Saadaa</div>
   </div>
   <div class="sb-item sb-home active" data-view="home" title="Landing page — every section as a card">⌂ Home</div>
-  <div class="sb-section">Creative Testing</div>
-  <div class="sb-item" data-view="testing">Creative testing</div>
-  <div class="sb-item" data-view="lifecycle">Creative Lifecycle</div>
-  <div class="sb-section">Analysis
-    <span class="sb-info" title="Data in this section is scoped to ads dated 1st Jan 2025 onwards. Older ads live under Historic below.">ⓘ</span>
-  </div>
-  <div class="sb-item" data-view="ae">Ads Analyse</div>
-  <div class="sb-item" data-view="ireach" title="Campaign / Adset-level incremental reach for ads dated on/after 2025-01-01">Incremental Analysis</div>
-  <div class="sb-item" data-view="adintel">Last Click UTM analysis</div>
-  <div class="sb-item" data-view="landing" title="Shopify Web Analytics landing-page sessions × conversion funnel. Backfill in progress — data appears once sync completes.">Landing Page Analysis</div>
-  <div class="sb-section">Active
-    <span class="sb-info" title="Consolidated view of ad_status=ACTIVE ads with Ad / Adset / Campaign level toggle. Shopify orders + sales are aggregated authoritatively at the toggled level (adset & campaign totals come from shopify_ad_attribution rollups, not summed from ads).">ⓘ</span>
-  </div>
-  <div class="sb-item" data-view="ae" data-active-preset="ad" title="Active ads only — toggle Ad / Adset / Campaign level inside the view">Active</div>
-  <div class="sb-item" data-view="ae" data-active-preset="ad" data-date-preset="last90" title="Active ads only, windowed to the last 90 days">Last 90 Days</div>
-  <div class="sb-section">Content Workflow
-    <span class="sb-info" title="Mirrors content_workflow_optimiser.asset_register (npxpywoz…). Assets with no ad_id are 'Untested' — they haven't been placed into any Meta ad yet.">ⓘ</span>
-  </div>
-  <div class="sb-item" data-view="untested" title="Assets in the content pipeline that have never been placed into a Meta ad (ad_id is null in asset_register)">Untested Assets</div>
-  <div class="sb-item" data-view="histuntested" title="Deprecated video-side tabs of CTP-Asset_Sheet_v1 (Deprecated Planning / Completed / Unplanned) — same tested/untested rule as the live Untested section">Historic Untested</div>
-  <div class="sb-section">Catalog</div>
-  <div class="sb-item" data-view="inventory">Inventory</div>
-  <div class="sb-item" data-view="cpis" title="Cost Per Item Sold — per-master-SKU sales × inventory × Meta cost. Date range picker syncs with Ads Analyse.">CPIS</div>
-  <div class="sb-section">Historic
-    <span class="sb-info" title="Data in this section is the full lifetime — every ad since 2023, no date cap.">ⓘ</span>
-  </div>
-  <!-- Historic sections route to the same underlying view-ae / view-adintel
-       but flip a mode flag that swaps the date defaults + removes the
-       post-2025-01-01 cap. The current (top) items scope to date >= 2025-01-01. -->
-  <div class="sb-item" data-view="ae" data-historic="1" title="Lifetime ads analysis — no post-2025 cap">Historic Ads Analysis</div>
-  <div class="sb-item" data-view="adintel" data-historic="1" title="Lifetime attribution — includes pre-2025 orders">Historic Last Click UTM</div>
-  <div class="sb-item" data-view="hreach" title="Campaign / Adset-level historic incremental reach — group-first aggregation of primary_table + backfill_table">Historic Reach</div>
+
+  <!-- Two grouped disclosures: Working (verified, production-ready) and
+       In progress (data not fully validated / historic sections that lag
+       the current daily pipeline). Uses native <details> — no JS required. -->
+  <details class="sb-group" open>
+    <summary class="sb-group-hdr">✅ Working<span class="sb-caret">▾</span></summary>
+    <div class="sb-section">Creative Testing</div>
+    <div class="sb-item" data-view="testing">Creative testing</div>
+    <div class="sb-section">Analysis
+      <span class="sb-info" title="Data in this section is scoped to ads dated 1st Jan 2025 onwards. Older ads live under In progress.">ⓘ</span>
+    </div>
+    <div class="sb-item" data-view="ae">Ads Analyse</div>
+    <div class="sb-item" data-view="ireach" title="Campaign / Adset-level incremental reach for ads dated on/after 2025-01-01">Incremental Analysis</div>
+    <div class="sb-item" data-view="adintel">Last Click UTM analysis</div>
+    <div class="sb-item" data-view="landing" title="Shopify Web Analytics landing-page sessions × conversion funnel">Landing Page Analysis</div>
+    <div class="sb-section">Active
+      <span class="sb-info" title="Consolidated view of ad_status=ACTIVE ads with Ad / Adset / Campaign level toggle.">ⓘ</span>
+    </div>
+    <div class="sb-item" data-view="ae" data-active-preset="ad" title="Active ads only — toggle Ad / Adset / Campaign level inside the view">Active</div>
+    <div class="sb-item" data-view="ae" data-active-preset="ad" data-date-preset="last90" title="Active ads only, windowed to the last 90 days">Last 90 Days</div>
+    <div class="sb-section">Content Workflow
+      <span class="sb-info" title="Mirrors content_workflow_optimiser.asset_register. Assets with no ad_id are 'Untested'.">ⓘ</span>
+    </div>
+    <div class="sb-item" data-view="untested" title="Assets in the content pipeline that have never been placed into a Meta ad">Untested Assets</div>
+    <div class="sb-item" data-view="histuntested" title="Deprecated video-side tabs of CTP-Asset_Sheet_v1 — same tested/untested rule as the live section">Historic Untested</div>
+    <div class="sb-section">Catalog</div>
+    <div class="sb-item" data-view="cpis" title="Cost Per Item Sold — per-master-SKU sales × inventory × Meta cost">CPIS</div>
+  </details>
+
+  <details class="sb-group sb-group-wip" open>
+    <summary class="sb-group-hdr">⚠ In progress<span class="sb-caret">▾</span></summary>
+    <div class="sb-section-note">Data not fully verified — use with caution</div>
+    <div class="sb-item" data-view="lifecycle">Creative Lifecycle</div>
+    <div class="sb-item" data-view="inventory">Inventory</div>
+    <div class="sb-section">Historic
+      <span class="sb-info" title="Full-lifetime views — every ad since 2023, no date cap. Data still being validated.">ⓘ</span>
+    </div>
+    <div class="sb-item" data-view="ae" data-historic="1" title="Lifetime ads analysis — no post-2025 cap">Historic Ads Analysis</div>
+    <div class="sb-item" data-view="adintel" data-historic="1" title="Lifetime attribution — includes pre-2025 orders">Historic Last Click UTM</div>
+    <div class="sb-item" data-view="hreach" title="Campaign / Adset-level historic incremental reach">Historic Reach</div>
+  </details>
   <div class="sb-bottom"><span class="mono" id="dbStat">Idle</span></div>
 </aside>
 
@@ -1892,9 +1901,33 @@
         </div>
         <input class="fg-input" id="lpSearch" type="search" placeholder="filter…"
                style="padding:5px 10px;font-size:12px;width:200px">
+        <!-- Date-range filter: mirrors Ads Analyse DRP style but lite.
+             Preset dropdown + on-demand custom range. Filters rows by
+             ad_created_date. The mirror table only holds last-30-days
+             data, so presets outside that window return empty. -->
+        <div class="lp-drp" style="position:relative;display:inline-flex;align-items:center;gap:6px">
+          <select class="fg-select" id="lpDatePreset" style="padding:5px 8px;font-size:12px" title="Filter ads by created-date">
+            <option value="all"       selected>Date: All (last 30d)</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="last7">Last 7 Days</option>
+            <option value="last14">Last 14 Days</option>
+            <option value="thisMonth">This Month</option>
+            <option value="custom">Custom Range…</option>
+          </select>
+          <input class="fg-input" id="lpDateFrom" type="date" title="Ad created on or after"
+                 style="padding:5px 8px;font-size:12px;width:130px;display:none">
+          <input class="fg-input" id="lpDateTo"   type="date" title="Ad created on or before"
+                 style="padding:5px 8px;font-size:12px;width:130px;display:none">
+        </div>
         <select class="fg-select" id="lpSort" style="padding:5px 8px;font-size:12px">
           <option value="sessions">Sort: Sessions</option>
           <option value="ad_spend">Sort: Ad Spend</option>
+          <option value="impressions">Sort: Impressions</option>
+          <option value="conv_value">Sort: Conv Value</option>
+          <option value="purchases">Sort: Purchases</option>
+          <option value="avg_meta_roas">Sort: Avg Meta ROAS</option>
+          <option value="shopify_orders">Sort: Shopify Orders</option>
           <option value="atc_rate">Sort: ATC %</option>
           <option value="bounce_rate">Sort: Bounce %</option>
           <option value="cost_per_session">Sort: Cost / Session</option>
@@ -1917,8 +1950,14 @@
             <th class="mono" style="text-align:right" title="Number of distinct ads whose destination URL resolves to this path">Ads</th>
             <th class="mono" style="text-align:right">Cost / Session</th>
             <th class="mono" style="text-align:right">ATC %</th>
-            <th class="mono" style="text-align:right">Checkout %</th>
             <th class="mono" style="text-align:right">Bounce %</th>
+            <th class="mono" style="text-align:right" title="Sum of Meta inline_link_clicks across every ad linked to this landing page">Link Clicks</th>
+            <th class="mono" style="text-align:right" title="Sum of Meta unique_inline_link_clicks (deduped by user)">Unique Clicks</th>
+            <th class="mono" style="text-align:right" title="Sum of impressions across every ad linked to this landing page">Impressions</th>
+            <th class="mono" style="text-align:right" title="Meta reported purchase conversion value (sum across ads for this page)">Conv Value</th>
+            <th class="mono" style="text-align:right" title="Meta reported purchases (sum across ads for this page)">Purchases</th>
+            <th class="mono" style="text-align:right" title="Spend-weighted average of per-ad Meta ROAS">Avg Meta ROAS</th>
+            <th class="mono" style="text-align:right" title="Shopify last-click orders attributed to ads linking to this page">Shopify Orders</th>
           </tr>
         </thead>
         <tbody id="lpTableBody"></tbody>
@@ -1936,6 +1975,8 @@
             <th class="mono" style="text-align:right">Status</th>
             <th class="mono" style="text-align:right">Impr.</th>
             <th class="mono" style="text-align:right">Spend</th>
+            <th class="mono" style="text-align:right" title="Meta reported purchase conversion value">Conv Value</th>
+            <th class="mono" style="text-align:right" title="Meta reported purchases">Purchases</th>
             <th class="mono" style="text-align:right" title="Meta reported conv value ÷ Spend">Meta ROAS</th>
             <th class="mono" style="text-align:right">Shop Orders</th>
             <th class="mono" style="text-align:right" title="Attributed Shopify sales ÷ Spend">Shop ROAS</th>
@@ -2028,18 +2069,19 @@
 
       <div class="lp-table-col">
         <div class="lp-adtable-scroll">
-          <table class="tbl" id="lpAdTable">
+          <table class="tbl lp-ad-sortable" id="lpAdTable">
             <thead>
               <tr>
                 <th style="width:60px">Preview</th>
-                <th>Ad</th>
-                <th class="mono" style="text-align:right">Impr.</th>
-                <th class="mono" style="text-align:right">Spend</th>
-                <th class="mono" style="text-align:right" title="Meta reported conversion value ÷ Spend">Meta ROAS</th>
-                <th class="mono" style="text-align:right">Shop Orders</th>
-                <th class="mono" style="text-align:right">Shop Sales</th>
-                <th class="mono" style="text-align:right" title="Attributed Shopify sales ÷ Spend">Shop ROAS</th>
-                <th class="mono" style="text-align:right" title="(Shopify sales - Meta conv) / Meta conv ×100">Gap %</th>
+                <th class="lp-ad-th" data-lp-sort="ad_name">Ad<span class="lp-sort-caret"></span></th>
+                <th class="mono lp-ad-th" style="text-align:right;width:90px" data-lp-sort="ad_status">Status<span class="lp-sort-caret"></span></th>
+                <th class="mono lp-ad-th" style="text-align:right" data-lp-sort="impressions">Impr.<span class="lp-sort-caret"></span></th>
+                <th class="mono lp-ad-th" style="text-align:right" data-lp-sort="spend">Spend<span class="lp-sort-caret"></span></th>
+                <th class="mono lp-ad-th" style="text-align:right" title="Meta reported conversion value ÷ Spend" data-lp-sort="meta_roas">Meta ROAS<span class="lp-sort-caret"></span></th>
+                <th class="mono lp-ad-th" style="text-align:right" data-lp-sort="shopify_orders">Shop Orders<span class="lp-sort-caret"></span></th>
+                <th class="mono lp-ad-th" style="text-align:right" data-lp-sort="shopify_sales">Shop Sales<span class="lp-sort-caret"></span></th>
+                <th class="mono lp-ad-th" style="text-align:right" title="Attributed Shopify sales ÷ Spend" data-lp-sort="shopify_roas">Shop ROAS<span class="lp-sort-caret"></span></th>
+                <th class="mono lp-ad-th" style="text-align:right" title="(Shopify sales - Meta conv) / Meta conv ×100" data-lp-sort="roas_gap_pct">Gap %<span class="lp-sort-caret"></span></th>
               </tr>
             </thead>
             <tbody id="lpAdTableBody"></tbody>
@@ -2553,6 +2595,7 @@
           <tr>
             <th style="width:120px" data-sort="asset_id">Asset ID</th>
             <th data-sort="name">Nomenclature</th>
+            <th data-sort="product_sku" style="width:220px" title="Master SKU extracted from nomenclature prefix (e.g. SDJRT). Product title from cpis_by_sku.">Product</th>
             <th style="width:80px" data-sort="media_type">Media</th>
             <th data-sort="asset_kind" title="Video: Campaign / Brief · Graphic: Static / Carousel">Type</th>
             <th data-sort="parent" title="Video: source_parent · Graphic: product">Parent</th>
@@ -2568,7 +2611,7 @@
           </tr>
         </thead>
         <tbody id="utTableBody">
-          <tr><td colspan="14" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>
+          <tr><td colspan="15" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>
         </tbody>
       </table>
     </div>
