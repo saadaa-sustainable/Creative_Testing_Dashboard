@@ -1879,18 +1879,22 @@
     <div class="kpi"><div class="k-lbl">Cost / Session</div><div class="k-val mono" id="lpKpCPS">—</div><div class="k-sub">Spend ÷ Sessions</div></div>
     <div class="kpi"><div class="k-lbl">Avg ATC</div><div class="k-val mono" id="lpKpATC">—</div><div class="k-sub">Sessions weighted</div></div>
     <div class="kpi"><div class="k-lbl">Avg Bounce</div><div class="k-val mono" id="lpKpBounce">—</div><div class="k-sub">Sessions weighted</div></div>
-    <div class="kpi"><div class="k-lbl">Snapshot</div><div class="k-val mono" id="lpKpSnap" style="font-size:14px">—</div><div class="k-sub" id="lpKpSnapSub">computed_at</div></div>
+    <div class="kpi"><div class="k-lbl">Avg. RPS</div><div class="k-val mono" id="lpKpRps">—</div><div class="k-sub">Shopify Sales ÷ Sessions</div></div>
   </div>
 
   <!-- Analytics table — reads from landing_page_analysis_30d (pre-computed rollup).
        Loads instantly; no aggregation on the client side. -->
-  <div class="funnel-card" id="lpTableCard" style="padding:14px 16px">
-    <div class="funnel-hdr" style="padding:6px 4px 12px">
-      <h3 id="lpTableTitle">Landing pages
-        <span class="h-sub" id="lpTableSub">last 30 days · sessions × ad-spend join</span>
-      </h3>
-      <div style="display:flex;gap:8px;align-items:center">
-        <!-- View toggle: page-first ↔ ad-first master table -->
+  <div class="funnel-card" id="lpTableCard">
+    <!-- Header is a two-row stack:
+         Row 1 = title + structure controls (view / column scope / picker)
+         Row 2 = search + filters + actions
+         Both rows share the same 16px side padding so buttons stack
+         visually on the right edge. -->
+    <div class="funnel-hdr lp-hdr">
+      <!-- ── Row 1 — title + structure ────────────────────────────── -->
+      <div class="lp-hdr-row lp-hdr-row-structure">
+        <h3 id="lpTableTitle" class="lp-hdr-title">Landing pages</h3>
+        <span class="lp-hdr-lbl">View</span>
         <div class="lp-viewtog" role="tablist">
           <button class="lp-viewtog-btn active" data-lp-view="pages" type="button"
                   role="tab" aria-selected="true"
@@ -1899,70 +1903,195 @@
                   role="tab" aria-selected="false"
                   title="Master = individual ads · click a row to see the landing page it drives">Ads → Pages</button>
         </div>
-        <input class="fg-input" id="lpSearch" type="search" placeholder="filter…"
-               style="padding:5px 10px;font-size:12px;width:200px">
-        <!-- Date-range filter: mirrors Ads Analyse DRP style but lite.
-             Preset dropdown + on-demand custom range. Filters rows by
-             ad_created_date. The mirror table only holds last-30-days
-             data, so presets outside that window return empty. -->
-        <div class="lp-drp" style="position:relative;display:inline-flex;align-items:center;gap:6px">
-          <select class="fg-select" id="lpDatePreset" style="padding:5px 8px;font-size:12px" title="Filter ads by created-date">
-            <option value="all"       selected>Date: All (last 30d)</option>
-            <option value="today">Today</option>
-            <option value="yesterday">Yesterday</option>
-            <option value="last7">Last 7 Days</option>
-            <option value="last14">Last 14 Days</option>
-            <option value="thisMonth">This Month</option>
-            <option value="custom">Custom Range…</option>
-          </select>
-          <input class="fg-input" id="lpDateFrom" type="date" title="Ad created on or after"
-                 style="padding:5px 8px;font-size:12px;width:130px;display:none">
-          <input class="fg-input" id="lpDateTo"   type="date" title="Ad created on or before"
-                 style="padding:5px 8px;font-size:12px;width:130px;display:none">
+        <span class="lp-hdr-sep"></span>
+        <span class="lp-hdr-lbl">Columns</span>
+        <div class="lp-src-scope" id="lpSrcScope" role="tablist" title="Filter columns by data source">
+          <button class="lp-src-btn active" data-lp-src="both"    type="button" role="tab" aria-selected="true">All</button>
+          <button class="lp-src-btn"        data-lp-src="shopify" type="button" role="tab" aria-selected="false">Shopify</button>
+          <button class="lp-src-btn"        data-lp-src="meta"    type="button" role="tab" aria-selected="false">Meta</button>
         </div>
-        <select class="fg-select" id="lpSort" style="padding:5px 8px;font-size:12px">
-          <option value="sessions">Sort: Sessions</option>
-          <option value="ad_spend">Sort: Ad Spend</option>
-          <option value="impressions">Sort: Impressions</option>
-          <option value="conv_value">Sort: Conv Value</option>
-          <option value="purchases">Sort: Purchases</option>
-          <option value="avg_meta_roas">Sort: Avg Meta ROAS</option>
-          <option value="shopify_orders">Sort: Shopify Orders</option>
-          <option value="atc_rate">Sort: ATC %</option>
-          <option value="bounce_rate">Sort: Bounce %</option>
-          <option value="cost_per_session">Sort: Cost / Session</option>
+        <div class="lp-cols-wrap" style="position:relative;display:inline-block">
+          <button type="button" class="btn ghost" id="lpColsBtn"
+                  style="padding:5px 10px;font-size:12px" title="Pick which metrics to show">
+            ⚙ Pick <span id="lpColsCount" style="opacity:.7;font-size:11px">— all</span>
+          </button>
+          <div class="lp-cols-panel" id="lpColsPanel" aria-hidden="true">
+            <div class="lp-cols-hdr">
+              <span>Metrics</span>
+              <div style="display:flex;gap:4px">
+                <button type="button" class="btn ghost" data-lp-cols-op="all"   style="padding:2px 8px;font-size:10.5px">All</button>
+                <button type="button" class="btn ghost" data-lp-cols-op="none"  style="padding:2px 8px;font-size:10.5px">None</button>
+                <button type="button" class="btn ghost" data-lp-cols-op="reset" style="padding:2px 8px;font-size:10.5px">Default</button>
+              </div>
+            </div>
+            <div class="lp-cols-src">Shopify</div>
+            <div id="lpColsShopify" class="lp-cols-list"></div>
+            <div class="lp-cols-src">Meta</div>
+            <div id="lpColsMeta" class="lp-cols-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Row 2 — search + filters + actions ─────────────────────── -->
+      <div class="lp-hdr-row lp-hdr-row-filters">
+        <input class="fg-input lp-hdr-search" id="lpSearch" type="search" placeholder="filter path or ad…">
+        <select class="fg-select" id="lpDatePreset" style="padding:5px 8px;font-size:12px" title="Filter ads by created-date">
+          <option value="all"       selected>Date: All (last 30d)</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="last7">Last 7 Days</option>
+          <option value="last14">Last 14 Days</option>
+          <option value="thisMonth">This Month</option>
+          <option value="custom">Custom Range…</option>
         </select>
-        <button class="btn ghost" id="lpRefreshCompute" type="button"
-                style="padding:5px 10px;font-size:11px"
+        <input class="fg-input" id="lpDateFrom" type="date" title="Ad created on or after"
+               style="padding:5px 8px;font-size:12px;width:130px;display:none">
+        <input class="fg-input" id="lpDateTo"   type="date" title="Ad created on or before"
+               style="padding:5px 8px;font-size:12px;width:130px;display:none">
+        <!-- Sort dropdown removed — click column headers to sort. Kept a
+             hidden fallback with only the default option so existing JS
+             that reads #lpSort.value still gets a sane initial sort. -->
+        <select id="lpSort" style="display:none">
+          <option value="sessions" selected>Sessions</option>
+        </select>
+        <!-- utm_source multi-select — panel anchored to RIGHT edge so it
+             doesn't run off-screen. -->
+        <div class="ms-wrap" id="lpUtmSourceMs" style="position:relative;flex-shrink:0">
+          <button type="button" class="ms-btn" id="lpUtmSourceBtn"
+                  style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 10px;font-size:12px;min-width:180px;text-align:left;background:#fff;color:#1a1a1a;border:1px solid rgba(0,0,0,0.15);border-radius:6px;cursor:pointer">
+            <span id="lpUtmSourceLbl" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">UTM: All sources</span>
+            <span style="color:#888;flex-shrink:0">▾</span>
+          </button>
+          <div class="ms-panel" id="lpUtmSourcePanel" aria-hidden="true"
+               style="display:none;position:absolute;top:calc(100% + 4px);right:0;z-index:9999;width:280px;max-height:360px;overflow:auto;background:#fff;color:#1a1a1a;border:1px solid rgba(0,0,0,0.15);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.16);padding:8px">
+            <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+              <input class="fg-input" id="lpUtmSourceSearch" placeholder="filter…"
+                     style="flex:1;min-width:0;padding:5px 8px;font-size:12px;background:#fff;color:#1a1a1a;border:1px solid rgba(0,0,0,0.15);border-radius:4px">
+              <button type="button" class="btn ghost" data-lpms-op="all"  style="padding:3px 10px;font-size:11px;flex-shrink:0">All</button>
+              <button type="button" class="btn ghost" data-lpms-op="none" style="padding:3px 10px;font-size:11px;flex-shrink:0">None</button>
+            </div>
+            <div id="lpUtmSourceList" style="display:flex;flex-direction:column;gap:1px"></div>
+          </div>
+        </div>
+        <span class="lp-hdr-sep"></span>
+        <button class="btn ghost lp-hdr-act" id="lpRefreshCompute" type="button"
                 title="Recompute the rollup — runs refresh_landing_page_analysis_30d() (server-side).">↻ Recompute</button>
-        <button class="btn ghost" id="lpExport" type="button" style="padding:5px 10px;font-size:11px">Export CSV</button>
+        <button class="btn ghost lp-hdr-act" id="lpExport" type="button">↓ Export CSV</button>
       </div>
     </div>
-    <!-- Mode A — Pages master (default) -->
+    <!-- UTM Source × Sessions — collapsible analytics drill-down, TOP position.
+         Feeds public.sessions_by_utm_source_daily (synced from
+         Saada_Shopify_Data.sessions by backend/sync_sessions_by_utm.py). -->
+    <details class="lp-utm-drill" id="lpUtmDrill" style="margin:0 0 18px;padding:0;border:1px solid var(--sep,rgba(0,0,0,0.08));border-radius:8px;background:var(--surface-1,#fff)">
+      <summary style="cursor:pointer;user-select:none;padding:14px 16px;list-style:none;display:flex;align-items:center;gap:10px">
+        <span style="font-size:14px;color:var(--accent-yellow,#e8a87c)">▸</span>
+        <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px">
+          Sessions by UTM source
+        </span>
+        <span style="font-weight:400;color:var(--text-tertiary);font-size:11px" id="lpUtmSub">
+          click to open · top 5 sources · last 30 days
+        </span>
+      </summary>
+
+      <div style="padding:0 16px 14px">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 10px">
+          <select class="fg-select" id="lpUtmRange" style="padding:5px 8px;font-size:12px">
+            <option value="7">Last 7 days</option>
+            <option value="14">Last 14 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="60">Last 60 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+          <!-- Chart-mode toggle: swap between Sessions and RPS views.
+               Same date range + source filter, same colour map. -->
+          <div class="lp-viewtog" role="tablist" id="lpChartMode" title="Switch chart metric">
+            <button class="lp-viewtog-btn active" data-lp-chart="sessions" type="button" role="tab" aria-selected="true">Sessions</button>
+            <button class="lp-viewtog-btn"        data-lp-chart="rps"      type="button" role="tab" aria-selected="false">RPS</button>
+          </div>
+          <span style="font-size:11px;color:var(--text-tertiary)">
+            source filter lives above (next to Sort) — chart + Pages master share it
+          </span>
+        </div>
+
+        <!-- Sessions chart panel (default) -->
+        <div id="lpUtmChartWrap" style="position:relative;height:320px;background:var(--surface-0,#faf9f7);border:1px solid var(--sep,rgba(0,0,0,0.06));border-radius:8px;padding:10px;margin-bottom:12px">
+          <canvas id="lpUtmChart"></canvas>
+        </div>
+
+        <!-- RPS timeseries — blended (bold) + per-source (thin) lines.
+             Uses get_revenue_by_source_daily RPC + sessions_by_utm_source_daily
+             to compute revenue/sessions per source per day. Hidden by
+             default; toggled via lpChartMode above. -->
+        <div id="lpRpsChartWrap" style="display:none;margin-bottom:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 6px">
+            <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:12.5px">
+              Revenue per Session
+              <span style="font-weight:400;color:var(--text-tertiary);font-size:10.5px;margin-left:6px" id="lpRpsSub">
+                blended + top 5 sources · same date range as above
+              </span>
+            </div>
+            <span style="font-size:10.5px;color:var(--text-tertiary)">
+              RPS = revenue ÷ sessions (per day)
+            </span>
+          </div>
+          <div style="position:relative;height:320px;background:var(--surface-0,#faf9f7);border:1px solid var(--sep,rgba(0,0,0,0.06));border-radius:8px;padding:10px">
+            <canvas id="lpRpsChart"></canvas>
+          </div>
+        </div>
+
+        <div class="ae-tbl-wrap" style="max-height:320px;overflow:auto">
+          <table class="tbl" id="lpUtmTable">
+            <thead>
+              <tr>
+                <th>UTM Source</th>
+                <th class="mono" style="text-align:right">Sessions</th>
+                <th class="mono" style="text-align:right">Visitors</th>
+                <th class="mono" style="text-align:right" title="Change vs previous period of same length">Δ vs prev</th>
+              </tr>
+            </thead>
+            <tbody id="lpUtmTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+
+    <!-- Mode A — Pages master (default)
+         Columns tagged with data-lp-grp (source group) + data-lp-metric
+         (unique key). The Columns popover toggles individual metrics; the
+         group toggle (kept for quick preset) toggles a whole source at once. -->
     <div class="ae-tbl-wrap" id="lpTableWrapPages">
       <table class="tbl" id="lpTable">
         <thead>
           <tr>
-            <th>Landing page path</th>
-            <th class="mono" style="text-align:right">Sessions</th>
-            <th class="mono" style="text-align:right">Visitors</th>
-            <th class="mono" style="text-align:right">Ad Spend</th>
-            <th class="mono" style="text-align:right" title="Number of distinct ads whose destination URL resolves to this path">Ads</th>
-            <th class="mono" style="text-align:right">Cost / Session</th>
-            <th class="mono" style="text-align:right">ATC %</th>
-            <th class="mono" style="text-align:right">Bounce %</th>
-            <th class="mono" style="text-align:right" title="Sum of Meta inline_link_clicks across every ad linked to this landing page">Link Clicks</th>
-            <th class="mono" style="text-align:right" title="Sum of Meta unique_inline_link_clicks (deduped by user)">Unique Clicks</th>
-            <th class="mono" style="text-align:right" title="Sum of impressions across every ad linked to this landing page">Impressions</th>
-            <th class="mono" style="text-align:right" title="Meta reported purchase conversion value (sum across ads for this page)">Conv Value</th>
-            <th class="mono" style="text-align:right" title="Meta reported purchases (sum across ads for this page)">Purchases</th>
-            <th class="mono" style="text-align:right" title="Spend-weighted average of per-ad Meta ROAS">Avg Meta ROAS</th>
-            <th class="mono" style="text-align:right" title="Shopify last-click orders attributed to ads linking to this page">Shopify Orders</th>
+            <th data-lp-grp="core" data-lp-metric="path">Landing page path</th>
+            <!-- ─── Shopify source ─── -->
+            <th data-lp-grp="shopify" data-lp-metric="sessions"           class="mono" style="text-align:right">Sessions</th>
+            <th data-lp-grp="shopify" data-lp-metric="visitors"           class="mono" style="text-align:right">Visitors</th>
+            <th data-lp-grp="shopify" data-lp-metric="atc_rate"           class="mono" style="text-align:right">ATC %</th>
+            <th data-lp-grp="shopify" data-lp-metric="bounce_rate"        class="mono" style="text-align:right">Bounce %</th>
+            <th data-lp-grp="shopify" data-lp-metric="shopify_orders"     class="mono" style="text-align:right" title="Shopify last-click orders attributed to ads linking to this page">Shopify Orders</th>
+            <th data-lp-grp="shopify" data-lp-metric="shopify_sales"      class="mono" style="text-align:right" title="Sum of Shopify last-click order totals (INR)">Shopify Sales</th>
+            <th data-lp-grp="shopify" data-lp-metric="bot_traffic"        class="mono" style="text-align:right" title="Not available — source sessions table has no bot/human row-level column">Bot Traffic</th>
+            <th data-lp-grp="shopify" data-lp-metric="conv_rate"          class="mono" style="text-align:right" title="Shopify Orders ÷ Sessions × 100">Conv Rate %</th>
+            <th data-lp-grp="shopify" data-lp-metric="rev_per_session"    class="mono" style="text-align:right" title="Shopify Sales ÷ Sessions">Rev / Session</th>
+            <th data-lp-grp="shopify" data-lp-metric="shopify_roas"       class="mono" style="text-align:right" title="Shopify Sales ÷ Ad Spend">Shopify ROAS</th>
+            <th data-lp-grp="shopify" data-lp-metric="new_cust_orders"    class="mono" style="text-align:right" title="Orders from customers whose lifetime order count = 1 (first purchase)">New Cust Orders</th>
+            <th data-lp-grp="shopify" data-lp-metric="repeat_cust_orders" class="mono" style="text-align:right" title="Orders from customers whose lifetime order count > 1">Repeat Cust Orders</th>
+            <!-- ─── Meta source ─── -->
+            <th data-lp-grp="meta" data-lp-metric="impressions"        class="mono" style="text-align:right" title="Sum of impressions across every ad linked to this landing page">Impressions</th>
+            <th data-lp-grp="meta" data-lp-metric="conv_value"         class="mono" style="text-align:right" title="Meta reported purchase conversion value (sum across ads for this page)">Conv Value</th>
+            <th data-lp-grp="meta" data-lp-metric="ad_spend"           class="mono" style="text-align:right">Ad Spend</th>
+            <th data-lp-grp="meta" data-lp-metric="distinct_ads"       class="mono" style="text-align:right" title="Number of distinct ads whose destination URL resolves to this path"># Ads</th>
+            <th data-lp-grp="meta" data-lp-metric="link_clicks"        class="mono" style="text-align:right" title="Sum of Meta inline_link_clicks across every ad linked to this landing page">Link Clicks</th>
+            <th data-lp-grp="meta" data-lp-metric="unique_link_clicks" class="mono" style="text-align:right" title="Sum of Meta unique_inline_link_clicks (deduped by user)">Unique Clicks</th>
+            <th data-lp-grp="meta" data-lp-metric="ftewv"              class="mono" style="text-align:right" title="Meta FTEWV — First-Time Engagement with Video (sum of ftewv_count across ads for this page)">FTEWV</th>
+            <th data-lp-grp="meta" data-lp-metric="avg_meta_roas"      class="mono" style="text-align:right" title="Meta Conv Value ÷ Ad Spend (spend-weighted across ads for this page)">Meta ROAS</th>
           </tr>
         </thead>
         <tbody id="lpTableBody"></tbody>
       </table>
     </div>
+
 
     <!-- Mode B — Ads master (toggled) -->
     <div class="ae-tbl-wrap" id="lpTableWrapAds" style="display:none">

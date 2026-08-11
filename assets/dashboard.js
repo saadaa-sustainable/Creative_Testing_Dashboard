@@ -2269,6 +2269,10 @@ document.querySelectorAll('.sb-item').forEach(it => {
     document.querySelectorAll('.view').forEach(vv => vv.style.display = 'none');
     const target = document.getElementById('view-' + v);
     if (target) { target.style.display = 'block'; }
+    // Reset scroll to the top of the newly-opened view so long previous
+    // pages don't leave the user landing halfway down (esp. Landing Page
+    // Analysis, whose table is far below the KPI cards).
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     // Toggle landing-page mode (sidebar hidden, main goes full width).
     document.body.classList.toggle('on-home', v === 'home');
     // Toggle the "Historic (Lifetime)" banner on the view's page header
@@ -8184,6 +8188,12 @@ const LP_ROLLUP_TABLE = 'landing_page_analysis_30d';
 let _lpRows       = [];       // rows for 'pages' master
 let _lpAdsMaster  = [];       // rows for 'ads' master (all pages)
 let _lpViewMode   = 'pages';  // 'pages' | 'ads'
+// Click-to-sort on Pages master headers. null → fall back to lpSort dropdown.
+let _lpSortKey    = null;     // metric key or 'path'
+let _lpSortDir    = 'desc';   // 'asc' | 'desc'
+// Pagination — 250 pages per screen, prev/next below the table.
+const LP_PAGE_SIZE = 250;
+let _lpPageIdx    = 0;         // 0-based current page
 // Cache of ad_id → real thumbnail URL (from public.ad_thumbnails).
 // preview_link on landing_page_ad_breakdown_30d is a fb.me HTML redirect,
 // not an image, so <img src=preview_link> renders broken. We overlay the
@@ -8237,31 +8247,61 @@ function _lpDateFilter(rows){
 // used by the Landing Page Focus overlay near line 1831.)
 const _lpKpiSessCache = {};   // 'from|to' -> aggregate obj
 async function _lpFetchSessionsRange(from, to){
-  const key = from + '|' + to;
+  // Include utm_source filter in the cache key so switching filter
+  // doesn't return stale (non-filtered) data.
+  const utmKey = _lpUtmSelectedSources
+    ? '|utm:' + Array.from(_lpUtmSelectedSources).sort().join(',')
+    : '';
+  const key = from + '|' + to + utmKey;
   if (_lpKpiSessCache[key]) return _lpKpiSessCache[key];
   const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
-  // Session dates are inclusive on both ends
-  const url = SUPABASE_URL + '/rest/v1/landing_page_sessions_daily' +
-              '?select=session_date,landing_page_path,sessions,online_store_visitors,' +
-              'sessions_with_cart_additions,sessions_that_reached_checkout,bounces' +
+  const utmFilter = _lpUtmSelectedSources ? Array.from(_lpUtmSelectedSources) : null;
+  const cols = 'session_date,landing_page_path,sessions,online_store_visitors,' +
+               'sessions_with_cart_additions,sessions_that_reached_checkout,bounces';
+  // Build base URL — WITHOUT any &limit= clause; paging comes from Range headers.
+  // Supabase caps at 1000 rows per request when no Range is set. 30d default
+  // needs ~28k rows (all pages × all days). Previously the ?limit=200000 was
+  // silently ignored → truncation → wrong session totals.
+  let baseUrl;
+  if (utmFilter && utmFilter.length){
+    const inList = utmFilter.map(s => '"' + s.replace(/"/g,'\\"') + '"').join(',');
+    baseUrl = SUPABASE_URL + '/rest/v1/sessions_by_utm_page_daily?select=' + cols +
               '&session_date=gte.' + from + '&session_date=lte.' + to +
-              '&limit=200000';
+              '&utm_source=in.(' + inList + ')';
+  } else {
+    baseUrl = SUPABASE_URL + '/rest/v1/landing_page_sessions_daily?select=' + cols +
+              '&session_date=gte.' + from + '&session_date=lte.' + to;
+  }
   try {
-    const r = await fetch(url, { headers: hdrs });
-    if (!r.ok) throw new Error('sessions daily HTTP ' + r.status);
-    const rows = await r.json();
+    // Page through 5k-row chunks until we hit the end. Guard at 200k rows
+    // total in case the query somehow explodes.
+    const CHUNK = 5000;
+    let offset = 0;
     let sess = 0, vis = 0, atc = 0, chk = 0, bnc = 0;
-    const byPath = Object.create(null);   // path → {sess, vis, atc, chk, bnc}
-    for (const row of rows){
-      const s  = +row.sessions || 0;
-      const v  = +row.online_store_visitors || 0;
-      const a  = +row.sessions_with_cart_additions || 0;
-      const ck = +row.sessions_that_reached_checkout || 0;
-      const b  = +row.bounces || 0;
-      sess += s; vis += v; atc += a; chk += ck; bnc += b;
-      const p = row.landing_page_path || '';
-      const bin = byPath[p] || (byPath[p] = {sess:0, vis:0, atc:0, chk:0, bnc:0});
-      bin.sess += s; bin.vis += v; bin.atc += a; bin.chk += ck; bin.bnc += b;
+    const byPath = Object.create(null);
+    const HARD_CAP = 200000;
+    while (offset < HARD_CAP){
+      const r = await fetch(baseUrl, {
+        headers: {...hdrs, 'Range-Unit':'items', 'Range': offset + '-' + (offset + CHUNK - 1)},
+      });
+      if (r.status !== 200 && r.status !== 206){
+        throw new Error('sessions daily HTTP ' + r.status);
+      }
+      const rows = await r.json();
+      if (!rows.length) break;
+      for (const row of rows){
+        const s  = +row.sessions || 0;
+        const v  = +row.online_store_visitors || 0;
+        const a  = +row.sessions_with_cart_additions || 0;
+        const ck = +row.sessions_that_reached_checkout || 0;
+        const b  = +row.bounces || 0;
+        sess += s; vis += v; atc += a; chk += ck; bnc += b;
+        const p = row.landing_page_path || '';
+        const bin = byPath[p] || (byPath[p] = {sess:0, vis:0, atc:0, chk:0, bnc:0});
+        bin.sess += s; bin.vis += v; bin.atc += a; bin.chk += ck; bin.bnc += b;
+      }
+      if (rows.length < CHUNK) break;   // last page
+      offset += CHUNK;
     }
     const out = {
       sess:          sess,
@@ -8308,16 +8348,39 @@ async function _lpFetchAdMetricsRange(from, to){
           conv_value:         +r.conv_value  || 0,
           purchases:          +r.purchases   || 0,
           link_clicks:        +r.link_clicks || 0,
-          // unique_link_clicks not in RPC — will be 0 in filtered mode until
-          // primary_sync backfills the new column + RPC is extended.
-          unique_link_clicks: 0,
+          ftewv:              +r.ftewv       || 0,
+          unique_link_clicks: 0,             // filled by sibling RPC below
           shopify_orders:     0,
           shopify_sales:      0,
+          new_cust_orders:    0,
+          repeat_cust_orders: 0,
         };
       }
     }
+    // Sibling RPC: unique_link_clicks isn't in get_ae_metrics_by_window's
+    // return type. Fetch it separately from ae_daily_90d and merge.
+    try {
+      const uRpc = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_ae_unique_clicks_by_window', {
+        method: 'POST', headers: hdrs,
+        body: JSON.stringify({from_date: from, to_date: to}),
+      });
+      if (uRpc.ok){
+        const uRows = await uRpc.json();
+        for (const r of uRows){
+          const id = String(r.ad_id || '');
+          if (!id) continue;
+          const bin = byAd[id] || (byAd[id] = {
+            spend:0, impressions:0, conv_value:0, purchases:0, link_clicks:0,
+            ftewv:0, unique_link_clicks:0, shopify_orders:0, shopify_sales:0,
+            new_cust_orders:0, repeat_cust_orders:0,
+          });
+          bin.unique_link_clicks = +r.unique_link_clicks || 0;
+        }
+      }
+    } catch(_){}
     // Shopify per-ad rollup — paged through shopify_ad_attribution
-    const cols = 'ad_id,total_price';
+    // customer_num_orders lets us split new vs repeat customer orders.
+    const cols = 'ad_id,total_price,customer_num_orders';
     let offset = 0, BATCH = 1000;
     while (true) {
       const url = SUPABASE_URL + '/rest/v1/shopify_ad_attribution?select=' + cols +
@@ -8333,9 +8396,18 @@ async function _lpFetchAdMetricsRange(from, to){
       for (const row of chunk){
         const id = String(row.ad_id || '');
         if (!id) continue;
-        const bin = byAd[id] || (byAd[id] = {spend:0, impressions:0, conv_value:0, purchases:0, shopify_orders:0, shopify_sales:0});
+        const bin = byAd[id] || (byAd[id] = {
+          spend:0, impressions:0, conv_value:0, purchases:0, link_clicks:0,
+          ftewv:0, unique_link_clicks:0, shopify_orders:0, shopify_sales:0,
+          new_cust_orders:0, repeat_cust_orders:0,
+        });
         bin.shopify_orders += 1;
         bin.shopify_sales  += (+row.total_price || 0);
+        // customer_num_orders is the TOTAL orders that customer has placed
+        // ever. Order #1 = new customer purchase; >1 = repeat.
+        const numOrders = +row.customer_num_orders || 0;
+        if (numOrders === 1) bin.new_cust_orders += 1;
+        else if (numOrders > 1) bin.repeat_cust_orders += 1;
       }
       if (chunk.length < BATCH) break;
       offset += BATCH;
@@ -8358,7 +8430,11 @@ async function loadLandingPageTable(){
   const bodyP = document.getElementById('lpTableBody');
   const sub   = document.getElementById('lpTableSub');
   if (!bodyP) return;
-  bodyP.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>';
+  bodyP.innerHTML = '<tr><td colspan="21" style="text-align:center;padding:14px;color:var(--text-tertiary)">loading…</td></tr>';
+  // Populate the header's utm_source multi-select list once (fire-and-forget).
+  // Runs on section entry so the filter is usable before the analytics
+  // drill-down is opened.
+  _lpPreloadUtmSources();
   const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
   try {
     // Fetch BOTH masters in parallel — small tables, one round trip each.
@@ -8379,20 +8455,15 @@ async function loadLandingPageTable(){
     _lpRows      = await pR.json();
     _lpAdsMaster = await aR.json();
     if (!Array.isArray(_lpRows) || !_lpRows.length){
-      bodyP.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:14px;' +
+      bodyP.innerHTML = '<tr><td colspan="21" style="text-align:center;padding:14px;' +
         'color:var(--text-tertiary)">Rollup is empty. Click ↻ Recompute to seed it.</td></tr>';
       return;
     }
     _lpRenderTable();
     _lpRenderAdsMasterTable();
-    const first = _lpRows[0];
-    if (first && sub){
-      sub.textContent = 'window ' + first.window_from + ' → ' + first.window_to +
-                        ' · joined with primary_table.ad_link';
-    }
     _lpRenderKpis();
   } catch (e){
-    bodyP.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:14px;' +
+    bodyP.innerHTML = '<tr><td colspan="21" style="text-align:center;padding:14px;' +
       'color:var(--error-text, #b94a3d)">Error: ' + (e?.message || e) + '</td></tr>';
   }
 }
@@ -8538,10 +8609,7 @@ function _lpSetViewMode(mode){
   const title = document.getElementById('lpTableTitle');
   const q     = document.getElementById('lpSearch');
   if (title){
-    title.innerHTML = (mode === 'ads' ? 'Ads' : 'Landing pages') +
-      ' <span class="h-sub" id="lpTableSub">last 30 days · ' +
-      (mode === 'ads' ? 'ad-first view · Meta vs Shopify ROAS'
-                     : 'sessions × ad-spend join') + '</span>';
+    title.textContent = (mode === 'ads' ? 'Ads' : 'Landing pages');
   }
   if (q) q.placeholder = (mode === 'ads') ? 'filter ad name or path…' : 'filter path…';
   // Force re-render the visible master with the current search/sort state.
@@ -8554,6 +8622,170 @@ document.querySelectorAll('.lp-viewtog-btn').forEach(btn => {
   btn.addEventListener('click', () => _lpSetViewMode(btn.dataset.lpView));
 });
 
+// ─── LP Columns picker + source scope ──────────────────────────
+// Freeform-style metrics picker. Two layers of visibility control:
+//   1. Source scope (All | Shopify | Meta) — quick mass toggle
+//   2. Columns popover — per-metric checkboxes grouped by source
+// State is a Set of enabled metric keys, persisted to localStorage.
+// Applied via inline display:none on matching th + td cells (data-lp-metric).
+const LP_METRIC_CATALOG = {
+  shopify: [
+    ['sessions',           'Sessions'],
+    ['visitors',           'Visitors'],
+    ['atc_rate',           'ATC %'],
+    ['bounce_rate',        'Bounce %'],
+    ['shopify_orders',     'Shopify Orders'],
+    ['shopify_sales',      'Shopify Sales'],
+    ['bot_traffic',        'Bot Traffic'],
+    ['conv_rate',          'Conv Rate %'],
+    ['rev_per_session',    'Rev / Session'],
+    ['shopify_roas',       'Shopify ROAS'],
+    ['new_cust_orders',    'New Cust Orders'],
+    ['repeat_cust_orders', 'Repeat Cust Orders'],
+  ],
+  meta: [
+    ['impressions',        'Impressions'],
+    ['conv_value',         'Conv Value'],
+    ['ad_spend',           'Ad Spend'],
+    ['distinct_ads',       '# Ads'],
+    ['link_clicks',        'Link Clicks'],
+    ['unique_link_clicks', 'Unique Clicks'],
+    ['ftewv',              'FTEWV'],
+    ['avg_meta_roas',      'Meta ROAS'],
+  ],
+};
+const LP_METRIC_ALL = [...LP_METRIC_CATALOG.shopify, ...LP_METRIC_CATALOG.meta].map(m => m[0]);
+const LP_COLS_LS_KEY = 'lpVisibleMetrics_v1';
+
+// Load persisted selection — default = all metrics visible.
+function _lpLoadCols(){
+  try {
+    const raw = localStorage.getItem(LP_COLS_LS_KEY);
+    if (raw){
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length) return new Set(arr);
+    }
+  } catch(_){}
+  return new Set(LP_METRIC_ALL);
+}
+let _lpVisibleCols = _lpLoadCols();
+let _lpSrcScope    = 'both';   // 'both' | 'shopify' | 'meta'
+
+function _lpSaveCols(){
+  try { localStorage.setItem(LP_COLS_LS_KEY, JSON.stringify([...(_lpVisibleCols)])); } catch(_){}
+}
+
+// Effective visibility = per-metric checkbox AND src-scope allows the metric's group.
+function _lpMetricVisible(key, grp){
+  if (!_lpVisibleCols.has(key)) return false;
+  if (_lpSrcScope === 'both') return true;
+  return grp === _lpSrcScope;
+}
+// Apply visibility across every th + every tbody td matching data-lp-metric.
+function _lpApplyColVisibility(){
+  const wrap = document.getElementById('lpTableWrapPages');
+  if (!wrap) return;
+  // ths: source of truth for group mapping via data-lp-grp
+  const ths = Array.from(wrap.querySelectorAll('thead th'));
+  ths.forEach(th => {
+    const key = th.getAttribute('data-lp-metric');
+    const grp = th.getAttribute('data-lp-grp');
+    if (!key || grp === 'core'){ th.style.display = ''; return; }
+    th.style.display = _lpMetricVisible(key, grp) ? '' : 'none';
+  });
+  // tds: match by data-lp-metric — no need to re-read grp per row.
+  const tds = wrap.querySelectorAll('tbody td[data-lp-metric]');
+  tds.forEach(td => {
+    const key = td.getAttribute('data-lp-metric');
+    const grp = td.getAttribute('data-lp-grp');
+    if (!key || grp === 'core'){ td.style.display = ''; return; }
+    td.style.display = _lpMetricVisible(key, grp) ? '' : 'none';
+  });
+  // Update the "n / N" count label on the Columns button.
+  const btn = document.getElementById('lpColsCount');
+  if (btn){
+    const total = LP_METRIC_ALL.length;
+    const shown = LP_METRIC_ALL.filter(k => _lpVisibleCols.has(k)).length;
+    btn.textContent = shown === total ? '— all' : ('— ' + shown + '/' + total);
+  }
+}
+
+// Build the popover's two grouped checklists.
+function _lpRenderColsPanel(){
+  const build = (host, list) => {
+    if (!host) return;
+    host.innerHTML = list.map(([k, label]) => (
+      '<label><input type="checkbox" data-lp-cm="' + k + '"' +
+      (_lpVisibleCols.has(k) ? ' checked' : '') + '>' +
+      '<span class="lp-cm-name">' + label + '</span></label>'
+    )).join('');
+  };
+  build(document.getElementById('lpColsShopify'), LP_METRIC_CATALOG.shopify);
+  build(document.getElementById('lpColsMeta'),    LP_METRIC_CATALOG.meta);
+}
+
+// Wire panel open/close + checkbox change + preset buttons.
+(function _lpWireColsPicker(){
+  const btn   = document.getElementById('lpColsBtn');
+  const panel = document.getElementById('lpColsPanel');
+  if (!btn || !panel) return;
+  _lpRenderColsPanel();
+  _lpApplyColVisibility();
+
+  const closeIfOutside = e => {
+    if (!panel.contains(e.target) && e.target !== btn && !btn.contains(e.target)){
+      panel.classList.remove('open');
+      panel.setAttribute('aria-hidden', 'true');
+    }
+  };
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = panel.classList.toggle('open');
+    panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (open) setTimeout(() => document.addEventListener('click', closeIfOutside, { once:false }), 0);
+    else      document.removeEventListener('click', closeIfOutside);
+  });
+
+  panel.addEventListener('change', e => {
+    const cb = e.target.closest('input[data-lp-cm]');
+    if (!cb) return;
+    const key = cb.getAttribute('data-lp-cm');
+    if (cb.checked) _lpVisibleCols.add(key);
+    else            _lpVisibleCols.delete(key);
+    _lpSaveCols();
+    _lpApplyColVisibility();
+  });
+
+  panel.addEventListener('click', e => {
+    const opBtn = e.target.closest('[data-lp-cols-op]');
+    if (!opBtn) return;
+    const op = opBtn.getAttribute('data-lp-cols-op');
+    if      (op === 'all')   _lpVisibleCols = new Set(LP_METRIC_ALL);
+    else if (op === 'none')  _lpVisibleCols = new Set();
+    else if (op === 'reset') _lpVisibleCols = new Set(LP_METRIC_ALL);
+    _lpSaveCols();
+    _lpRenderColsPanel();
+    _lpApplyColVisibility();
+  });
+})();
+
+// Source scope: quickly restrict which source group is visible.
+// Does NOT flip individual checkboxes — pure display filter over
+// the current metric selection.
+function _lpSetSrcScope(scope){
+  if (scope !== 'shopify' && scope !== 'meta' && scope !== 'both') scope = 'both';
+  _lpSrcScope = scope;
+  document.querySelectorAll('.lp-src-btn').forEach(b => {
+    const on = b.dataset.lpSrc === scope;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  _lpApplyColVisibility();
+}
+document.querySelectorAll('.lp-src-btn').forEach(btn => {
+  btn.addEventListener('click', () => _lpSetSrcScope(btn.dataset.lpSrc));
+});
+
 async function _lpRenderTable(){
   const body   = document.getElementById('lpTableBody');
   const foot   = document.getElementById('lpTableFooter');
@@ -8564,111 +8796,95 @@ async function _lpRenderTable(){
   const sortK = sortEl?.value || 'sessions';
 
   // Detect active date filter — if set, we swap each row's 30d rollup values
-  // for date-range-sliced ones (per-path sessions from landing_page_sessions_daily,
-  // per-path spend from _lpAdsMaster filtered by ad_created_date).
+  // for date-range-sliced ones. Also treat an active utm_source multi-select
+  // as "filter active" so Sessions/Visitors get re-fetched from the
+  // sessions_by_utm_page_daily table (which respects the utm filter).
   const dFrom = document.getElementById('lpDateFrom')?.value || '';
   const dTo   = document.getElementById('lpDateTo')?.value   || '';
-  const filterActive = !!(dFrom || dTo);
-  let byPathSess = null, byPathAd = null;
-  if (filterActive){
-    const from = dFrom || dTo;
-    const to   = dTo   || dFrom;
-    // Sessions per-path (sess, vis, atc, chk, bnc) + per-ad Meta+Shopify metrics
-    const [agg, adAgg] = await Promise.all([
-      _lpFetchSessionsRange(from, to),
-      _lpFetchAdMetricsRange(from, to),
-    ]);
-    byPathSess = agg.byPath;
-    // Per-path ad-metric aggregation (spend, impressions, conv_value,
-    // purchases, shopify_orders, distinct_ads) from range-sliced RPC data.
-    byPathAd = Object.create(null);
-    const byAd = adAgg.by_ad || {};
-    for (const a of _lpAdsMaster){
-      const meta = byAd[String(a.ad_id)];
-      if (!meta || meta.spend <= 0) continue;
-      const p = a.landing_page_path || '';
-      const bin = byPathAd[p] || (byPathAd[p] = {
-        spend: 0, impressions: 0, conv_value: 0, purchases: 0,
-        shopify_orders: 0, link_clicks: 0, unique_link_clicks: 0, n_ads: 0,
-      });
-      bin.spend              += meta.spend;
-      bin.impressions        += meta.impressions;
-      bin.conv_value         += meta.conv_value;
-      bin.purchases          += meta.purchases;
-      bin.shopify_orders     += meta.shopify_orders;
-      bin.link_clicks        += (meta.link_clicks        || 0);
-      bin.unique_link_clicks += (meta.unique_link_clicks || 0);
-      bin.n_ads              += 1;
-    }
-  }
-
-  // Precompute the un-filtered per-path ad rollup — LAST 30 DAYS default
-  // (matches the popup drill-down, which also defaults to last 30 days).
-  // Uses get_ae_metrics_by_window RPC values, NOT the 90-day rollup values
-  // stored in _lpAdsMaster. n_ads is still the count of ads pointing to
-  // the page (from _lpAdsMaster), so totals + ad counts stay consistent
-  // with what the popup shows.
-  let byPathAdDefault = null;
-  if (!filterActive){
+  const utmActive = !!_lpUtmSelectedSources;
+  // Effective window — filter dates win; otherwise fall back to true
+  // last-30-days. This is the SAME code path in both cases so the labels
+  // and data always agree (previous bug: default view used the pre-baked
+  // 90-day rollup from _lpRows while claiming "last 30 days").
+  let from, to;
+  if (dFrom || dTo) {
+    from = dFrom || dTo; to = dTo || dFrom;
+  } else {
     const today = new Date();
     const from30 = new Date(today); from30.setDate(from30.getDate() - 29);
     const iso = d => d.toISOString().slice(0, 10);
-    const adAgg30 = await _lpFetchAdMetricsRange(iso(from30), iso(today));
-    const byAd30  = adAgg30.by_ad || {};
-    byPathAdDefault = Object.create(null);
-    for (const a of _lpAdsMaster){
-      const p = a.landing_page_path || '';
-      const bin = byPathAdDefault[p] || (byPathAdDefault[p] = {
-        spend: 0, impressions: 0, conv_value: 0, purchases: 0,
-        shopify_orders: 0, link_clicks: 0, unique_link_clicks: 0, n_ads: 0,
-      });
-      const m = byAd30[String(a.ad_id)];
-      if (m){
-        bin.spend              += +m.spend              || 0;
-        bin.impressions        += +m.impressions        || 0;
-        bin.conv_value         += +m.conv_value         || 0;
-        bin.purchases          += +m.purchases          || 0;
-        bin.shopify_orders     += +m.shopify_orders     || 0;
-        bin.link_clicks        += +m.link_clicks        || 0;
-        bin.unique_link_clicks += +m.unique_link_clicks || 0;
-      }
-      bin.n_ads += 1;   // count matches popup regardless of activity
-    }
+    from = iso(from30); to = iso(today);
   }
+  // Always live-fetch sessions + ad metrics for the effective window so
+  // the Sessions column and Ad Spend column agree on time span.
+  const [agg, adAgg] = await Promise.all([
+    _lpFetchSessionsRange(from, to),
+    _lpFetchAdMetricsRange(from, to),
+  ]);
+  const byPathSess = agg.byPath;
+  const byPathAd   = Object.create(null);
+  const byAd       = adAgg.by_ad || {};
+  for (const a of _lpAdsMaster){
+    const meta = byAd[String(a.ad_id)];
+    if (!meta || meta.spend <= 0) continue;
+    const p = a.landing_page_path || '';
+    const bin = byPathAd[p] || (byPathAd[p] = {
+      spend:0, impressions:0, conv_value:0, purchases:0,
+      shopify_orders:0, shopify_sales:0, link_clicks:0, unique_link_clicks:0,
+      ftewv:0, new_cust_orders:0, repeat_cust_orders:0, n_ads:0,
+    });
+    bin.spend              += meta.spend;
+    bin.impressions        += meta.impressions;
+    bin.conv_value         += meta.conv_value;
+    bin.purchases          += meta.purchases;
+    bin.shopify_orders     += meta.shopify_orders;
+    bin.shopify_sales      += (meta.shopify_sales     || 0);
+    bin.link_clicks        += (meta.link_clicks       || 0);
+    bin.unique_link_clicks += (meta.unique_link_clicks|| 0);
+    bin.ftewv              += (meta.ftewv             || 0);
+    bin.new_cust_orders    += (meta.new_cust_orders   || 0);
+    bin.repeat_cust_orders += (meta.repeat_cust_orders|| 0);
+    bin.n_ads              += 1;
+  }
+  // Retained variables from earlier flow (used by the row-build loop below).
+  const filterActive = true;   // always true now — either user filter or default 30d
+  const _effFrom = from, _effTo = to;
 
   // Build the working row set — replace numeric fields when filter is active,
   // and always overlay the new per-path Meta+Shopify rollup columns.
+  const _emptyRoll = {
+    spend:0, impressions:0, conv_value:0, purchases:0, shopify_orders:0,
+    shopify_sales:0, link_clicks:0, unique_link_clicks:0, ftewv:0,
+    new_cust_orders:0, repeat_cust_orders:0, n_ads:0,
+  };
   let rows = _lpRows.map(r => {
     const path = r.landing_page_path || '';
     const adRoll = filterActive
-      ? (byPathAd[path] || {spend:0, impressions:0, conv_value:0, purchases:0, shopify_orders:0, n_ads:0})
-      : (byPathAdDefault[path] || {spend:0, impressions:0, conv_value:0, purchases:0, shopify_orders:0});
-    const avg_meta_roas = adRoll.spend > 0 ? (adRoll.conv_value / adRoll.spend) : 0;
+      ? (byPathAd[path]        || _emptyRoll)
+      : (byPathAdDefault[path] || _emptyRoll);
+    const avg_meta_roas = adRoll.spend > 0 ? (adRoll.conv_value  / adRoll.spend) : 0;
+    const shopify_roas  = adRoll.spend > 0 ? (adRoll.shopify_sales / adRoll.spend) : 0;
 
-    if (!filterActive) {
-      return {
-        ...r,
-        distinct_ads:       adRoll.n_ads,
-        impressions:        adRoll.impressions,
-        link_clicks:        adRoll.link_clicks,
-        unique_link_clicks: adRoll.unique_link_clicks,
-        conv_value:         adRoll.conv_value,
-        purchases:          adRoll.purchases,
-        avg_meta_roas:      avg_meta_roas,
-        shopify_orders:     adRoll.shopify_orders,
-      };
-    }
-    const s = byPathSess[path] || {sess:0, vis:0, atc:0, chk:0, bnc:0};
+    // Sessions always live-fetched for the effective window (default = last
+    // 30 days). Previously the no-filter branch pulled 90-day pre-baked
+    // sessions from _lpRows.sessions — mismatched Ad Spend which was 30d.
+    const s = byPathSess[path] || {};
+    const sess = +s.sess || 0;
+    const vis  = +s.vis  || 0;
+    const atc_rate    = sess > 0 ? ((s.atc || 0) / sess * 100) : 0;
+    const bounce_rate = sess > 0 ? ((s.bnc || 0) / sess * 100) : 0;
+    const conv_rate     = sess > 0 ? (adRoll.shopify_orders / sess * 100) : 0;
+    const rev_per_sess  = sess > 0 ? (adRoll.shopify_sales  / sess)       : 0;
+
     return {
       ...r,
-      sessions:           s.sess,
-      visitors:           s.vis,
+      sessions:           sess,
+      visitors:           vis,
       ad_spend:           adRoll.spend,
       distinct_ads:       adRoll.n_ads,
-      atc_rate:           s.sess > 0 ? (s.atc / s.sess * 100) : 0,
-      checkout_rate:      s.sess > 0 ? (s.chk / s.sess * 100) : 0,
-      bounce_rate:        s.sess > 0 ? (s.bnc / s.sess * 100) : 0,
-      cost_per_session:   s.sess > 0 ? (adRoll.spend / s.sess) : 0,
+      atc_rate:           atc_rate,
+      bounce_rate:        bounce_rate,
+      cost_per_session:   sess > 0 ? (adRoll.spend / sess) : 0,
       impressions:        adRoll.impressions,
       link_clicks:        adRoll.link_clicks,
       unique_link_clicks: adRoll.unique_link_clicks,
@@ -8676,15 +8892,37 @@ async function _lpRenderTable(){
       purchases:          adRoll.purchases,
       avg_meta_roas:      avg_meta_roas,
       shopify_orders:     adRoll.shopify_orders,
-      _filtered:          true,
+      shopify_sales:      adRoll.shopify_sales,
+      shopify_roas:       shopify_roas,
+      ftewv:              adRoll.ftewv,
+      new_cust_orders:    adRoll.new_cust_orders,
+      repeat_cust_orders: adRoll.repeat_cust_orders,
+      conv_rate:          conv_rate,
+      rev_per_session:    rev_per_sess,
+      _filtered:          !!filterActive,
     };
   });
-  // Drop pages that had zero sessions in the window (they'd be all blank)
-  if (filterActive) rows = rows.filter(r => (+r.sessions || 0) > 0);
+  // Include every landing page from the rollup; only search filter + pagination
+  // trim the visible set.
   if (q) rows = rows.filter(r => (r.landing_page_path || '').toLowerCase().includes(q));
-  rows.sort((a, b) => (+b[sortK] || 0) - (+a[sortK] || 0));
-  const TOPN  = 250;
-  const shown = rows.slice(0, TOPN);
+  // Click-to-sort state: _lpSortKey + _lpSortDir. Sort key can be 'path'
+  // (alpha) or any numeric metric key. Base compare uses (b - a) for desc;
+  // asc flips it. Default is desc (highest sessions at top of page 1).
+  const useKey = _lpSortKey || sortK;
+  const sign   = _lpSortDir === 'asc' ? -1 : 1;    // 1 = desc, -1 = asc
+  if (useKey === 'path'){
+    // Alpha sort has natural ascending default (A→Z on 'asc'; Z→A on 'desc').
+    rows.sort((a, b) => -sign * (a.landing_page_path || '').localeCompare(b.landing_page_path || ''));
+  } else {
+    rows.sort((a, b) => sign * ((+b[useKey] || 0) - (+a[useKey] || 0)));
+  }
+  // Paginate — 250 rows per screen; clamp page index if filter shrank the set.
+  const totalPages = Math.max(1, Math.ceil(rows.length / LP_PAGE_SIZE));
+  if (_lpPageIdx >= totalPages) _lpPageIdx = totalPages - 1;
+  if (_lpPageIdx < 0) _lpPageIdx = 0;
+  const startIdx = _lpPageIdx * LP_PAGE_SIZE;
+  const endIdx   = Math.min(startIdx + LP_PAGE_SIZE, rows.length);
+  const shown    = rows.slice(startIdx, endIdx);
   const _fmtPct = v => (v == null || v === '') ? '—' : (+v).toFixed(2) + '%';
   const _fmtRs  = v => '₹' + fmtInt(+v || 0);
   // Make rows clickable so the drill-down opens for the picked path.
@@ -8692,32 +8930,76 @@ async function _lpRenderTable(){
   if (tblEl && !tblEl.classList.contains('lp-tbl-clickable'))
     tblEl.classList.add('lp-tbl-clickable');
   const _fmtRoasX = v => (v == null || v === '' || isNaN(+v)) ? '—' : (+v).toFixed(2) + 'x';
-  body.innerHTML = shown.map(r => (
-    '<tr data-lp-path="' + (r.landing_page_path || '').replace(/"/g, '&quot;') + '">' +
-    '<td class="mono" style="max-width:460px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"' +
-      ' title="' + (r.landing_page_path || '').replace(/"/g, '&quot;') + '">' + r.landing_page_path + '</td>' +
-    '<td class="mono" style="text-align:right">' + fmtInt(r.sessions) + '</td>' +
-    '<td class="mono" style="text-align:right">' + fmtInt(r.visitors) + '</td>' +
-    '<td class="mono" style="text-align:right">' + _fmtRs(r.ad_spend) + '</td>' +
-    '<td class="mono" style="text-align:right">' + fmtInt(r.distinct_ads) + '</td>' +
-    '<td class="mono" style="text-align:right">' + _fmtRs(r.cost_per_session) + '</td>' +
-    '<td class="mono" style="text-align:right">' + _fmtPct(r.atc_rate) + '</td>' +
-    '<td class="mono" style="text-align:right">' + _fmtPct(r.bounce_rate) + '</td>' +
-    '<td class="mono" style="text-align:right">' + fmtInt(r.link_clicks) + '</td>' +
-    '<td class="mono" style="text-align:right">' + fmtInt(r.unique_link_clicks) + '</td>' +
-    '<td class="mono" style="text-align:right">' + fmtInt(r.impressions) + '</td>' +
-    '<td class="mono" style="text-align:right">' + _fmtRs(r.conv_value) + '</td>' +
-    '<td class="mono" style="text-align:right">' + fmtInt(r.purchases) + '</td>' +
-    '<td class="mono" style="text-align:right">' + _fmtRoasX(r.avg_meta_roas) + '</td>' +
-    '<td class="mono" style="text-align:right">' + fmtInt(r.shopify_orders) + '</td>' +
-    '</tr>'
-  )).join('') || '<tr><td colspan="15" style="text-align:center;padding:14px;color:var(--text-tertiary)">No pages match.</td></tr>';
+  const _fmtRs2   = v => (v == null || v === '' || isNaN(+v)) ? '—' : '₹' + (+v).toFixed(2);
+  // Cells are tagged with data-lp-grp + data-lp-metric so the Columns
+  // popover + source scope can hide them via inline display:none. Cell
+  // order MUST match the thead order in index_v2.html.
+  const td = (grp, key, cls, val) =>
+    '<td data-lp-grp="' + grp + '" data-lp-metric="' + key + '" class="mono" style="' + cls + '">' + val + '</td>';
+  body.innerHTML = shown.map(r => {
+    const pth = (r.landing_page_path || '').replace(/"/g, '&quot;');
+    return (
+      '<tr data-lp-path="' + pth + '">' +
+      '<td data-lp-grp="core" data-lp-metric="path" class="mono" style="max-width:460px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + pth + '">' + r.landing_page_path + '</td>' +
+      // ── Shopify source ──
+      td('shopify', 'sessions',           'text-align:right', fmtInt(r.sessions)) +
+      td('shopify', 'visitors',           'text-align:right', fmtInt(r.visitors)) +
+      td('shopify', 'atc_rate',           'text-align:right', _fmtPct(r.atc_rate)) +
+      td('shopify', 'bounce_rate',        'text-align:right', _fmtPct(r.bounce_rate)) +
+      td('shopify', 'shopify_orders',     'text-align:right', fmtInt(r.shopify_orders)) +
+      td('shopify', 'shopify_sales',      'text-align:right', _fmtRs(r.shopify_sales)) +
+      td('shopify', 'bot_traffic',        'text-align:right;color:var(--text-tertiary)', '—') +
+      td('shopify', 'conv_rate',          'text-align:right', _fmtPct(r.conv_rate)) +
+      td('shopify', 'rev_per_session',    'text-align:right', _fmtRs2(r.rev_per_session)) +
+      td('shopify', 'shopify_roas',       'text-align:right', _fmtRoasX(r.shopify_roas)) +
+      td('shopify', 'new_cust_orders',    'text-align:right', fmtInt(r.new_cust_orders)) +
+      td('shopify', 'repeat_cust_orders', 'text-align:right', fmtInt(r.repeat_cust_orders)) +
+      // ── Meta source ──
+      td('meta', 'impressions',        'text-align:right', fmtInt(r.impressions)) +
+      td('meta', 'conv_value',         'text-align:right', _fmtRs(r.conv_value)) +
+      td('meta', 'ad_spend',           'text-align:right', _fmtRs(r.ad_spend)) +
+      td('meta', 'distinct_ads',       'text-align:right', fmtInt(r.distinct_ads)) +
+      td('meta', 'link_clicks',        'text-align:right', fmtInt(r.link_clicks)) +
+      td('meta', 'unique_link_clicks', 'text-align:right', fmtInt(r.unique_link_clicks)) +
+      td('meta', 'ftewv',              'text-align:right', fmtInt(r.ftewv)) +
+      td('meta', 'avg_meta_roas',      'text-align:right', _fmtRoasX(r.avg_meta_roas)) +
+      '</tr>'
+    );
+  }).join('') || '<tr><td colspan="21" style="text-align:center;padding:14px;color:var(--text-tertiary)">No pages match.</td></tr>';
+  // Re-apply column visibility since we just rebuilt the tbody.
+  try { _lpApplyColVisibility(); } catch(_){}
+  // Update sort caret on the active header. Called every render so the
+  // caret follows the current sort state (which can change between
+  // renders when user clicks a header).
+  try { _lpUpdatePagesSortCaret(useKey, dir); } catch(_){}
   if (foot){
-    const suffix = filterActive
-      ? ' · date range ' + (dFrom || '…') + ' → ' + (dTo || '…') + ' (live daily)'
-      : ' · last 30 days · sort=' + sortK;
-    foot.textContent = 'Showing ' + fmtInt(shown.length) + ' of ' + fmtInt(rows.length) +
-                       ' pages (filtered from ' + fmtInt(_lpRows.length) + ')' + suffix;
+    const utmTxt = _lpUtmSelectedSources
+      ? ' · utm: ' + Array.from(_lpUtmSelectedSources).slice(0, 3).join(', ') +
+        (_lpUtmSelectedSources.size > 3 ? ' +' + (_lpUtmSelectedSources.size - 3) : '')
+      : '';
+    const isDefault = !(dFrom || dTo);
+    const winLbl = _effFrom + ' → ' + _effTo + (isDefault ? ' (last 30 days)' : ' (custom range)');
+    const rangeLbl = rows.length
+      ? (fmtInt(startIdx + 1) + '–' + fmtInt(endIdx) + ' of ' + fmtInt(rows.length))
+      : '0';
+    const pageLbl = 'Page ' + (_lpPageIdx + 1) + ' / ' + totalPages;
+    // Rebuild footer with prev/next buttons. Buttons disabled at ends.
+    // innerHTML replaces the plain text — keeps the same #lpTableFooter node.
+    foot.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+        '<span>Showing ' + rangeLbl + ' pages · ' + pageLbl + ' · ' + winLbl + utmTxt + '</span>' +
+        '<div class="lp-pager" style="display:flex;gap:6px;align-items:center">' +
+          '<button type="button" class="btn ghost lp-pg-btn" data-lp-pg="first" ' +
+            (_lpPageIdx === 0 ? 'disabled' : '') + '>« First</button>' +
+          '<button type="button" class="btn ghost lp-pg-btn" data-lp-pg="prev" ' +
+            (_lpPageIdx === 0 ? 'disabled' : '') + '>‹ Prev</button>' +
+          '<span style="font-size:11px;padding:0 4px">' + (_lpPageIdx + 1) + ' / ' + totalPages + '</span>' +
+          '<button type="button" class="btn ghost lp-pg-btn" data-lp-pg="next" ' +
+            (_lpPageIdx >= totalPages - 1 ? 'disabled' : '') + '>Next ›</button>' +
+          '<button type="button" class="btn ghost lp-pg-btn" data-lp-pg="last" ' +
+            (_lpPageIdx >= totalPages - 1 ? 'disabled' : '') + '>Last »</button>' +
+        '</div>' +
+      '</div>';
   }
 }
 
@@ -8725,44 +9007,33 @@ async function _lpRenderKpis(){
   if (!_lpRows.length) return;
   const dFrom = document.getElementById('lpDateFrom')?.value || '';
   const dTo   = document.getElementById('lpDateTo')?.value   || '';
-  const filterActive = !!(dFrom || dTo);
+  const utmActive = !!_lpUtmSelectedSources;
+  const filterActive = !!(dFrom || dTo) || utmActive;
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
 
-  let sess, atc_pct, bnc_pct, spend;
-
-  if (filterActive){
-    // Live daily aggregate from landing_page_sessions_daily + per-ad
-    // metrics via get_ae_metrics_by_window RPC. Both sliced to exactly
-    // the picked date range, no 30d rollup dilution.
-    const from = dFrom || dTo;
-    const to   = dTo   || dFrom;
-    set('lpKpSess', '…');   // hint that fetch is in flight
-    const [agg, adAgg] = await Promise.all([
-      _lpFetchSessionsRange(from, to),
-      _lpFetchAdMetricsRange(from, to),
-    ]);
-    sess    = agg.sess;
-    atc_pct = agg.atc_pct;
-    bnc_pct = agg.bounce_pct;
-    // Sum spend across ads that link to a landing page (filter by known LP ad_ids)
-    spend = 0;
-    const lpAdIds = new Set(_lpAdsMaster.map(a => String(a.ad_id)));
-    for (const [adId, m] of Object.entries(adAgg.by_ad || {})){
-      if (lpAdIds.has(adId)) spend += +m.spend || 0;
-    }
+  // Effective window: user filter dates win; otherwise last 30 days.
+  // Sessions AND ad spend ALWAYS come from the same window so CPS is honest.
+  let from, to;
+  if (dFrom || dTo) {
+    from = dFrom || dTo; to = dTo || dFrom;
   } else {
-    // Full 30d rollup — use Pages master aggregates as before.
-    sess = 0; spend = 0;
-    let atcW = 0, bncW = 0;
-    for (const r of _lpRows){
-      const s = +r.sessions || 0;
-      sess  += s;
-      spend += +r.ad_spend || 0;
-      atcW  += ((+r.atc_rate    || 0) * s);
-      bncW  += ((+r.bounce_rate || 0) * s);
-    }
-    atc_pct = sess > 0 ? (atcW / sess) : 0;
-    bnc_pct = sess > 0 ? (bncW / sess) : 0;
+    const today = new Date();
+    const from30 = new Date(today); from30.setDate(from30.getDate() - 29);
+    const iso = d => d.toISOString().slice(0, 10);
+    from = iso(from30); to = iso(today);
+  }
+  set('lpKpSess', '…');
+  const [agg, adAgg] = await Promise.all([
+    _lpFetchSessionsRange(from, to),
+    _lpFetchAdMetricsRange(from, to),
+  ]);
+  const sess    = agg.sess;
+  const atc_pct = agg.atc_pct;
+  const bnc_pct = agg.bounce_pct;
+  const lpAdIds = new Set(_lpAdsMaster.map(a => String(a.ad_id)));
+  let spend = 0;
+  for (const [adId, m] of Object.entries(adAgg.by_ad || {})){
+    if (lpAdIds.has(adId)) spend += +m.spend || 0;
   }
 
   set('lpKpSess',   fmtInt(sess));
@@ -8771,19 +9042,15 @@ async function _lpRenderKpis(){
   set('lpKpATC',    sess > 0 ? atc_pct.toFixed(2) + '%' : '—');
   set('lpKpBounce', sess > 0 ? bnc_pct.toFixed(2) + '%' : '—');
 
-  // Snapshot info: show the filter range in filter mode.
-  const first = _lpRows[0];
-  const snapEl = document.getElementById('lpKpSnap');
-  if (snapEl){
-    snapEl.textContent = filterActive
-      ? (dFrom || '…') + ' → ' + (dTo || '…') + ' (filtered · live)'
-      : (first?.window_from + ' → ' + first?.window_to);
+  // Avg. RPS across all landing pages = sum(Shopify sales via attributed ads)
+  // ÷ sum(sessions) for the effective window. Sales come from the same RPC
+  // + shopify_ad_attribution paging that _lpFetchAdMetricsRange already
+  // populated — no extra network trip.
+  let shopSales = 0;
+  for (const [adId, m] of Object.entries(adAgg.by_ad || {})){
+    if (lpAdIds.has(adId)) shopSales += +m.shopify_sales || 0;
   }
-  const subEl = document.getElementById('lpKpSnapSub');
-  if (subEl && first?.computed_at){
-    const d = new Date(first.computed_at);
-    subEl.textContent = 'computed ' + d.toISOString().slice(0, 16).replace('T', ' ') + 'Z';
-  }
+  set('lpKpRps', sess > 0 ? '₹' + (shopSales / sess).toFixed(2) : '—');
 }
 
 async function _lpRecompute(){
@@ -8814,31 +9081,38 @@ function _lpMasterRerender(){
 document.getElementById('lpRefresh')?.addEventListener('click', loadLandingPageTable);
 document.getElementById('lpRefreshCompute')?.addEventListener('click', _lpRecompute);
 document.getElementById('lpSearch')?.addEventListener('input',
-  () => { clearTimeout(window._lpDb); window._lpDb = setTimeout(_lpMasterRerender, 120); });
-document.getElementById('lpSort')?.addEventListener('change', _lpMasterRerender);
+  () => { clearTimeout(window._lpDb); window._lpDb = setTimeout(() => {
+    _lpPageIdx = 0;   // new search → back to page 1
+    _lpMasterRerender();
+  }, 120); });
+document.getElementById('lpSort')?.addEventListener('change', () => {
+  _lpPageIdx = 0;
+  _lpMasterRerender();
+});
 document.getElementById('lpExport')?.addEventListener('click', () => {
   // Read the current visible <thead> so the CSV columns always match the
-  // table exactly — the layout has evolved (removed Checkout %, added
-  // Impressions / Conv Value / Purchases / Avg Meta ROAS / Shopify Orders)
-  // and the old hardcoded slice was shifting column contents into wrong
-  // header slots (e.g. bounce % into 'checkout_pct', impressions into 'bounce_pct').
+  // table exactly. Columns can be hidden via the Columns picker (per-metric
+  // display:none) or the source scope. We just skip any th whose computed
+  // display is 'none' — that's the on-screen truth.
   const table = document.getElementById('lpTable');
   if (!table) return;
   const ths = Array.from(table.querySelectorAll('thead th'));
-  const headers = ths.map(th => (th.textContent || '').trim().toLowerCase()
-                                 .replace(/[%/]/g, '').replace(/\s+/g, '_').replace(/[^\w]/g, ''));
+  const keepIdx = ths.map((_, i) => i).filter(i =>
+    getComputedStyle(ths[i]).display !== 'none');
+  const headers = keepIdx.map(i =>
+    (ths[i].textContent || '').trim().toLowerCase()
+      .replace(/[%/]/g, '').replace(/\s+/g, '_').replace(/[^\w]/g, ''));
   const rows = Array.from(table.querySelectorAll('tbody tr'));
   const csv  = [headers.join(',')];
   for (const r of rows){
     const c = r.querySelectorAll('td');
     if (c.length !== ths.length) continue;
-    const cells = Array.from(c).map(td => {
-      const raw = (td.textContent || '').replace(/,/g, '').replace(/₹/g, '').trim();
-      // Wrap the first column (path) in quotes since it always contains slashes
-      return /[",\n]/.test(raw) ? '"' + raw.replace(/"/g, '""') + '"' : raw;
+    const cells = keepIdx.map(i => {
+      const raw = (c[i].textContent || '').replace(/,/g, '').replace(/₹/g, '').trim();
+      return (i === 0 || /[",\n]/.test(raw))
+        ? '"' + raw.replace(/"/g, '""') + '"'
+        : raw;
     });
-    // Quote the path column always (it starts with / and may contain commas)
-    cells[0] = '"' + (c[0].textContent || '').replace(/"/g, '""') + '"';
     csv.push(cells.join(','));
   }
   const blob = new Blob([csv.join('\n')], {type:'text/csv'});
@@ -8847,6 +9121,70 @@ document.getElementById('lpExport')?.addEventListener('click', () => {
   a.download = 'landing_page_analysis_' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
 });
+
+/* ─── Pages master header click-to-sort ─────────────────────────
+   Each column th carries data-lp-metric. Clicking a header sets
+   _lpSortKey + toggles _lpSortDir, then re-renders. Caret arrow
+   next to the label reflects the active sort. */
+function _lpUpdatePagesSortCaret(activeKey, dirNum){
+  const ths = document.querySelectorAll('#lpTable thead th[data-lp-metric]');
+  ths.forEach(th => {
+    const key = th.getAttribute('data-lp-metric');
+    // Strip any previous caret marker
+    let baseText = th.getAttribute('data-lp-label');
+    if (baseText == null){
+      baseText = (th.textContent || '').replace(/[▲▼]\s*$/,'').trim();
+      th.setAttribute('data-lp-label', baseText);
+    }
+    if (key === activeKey){
+      th.innerHTML = baseText + ' <span class="lp-sort-caret">' + (dirNum > 0 ? '▲' : '▼') + '</span>';
+      th.classList.add('lp-sort-active');
+    } else {
+      th.innerHTML = baseText;
+      th.classList.remove('lp-sort-active');
+    }
+  });
+}
+(function _lpWirePagesSort(){
+  // Delegate click on the whole thead so we don't need to rebind after
+  // th text updates.
+  const thead = document.querySelector('#lpTable thead');
+  if (!thead) return;
+  thead.addEventListener('click', e => {
+    const th = e.target.closest('th[data-lp-metric]');
+    if (!th) return;
+    const key = th.getAttribute('data-lp-metric');
+    if (!key) return;
+    // Toggle direction on repeat click; new column starts desc (asc for path)
+    if (_lpSortKey === key){
+      _lpSortDir = _lpSortDir === 'desc' ? 'asc' : 'desc';
+    } else {
+      _lpSortKey = key;
+      _lpSortDir = (key === 'path') ? 'asc' : 'desc';
+    }
+    _lpPageIdx = 0;   // sort change → back to page 1
+    _lpRenderTable();
+  });
+  thead.style.cursor = 'default';
+})();
+// Pagination click handler — delegated on the footer since the pager
+// re-renders on every _lpRenderTable() call.
+(function _lpWirePager(){
+  const foot = document.getElementById('lpTableFooter');
+  if (!foot) return;
+  foot.addEventListener('click', e => {
+    const btn = e.target.closest('[data-lp-pg]');
+    if (!btn || btn.disabled) return;
+    const op = btn.getAttribute('data-lp-pg');
+    if      (op === 'first') _lpPageIdx = 0;
+    else if (op === 'prev')  _lpPageIdx = Math.max(0, _lpPageIdx - 1);
+    else if (op === 'next')  _lpPageIdx = _lpPageIdx + 1;   // clamp on render
+    else if (op === 'last')  _lpPageIdx = 1e9;              // clamp on render
+    _lpRenderTable();
+    // Scroll to top of the table so the user sees the new page.
+    document.getElementById('lpTableWrapPages')?.scrollIntoView({ behavior:'smooth', block:'start' });
+  });
+})();
 
 /* ═════════════════════════════════════════════════════════════════
    Landing Page × Ads DRILL-DOWN
@@ -9106,6 +9444,442 @@ document.getElementById('lpAdTable')?.addEventListener('click', e => {
   fromEl.addEventListener('change', rerender);
   toEl.addEventListener('change',   rerender);
 })();
+
+/* ═════════════════════════════════════════════════════════════
+   UTM SOURCE × SESSIONS — top-5 timeseries chart + totals table.
+   Reads public.sessions_by_utm_source_daily; picks top 5 sources
+   by total sessions in the window, plots them + everything else
+   folded into "Other". Includes vs-previous-period % change.
+   ═════════════════════════════════════════════════════════════ */
+let _lpUtmChart = null;
+let _lpRpsChart = null;
+let _lpUtmRows  = null;   // cache: array of {session_date, utm_source, sessions, online_store_visitors}
+let _lpUtmSelectedSources = null;   // null = all sources; Set = only these
+// Stable colour assignment per utm_source so blended sessions chart, RPS chart,
+// and the per-source table pick the same colour for a given source.
+const _LP_PALETTE = ['#e8a87c','#4a6fa5','#3a8a5d','#b8883a','#a86382','#c65b3a','#5a6f8a','#7a7a7a'];
+const _lpSrcColorMap = new Map();
+function _lpColorForSource(src, idx){
+  if (_lpSrcColorMap.has(src)) return _lpSrcColorMap.get(src);
+  const c = _LP_PALETTE[idx % _LP_PALETTE.length];
+  _lpSrcColorMap.set(src, c);
+  return c;
+}
+async function _lpFetchUtmSessions(days){
+  const to   = new Date();
+  const from = new Date(to); from.setDate(from.getDate() - (days - 1));
+  // Also fetch previous period for % change
+  const prevFrom = new Date(from); prevFrom.setDate(prevFrom.getDate() - days);
+  const prevTo   = new Date(from); prevTo.setDate(prevTo.getDate() - 1);
+  const iso = d => d.toISOString().slice(0, 10);
+  const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON };
+  const url = SUPABASE_URL + '/rest/v1/sessions_by_utm_source_daily' +
+              '?select=session_date,utm_source,sessions,online_store_visitors' +
+              '&session_date=gte.' + iso(prevFrom) +
+              '&session_date=lte.' + iso(to) +
+              '&limit=100000';
+  const r = await fetch(url, { headers: hdrs });
+  if (!r.ok) throw new Error('sessions_by_utm HTTP ' + r.status);
+  return { rows: await r.json(), from: iso(from), to: iso(to),
+           prevFrom: iso(prevFrom), prevTo: iso(prevTo) };
+}
+async function _lpRenderUtm(){
+  const days = parseInt(document.getElementById('lpUtmRange')?.value || '30', 10);
+  const subEl = document.getElementById('lpUtmSub');
+  const tbody = document.getElementById('lpUtmTableBody');
+  const canvas = document.getElementById('lpUtmChart');
+  if (!tbody || !canvas) return;
+  if (subEl) subEl.textContent = 'top 5 sources · last ' + days + ' days';
+  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:12px;color:var(--text-tertiary)">loading…</td></tr>';
+  let data;
+  try { data = await _lpFetchUtmSessions(days); }
+  catch (e){
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:12px;color:var(--error-text,#b94a3d)">' + (e?.message || e) + '</td></tr>';
+    return;
+  }
+  const { rows, from, to, prevFrom, prevTo } = data;
+  _lpUtmRows = rows;   // cache — powers the source multi-select dropdown
+  _lpUtmRepopulateSources(rows);   // fill checkbox list on first render
+
+  // Apply the source multi-select filter — null = all sources
+  const passSrc = (s) => !_lpUtmSelectedSources || _lpUtmSelectedSources.has(s || '(direct)');
+
+  // Split current-period vs previous-period rows (+ filter by source)
+  const cur  = rows.filter(r => r.session_date >= from     && r.session_date <= to     && passSrc(r.utm_source));
+  const prev = rows.filter(r => r.session_date >= prevFrom && r.session_date <= prevTo && passSrc(r.utm_source));
+
+  // Aggregate current period per utm_source
+  const bySrc = new Map();
+  for (const r of cur){
+    const s = r.utm_source || '(direct)';
+    const b = bySrc.get(s) || { sessions:0, visitors:0 };
+    b.sessions += +r.sessions || 0;
+    b.visitors += +r.online_store_visitors || 0;
+    bySrc.set(s, b);
+  }
+  // Aggregate prev per utm_source (for % change)
+  const prevBySrc = new Map();
+  for (const r of prev){
+    const s = r.utm_source || '(direct)';
+    prevBySrc.set(s, (prevBySrc.get(s) || 0) + (+r.sessions || 0));
+  }
+
+  // Rank sources by current sessions, take top 5, fold rest into 'Other'
+  const ranked = Array.from(bySrc.entries())
+    .map(([src, v]) => ({ src, ...v, prev: prevBySrc.get(src) || 0 }))
+    .sort((a, b) => b.sessions - a.sessions);
+  const top5 = ranked.slice(0, 5);
+  const other = ranked.slice(5);
+  if (other.length){
+    const otherAgg = other.reduce((a, r) => ({
+      src: 'Other (' + other.length + ')',
+      sessions: a.sessions + r.sessions,
+      visitors: a.visitors + r.visitors,
+      prev:     a.prev + r.prev,
+    }), { src: 'Other', sessions: 0, visitors: 0, prev: 0 });
+    top5.push(otherAgg);
+  }
+
+  // Table
+  const _pctCell = (cur, prev) => {
+    if (prev <= 0) return cur > 0 ? '<span style="color:var(--success-text,#3a8a5d)">new</span>' : '—';
+    const p = ((cur - prev) / prev) * 100;
+    const cls = p >= 0 ? 'style="color:var(--success-text,#3a8a5d)"'
+                       : 'style="color:var(--error-text,#b94a3d)"';
+    return '<span ' + cls + '>' + (p >= 0 ? '+' : '') + p.toFixed(1) + '%</span>';
+  };
+  tbody.innerHTML = top5.map(r => (
+    '<tr>' +
+    '<td class="mono">' + (r.src || '(direct)').replace(/</g, '&lt;') + '</td>' +
+    '<td class="mono" style="text-align:right">' + fmtInt(r.sessions) + '</td>' +
+    '<td class="mono" style="text-align:right">' + fmtInt(r.visitors) + '</td>' +
+    '<td class="mono" style="text-align:right">' + _pctCell(r.sessions, r.prev) + '</td>' +
+    '</tr>'
+  )).join('') || '<tr><td colspan="4" style="text-align:center;padding:12px;color:var(--text-tertiary)">no data</td></tr>';
+
+  // Timeseries chart — line per top-5 source
+  const topSrcNames = new Set(top5.map(r => r.src).filter(s => !s.startsWith('Other')));
+  // Build day-list from window
+  const dayList = [];
+  {
+    const d = new Date(from + 'T00:00:00Z');
+    const end = new Date(to + 'T00:00:00Z');
+    while (d <= end) {
+      dayList.push(d.toISOString().slice(0, 10));
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+  }
+  // Per-source per-day sessions
+  const seriesMap = new Map();
+  for (const name of topSrcNames) seriesMap.set(name, Object.fromEntries(dayList.map(d => [d, 0])));
+  const otherDaily = Object.fromEntries(dayList.map(d => [d, 0]));
+  for (const r of cur){
+    const s = r.utm_source || '(direct)';
+    const d = r.session_date;
+    const v = +r.sessions || 0;
+    if (topSrcNames.has(s)) seriesMap.get(s)[d] = (seriesMap.get(s)[d] || 0) + v;
+    else                    otherDaily[d]       = (otherDaily[d] || 0) + v;
+  }
+
+  // Chart.js — colours assigned via shared per-source map so the sessions
+  // chart, RPS chart, and table all agree.
+  const datasets = [];
+  let i = 0;
+  for (const [name, dayMap] of seriesMap){
+    const col = _lpColorForSource(name, i);
+    datasets.push({
+      label: name,
+      data: dayList.map(d => dayMap[d] || 0),
+      borderColor: col, backgroundColor: col + '22',
+      borderWidth: 2, pointRadius: 2, tension: 0.25, fill: false,
+    });
+    i++;
+  }
+  if (other.length){
+    const col = _LP_PALETTE[_LP_PALETTE.length - 1];
+    datasets.push({
+      label: 'Other', data: dayList.map(d => otherDaily[d] || 0),
+      borderColor: col, backgroundColor: col + '22',
+      borderWidth: 1.5, borderDash: [4,4], pointRadius: 1, tension: 0.2, fill: false,
+    });
+  }
+  if (_lpUtmChart){ _lpUtmChart.destroy(); _lpUtmChart = null; }
+  if (typeof Chart !== 'undefined'){
+    _lpUtmChart = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: { labels: dayList, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
+                   tooltip: { mode: 'index', intersect: false } },
+        scales: {
+          x: { ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 24 } },
+          y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: v => fmtInt(v) } },
+        },
+        interaction: { mode: 'index', intersect: false },
+      },
+    });
+  }
+  // Fire the sibling RPS chart with the same window + source ranking so
+  // colours stay consistent across both charts.
+  try { _lpRenderRpsChart({ from, to, dayList, topSrcNames, cur, passSrc }); } catch (e){ console.warn('[lp] rps chart failed:', e); }
+}
+
+// ─── Revenue per Session (RPS) timeseries ─────────────────────────
+// One line per top-5 source (same ranking as sessions chart) plus a bold
+// "Blended" line = total revenue / total sessions across all sources.
+// Revenue comes from get_revenue_by_source_daily RPC (aggregated on-the-fly
+// from shopify_ad_attribution). Sessions come from the already-loaded
+// _lpUtmRows dataset — no extra network trip.
+async function _lpRenderRpsChart({ from, to, dayList, topSrcNames, cur, passSrc }){
+  const canvas = document.getElementById('lpRpsChart');
+  if (!canvas) return;
+  const sub = document.getElementById('lpRpsSub');
+  if (sub) sub.textContent = 'blended + top 5 sources · ' + from + ' → ' + to;
+
+  const hdrs = { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON,
+                 'Content-Type': 'application/json' };
+  let revRows = [];
+  try {
+    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_revenue_by_source_daily', {
+      method: 'POST', headers: hdrs,
+      body: JSON.stringify({ from_date: from, to_date: to }),
+    });
+    if (r.ok) revRows = await r.json();
+  } catch(_){}
+
+  // Zero-fill each series across the day list for smooth lines.
+  const zeros = () => Object.fromEntries(dayList.map(d => [d, 0]));
+  // sessions per day per source (only for sources passing the multi-select
+  // filter, so the blended line matches the sessions chart's blended view).
+  const sessBySrcDay = new Map();   // src → {date: sessions}
+  const sessTotalDay = zeros();
+  for (const row of cur){
+    if (!passSrc(row.utm_source)) continue;
+    const s = row.utm_source || '(direct)';
+    const d = row.session_date;
+    const v = +row.sessions || 0;
+    if (!sessBySrcDay.has(s)) sessBySrcDay.set(s, zeros());
+    sessBySrcDay.get(s)[d] = (sessBySrcDay.get(s)[d] || 0) + v;
+    sessTotalDay[d] = (sessTotalDay[d] || 0) + v;
+  }
+  // revenue per day per source (same passSrc filter).
+  const revBySrcDay = new Map();
+  const revTotalDay = zeros();
+  for (const row of revRows){
+    const s = row.utm_source || '(direct)';
+    if (!passSrc(s)) continue;
+    const d = row.session_date;
+    const v = +row.revenue || 0;
+    if (!revBySrcDay.has(s)) revBySrcDay.set(s, zeros());
+    revBySrcDay.get(s)[d] = (revBySrcDay.get(s)[d] || 0) + v;
+    revTotalDay[d] = (revTotalDay[d] || 0) + v;
+  }
+
+  const rps = (rev, sess) => (sess > 0) ? (rev / sess) : null;
+  // Blended line (bold, dark accent) computed FIRST so it wins the tooltip label ordering.
+  const blendedData = dayList.map(d => rps(revTotalDay[d] || 0, sessTotalDay[d] || 0));
+  const datasets = [{
+    label: 'Blended (all sources)',
+    data: blendedData,
+    borderColor: '#111',
+    backgroundColor: '#11111122',
+    borderWidth: 3, pointRadius: 3, tension: 0.25, fill: false,
+    // Draw on top of source lines
+    order: 0,
+  }];
+  // Per-source lines — same colour assignment as sessions chart via
+  // _lpColorForSource (shared map keyed by source name).
+  let i = 0;
+  for (const name of topSrcNames){
+    const col = _lpColorForSource(name, i);
+    const sMap = sessBySrcDay.get(name) || {};
+    const rMap = revBySrcDay.get(name)  || {};
+    datasets.push({
+      label: name,
+      data: dayList.map(d => rps(rMap[d] || 0, sMap[d] || 0)),
+      borderColor: col, backgroundColor: col + '22',
+      borderWidth: 1.6, pointRadius: 2, tension: 0.25, fill: false,
+      order: i + 1,
+    });
+    i++;
+  }
+
+  if (_lpRpsChart){ _lpRpsChart.destroy(); _lpRpsChart = null; }
+  if (typeof Chart === 'undefined') return;
+  _lpRpsChart = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { labels: dayList, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
+        tooltip: {
+          mode: 'index', intersect: false,
+          callbacks: {
+            label(ctx){
+              const v = ctx.parsed.y;
+              if (v == null || isNaN(v)) return ctx.dataset.label + ': —';
+              return ctx.dataset.label + ': ₹' + v.toFixed(2);
+            },
+          },
+        },
+      },
+      scales: {
+        x: { ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 24 } },
+        y: { beginAtZero: true,
+             ticks: { font: { size: 10 },
+                      callback: v => '₹' + (v >= 1000 ? (v/1000).toFixed(1) + 'k' : v.toFixed(0)) } },
+      },
+      interaction: { mode: 'index', intersect: false },
+      spanGaps: true,   // days with zero sessions render as gaps, not zeros
+    },
+  });
+}
+document.getElementById('lpUtmRange')?.addEventListener('change', _lpRenderUtm);
+
+// Chart-mode toggle: show Sessions XOR RPS panel. Both panels render
+// on every _lpRenderUtm call (cheap; already in RAM), the toggle just
+// flips visibility so users can compare by switching quickly.
+(function _lpWireChartModeToggle(){
+  const btns = document.querySelectorAll('#lpChartMode .lp-viewtog-btn');
+  if (!btns.length) return;
+  function setMode(mode){
+    btns.forEach(b => {
+      const on = b.dataset.lpChart === mode;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    const sess = document.getElementById('lpUtmChartWrap');
+    const rps  = document.getElementById('lpRpsChartWrap');
+    if (sess) sess.style.display = (mode === 'sessions') ? '' : 'none';
+    if (rps)  rps.style.display  = (mode === 'rps')      ? '' : 'none';
+    // Chart.js sizes to the container; re-flow after unhide so the
+    // canvas picks up the correct pixel dims.
+    setTimeout(() => {
+      try { _lpUtmChart?.resize(); } catch(_){}
+      try { _lpRpsChart?.resize(); } catch(_){}
+    }, 30);
+  }
+  btns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.lpChart)));
+})();
+
+// One-time pre-load of the utm_source list from sessions_by_utm_source_daily
+// so the header multi-select is populated as soon as the LP section opens
+// (not only after the analytics drill-down is expanded). Cheap: <30 rows.
+async function _lpPreloadUtmSources(){
+  const listEl = document.getElementById('lpUtmSourceList');
+  if (!listEl || listEl.dataset.populated) return;
+  if (!SUPABASE_URL || !SUPABASE_ANON) return;
+  try {
+    const r = await fetch(SUPABASE_URL +
+      '/rest/v1/sessions_by_utm_source_daily' +
+      '?select=utm_source,sessions' +
+      '&session_date=gte.' + new Date(Date.now() - 29*86400000).toISOString().slice(0,10) +
+      '&limit=100000',
+      { headers: { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON } });
+    if (!r.ok) return;
+    const rows = await r.json();
+    // Aggregate per-source (last-30d sessions) so we can rank + show all sources
+    const bySrc = new Map();
+    for (const row of rows){
+      const s = row.utm_source || '(direct)';
+      bySrc.set(s, (bySrc.get(s) || 0) + (+row.sessions || 0));
+    }
+    // Fake rows shape that _lpUtmRepopulateSources expects
+    const stubRows = Array.from(bySrc.entries()).map(([s]) => ({ utm_source: s }));
+    _lpUtmRepopulateSources(stubRows);
+  } catch (_) { /* silent — list will populate later when drill-down opens */ }
+}
+
+// Multi-select for utm_source — populated from the current dataset's
+// unique sources. null = all; Set of names = filter to those only.
+function _lpUtmRepopulateSources(rows){
+  const listEl = document.getElementById('lpUtmSourceList');
+  if (!listEl || listEl.dataset.populated) return;
+  const sources = Array.from(new Set(rows.map(r => r.utm_source || '(direct)'))).sort();
+  listEl.innerHTML = sources.map(s => (
+    '<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;font-size:12px;cursor:pointer;border-radius:4px;color:#1a1a1a;line-height:1.3" ' +
+    'onmouseenter="this.style.background=\'rgba(0,0,0,0.05)\'" onmouseleave="this.style.background=\'\'">' +
+      '<input type="checkbox" data-lp-utm-src="' + s.replace(/"/g,'&quot;') + '" checked style="cursor:pointer;flex-shrink:0;margin:0">' +
+      '<span class="mono" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">' + s.replace(/</g,'&lt;') + '</span>' +
+    '</label>'
+  )).join('');
+  listEl.dataset.populated = '1';
+}
+function _lpUtmUpdateSelected(){
+  const boxes = document.querySelectorAll('#lpUtmSourceList input[type=checkbox]');
+  const total = boxes.length;
+  const picked = Array.from(boxes).filter(b => b.checked);
+  const lbl = document.getElementById('lpUtmSourceLbl');
+  if (picked.length === total || picked.length === 0){
+    _lpUtmSelectedSources = null;
+    if (lbl) lbl.textContent = 'UTM: All sources';
+  } else {
+    _lpUtmSelectedSources = new Set(picked.map(b => b.dataset.lpUtmSrc));
+    if (lbl) lbl.textContent = 'UTM: ' + picked.length + ' of ' + total;
+  }
+}
+// Open/close the multi-select panel + search + all/none + change listener
+(function bindLpUtmMs(){
+  const btn = document.getElementById('lpUtmSourceBtn');
+  const panel = document.getElementById('lpUtmSourcePanel');
+  const search = document.getElementById('lpUtmSourceSearch');
+  const list = document.getElementById('lpUtmSourceList');
+  if (!btn || !panel) return;
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = panel.style.display === 'block';
+    panel.style.display = open ? 'none' : 'block';
+    panel.setAttribute('aria-hidden', open ? 'true' : 'false');
+  });
+  document.addEventListener('click', e => {
+    if (!panel.contains(e.target) && e.target !== btn) {
+      panel.style.display = 'none';
+    }
+  });
+  search?.addEventListener('input', () => {
+    const q = search.value.trim().toLowerCase();
+    list.querySelectorAll('label').forEach(l => {
+      const s = l.querySelector('input')?.dataset.lpUtmSrc || '';
+      l.style.display = (!q || s.toLowerCase().includes(q)) ? '' : 'none';
+    });
+  });
+  panel.querySelectorAll('[data-lpms-op]').forEach(b => {
+    b.addEventListener('click', () => {
+      const op = b.dataset.lpmsOp;
+      list.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        // Only affect visible boxes (respecting the search filter)
+        if (cb.closest('label').style.display !== 'none') cb.checked = (op === 'all');
+      });
+      _lpUtmUpdateSelected();
+      _lpRenderUtm();
+    });
+  });
+  list?.addEventListener('change', e => {
+    if (e.target.matches('input[type=checkbox]')){
+      _lpUtmUpdateSelected();
+      _lpRenderUtm();
+      // Also refresh Pages master + KPI cards so sessions/visitors columns
+      // reflect the selected utm sources only (uses sessions_by_utm_page_daily).
+      try { _lpRenderTable(); _lpRenderKpis(); } catch(_){}
+    }
+  });
+  // Same for the all/none quick-actions inside the panel
+  panel.querySelectorAll('[data-lpms-op]').forEach(b => {
+    b.addEventListener('click', () => {
+      try { _lpRenderTable(); _lpRenderKpis(); } catch(_){}
+    });
+  });
+})();
+
+// Render only when the drill-down is opened (saves a fetch on first paint
+// of the LP section — most users won't drill into it every time).
+document.getElementById('lpUtmDrill')?.addEventListener('toggle', function(){
+  if (this.open){
+    setTimeout(() => { try { _lpRenderUtm(); } catch(_){} }, 100);
+  }
+});
 
 function _lpRenderDetailKpis(rows){
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -9757,10 +10531,10 @@ let _utLoadedByMedia = { video: false, graphic: false, influencer: false };
 
 function _utNormalizeVideo(r){
   // Product SKU extraction — first token of the nomenclature (e.g.
-  // "SDJRT_BST_CPL003-0091_21_04_2026" → "SDJRT"). Only matches the
-  // master-SKU shape (SD/SM/SU + 1-4 uppercase chars). Falls back to
-  // r.source_parent when nomenclature doesn't have a valid SKU prefix.
-  const product_sku = _extractSkuFromName(r.planning_nomenclature) || r.source_parent || '';
+  // "SDJRT_BST_CPL003-0091_21_04_2026" → "SDJRT"). ONLY the master-SKU
+  // shape (SD / SM / SU + 1-4 uppercase chars). No fallback — non-SKU
+  // prefixes like CPL/OSP/UPS/BST/CTP show as blank in the Product column.
+  const product_sku = _extractSkuFromName(r.planning_nomenclature) || '';
   return {
     asset_id:            r.asset_id,
     name:                r.planning_nomenclature,
@@ -10085,9 +10859,9 @@ function _utRender(){
     const mediaPill = r.media_type === 'graphic'
       ? '<span style="display:inline-block;padding:2px 7px;border-radius:100px;font-size:10px;font-weight:700;background:var(--gold-lt,#fdf5e6);color:var(--gold,#b8883a)">GRAPHIC</span>'
       : '<span style="display:inline-block;padding:2px 7px;border-radius:100px;font-size:10px;font-weight:700;background:var(--slate-lt,#eaf0f8);color:var(--slate,#4a6fa5)">VIDEO</span>';
-    // Product cell: SKU on top (mono) + product_title as small subtext.
-    // Look up title live so newly-loaded cpis_by_sku entries show up.
-    const sku = r.product_sku || r.parent || '';
+    // Product cell: master SKU (SD/SM/SU only) on top + product_title as
+    // small subtext. Non-SKU prefixes (CPL/OSP/UPS/BST/CTP) get an em-dash.
+    const sku = r.product_sku || '';
     const title = _utProductTitleBySku[sku] || '';
     const productCell = sku
       ? '<div style="display:flex;flex-direction:column;line-height:1.2">' +

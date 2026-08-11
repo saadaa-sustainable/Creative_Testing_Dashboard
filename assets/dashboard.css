@@ -510,6 +510,181 @@
     background:var(--warning-text); color:#fff;
   }
 
+  /* ── LP header layout — two neat rows without dead space.
+     Row 1: title on left, structure controls flush right.
+     Row 2: search on left, filters + actions flush right.
+     Rows are separated by a thin divider, both rows share the
+     same right edge so buttons stack visually. */
+  .funnel-hdr.lp-hdr{
+    display:flex; flex-direction:column;
+    align-items:stretch;
+    padding:12px 16px 10px;
+    gap:8px;
+  }
+  .lp-hdr-title{
+    margin:0;
+    align-self:center;
+    flex-shrink:0;
+    margin-right:auto;   /* pushes structure controls to the right in Row 1 */
+  }
+  .lp-hdr-row{
+    display:flex; gap:8px; align-items:center;
+    flex-wrap:wrap;
+    min-width:0;
+  }
+  /* Row 1: title left, structure controls right (achieved via title auto-margin). */
+  .lp-hdr-row-structure{
+    padding-bottom:8px;
+    border-bottom:1px dashed var(--border-soft, rgba(0,0,0,0.08));
+  }
+  /* Row 2: search left, everything else right — no big empty gap. */
+  .lp-hdr-row-filters{
+    justify-content:flex-start;
+  }
+  .lp-hdr-row-filters .lp-hdr-search{
+    margin-right:auto;   /* pushes remaining controls to the right */
+  }
+  .lp-hdr-lbl{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:10px; font-weight:700; letter-spacing:.6px;
+    text-transform:uppercase;
+    color:var(--text-tertiary);
+    margin-right:2px;
+  }
+  .lp-hdr-sep{
+    width:1px; height:22px;
+    background:var(--border-soft, rgba(0,0,0,0.10));
+    margin:0 8px;
+  }
+  .lp-hdr-search{
+    padding:5px 10px 5px 30px; font-size:12px;
+    width:240px; max-width:100%;
+    background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") 8px center/14px no-repeat;
+  }
+  .lp-hdr-act{
+    padding:5px 10px; font-size:11px; white-space:nowrap;
+  }
+  /* Compact the structure row to one line whenever possible. */
+  .lp-hdr-row-structure{ flex-wrap:nowrap }
+  @media (max-width: 1200px){
+    .lp-hdr-row-structure{ flex-wrap:wrap }
+  }
+
+  /* ── LP Pages master: widen card, boost header visibility, add
+     sticky column headers so they stay put while scrolling a long
+     landing-page list. Reduces cell padding for more density since
+     the table has ~20 numeric columns. */
+  /* Break the card out of #main's 26px side padding so the wide table
+     has room to breathe. -22px on each side leaves ~4px of visual gutter. */
+  #lpTableCard{
+    padding:0 !important;
+    margin-left:-22px;
+    margin-right:-22px;
+    width:calc(100% + 44px);
+    max-width:none;
+  }
+  /* Every direct child EXCEPT the table wraps gets side padding — the
+     wraps go edge-to-edge to maximise horizontal table space. */
+  #lpTableCard > *:not(.ae-tbl-wrap){
+    padding-left:22px; padding-right:22px;
+  }
+  #lpTableWrapPages{
+    overflow-x:auto;
+    border-top:1px solid var(--border-soft);
+  }
+  #lpTable{ font-size:12px; }
+  #lpTable thead th{
+    background:var(--surface-1, #FAF7F1);
+    color:var(--text-primary);
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:.4px;
+    padding:10px 8px;
+    border-bottom:2px solid var(--warning-text, #b8883a);
+    text-transform:uppercase;
+    white-space:nowrap;
+    user-select:none;
+  }
+  /* Click-to-sort affordance: cursor + hover tint on headers with a
+     data-lp-metric attr. Active sort column gets bolder text + coloured
+     caret. */
+  #lpTable thead th[data-lp-metric]{ cursor:pointer }
+  #lpTable thead th[data-lp-metric]:hover{ background:var(--surface-2, #F3ECE0) }
+  #lpTable thead th.lp-sort-active{
+    color:var(--warning-text, #b8883a);
+    background:var(--surface-2, #F3ECE0);
+  }
+  #lpTable thead th .lp-sort-caret{
+    font-size:9px; margin-left:3px;
+    color:var(--warning-text, #b8883a);
+    display:inline-block; vertical-align:middle;
+  }
+  #lpTable tbody td{
+    padding:7px 8px;                      /* was 9px 11px — denser */
+    font-size:12px;
+    white-space:nowrap;
+  }
+  /* First column (path) stays sticky ONLY when the table wrap is horizontally
+     scrolled — the wrap's overflow-x:auto makes it a scroll container. */
+  #lpTable thead th:first-child,
+  #lpTable tbody td:first-child{
+    position:sticky; left:0; z-index:4;
+    background:var(--bg-white, #fff);
+    box-shadow:1px 0 0 var(--border-soft, rgba(0,0,0,0.08));
+    max-width:340px;
+  }
+  #lpTable thead th:first-child{
+    background:var(--surface-1, #FAF7F1);
+  }
+  #lpTable tbody tr:hover td:first-child{ background:var(--accent-warm-tint) }
+
+  /* ── LP source scope (All | Shopify | Meta) — quick preset that
+     mass-toggles metric visibility by source. Hides via data-lp-grp. */
+  .lp-src-scope{
+    display:inline-flex; background:var(--surface-1,#FAF7F1);
+    border:1px solid var(--border-warm,#DDD1BC); border-radius:8px;
+    padding:2px; gap:2px;
+  }
+  .lp-src-btn{
+    background:transparent; border:none; padding:5px 10px; border-radius:6px;
+    font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:600;
+    color:var(--text-secondary); cursor:pointer; white-space:nowrap;
+  }
+  .lp-src-btn:hover{background:var(--surface-2,#F3ECE0); color:var(--text-primary)}
+  .lp-src-btn.active{background:var(--warning-text); color:#fff}
+
+  /* ── LP Columns popover (Shopify-Freeform style) ───────────────
+     Panel anchored below the Columns button. Two grouped lists
+     (Shopify / Meta), each row a checkbox + metric label. */
+  .lp-cols-panel{
+    display:none; position:absolute; top:calc(100% + 4px); right:0;
+    z-index:9999; width:280px; max-height:440px; overflow:auto;
+    background:#fff; color:#1a1a1a;
+    border:1px solid rgba(0,0,0,0.12); border-radius:8px;
+    box-shadow:0 12px 32px rgba(0,0,0,0.16);
+    padding:10px 8px 12px;
+    font-family:'Inter','Space Grotesk',sans-serif; font-size:12px;
+  }
+  .lp-cols-panel.open{display:block}
+  .lp-cols-hdr{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:2px 6px 10px 6px; font-weight:700; letter-spacing:.2px;
+    border-bottom:1px solid rgba(0,0,0,0.08); margin-bottom:6px;
+  }
+  .lp-cols-src{
+    padding:8px 6px 4px 6px; font-size:10.5px; font-weight:700;
+    letter-spacing:.6px; text-transform:uppercase; color:#777;
+  }
+  .lp-cols-list{display:flex;flex-direction:column;gap:1px}
+  .lp-cols-list label{
+    display:flex; align-items:center; gap:8px; padding:4px 8px;
+    border-radius:5px; cursor:pointer; user-select:none;
+    color:#1a1a1a;
+  }
+  .lp-cols-list label:hover{background:#f5f2ec}
+  .lp-cols-list input[type="checkbox"]{cursor:pointer; flex-shrink:0}
+  .lp-cols-list .lp-cm-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
   /* ── Landing Page × Ads drill-down ─────────────────────────────── */
   .lp-tbl-clickable tbody tr{cursor:pointer}
   .lp-tbl-clickable tbody tr:hover{background:var(--accent-warm-tint)}
@@ -585,6 +760,12 @@
   .lp-ad-th.active-sort .lp-sort-caret{color:var(--accent-yellow)}
   .lp-ad-th.active-sort.desc .lp-sort-caret::after{content:'▼'}
   .lp-ad-th.active-sort.asc  .lp-sort-caret::after{content:'▲'}
+  /* UTM drill-down: rotate caret when open */
+  .lp-utm-drill > summary::-webkit-details-marker{display:none}
+  .lp-utm-drill[open]  > summary > span:first-child{transform:rotate(90deg);
+    display:inline-block;transition:transform .15s ease}
+  .lp-utm-drill:not([open]) > summary > span:first-child{
+    display:inline-block;transition:transform .15s ease}
   .lp-status{
     display:inline-block; padding:1px 7px; border-radius:10px;
     font-size:9.5px; font-weight:700; letter-spacing:.3px; text-transform:uppercase;
