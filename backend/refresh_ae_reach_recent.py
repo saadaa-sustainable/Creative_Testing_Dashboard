@@ -1,6 +1,6 @@
 """Refresh the ae_reach_recent materialized view.
 
-Called by _run_full_update.py after refresh_ae_daily_agg. Uses direct
+Called by _refresh_all_dashboard_data.py after refresh_ae_daily_agg. Uses direct
 psycopg2 with a lifted statement_timeout so the ~1M-row UNION over
 primary_table + backfill_table can complete (typically ~10s).
 

@@ -14,14 +14,31 @@ backend/logs/
 backend/*.csv
 *.progress.json
 backend/*.progress.json
+backend/.*progress*.json
+
+# DB snapshots (rollback dumps, large)
+backend/db_snapshots/
+
+# Local SQLite state
+backend/*.sqlite
+backend/*.sqlite-journal
 
 # Scratch/one-off scripts convention — anything under backend/ that starts
 # with an underscore is throwaway. Whitelist the few that graduated into
 # real utilities.
 backend/_*
-!backend/_run_meta_parallel.py
+!backend/_refresh_all_dashboard_data.py
+!backend/_refresh_ads_delivered_daily.py
+!backend/_snapshot_tier1_drops.py
+!backend/_build_ae_daily_30d.py
+!backend/_build_ae_daily_90d.py
+!backend/_build_shopify_l30.py
+!backend/_build_rck_last30.py
+!backend/_build_rck_daily_30d.py
+!backend/_fetch_new_orders_only.py
+!backend/_gads_web_auth.py
 !backend/_md_to_docx.py
-!backend/_build_changelog_xlsx.py
+!backend/_migrate_ireach_rpc_add_ad_level.sql
 
 # Editor / OS lock files
 ~$*
@@ -29,16 +46,3 @@ backend/_*
 
 # Parallel-pipeline per-worker logs (regenerated each run)
 backend/_parallel_logs/
-
-# Structural helpers under _* (reproducible pipeline steps — whitelist)
-!backend/_build_shopify_l30.py
-!backend/_build_ae_daily_30d.py
-!backend/_build_rck_last30.py
-!backend/_build_rck_daily_30d.py
-!backend/_build_ad_utm_mode.py
-!backend/_build_utm_one_pager_docx.py
-!backend/_fetch_new_orders_only.py
-!backend/_run_meta_update_preserve_attr.py
-!backend/_gads_web_auth.py
-!backend/_export_rck_asset_and_name_overlap.py
-!backend/_migrate_ireach_rpc_add_ad_level.sql

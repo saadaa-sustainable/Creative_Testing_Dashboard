@@ -65,7 +65,7 @@ ACCOUNTS = [
 ]
 
 # Fan-out hook: SYNC_ACCOUNT_ID=<one of the account ids> restricts this run to
-# a single account so an orchestrator (see _run_meta_parallel.py) can launch
+# a single account so an orchestrator (see _refresh_all_dashboard_data.py) can launch
 # 3 processes in parallel — one per account — for ~3× faster nightly sync.
 _only_id = (os.getenv("SYNC_ACCOUNT_ID") or "").strip()
 if _only_id:

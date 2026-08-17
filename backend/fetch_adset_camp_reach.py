@@ -7,7 +7,7 @@ returns properly deduped reach when queried with level=adset or level=campaign.
 This script fetches those numbers directly.
 
 Modes:
-  daily    — refresh last 15 days (called from _run_full_update.py)
+  daily    — refresh last 15 days (called from _refresh_all_dashboard_data.py)
   backfill — fetch from Meta's max window (37 months back) to today. One-shot.
   hourly   — refresh last 3 days
 

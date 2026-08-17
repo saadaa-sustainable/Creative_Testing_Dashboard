@@ -5,7 +5,7 @@ Calls the three rebuild_new_incr_* stored functions:
   - rebuild_new_incr_adset_table()   → adset-level cum/incr from primary_adset_table
   - rebuild_new_incr_camp_table()    → campaign-level cum/incr from primary_camp_table
 
-All three are idempotent (TRUNCATE + INSERT). Called from _run_full_update.py."""
+All three are idempotent (TRUNCATE + INSERT). Called from _refresh_all_dashboard_data.py."""
 import os, sys, time, psycopg2
 from dotenv import load_dotenv
 
