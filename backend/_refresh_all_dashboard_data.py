@@ -41,7 +41,6 @@ STEPS = [
     ("refresh_ae_table",               ["refresh_ae_table.py"],             1800),
     ("refresh_summary_table",          ["refresh_summary_table.py"],         900),
     ("refresh_ae_reach_recent",        ["refresh_ae_reach_recent.py"],       600),
-    ("refresh_new_incr_table",         ["refresh_new_incr_table.py"],        300),
     ("fetch_meta_ireach_daily",        ["fetch_meta_ireach_daily.py"],      1800),
     # ── Google Ads ────────────────────────────────────────────
     ("fetch_google_ads_daily",         ["fetch_google_ads_daily.py"],       1800),
