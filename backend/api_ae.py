@@ -302,11 +302,18 @@ def rest_table(
 async def rest_rpc(fn: str, request: Request):
     # RPC allow-list — restrict to functions the dashboard actually calls.
     ALLOWED_RPCS = {
-        "get_ae_metrics_by_window", "get_delivery_ads",
+        "get_ae_metrics_by_window", "get_ae_unique_clicks_by_window",
+        "get_delivery_ads",
+        # New baseline-anchored reach RPCs (feed AE Prev/Latest/Incr Reach +
+        # saturation chart). Missing entries here return 404 to the frontend,
+        # which then falls back to aeWindowReachByAdId = {} and shows every
+        # ad's reach as 0 — that's the AE "many zeros" bug.
+        "get_reach_incr_by_window", "get_reach_incr_curve",
+        # Legacy reach RPCs — kept until fully deprecated.
         "get_ireach_incremental_analysis", "get_ireach_saturation_curve",
         "get_overview_perf_totals", "get_shopify_by_adset",
         "get_shopify_by_campaign", "get_cpis_ad_stats",
-        "get_sessions_by_lp",
+        "get_sessions_by_lp", "get_revenue_by_source_daily",
         # Refresh functions — dashboard's "Recompute" buttons.
         "refresh_landing_page_analysis_30d",
     }
