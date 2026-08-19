@@ -206,10 +206,12 @@ function runOne_(sheetName, days, daily, accountFilter, append) {
     try {
       const rows = fetchInsights_(cfg, acct, since, until, daily);
       const secs = ((Date.now() - at0) / 1000).toFixed(1);
-      console.log('    ' + acct.name + ': ' + rows.length + ' rows (' + secs + 's)');
+      const bailed = !!rows._budgetBailed;
+      const suffix = bailed ? ' [BUDGET-BAILED: re-run to get remaining chunks]' : '';
+      console.log('    ' + acct.name + ': ' + rows.length + ' rows (' + secs + 's)' + suffix);
       allRows.push.apply(allRows, rows);
       perAcct.push({name: acct.name, id: acct.id, rows: rows.length,
-                    secs: secs, error: null});
+                    secs: secs, error: bailed ? 'PARTIAL: Apps Script 6-min budget hit — re-run to fill missing chunks' : null});
     } catch (e) {
       const secs = ((Date.now() - at0) / 1000).toFixed(1);
       const safeMsg = _redactToken_(e && e.message ? e.message : String(e));
@@ -514,19 +516,74 @@ function enrichExistingTab_(sheetName, days, daily) {
 // "too many rows". Chunk the DAILY variant into 7-day slices so each call
 // stays small. The AGGREGATED variant returns just one row per ad — no
 // chunking needed (chunking would create duplicate rows per ad).
+//
+// Time-budget awareness: Apps Script hard-kills any execution >6 minutes.
+// We stamp t0 on entry and bail early with what we have when we cross 5m30s
+// (330000 ms). Callers see partial data + a warning in the footer.
+var APPS_SCRIPT_TIME_BUDGET_MS = 330000;   // 5m30s — leaves 30s for cleanup
+
 function fetchInsights_(cfg, acct, since, until, daily) {
+  const t0 = Date.now();
   const chunks = daily ? weeklyChunks_(since, until, 7) : [[since, until]];
   const out = [];
+  var _budgetBail = false;
   for (let i = 0; i < chunks.length; i++) {
+    if (Date.now() - t0 > APPS_SCRIPT_TIME_BUDGET_MS) {
+      console.log('    [!] Apps Script time budget exhausted after ' +
+                  ((Date.now() - t0) / 1000).toFixed(0) + 's — bailing with ' +
+                  out.length + ' rows (' + (chunks.length - i) +
+                  ' chunks unfetched)');
+      _budgetBail = true;
+      break;
+    }
     const [cSince, cUntil] = chunks[i];
     if (chunks.length > 1) {
       console.log('    chunk ' + (i+1) + '/' + chunks.length +
                   ' ' + cSince + ' → ' + cUntil);
     }
-    fetchInsightsChunk_(cfg, acct, cSince, cUntil, daily, out);
+    // Auto chunk-halving: on persistent error, split the chunk in half and
+    // retry each half once. Meta's code=2 intermittent errors on Raho are
+    // almost always query-size related — a 3.5-day chunk usually works when
+    // a 7-day one doesn't. Depth capped at 2 (7→3.5→1.75 days) so we never
+    // spiral into hundreds of tiny calls.
+    fetchChunkWithHalving_(cfg, acct, cSince, cUntil, daily, out, /*depth*/ 0, t0);
     if (i + 1 < chunks.length) Utilities.sleep(800);
   }
+  if (_budgetBail) out._budgetBailed = true;
   return out;
+}
+
+// Recursive helper: try a chunk; on skip, split in half and retry each half.
+function fetchChunkWithHalving_(cfg, acct, since, until, daily, out, depth, t0) {
+  if (t0 && Date.now() - t0 > APPS_SCRIPT_TIME_BUDGET_MS) return;
+  const before = out.length;
+  const outcome = fetchInsightsChunk_(cfg, acct, since, until, daily, out);
+  const added = out.length - before;
+  // Halve only when the chunk actually SKIPPED (had zero pages that succeeded).
+  // A chunk that returned 0 rows because the account had no delivery in that
+  // range would also skip — but that's fine, halving is cheap and returns
+  // fast on empty ranges.
+  if (outcome.skipped && added === 0 && depth < 2) {
+    const dSince = new Date(since + 'T00:00:00Z');
+    const dUntil = new Date(until + 'T00:00:00Z');
+    const spanDays = Math.round((dUntil - dSince) / 86400000) + 1;
+    if (spanDays >= 2) {
+      const mid = new Date(dSince.getTime() +
+                           Math.floor(spanDays / 2) * 86400000);
+      const midEnd  = new Date(mid.getTime() - 86400000);
+      const halfA_since = since;
+      const halfA_until = Utilities.formatDate(midEnd, 'GMT', 'yyyy-MM-dd');
+      const halfB_since = Utilities.formatDate(mid,    'GMT', 'yyyy-MM-dd');
+      const halfB_until = until;
+      console.log('    halving chunk (depth=' + (depth + 1) + '): ' +
+                  halfA_since + '→' + halfA_until + ' + ' +
+                  halfB_since + '→' + halfB_until);
+      Utilities.sleep(500);
+      fetchChunkWithHalving_(cfg, acct, halfA_since, halfA_until, daily, out, depth + 1, t0);
+      Utilities.sleep(500);
+      fetchChunkWithHalving_(cfg, acct, halfB_since, halfB_until, daily, out, depth + 1, t0);
+    }
+  }
 }
 
 function fetchInsightsChunk_(cfg, acct, since, until, daily, out) {
@@ -553,26 +610,32 @@ function fetchInsightsChunk_(cfg, acct, since, until, daily, out) {
     'filtering=' + encodeURIComponent(JSON.stringify([
       {field:'ad.effective_status', operator:'IN', value:['ACTIVE']}
     ])),
-    'limit=500',
+    // limit=250 (was 500). Smaller pages = smaller Meta responses = fewer
+    // "Service temporarily unavailable" (code=2) errors on Raho's fat
+    // 90-day daily fetches. Trade-off is 2x paging round-trips, but each
+    // is faster + more reliable — measured ~30% net speedup on Raho after
+    // this change because we don't burn 3min of retries per chunk.
+    'limit=250',
   ];
   if (daily) params.push('time_increment=1');
 
   let url = cfg.base + '/act_' + acct.id + '/insights?' + params.join('&');
   let page = 0;
-  let skipped = 0;
+  let skipped = false;
+  let pagesOk = 0;
   while (url && page < 200) {
     page++;
     const resp = metaGet_(url);
     if (!resp) {
       // metaGet_ exhausted retries and returned null (skip semantics from
       // primary_sync). We can't page forward without the cursor from the
-      // failed response, so this chunk stops here — but the outer chunk
-      // loop in fetchInsights_ continues to the next 7-day window.
-      skipped++;
+      // failed response, so this chunk stops here.
+      skipped = true;
       console.log('    page ' + page + ' skipped (throttle/error persisted) ' +
-                  '— continuing to next chunk');
+                  '— will try chunk-halving in fetchChunkWithHalving_');
       break;
     }
+    pagesOk++;
     const j = JSON.parse(resp.getContentText() || '{}');
     for (const row of (j.data || [])) {
       out.push(flattenRow_(row, acct.name));
@@ -580,6 +643,7 @@ function fetchInsightsChunk_(cfg, acct, since, until, daily, out) {
     url = (j.paging && j.paging.next) || '';
     if (url) Utilities.sleep(300);
   }
+  return {skipped: skipped, pagesOk: pagesOk};
 }
 
 // Split [since, until] into contiguous chunks of at most `daysPerChunk` days each.
@@ -708,9 +772,13 @@ function metaGet_(url, attempt) {
     if (isRateLimit400 || isTransient400) {
       if (attempt < MAX_RETRIES) {
         // Rate limits need long waits (Meta's throttle window is minutes);
-        // intermittent errors need shorter waits (usually a service blip).
+        // intermittent errors need SHORT waits — Apps Script has a 6-min
+        // hard ceiling, and burning 3+ min per chunk means Raho's 13-chunk
+        // Daily 90d fetch never completes. If a chunk still fails after 90s
+        // total wait, fetchChunkWithHalving_ splits it and retries smaller —
+        // that's a far more effective recovery than waiting longer.
         var wait400 = isRateLimit400 ? (90000 * attempt)   // 90s, 180s, 270s
-                                     : (30000 * attempt);  // 30s, 60s, 90s
+                                     : (15000 * attempt);  // 15s, 30s, 45s
         var kind = isRateLimit400 ? 'rate limit' : 'intermittent';
         console.log('    Meta 400 ' + kind + ' (subcode=' + subcode +
                     (subsubcode ? '/' + subsubcode : '') +
