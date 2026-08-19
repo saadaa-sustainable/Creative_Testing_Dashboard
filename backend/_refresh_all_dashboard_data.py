@@ -188,6 +188,38 @@ def refresh_lp_rpcs() -> dict:
                 "duration_sec": round(dt, 1), "error": f"{type(e).__name__}: {e}"}
 
 
+def refresh_meta_direct_views_rpc() -> dict:
+    """Regenerate the 4 meta_direct_* materialized views that mirror the
+    Apps Script Meta Direct sheet tabs. Server-side REFRESH CONCURRENTLY;
+    depends on primary_table + shopify_ad_attribution being fresh (i.e.
+    must run AFTER primary_sync_daily + rebuild_attribution_orders)."""
+    label = "refresh_meta_direct_views"
+    log(f"-- step: {label}")
+    t0 = time.time()
+    try:
+        import psycopg2
+        from dotenv import load_dotenv
+        load_dotenv(ROOT / ".env", override=True)
+        c = psycopg2.connect(os.environ["SUPABASE_DB_URL"], connect_timeout=30)
+        c.autocommit = True
+        cur = c.cursor()
+        cur.execute("SELECT view_name, rows_after, refresh_secs "
+                    "FROM public.refresh_meta_direct_views()")
+        results = cur.fetchall()
+        cur.close(); c.close()
+        for view_name, rows_after, secs in results:
+            log(f"   {view_name:30s} {rows_after:>7,} rows  {secs}s")
+        dt = time.time() - t0
+        log(f"   OK  duration={dt:.0f}s")
+        return {"label": label, "status": "OK", "exit_code": 0,
+                "duration_sec": round(dt, 1)}
+    except Exception as e:  # noqa: BLE001
+        dt = time.time() - t0
+        log(f"   EXCEPTION {type(e).__name__}: {e}")
+        return {"label": label, "status": "EXCEPTION", "exit_code": None,
+                "duration_sec": round(dt, 1), "error": f"{type(e).__name__}: {e}"}
+
+
 def run_phase(name: str, steps: list) -> list[dict]:
     log("")
     log(f"==== PHASE: {name.upper()}  ({len(steps)} steps) ====")
@@ -218,6 +250,9 @@ def main() -> None:
     if args.phase in ("compute", "all"):
         all_results.extend(run_phase("COMPUTATION", PHASE_COMPUTE))
         all_results.append(refresh_lp_rpcs())
+        # Meta Direct sheet mirrors — must run AFTER primary_sync +
+        # rebuild_attribution_orders so both feeder tables are fresh.
+        all_results.append(refresh_meta_direct_views_rpc())
 
     total = time.time() - overall_t0
     ok_n   = sum(1 for r in all_results if r["status"] == "OK")
