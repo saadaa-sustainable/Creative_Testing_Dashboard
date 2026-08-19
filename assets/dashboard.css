@@ -1082,6 +1082,28 @@
     line-height:1.55}
   .def-note-icon{color:var(--warning-text);font-size:15px;line-height:1.4;flex-shrink:0}
   .def-note b{color:var(--warning-text)}
+  /* Collapsible variant — sits collapsed as a single row, expands on click.
+     Used on the Incremental Analysis page where the def-note otherwise took
+     ~5 lines above the table. */
+  .def-note-drop{background:var(--warning-bg);border:1px solid var(--warning-border);
+    border-radius:10px;font-size:12.5px;color:var(--text-primary);line-height:1.55;
+    overflow:hidden}
+  .def-note-drop > summary{list-style:none;cursor:pointer;
+    display:flex;gap:10px;align-items:center;padding:8px 14px;
+    user-select:none;transition:background .12s ease}
+  .def-note-drop > summary::-webkit-details-marker{display:none}
+  .def-note-drop > summary:hover{background:rgba(0,0,0,0.03)}
+  .def-note-drop > summary .def-note-icon{color:var(--warning-text);font-size:14px;font-weight:700}
+  .def-note-drop > summary .dnd-title{font-weight:600;color:var(--warning-text)}
+  .def-note-drop > summary .dnd-hint{color:var(--text-tertiary);font-size:11px;font-style:italic;margin-left:6px}
+  .def-note-drop > summary .dnd-chev{margin-left:auto;color:var(--warning-text);font-size:11px;
+    transition:transform .18s ease}
+  .def-note-drop[open] > summary .dnd-chev{transform:rotate(180deg)}
+  .def-note-drop[open] > summary{border-bottom:1px solid var(--warning-border);
+    background:rgba(0,0,0,0.02)}
+  .def-note-drop[open] > summary .dnd-hint{display:none}
+  .def-note-drop .dnd-body{padding:12px 14px 14px;color:var(--text-primary)}
+  .def-note-drop .dnd-body b{color:var(--warning-text)}
   /* Legend below the matrix — mirrors the marks used in the cells. */
   .def-legend{display:flex;gap:16px;flex-wrap:wrap;align-items:center;
     margin-top:12px;font-size:11.5px;color:var(--text-secondary);

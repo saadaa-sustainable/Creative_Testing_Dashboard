@@ -58,9 +58,20 @@ API = f'https://graph.facebook.com/{VER}'
 DB_URL = (os.environ.get('SUPABASE_DB_URL') or '').strip()
 if not DB_URL: sys.exit('Missing SUPABASE_DB_URL in .env')
 
-# Anchor for the growing time_range — dashboard's HISTORIC_CUTOFF.
-# Anything before this date isn't shown in the frontend anyway.
-ORIGIN = '2025-01-01'
+# Anchor for the growing time_range.
+# Computed at import time so it always sits safely inside Meta's rolling
+# 37-month window (start_date must not be beyond 37 months from today,
+# else API returns #3018). Using a hard-coded date drifts past the limit
+# every night. 36 months back gives ~30-day headroom before rolling over.
+# For ads created 2025+ this is a no-op — Meta returns 0 before an ad's
+# own creation date regardless.
+from datetime import date as _date_cls
+try:
+    from dateutil.relativedelta import relativedelta as _rd
+    ORIGIN = (_date_cls.today() - _rd(months=36)).isoformat()
+except ImportError:
+    from datetime import timedelta as _td
+    ORIGIN = (_date_cls.today() - _td(days=1100)).isoformat()  # ~36 months
 
 # 3 Meta ad accounts (id → display name). Ids match ireach_campaign_daily.
 ACCOUNTS = [

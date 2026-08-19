@@ -1206,7 +1206,7 @@
   <div class="page-hdr">
     <div>
       <h1 class="heading">Incremental Analysis</h1>
-      <div class="sub">Campaign / Adset-level daily reach aggregation for ads dated on/after 2025-01-01</div>
+      <div class="sub">Meta-deduped cumulative reach per Account / Campaign / Adset, baseline 2026-08-01</div>
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn ghost" id="ireachInfo" type="button" title="What each column means">ⓘ Column definitions</button>
@@ -1220,7 +1220,7 @@
            on Apply; the toggle just flips which table is visible. -->
       <div class="life-toggle" id="ireachScope"
            title="Pick which grain to display — only the selected section is shown.">
-        <button class="lt-btn"        data-scope="account" type="button" title="Aggregate at the ad-account level (Meta cumulative unique reach at account level from ireach_cumulative_daily)">Account</button>
+        <button class="lt-btn"        data-scope="account" type="button" title="Aggregate at the ad-account level (Meta cumulative unique reach from public.account_incr)">Account</button>
         <button class="lt-btn active" data-scope="camp"    type="button">Campaign</button>
         <button class="lt-btn"        data-scope="adset"   type="button">Adset</button>
       </div>
@@ -1256,17 +1256,28 @@
                     background:var(--bg-white);font-size:12px;width:260px;
                     font-family:'Inter',sans-serif;outline:none">
     </div>
-    <div class="def-note" style="margin:0 0 12px 0">
-      <span class="def-note-icon">◆</span>
-      <span><b>Sheet model — true Meta cumulative reach.</b>
-      <code>Cumulative Reach(D)</code> is Meta's unique reach across <code>[ORIGIN, D]</code>
-      (growing time_range), stored in <b>ireach_cumulative_daily</b>.
-      <code>Incremental Reach = MAX(0, Cumulative(window_end) − Cumulative(window_start − 1))</code>
-      — new unique users first reached during the window. Naturally never negative
-      (Meta occasionally recalculates and cumulative can dip; the clamp handles that).
-      <code>Cost / 1k Incr = spend × 1000 / Incremental Reach</code>.
-      Window capped at 2025-01-01 on the low end; older data lives in <b>Historic Reach</b>.</span>
-    </div>
+    <details class="def-note-drop" style="margin:0 0 12px 0">
+      <summary>
+        <span class="def-note-icon">ⓘ</span>
+        <span class="dnd-title">About this data</span>
+        <span class="dnd-hint">click to expand</span>
+        <span class="dnd-chev">▾</span>
+      </summary>
+      <div class="dnd-body">
+        <b>Meta-deduped cumulative reach.</b>
+        Each row's <code>Cumulative Reach</code> is Meta's unique reach across
+        <code>[2023-08-01, window_end]</code> — pulled fresh from Meta and stored in
+        <b>account_incr</b> / <b>campaign_incr</b> / <b>adset_incr</b> (baseline
+        <code>2026-08-01</code>). Delivered by the <b>get_reach_incr_by_window()</b> RPC.
+        <code>Incremental Reach = MAX(0, Cumulative(window_end) − Cumulative(window_start − 1))</code>
+        — new unique users first reached during the window. Never negative (clamp
+        handles Meta's occasional recalcs).
+        <code>Cost / 1k Incr = spend × 1000 / Incremental Reach</code>.
+        Windows earlier than <b>2026-08-01</b> are silently clamped to the baseline
+        and the RPC returns <code>baseline_active = true</code> so a caveat banner
+        appears below.
+      </div>
+    </details>
     <div style="font-size:11px;color:var(--text-tertiary)" id="ireachStatus">Ready — click Apply to load.</div>
     <div id="ireachAudit" style="font-size:11px;color:var(--text-tertiary);
          margin:6px 0 12px;font-family:'JetBrains Mono',monospace;display:none"></div>
@@ -1280,7 +1291,7 @@
       <div class="ireach-sec-hdr">
         <span class="ireach-sec-ttl">Account level
           <span style="font-weight:400;color:var(--text-tertiary);font-size:11px">
-            (Meta cumulative unique reach — sheet model)
+            (Meta deduped unique reach — from account_incr)
           </span>
         </span>
         <span class="ireach-sec-sub" id="ireachAccountCount">—</span>
@@ -1320,9 +1331,9 @@
             <th class="num" data-irsort="n_ads"       data-ir-tbl="account">Ads</th>
             <th class="num" data-irsort="days"        data-ir-tbl="account">Days delivered</th>
             <th class="num" data-irsort="base_reach" data-ir-tbl="account"
-                title="Base Reach (D1+D2) — Meta account-level cumulative unique reach at (window_start − 1).">Base Reach</th>
+                title="Base Reach — Meta account-level cumulative unique reach on the day BEFORE window start. From public.account_incr.reach_cumulative.">Base Reach</th>
             <th class="num" data-irsort="cum_reach"  data-ir-tbl="account"
-                title="Cumulative Reach (D1+D2+D3) — Meta account-level cumulative unique reach at window end.">Cumulative Reach</th>
+                title="Cumulative Reach — Meta account-level cumulative unique reach on window end date. From public.account_incr.reach_cumulative.">Cumulative Reach</th>
             <th class="num" data-irsort="incr_reach"  data-ir-tbl="account"
                 title="Incremental Reach = MAX(0, Cumulative − Base). New unique users first reached by the account during the window.">Incr. Reach</th>
             <th class="num" data-irsort="spend"       data-ir-tbl="account">Spend</th>
@@ -1359,11 +1370,11 @@
             <th class="num" data-irsort="n_ads"       data-ir-tbl="camp">Ads</th>
             <th class="num" data-irsort="days"        data-ir-tbl="camp">Days delivered</th>
             <th class="num" data-irsort="base_reach" data-ir-tbl="camp"
-                title="Base Reach (D1+D2) — Meta cumulative unique reach at (window_start − 1). From ireach_cumulative_daily.">Base Reach</th>
+                title="Base Reach — Meta campaign-level cumulative unique reach on the day BEFORE window start. From public.campaign_incr.reach_cumulative.">Base Reach</th>
             <th class="num" data-irsort="cum_reach"  data-ir-tbl="camp"
-                title="Cumulative Reach (D1+D2+D3) — Meta cumulative unique reach at window end. From ireach_cumulative_daily.">Cumulative Reach</th>
+                title="Cumulative Reach — Meta campaign-level cumulative unique reach on window end date. From public.campaign_incr.reach_cumulative.">Cumulative Reach</th>
             <th class="num" data-irsort="incr_reach"  data-ir-tbl="camp"
-                title="Incremental Reach = MAX(0, Cumulative − Base). New unique users first reached during the window (sheet model).">Incr. Reach</th>
+                title="Incremental Reach = MAX(0, Cumulative − Base). New unique users first reached by the campaign during the window.">Incr. Reach</th>
             <th class="num" data-irsort="spend"       data-ir-tbl="camp">Spend</th>
             <th class="num" data-irsort="cpk"         data-ir-tbl="camp"
                 title="Total spend × 1000 ÷ Incremental Reach — cost to reach 1000 new unique users.">Cost / 1k Incr</th>
@@ -1398,9 +1409,9 @@
             <th class="num" data-irsort="n_ads"       data-ir-tbl="adset">Ads</th>
             <th class="num" data-irsort="days"        data-ir-tbl="adset">Days delivered</th>
             <th class="num" data-irsort="base_reach" data-ir-tbl="adset"
-                title="Base Reach (D1+D2) — Meta cumulative unique reach at (window_start − 1).">Base Reach</th>
+                title="Base Reach — Meta adset-level cumulative unique reach on the day BEFORE window start. From public.adset_incr.reach_cumulative.">Base Reach</th>
             <th class="num" data-irsort="cum_reach"  data-ir-tbl="adset"
-                title="Cumulative Reach (D1+D2+D3) — Meta cumulative unique reach at window end.">Cumulative Reach</th>
+                title="Cumulative Reach — Meta adset-level cumulative unique reach on window end date. From public.adset_incr.reach_cumulative.">Cumulative Reach</th>
             <th class="num" data-irsort="incr_reach"  data-ir-tbl="adset"
                 title="Incremental Reach = MAX(0, Cumulative − Base). New unique users first reached during the window.">Incr. Reach</th>
             <th class="num" data-irsort="spend"       data-ir-tbl="adset">Spend</th>
@@ -2976,7 +2987,7 @@
     <div class="mc-hdr">
       <div>
         <div class="ttl">Incremental Analysis — Column definitions</div>
-        <div class="sub">Group-first daily reach aggregation · post-2025-01-01</div>
+        <div class="sub">Meta-deduped cumulative reach via {account,campaign,adset}_incr tables · baseline 2026-08-01</div>
       </div>
       <button class="mc-close" id="ireachInfoClose" type="button">✕</button>
     </div>
@@ -2984,83 +2995,91 @@
 
       <div class="def-note" style="margin:0 0 14px 0">
         <span class="def-note-icon">◆</span>
-        <span>All reach numbers come from <b>primary_table + backfill_table</b>
-        summed <b>at the group level per day</b>, then metrics are computed on
-        those daily totals.  Every ad's contribution is preserved even when
-        an individual ad's reach didn't move day-over-day.</span>
+        <span>Numbers come from the <b>*_incr</b> tables (<code>account_incr</code>,
+        <code>campaign_incr</code>, <code>adset_incr</code>), each row storing
+        Meta's deduped unique reach for <code>time_range=[2023-08-01, this_row's_date]</code>.
+        The <b>get_reach_incr_by_window()</b> RPC returns per-entity aggregates
+        by taking the row on window-end and subtracting the row on
+        (window-start − 1). Any date-range starting earlier than the baseline
+        (<b>2026-08-01</b>) is silently clamped and a caveat banner surfaces.</span>
       </div>
 
       <table class="tbl" style="width:100%">
         <thead>
           <tr>
-            <th style="width:180px;text-align:left">Column</th>
+            <th style="width:200px;text-align:left">Column</th>
             <th style="text-align:left">What it shows</th>
-            <th style="width:280px;text-align:left">Formula</th>
+            <th style="width:300px;text-align:left">Formula / source</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td><b>Group</b></td>
-            <td>Campaign name (default) or adset name — toggle at top-left picks which.</td>
-            <td class="mono">campaign_name · or · adset_name</td>
+            <td><b>Account / Campaign / Adset</b></td>
+            <td>Entity name at the current scope — the tab toggle at top-left
+                picks which level is displayed.</td>
+            <td class="mono">account_name · campaign_name · adset_name</td>
           </tr>
           <tr>
             <td><b>Ads</b></td>
-            <td>Unique ad_ids that had any reach in the group during the window.</td>
-            <td class="mono">COUNT(DISTINCT ad_id)</td>
+            <td>Number of ads inside the group (from allAds cache when loaded,
+                otherwise blank — Meta's insights endpoint doesn't return an ad
+                count at group level).</td>
+            <td class="mono">COUNT(DISTINCT ad_id) via allAds<br>(client-side)</td>
           </tr>
           <tr>
             <td><b>Days delivered</b></td>
-            <td>Days on which the group had any aggregated reach ≥ 1 inside the window.</td>
-            <td class="mono">COUNT(DISTINCT date) where group_reach &gt; 0</td>
+            <td>Number of days in the window (<code>to − from + 1</code>). Clamped
+                to the effective window when the requested start is earlier than
+                the 2026-08-01 baseline.</td>
+            <td class="mono">n_days = (to − effective_from) + 1</td>
           </tr>
           <tr>
-            <td><b>Reach D1</b></td>
-            <td>Group's aggregated reach on the <b>first</b> delivered day of the window.</td>
-            <td class="mono">SUM(reach) on day 1<br>GROUP BY group</td>
+            <td><b>Base Reach</b></td>
+            <td>Meta's cumulative unique reach on the day <b>BEFORE</b> the
+                window starts — i.e. everyone the entity had already reached
+                before the window. Zero when the window starts on the baseline.</td>
+            <td class="mono">SELECT reach_cumulative<br>FROM {level}_incr<br>WHERE entity_id = X<br>&nbsp;&nbsp;AND date &lt; from<br>ORDER BY date DESC LIMIT 1</td>
           </tr>
           <tr>
-            <td><b>Reach D-last</b></td>
-            <td>Group's aggregated reach on the <b>last</b> delivered day of the window.</td>
-            <td class="mono">SUM(reach) on last day<br>GROUP BY group</td>
+            <td><b>Cumulative Reach</b></td>
+            <td>Meta's cumulative unique reach on the window-end date — total
+                unique users the entity has ever reached from ORIGIN through
+                <code>to_date</code>.</td>
+            <td class="mono">SELECT reach_cumulative<br>FROM {level}_incr<br>WHERE entity_id = X<br>&nbsp;&nbsp;AND date &lt;= to<br>ORDER BY date DESC LIMIT 1</td>
           </tr>
           <tr>
-            <td><b>Peak reach</b></td>
-            <td>Maximum single-day aggregated reach across the whole window.</td>
-            <td class="mono">MAX(daily group_reach)</td>
-          </tr>
-          <tr>
-            <td><b>Incr. reach</b></td>
-            <td>Group-level delta between the last and first delivered days.
-                Not a sum of per-ad increments — that's the deliberate design.</td>
-            <td class="mono">Reach D-last − Reach D1</td>
-          </tr>
-          <tr>
-            <td><b>Σ daily reach</b></td>
-            <td>Sum of every day's aggregated reach across the window
-                (i.e. delivered impressions equivalent at the reach floor).</td>
-            <td class="mono">SUM(daily group_reach)</td>
+            <td><b>Incr. Reach</b></td>
+            <td>New unique users first reached inside the window. Never negative
+                (Meta occasionally recalcs and cumulative can dip; the RPC clamps
+                the delta to zero).</td>
+            <td class="mono">MAX(0, Cumulative Reach − Base Reach)</td>
           </tr>
           <tr>
             <td><b>Spend</b></td>
-            <td>Total INR spend attributed to ads in this group during the window.</td>
-            <td class="mono">SUM(amount_spent_inr)</td>
+            <td>Total INR spend delivered by the entity inside the window.
+                Comes from the same table (cumulative-spend delta, not summed
+                from primary_table).</td>
+            <td class="mono">spend_cumulative(to) − spend_cumulative(from−1)</td>
           </tr>
           <tr>
-            <td><b>Cost / 1k incr.</b></td>
-            <td>Effective cost per 1 000 units of incremental reach.
-                Blank when Incr. reach ≤ 0.</td>
-            <td class="mono">Spend ÷ Incr. reach × 1 000</td>
+            <td><b>Cost / 1k Incr</b></td>
+            <td>Effective cost to reach 1 000 new unique users. Blank when
+                incremental reach is zero.</td>
+            <td class="mono">Spend × 1000 ÷ Incr. Reach</td>
           </tr>
         </tbody>
       </table>
 
       <p class="def-prose" style="margin-top:18px;color:var(--text-secondary);font-size:11.5px">
-        Data source: union of <code>primary_table</code> and
-        <code>backfill_table</code>, primary wins on <code>(ad_id, date)</code>
-        conflicts.  Window is capped at <b>2025-01-01</b> on the low end; older
-        aggregation lives in the <b>Historic Reach</b> view under the Historic
-        section of the sidebar.
+        Data source: <code>public.account_incr</code>,
+        <code>public.campaign_incr</code>, <code>public.adset_incr</code> —
+        fed by <code>backend/fetch_reach_incr.py</code> which calls Meta's
+        <code>/insights?level=X&amp;time_range={since:2023-08-01, until:D}</code>
+        endpoint once per date and stores the returned reach as
+        <code>reach_cumulative</code>. Baseline snapshot begins <b>2026-08-01</b>
+        (each entity's Aug 1 row carries the full history since 2023-08-01);
+        prior windows fall back to the baseline anchor and the UI surfaces
+        a caveat banner (<code>baseline_active = true</code>).
       </p>
 
     </div>

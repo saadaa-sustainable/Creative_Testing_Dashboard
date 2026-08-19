@@ -78,7 +78,7 @@ query AllOrdersPage($after: String, $q: String!) {
         discountCodes note tags sourceName
         paymentGatewayNames
         customAttributes { key value }
-        shippingAddress { firstName lastName phone city province country zip }
+        shippingAddress { firstName lastName phone address1 address2 city province country zip name }
         clientIp
         # sales channel — friendly name (e.g. "gokwik", "Online Store")
         channelInformation {
@@ -170,7 +170,10 @@ def row_from(node):
         "custom_attributes":        json.dumps(ca, ensure_ascii=False) if ca else None,
         "shipping_first_name":      ship.get("firstName"),
         "shipping_last_name":       ship.get("lastName"),
+        "shipping_name":            ship.get("name"),
         "shipping_phone":           ship.get("phone"),
+        "shipping_address1":        ship.get("address1"),
+        "shipping_address2":        ship.get("address2"),
         "shipping_city":            ship.get("city"),
         "shipping_province":        ship.get("province"),
         "shipping_country":         ship.get("country"),

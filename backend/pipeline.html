@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CTD Pipeline · Control Panel</title>
+<style>
+  :root{
+    --bg:#f7f6f2; --card:#ffffff; --ink:#2c2420; --muted:#8b7f7a;
+    --border:#e8e2dc; --accent:#c9946a; --accent-h:#a67846;
+    --ok:#4a9a55; --warn:#c58712; --err:#c15448; --info:#6b8fbf;
+    --mono:'JetBrains Mono','Consolas',monospace;
+    --sans:'Inter','Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+            font-family:var(--sans);font-size:13px}
+  .wrap{max-width:1280px;margin:0 auto;padding:20px}
+  h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-0.01em}
+  .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .row{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .grow{flex:1}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;
+        padding:16px 18px;margin-bottom:14px}
+  .btn{padding:9px 16px;border:none;border-radius:8px;font-weight:600;
+       font-family:var(--sans);font-size:13px;cursor:pointer;transition:all .15s}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:var(--accent-h)}
+  .btn-primary:disabled{background:#d5c9c1;cursor:not-allowed}
+  .btn-danger{background:var(--err);color:#fff}
+  .btn-danger:hover{filter:brightness(.92)}
+  .btn-danger:disabled{background:#e8d3cf;cursor:not-allowed;color:#a89490}
+  select{padding:8px 12px;border:1px solid var(--border);border-radius:7px;
+         font-size:13px;background:#fff;font-family:var(--sans)}
+  .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px}
+  .kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+  .kpi .k-lbl{color:var(--muted);font-size:10.5px;text-transform:uppercase;
+              letter-spacing:.04em;margin-bottom:4px}
+  .kpi .k-val{font-size:22px;font-weight:700;font-family:var(--mono);
+              color:var(--ink);line-height:1.1}
+  .kpi.warn .k-val{color:var(--warn)}
+  .kpi.err .k-val{color:var(--err)}
+  .kpi.ok .k-val{color:var(--ok)}
+  .kpi .k-sub{font-size:10px;color:var(--muted);margin-top:3px}
+
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;
+       vertical-align:middle}
+  .dot.idle{background:#d5c9c1}
+  .dot.running{background:var(--info);animation:pulse 1.2s infinite}
+  .dot.ok{background:var(--ok)}
+  .dot.fail{background:var(--err)}
+  .dot.timeout{background:var(--warn)}
+  @keyframes pulse{50%{opacity:.35}}
+
+  .throttle-bar{height:10px;border-radius:5px;background:#eee5dc;overflow:hidden;
+                margin-top:6px}
+  .throttle-bar > span{display:block;height:100%;transition:width .3s,background .3s}
+
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .sec-hdr{display:flex;align-items:center;gap:8px;font-weight:700;
+           font-size:13px;color:var(--ink);margin-bottom:10px}
+  .sec-sub{color:var(--muted);font-size:11px;font-weight:400}
+  .tbl{width:100%;font-size:12px;font-family:var(--mono);border-collapse:collapse}
+  .tbl th{text-align:left;padding:6px 8px;font-weight:600;color:var(--muted);
+          border-bottom:1px solid var(--border);font-family:var(--sans);font-size:11px}
+  .tbl td{padding:6px 8px;border-bottom:1px solid #f2ede7}
+  .tbl tr:last-child td{border-bottom:none}
+  .tbl .num{text-align:right}
+  .tbl .step-name{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .log-viewer{background:#1e1913;color:#e8e2dc;padding:12px 14px;border-radius:10px;
+              font-family:var(--mono);font-size:11px;line-height:1.55;
+              max-height:420px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+  .log-viewer .l-fail{color:#ff8b7b}
+  .log-viewer .l-ok{color:#8bd095}
+  .log-viewer .l-phase{color:#f4c079;font-weight:700}
+  .log-viewer .l-throttle{color:#c58712}
+  .err-line{background:#fdf4f2;border-left:3px solid var(--err);padding:6px 10px;
+            margin-bottom:6px;border-radius:0 6px 6px 0;font-family:var(--mono);font-size:11px}
+  .err-line b{color:var(--err)}
+  .empty{color:var(--muted);font-size:12px;font-style:italic;padding:12px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header + controls -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="row">
+      <div class="grow">
+        <h1>CTD Pipeline · Control Panel</h1>
+        <div class="sub">Start / monitor <code>_refresh_all_dashboard_data.py</code>. Meta calls,
+                         throttle, and per-step status update every 2 s.</div>
+      </div>
+      <div class="row" style="gap:8px">
+        <select id="phaseSel">
+          <option value="all">All phases</option>
+          <option value="meta">Phase 1 — Meta only</option>
+          <option value="ingest">Phase 2 — Other ingest only</option>
+          <option value="compute">Phase 3 — Compute only</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+          <input type="checkbox" id="skipMeta"> Skip Meta (share token)
+        </label>
+        <button class="btn btn-primary" id="btnStart">▶ Start Refresh</button>
+        <button class="btn btn-danger" id="btnStop" disabled>⏹ Stop</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI row -->
+  <div class="kpi-row">
+    <div class="kpi"><div class="k-lbl">State</div>
+      <div class="k-val"><span class="dot idle" id="stateDot"></span><span id="stateTxt">Idle</span></div>
+      <div class="k-sub" id="stateSub">—</div></div>
+    <div class="kpi"><div class="k-lbl">Elapsed</div>
+      <div class="k-val" id="elapsedTxt">—</div>
+      <div class="k-sub" id="phaseTxt">—</div></div>
+    <div class="kpi ok"><div class="k-lbl">Steps OK</div>
+      <div class="k-val" id="okTxt">0</div>
+      <div class="k-sub" id="okSub">of 0 total</div></div>
+    <div class="kpi err"><div class="k-lbl">Failures</div>
+      <div class="k-val" id="failTxt">0</div>
+      <div class="k-sub">timeouts + exceptions + non-zero exits</div></div>
+    <div class="kpi"><div class="k-lbl">Meta calls</div>
+      <div class="k-val" id="metaTxt">0</div>
+      <div class="k-sub">from log parse</div></div>
+    <div class="kpi warn"><div class="k-lbl">Peak throttle</div>
+      <div class="k-val" id="throtTxt">0%</div>
+      <div class="throttle-bar"><span id="throtBar" style="width:0%;background:var(--ok)"></span></div></div>
+  </div>
+
+  <!-- Steps + Errors -->
+  <div class="split">
+    <div class="card">
+      <div class="sec-hdr">Steps <span class="sec-sub" id="stepsCount">— none yet</span></div>
+      <div style="max-height:420px;overflow:auto">
+        <table class="tbl" id="stepsTbl">
+          <thead><tr><th>Step</th><th>Phase</th><th class="num">Duration</th><th>Status</th></tr></thead>
+          <tbody id="stepsBody"><tr><td colspan="4" class="empty">Waiting for a run…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="sec-hdr">Errors <span class="sec-sub" id="errCount">— none</span></div>
+      <div style="max-height:420px;overflow:auto" id="errBody">
+        <div class="empty">No errors captured.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log tail -->
+  <div class="card">
+    <div class="sec-hdr">Live log <span class="sec-sub" id="logMeta">—</span>
+      <span style="margin-left:auto;font-weight:400;font-size:11px">
+        <label style="color:var(--muted)"><input type="checkbox" id="autoScroll" checked> auto-scroll</label>
+      </span>
+    </div>
+    <div class="log-viewer" id="logView">(no log yet — click Start)</div>
+  </div>
+
+</div>
+
+<script>
+const API = '';   // same origin — served by api_ae.py on :8766
+const $ = id => document.getElementById(id);
+let pollTimer = null;
+
+async function callStart(){
+  const phase = $('phaseSel').value;
+  const skip  = $('skipMeta').checked;
+  $('btnStart').disabled = true;
+  try {
+    const r = await fetch(`${API}/pipeline/start?phase=${phase}&skip_meta=${skip}`,
+                          {method:'POST'});
+    const j = await r.json();
+    if (!r.ok){
+      alert(j.detail || j.error || 'Start failed');
+      $('btnStart').disabled = false;
+      return;
+    }
+    startPolling();
+  } catch(e){
+    alert('Network error: ' + e.message);
+    $('btnStart').disabled = false;
+  }
+}
+
+async function callStop(){
+  if (!confirm('Kill the running pipeline process?')) return;
+  const r = await fetch(`${API}/pipeline/stop`, {method:'POST'});
+  const j = await r.json();
+  if (!r.ok || j.error){ alert('Stop failed: ' + (j.error || r.status)); return; }
+  // Let the next poll pick up idle state
+}
+
+function fmtDur(sec){
+  if (sec == null) return '—';
+  sec = Math.round(sec);
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  return h ? `${h}h ${m}m` : m ? `${m}m ${s}s` : `${s}s`;
+}
+
+function colorForThrottle(pct){
+  if (pct >= 90) return 'var(--err)';
+  if (pct >= 75) return 'var(--warn)';
+  if (pct >= 50) return '#c9946a';
+  return 'var(--ok)';
+}
+
+function renderStatus(s){
+  // Top KPIs
+  const running = !!s.running;
+  const dot = $('stateDot'), txt = $('stateTxt'), sub = $('stateSub');
+  if (running){
+    dot.className='dot running';
+    txt.textContent = s.triggered_by === 'cron' ? 'Running (cron)' : 'Running';
+    sub.textContent = s.current_step ? ('current: ' + s.current_step) : '(warming up)';
+  } else if (s.done){
+    const failed = (s.totals?.fail || 0) > 0;
+    dot.className = failed ? 'dot fail' : 'dot ok';
+    txt.textContent = failed ? 'Finished (with failures)' : 'Finished — all OK';
+    sub.textContent = 'done';
+  } else {
+    dot.className='dot idle'; txt.textContent='Idle';
+    sub.textContent = s.log ? 'last log: ' + s.log : '—';
+  }
+  $('elapsedTxt').textContent = fmtDur(s.elapsed_sec);
+  $('phaseTxt').textContent = s.current_phase ? ('phase: ' + s.current_phase) : (s.phase ? 'phase: ' + s.phase : '—');
+  const t = s.totals || {};
+  $('okTxt').textContent   = t.ok || 0;
+  $('okSub').textContent   = 'of ' + (t.steps || 0) + ' total';
+  $('failTxt').textContent = t.fail || 0;
+  $('metaTxt').textContent = (t.meta_calls || 0).toLocaleString();
+  $('throtTxt').textContent= (t.max_throttle_pct || 0) + '%';
+  const bar = $('throtBar');
+  bar.style.width  = Math.min(100, t.max_throttle_pct || 0) + '%';
+  bar.style.background = colorForThrottle(t.max_throttle_pct || 0);
+
+  // Buttons — Stop only works for runs spawned via /pipeline/start (we have
+  // the PID). Cron-triggered runs need to be killed on the host directly.
+  $('btnStart').disabled = running;
+  $('btnStop').disabled  = !running || s.triggered_by === 'cron';
+  $('btnStop').title = (s.triggered_by === 'cron')
+    ? 'Cron-triggered run — kill on the host, not from the UI'
+    : 'Kill the running pipeline process';
+
+  // Steps table
+  const steps = s.steps || [];
+  $('stepsCount').textContent = steps.length ? '— ' + steps.length + ' recorded' : '— none yet';
+  if (!steps.length){
+    $('stepsBody').innerHTML = '<tr><td colspan="4" class="empty">Waiting for a run…</td></tr>';
+  } else {
+    $('stepsBody').innerHTML = steps.map(st => {
+      const d = st.duration_sec != null ? fmtDur(st.duration_sec) : '—';
+      const statusCls = st.status === 'OK' ? 'ok'
+                       : st.status === 'RUNNING' ? 'running'
+                       : st.status === 'TIMEOUT' ? 'timeout' : 'fail';
+      return `<tr>
+        <td class="step-name" title="${st.step}">${st.step}</td>
+        <td style="color:var(--muted);font-family:var(--sans);font-size:11px">${st.phase || '—'}</td>
+        <td class="num">${d}</td>
+        <td><span class="dot ${statusCls}"></span>${st.status}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Errors
+  const errs = s.errors || [];
+  $('errCount').textContent = errs.length ? '— ' + errs.length + ' recent' : '— none';
+  if (!errs.length){
+    $('errBody').innerHTML = '<div class="empty">No errors captured.</div>';
+  } else {
+    $('errBody').innerHTML = errs.slice().reverse().map(e => `
+      <div class="err-line"><b>${e.step || '(unknown step)'}:</b> ${escapeHtml(e.line)}</div>
+    `).join('');
+  }
+
+  // Log tail
+  $('logMeta').textContent = s.log ? ('reading ' + s.log) : '—';
+}
+
+function escapeHtml(s){
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+}
+
+function colorLogLine(line){
+  let cls = '';
+  if (/^\[.*] +OK /.test(line))                    cls = 'l-ok';
+  else if (/^\[.*] +(FAIL|TIMEOUT|EXCEPTION)/.test(line)) cls = 'l-fail';
+  else if (/^\[.*] ={2,} PHASE/.test(line))         cls = 'l-phase';
+  else if (/\[throttle \d+/.test(line))             cls = 'l-throttle';
+  return cls ? `<span class="${cls}">${escapeHtml(line)}</span>` : escapeHtml(line);
+}
+
+async function pollOnce(){
+  try {
+    const [statusResp, logsResp] = await Promise.all([
+      fetch(`${API}/pipeline/status`),
+      fetch(`${API}/pipeline/logs?tail=250`),
+    ]);
+    if (statusResp.ok){
+      renderStatus(await statusResp.json());
+    }
+    if (logsResp.ok){
+      const txt = await logsResp.text();
+      const html = txt.split('\n').map(colorLogLine).join('\n');
+      const lv = $('logView');
+      lv.innerHTML = html || '(empty)';
+      if ($('autoScroll').checked) lv.scrollTop = lv.scrollHeight;
+    }
+  } catch(e){
+    console.warn('poll failed', e);
+  }
+}
+
+function startPolling(){
+  if (pollTimer) return;
+  pollOnce();
+  pollTimer = setInterval(pollOnce, 2000);
+}
+
+// Wire up + auto-poll on load in case a run is already in progress.
+$('btnStart').addEventListener('click', callStart);
+$('btnStop').addEventListener('click',  callStop);
+startPolling();
+</script>
+</body>
+</html>

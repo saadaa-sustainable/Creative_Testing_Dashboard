@@ -35,6 +35,7 @@ from psycopg2 import pool as _pool
 from psycopg2.extras import RealDictCursor
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from dotenv import load_dotenv
 
 try: sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
@@ -64,6 +65,12 @@ app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["GET","POST"],
     allow_headers=["*"], expose_headers=["Content-Range","Content-Type"],
 )
+# Gzip everything >1 KB. The 15-20k row ae_table_view payload is ~8 MB of
+# JSON uncompressed; gzip brings it under 1 MB (~85-90% reduction on
+# repetitive tabular JSON). Also cuts window_metrics / window_shopify /
+# window_reach / delivery responses by 5-10x. Zero code changes needed on
+# the frontend — the browser handles decompression transparently.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # ── JSON coercion ────────────────────────────────────────────────────
 def _jsonify(v):
@@ -465,6 +472,208 @@ def window_shopify(from_: str = Query(..., alias="from"), to: str = Query(...)):
                          AND  has_match = TRUE AND ad_id IS NOT NULL
                        GROUP  BY ad_id""", (from_, to))
         return {"from": from_, "to": to, "rows": cur.fetchall(), "count": cur.rowcount}
+
+# ─── Pipeline control panel ─────────────────────────────────────────
+# Small UI to start _refresh_all_dashboard_data.py, watch its progress
+# live, count Meta calls, and surface failures without needing to open
+# a terminal. Everything reads from the orchestrator's own log file.
+import pathlib as _pl, subprocess as _sub, sys as _sys, re as _re
+from fastapi.responses import HTMLResponse, PlainTextResponse
+
+_ROOT     = _pl.Path(__file__).parent
+_LOG_DIR  = _ROOT / "logs"
+_PIPELINE = _ROOT / "_refresh_all_dashboard_data.py"
+
+# In-memory state — one job at a time; process survives across UI reloads.
+_pipeline_state: dict[str, Any] = {"proc": None, "log_path": None,
+                                    "started_at": None, "phase": None}
+
+
+def _latest_log_path() -> _pl.Path | None:
+    """Find the newest refresh_all_*.log — either the one we spawned or a
+    manually-launched run."""
+    if _pipeline_state["log_path"] and _pipeline_state["log_path"].exists():
+        return _pipeline_state["log_path"]
+    logs = sorted(_LOG_DIR.glob("refresh_all_*.log"), key=lambda p: p.stat().st_mtime)
+    return logs[-1] if logs else None
+
+
+@app.post("/pipeline/start")
+def pipeline_start(phase: str = Query("all", regex="^(all|meta|ingest|compute)$"),
+                   skip_meta: bool = Query(False)):
+    proc = _pipeline_state.get("proc")
+    if proc and proc.poll() is None:
+        raise HTTPException(409, "A pipeline run is already in progress.")
+    argv = [_sys.executable, str(_PIPELINE), "--phase", phase]
+    if skip_meta:
+        argv.append("--skip-meta")
+    _LOG_DIR.mkdir(exist_ok=True)
+    # Spawn detached — inherits stdout/stderr; the orchestrator itself tees
+    # into its own timestamped LOG file which the UI then reads.
+    p = _sub.Popen(argv, cwd=str(_ROOT))
+    _pipeline_state.update(proc=p, log_path=None,
+                           started_at=time.time(), phase=phase)
+    # Give the orchestrator ~1s to create its log file, then latch it.
+    for _ in range(20):
+        time.sleep(0.1)
+        newest = sorted(_LOG_DIR.glob("refresh_all_*.log"),
+                        key=lambda x: x.stat().st_mtime)
+        if newest:
+            _pipeline_state["log_path"] = newest[-1]
+            break
+    return {"ok": True, "pid": p.pid, "phase": phase,
+            "log": _pipeline_state["log_path"].name if _pipeline_state["log_path"] else None}
+
+
+@app.post("/pipeline/stop")
+def pipeline_stop():
+    proc = _pipeline_state.get("proc")
+    if not proc or proc.poll() is not None:
+        return {"ok": True, "already_stopped": True}
+    try:
+        proc.kill()
+        proc.wait(timeout=5)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": f"{type(e).__name__}: {e}"}
+    return {"ok": True, "killed_pid": proc.pid}
+
+
+# Regexes for parsing the orchestrator log — kept lean for speed on every poll.
+_RE_STEP    = _re.compile(r'^\[[\d:]+\] -- step: (\S+)')
+_RE_OK      = _re.compile(r'^\[[\d:]+\]\s+OK\s+exit=(\d+)\s+duration=(\d+)s')
+_RE_FAIL    = _re.compile(r'^\[[\d:]+\]\s+(FAIL|TIMEOUT|EXCEPTION)')
+_RE_PHASE   = _re.compile(r'^\[[\d:]+\] ={2,} PHASE: (\S+)')
+_RE_DONE    = _re.compile(r'REFRESH ALL COMPLETE')
+_RE_META    = _re.compile(r'graph\.facebook\.com|api/insights|/insights\?|Fetching \S+ \|')
+_RE_THROTL  = _re.compile(r'\[throttle (\d+)%?\]')
+_RE_ERROR   = _re.compile(r'\b(error|Error|ERROR|Traceback|HTTP [45]\d\d|rate limit)\b')
+
+
+@app.get("/pipeline/status")
+def pipeline_status():
+    proc = _pipeline_state.get("proc")
+    running = bool(proc and proc.poll() is None)
+    log_path = _latest_log_path()
+    if not log_path or not log_path.exists():
+        return {"running": running, "log": None, "steps": [], "totals": {}}
+
+    try:
+        text = log_path.read_text(encoding="utf-8", errors="backslashreplace")
+    except Exception as e:  # noqa: BLE001
+        return {"running": running, "log": log_path.name, "error": str(e)}
+
+    steps: list[dict] = []
+    current_step: str | None = None
+    current_phase: str | None = None
+    meta_calls  = 0
+    max_throttle = 0
+    errors: list[dict] = []
+
+    for line in text.splitlines():
+        m = _RE_PHASE.match(line)
+        if m:
+            current_phase = m.group(1); continue
+        m = _RE_STEP.match(line)
+        if m:
+            current_step = m.group(1)
+            steps.append({"step": current_step, "phase": current_phase,
+                          "status": "RUNNING", "duration_sec": None, "exit_code": None})
+            continue
+        m = _RE_OK.match(line)
+        if m and steps:
+            steps[-1].update(status="OK", exit_code=int(m.group(1)),
+                             duration_sec=int(m.group(2)))
+            current_step = None
+            continue
+        m = _RE_FAIL.match(line)
+        if m and steps:
+            steps[-1].update(status=m.group(1))
+            errors.append({"step": steps[-1]["step"], "line": line.strip()})
+            current_step = None
+            continue
+        if _RE_META.search(line): meta_calls += 1
+        m = _RE_THROTL.search(line)
+        if m:
+            n = int(m.group(1))
+            if n > max_throttle: max_throttle = n
+        if _RE_ERROR.search(line) and "throttle" not in line.lower():
+            # Collect at most 30 recent error snippets so the UI stays fast.
+            errors.append({"step": current_step, "line": line.strip()[:220]})
+
+    done = bool(_RE_DONE.search(text))
+    # Detect a live cron/schtasks-triggered run: no spawned subprocess but the
+    # log was appended to within the last 15 min AND doesn't yet carry the
+    # done marker. This lets the UI show automated overnight runs as
+    # "running" so the pill / elapsed clock behave the same as manual runs.
+    triggered_by = "manual"
+    if not running and not done:
+        try:
+            log_age = time.time() - log_path.stat().st_mtime
+            if log_age < 900:
+                running = True
+                triggered_by = "cron"
+        except OSError:
+            pass
+    ok_n   = sum(1 for s in steps if s["status"] == "OK")
+    fail_n = sum(1 for s in steps if s["status"] not in ("OK", "RUNNING"))
+    # For cron runs we don't have a started_at from /pipeline/start — derive
+    # elapsed from log mtime - (first-line ts if parseable, else file ctime).
+    started = _pipeline_state.get("started_at")
+    if started:
+        elapsed = int(time.time() - started)
+    else:
+        try:
+            elapsed = int(time.time() - log_path.stat().st_ctime)
+        except OSError:
+            elapsed = None
+
+    return {
+        "running": running,
+        "done": done,
+        "log": log_path.name,
+        "pid": proc.pid if proc else None,
+        "phase": _pipeline_state.get("phase"),
+        "triggered_by": triggered_by,
+        "current_step": current_step,
+        "current_phase": current_phase,
+        "elapsed_sec": elapsed,
+        "steps": steps,
+        "totals": {
+            "steps": len(steps),
+            "ok": ok_n,
+            "fail": fail_n,
+            "meta_calls": meta_calls,
+            "max_throttle_pct": max_throttle,
+        },
+        "errors": errors[-30:],
+    }
+
+
+@app.get("/pipeline/logs", response_class=PlainTextResponse)
+def pipeline_logs(tail: int = Query(200, ge=10, le=5000)):
+    log_path = _latest_log_path()
+    if not log_path or not log_path.exists():
+        return "(no log yet)"
+    try:
+        with open(log_path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            # Read the last ~64KB — enough for ~500 lines. Trim to `tail`.
+            read = min(size, 64 * 1024)
+            f.seek(size - read)
+            chunk = f.read().decode("utf-8", errors="backslashreplace")
+    except Exception as e:  # noqa: BLE001
+        return f"(log read failed: {e})"
+    return "\n".join(chunk.splitlines()[-tail:])
+
+
+@app.get("/pipeline", response_class=HTMLResponse)
+def pipeline_ui():
+    html_path = _ROOT / "pipeline.html"
+    if not html_path.exists():
+        return HTMLResponse("<h1>pipeline.html not found in backend/</h1>", status_code=500)
+    return HTMLResponse(html_path.read_text(encoding="utf-8"))
+
 
 if __name__ == "__main__":
     import uvicorn

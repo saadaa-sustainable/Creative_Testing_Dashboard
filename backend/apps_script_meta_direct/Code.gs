@@ -31,6 +31,13 @@
  * ── AUTO-REFRESH (optional) ─────────────────────────────────────────────
  * Menu → Meta Direct → Install hourly triggers  —  fires all four
  * refreshes hourly on Google's servers (independent of laptop state).
+ *
+ * Menu → Meta Direct → Install nightly triggers (5–7 AM IST) — fires
+ * once per day AFTER the backend Python orchestrator finishes rebuilding
+ * primary_table + shopify_ad_attribution + ae_table_view. Use this when
+ * you want the order-mapped shopify_orders / utm_* columns to always be
+ * fresh (hourly triggers pull mid-refresh and get inconsistent state).
+ * Requires the Apps Script project timezone to be set to Asia/Kolkata.
  * ═══════════════════════════════════════════════════════════════════════
  */
 
@@ -83,9 +90,71 @@ function onOpen() {
         .addItem('Enrich Daily Breakdown 30d',  'enrichDaily30')
         .addItem('Enrich Daily Breakdown 90d',  'enrichDaily90'))
       .addSeparator()
+      .addItem('Diagnose accounts (ping each)',    'diagnoseAccounts')
+      .addSeparator()
+      .addItem('Install nightly triggers (5–7 AM IST)', 'installNightlyTriggers')
       .addItem('Install hourly triggers',          'installHourlyTriggers')
       .addItem('Uninstall triggers',               'uninstallAllTriggers')
     .addToUi();
+}
+
+// ── Diagnose: hit each account with a minimal /act_<id>?fields=name call ──
+// This surfaces token/permission/id issues in seconds without pulling any
+// Insights data. Writes results to a "Diagnostics" sheet tab AND toasts a
+// summary.
+function diagnoseAccounts() {
+  const cfg = getConfig_();
+  const ss  = SpreadsheetApp.getActiveSpreadsheet();
+  const sh  = ss.getSheetByName('Diagnostics') || ss.insertSheet('Diagnostics');
+  sh.clearContents(); sh.clearFormats();
+  sh.getRange(1, 1, 1, 5).setValues([['name','account_id','http','result','details']])
+    .setFontWeight('bold').setBackground('#f0f0f0');
+  sh.setFrozenRows(1);
+
+  const results = [];
+  for (const acct of cfg.accounts) {
+    const url = cfg.base + '/act_' + acct.id +
+                '?fields=name,account_status,disable_reason' +
+                '&access_token=' + encodeURIComponent(cfg.token);
+    const t0 = Date.now();
+    let http = 0, ok = false, detail = '';
+    try {
+      const r = UrlFetchApp.fetch(url, {method: 'get', muteHttpExceptions: true});
+      http = r.getResponseCode();
+      const body = r.getContentText().slice(0, 400);
+      if (http === 200) {
+        ok = true;
+        const j = JSON.parse(body);
+        detail = 'name="' + (j.name || '?') + '"  status=' +
+                 (j.account_status || '?');
+      } else {
+        detail = body;
+      }
+    } catch (e) {
+      detail = 'exception: ' + e.message;
+    }
+    const secs = ((Date.now() - t0) / 1000).toFixed(1);
+    results.push([acct.name, acct.id, http, ok ? 'OK ('+secs+'s)' : 'FAILED', detail]);
+    Utilities.sleep(500);
+  }
+
+  sh.getRange(2, 1, results.length, 5).setValues(results);
+  for (let i = 0; i < results.length; i++) {
+    const ok = results[i][3].indexOf('OK') === 0;
+    sh.getRange(i + 2, 4).setFontColor(ok ? '#0a7d2c' : '#c0392b')
+      .setFontWeight('bold');
+  }
+  sh.setColumnWidth(1, 220); sh.setColumnWidth(2, 180);
+  sh.setColumnWidth(3, 60);  sh.setColumnWidth(4, 100);
+  sh.setColumnWidth(5, 520);
+
+  const failed = results.filter(r => r[3] !== '').filter(r => r[3].indexOf('OK') !== 0);
+  const msg = failed.length
+    ? 'Diagnostics: ' + failed.length + ' account(s) FAILED — ' +
+      failed.map(r => r[0]).join(', ')
+    : 'Diagnostics: all ' + results.length + ' accounts OK';
+  ss.toast(msg, 'Meta Direct', 8);
+  ss.setActiveSheet(sh);
 }
 
 // ── Public actions (menu handlers) ──────────────────────────────────────
@@ -128,14 +197,25 @@ function runOne_(sheetName, days, daily, accountFilter, append) {
               '  accts=' + scope.map(a => a.name).join(',') + '  append=' + !!append);
 
   const allRows = [];
+  // Per-account status — surfaced in the sheet footer so failures are visible
+  // without opening Apps Script → Executions.
+  const perAcct = [];
   for (const acct of scope) {
     console.log('  fetching ' + acct.name + ' (act_' + acct.id + ')');
+    const at0 = Date.now();
     try {
       const rows = fetchInsights_(cfg, acct, since, until, daily);
-      console.log('    ' + acct.name + ': ' + rows.length + ' rows');
+      const secs = ((Date.now() - at0) / 1000).toFixed(1);
+      console.log('    ' + acct.name + ': ' + rows.length + ' rows (' + secs + 's)');
       allRows.push.apply(allRows, rows);
+      perAcct.push({name: acct.name, id: acct.id, rows: rows.length,
+                    secs: secs, error: null});
     } catch (e) {
-      console.log('    [!] ' + acct.name + ' failed: ' + e.message);
+      const secs = ((Date.now() - at0) / 1000).toFixed(1);
+      const safeMsg = _redactToken_(e && e.message ? e.message : String(e));
+      console.log('    [!] ' + acct.name + ' failed after ' + secs + 's: ' + safeMsg);
+      perAcct.push({name: acct.name, id: acct.id, rows: 0,
+                    secs: secs, error: safeMsg});
     }
   }
 
@@ -197,12 +277,16 @@ function runOne_(sheetName, days, daily, accountFilter, append) {
     allRows.sort((a, b) => (a.ad_id || '') < (b.ad_id || '') ? -1 : 1);
   }
 
-  writeSheet_(sheetName, allRows, daily, !!append);
+  writeSheet_(sheetName, allRows, daily, !!append, perAcct);
   const secs = ((Date.now() - t0) / 1000).toFixed(1);
   try {
-    const toastMsg = (append ? 'Appended ' : 'Wrote ') + allRows.length +
-                     ' rows to ' + sheetName + ' in ' + secs + 's';
-    SpreadsheetApp.getActiveSpreadsheet().toast(toastMsg, 'Meta Direct', 6);
+    const failed = perAcct.filter(p => p.error).map(p => p.name);
+    const okMsg  = (append ? 'Appended ' : 'Wrote ') + allRows.length +
+                   ' rows to ' + sheetName + ' in ' + secs + 's';
+    const msg    = failed.length
+      ? okMsg + ' — FAILED: ' + failed.join(', ') + ' (see footer for reason)'
+      : okMsg;
+    SpreadsheetApp.getActiveSpreadsheet().toast(msg, 'Meta Direct', 8);
   } catch (_) {}
 }
 
@@ -475,10 +559,20 @@ function fetchInsightsChunk_(cfg, acct, since, until, daily, out) {
 
   let url = cfg.base + '/act_' + acct.id + '/insights?' + params.join('&');
   let page = 0;
+  let skipped = 0;
   while (url && page < 200) {
     page++;
     const resp = metaGet_(url);
-    if (!resp) break;
+    if (!resp) {
+      // metaGet_ exhausted retries and returned null (skip semantics from
+      // primary_sync). We can't page forward without the cursor from the
+      // failed response, so this chunk stops here — but the outer chunk
+      // loop in fetchInsights_ continues to the next 7-day window.
+      skipped++;
+      console.log('    page ' + page + ' skipped (throttle/error persisted) ' +
+                  '— continuing to next chunk');
+      break;
+    }
     const j = JSON.parse(resp.getContentText() || '{}');
     for (const row of (j.data || [])) {
       out.push(flattenRow_(row, acct.name));
@@ -507,25 +601,236 @@ function weeklyChunks_(since, until, daysPerChunk) {
   return chunks;
 }
 
-// ── HTTP with backoff on 500 / 400 rate-limit ───────────────────────────
-function metaGet_(url) {
-  const waits = [15000, 45000, 120000];   // 15s, 45s, 2min
-  for (let attempt = 0; attempt <= waits.length; attempt++) {
-    const r = UrlFetchApp.fetch(url, {method: 'get', muteHttpExceptions: true});
-    const code = r.getResponseCode();
-    if (code === 200) return r;
-    const body = r.getContentText().slice(0, 300);
-    console.log('    Meta HTTP ' + code + '  body: ' + body);
-    // 400 with is_transient=true OR 5xx → retry
-    const transient = code >= 500 || (code === 400 && body.indexOf('rate limit') >= 0)
-                                  || (code === 400 && body.indexOf('transient') >= 0);
-    if (!transient || attempt === waits.length) {
-      throw new Error('Meta HTTP ' + code + ' after ' + (attempt+1) + ' attempts: ' + body);
+// ── HTTP with retry/skip — mirrors backend/primary_sync.py:_get() ───────
+// Semantics match primary_sync exactly:
+//   · HTTP 403                      → wait 60s, retry up to MAX_RETRIES,
+//                                      then SKIP (return null, no throw)
+//   · HTTP 400 + rate-limit body    → wait 90s·attempt (90/180/270),
+//                                      retry up to MAX_RETRIES, then SKIP
+//   · HTTP 500                      → wait RETRY_DELAY·attempt·3 (15/30/45),
+//                                      retry up to MAX_RETRIES, then SKIP
+//   · HTTP 400 real validation      → throw (don't burn retries on those)
+//   · Other errors                  → wait RETRY_DELAY·attempt (5/10/15),
+//                                      retry up to MAX_RETRIES, then throw
+// Rate-limit body sniff: "too many calls" | "rate" | "throttl" — same as
+// primary_sync — PLUS Meta's numeric subcodes (17, 613, 4, 80000..80099)
+// which primary_sync doesn't check because it never seems to hit them, but
+// the Apps Script route does since it uses a different token scope.
+// SKIP semantics: returning null tells fetchInsightsChunk_ to break out
+// of the current chunk's paging loop. The outer weekly-chunk loop in
+// fetchInsights_ continues — so a throttled page yields PARTIAL data
+// instead of zero data for that account. This is exactly why primary_sync
+// keeps ingesting Raho even under heavy throttle.
+var MAX_RETRIES = 3;
+var RETRY_DELAY = 5000;   // 5s (ms — primary_sync uses seconds)
+
+function metaGet_(url, attempt) {
+  attempt = attempt || 1;
+  var r;
+  try {
+    r = UrlFetchApp.fetch(url, {method: 'get', muteHttpExceptions: true});
+  } catch (e) {
+    // Network / DNS / timeout — same pattern as primary_sync's except block
+    var msg = _redactToken_(String(e && e.message || e));
+    if (attempt < MAX_RETRIES) {
+      console.log('    Retry ' + attempt + '/' + MAX_RETRIES + ': ' + msg);
+      Utilities.sleep(RETRY_DELAY * attempt);
+      return metaGet_(url, attempt + 1);
     }
-    console.log('    retrying in ' + (waits[attempt] / 1000) + 's');
-    Utilities.sleep(waits[attempt]);
+    throw new Error(msg);
   }
-  return null;
+
+  // Proactive backoff via usage headers — sleep BEFORE returning so the next
+  // call doesn't get hard-throttled. Applies even on HTTP 200. Not in
+  // primary_sync (Python-side headers work the same way; kept here because
+  // the Apps Script UrlFetchApp exposes them easily).
+  _throttleBackoff_(r.getAllHeaders());
+
+  var code = r.getResponseCode();
+  if (code === 200) return r;
+
+  var body = r.getContentText() || '';
+  var bodyShort = body.slice(0, 400);
+
+  // HTTP 403 — hard rate limit at the app/token level
+  if (code === 403) {
+    if (attempt < MAX_RETRIES) {
+      console.log('    Meta 403 rate limit — waiting 60s (attempt ' +
+                  attempt + '/' + MAX_RETRIES + ')');
+      Utilities.sleep(60000);
+      return metaGet_(url, attempt + 1);
+    }
+    console.log('    Meta 403 persists — skipping page');
+    return null;
+  }
+
+  // HTTP 400 — could be rate limit, transient upstream error, OR real
+  // validation. Sniff body to categorise, otherwise all 400s look the same.
+  if (code === 400) {
+    var msg400 = '';
+    var subcode = 0;
+    var subsubcode = 0;
+    try {
+      var jb = JSON.parse(body);
+      msg400     = ((jb.error || {}).message || '').toLowerCase();
+      subcode    = +((jb.error || {}).code)          || 0;
+      subsubcode = +((jb.error || {}).error_subcode) || 0;
+    } catch (_) {}
+
+    // Rate-limit signatures (matches primary_sync + Meta's numeric subcodes)
+    var isRateLimit400 =
+      msg400.indexOf('too many calls')            >= 0 ||
+      msg400.indexOf('rate')                      >= 0 ||
+      msg400.indexOf('throttl')                   >= 0 ||
+      msg400.indexOf('user request limit')        >= 0 ||
+      msg400.indexOf('application request limit') >= 0 ||
+      msg400.indexOf('call rate')                 >= 0 ||
+      msg400.indexOf('reduce the amount of data') >= 0 ||
+      subcode === 4 || subcode === 17 || subcode === 32 || subcode === 613 ||
+      (subcode >= 80000 && subcode <= 80099);
+
+    // "Transient / intermittent" signatures — Meta serves these as HTTP 400
+    // but the error_user_msg literally says "please retry at a later time".
+    // is_transient is UNRELIABLE (subcode=2 sets it to false even though
+    // the error is 100% retryable), so we detect via subcode + message text.
+    //   code=1     — Unknown error
+    //   code=2     — Service temporarily unavailable  ← the one that hit Raho
+    //   subcode=1504xxx — Meta's internal ads-serving intermittent errors
+    var isTransient400 =
+      subcode === 1 || subcode === 2 ||
+      (subsubcode >= 1504000 && subsubcode <= 1504999) ||
+      msg400.indexOf('service temporarily unavailable') >= 0 ||
+      msg400.indexOf('intermittent')                    >= 0 ||
+      msg400.indexOf('please retry')                    >= 0 ||
+      msg400.indexOf('please try again')                >= 0 ||
+      msg400.indexOf('an unexpected error')             >= 0;
+
+    if (isRateLimit400 || isTransient400) {
+      if (attempt < MAX_RETRIES) {
+        // Rate limits need long waits (Meta's throttle window is minutes);
+        // intermittent errors need shorter waits (usually a service blip).
+        var wait400 = isRateLimit400 ? (90000 * attempt)   // 90s, 180s, 270s
+                                     : (30000 * attempt);  // 30s, 60s, 90s
+        var kind = isRateLimit400 ? 'rate limit' : 'intermittent';
+        console.log('    Meta 400 ' + kind + ' (subcode=' + subcode +
+                    (subsubcode ? '/' + subsubcode : '') +
+                    ') — waiting ' + (wait400/1000) + 's (attempt ' +
+                    attempt + '/' + MAX_RETRIES + ')');
+        Utilities.sleep(wait400);
+        return metaGet_(url, attempt + 1);
+      }
+      console.log('    Meta 400 ' + (isRateLimit400 ? 'rate limit' :
+                  'intermittent error') + ' persists — skipping page');
+      return null;
+    }
+    // Real 400 (validation, bad param, missing permission) — throw so the
+    // caller sees it. Don't burn retries; the error is deterministic.
+    throw new Error('Meta HTTP 400 (subcode=' + subcode + '): ' + bodyShort);
+  }
+
+  // HTTP 429 — formal Too Many Requests. Meta rarely uses this but it's
+  // valid, treat like 400 rate limit.
+  if (code === 429) {
+    if (attempt < MAX_RETRIES) {
+      var wait429 = 90000 * attempt;
+      console.log('    Meta 429 — waiting ' + (wait429/1000) + 's (attempt ' +
+                  attempt + '/' + MAX_RETRIES + ')');
+      Utilities.sleep(wait429);
+      return metaGet_(url, attempt + 1);
+    }
+    console.log('    Meta 429 persists — skipping page');
+    return null;
+  }
+
+  // HTTP 500+ — transient upstream. Same wait ladder as primary_sync.
+  if (code >= 500) {
+    if (attempt < MAX_RETRIES) {
+      var wait500 = RETRY_DELAY * attempt * 3;  // 15s, 30s, 45s
+      console.log('    Meta ' + code + ' server error — waiting ' +
+                  (wait500/1000) + 's (attempt ' + attempt + '/' +
+                  MAX_RETRIES + ')');
+      Utilities.sleep(wait500);
+      return metaGet_(url, attempt + 1);
+    }
+    console.log('    Meta ' + code + ' persists — skipping page');
+    return null;
+  }
+
+  // Anything else — retry linear, then throw.
+  if (attempt < MAX_RETRIES) {
+    console.log('    Meta HTTP ' + code + ' — retry ' + attempt + '/' +
+                MAX_RETRIES + ': ' + bodyShort);
+    Utilities.sleep(RETRY_DELAY * attempt);
+    return metaGet_(url, attempt + 1);
+  }
+  throw new Error('Meta HTTP ' + code + ' after ' + MAX_RETRIES +
+                  ' attempts: ' + bodyShort);
+}
+
+// Scrub *_token= params AND raw EAA... tokens from error messages before
+// they hit the log or Sheet footer. Mirrors primary_sync._safe regex.
+function _redactToken_(s) {
+  if (!s) return s;
+  return String(s)
+    .replace(/(\w*token\w*=)[^&\s]+/gi, '$1<REDACTED>')
+    .replace(/EAA[A-Za-z0-9_\-]{20,}/g, '<REDACTED>');
+}
+
+// Peek at Meta's usage headers and sleep if we're near the ceiling on any
+// dimension. Headers are JSON objects like:
+//   X-App-Usage: {"call_count":45,"total_cputime":12,"total_time":8}
+//   X-Business-Use-Case-Usage: {"<biz_id>":[{"type":"ads_insights",
+//     "call_count":78,"total_cputime":34,"total_time":22,
+//     "estimated_time_to_regain_access":0}]}
+// If any percentage ≥ 90 we sleep. If estimated_time_to_regain_access > 0
+// we honour it (capped to 10 min so we don't hang for hours).
+function _throttleBackoff_(headers) {
+  if (!headers) return;
+  const maxPct = (obj) => {
+    if (!obj) return 0;
+    let m = 0;
+    for (const k in obj) {
+      const v = +obj[k];
+      if (isFinite(v) && v > m) m = v;
+    }
+    return m;
+  };
+  const parseJson = (v) => { try { return JSON.parse(v); } catch (_) { return null; } };
+  let worstPct = 0, waitSec = 0;
+  const app = parseJson(headers['X-App-Usage'] || headers['x-app-usage']);
+  if (app) worstPct = Math.max(worstPct, maxPct(app));
+  const buc = parseJson(headers['X-Business-Use-Case-Usage'] ||
+                        headers['x-business-use-case-usage']);
+  if (buc) {
+    for (const bizId in buc) {
+      const arr = buc[bizId];
+      if (Array.isArray(arr)) {
+        for (const entry of arr) {
+          worstPct = Math.max(worstPct, maxPct(entry));
+          const est = +entry.estimated_time_to_regain_access || 0;
+          if (est > waitSec) waitSec = est;
+        }
+      }
+    }
+  }
+  const ad = parseJson(headers['X-Ad-Account-Usage'] ||
+                       headers['x-ad-account-usage']);
+  if (ad) worstPct = Math.max(worstPct, maxPct(ad));
+
+  if (waitSec > 0) {
+    const capped = Math.min(waitSec, 600);
+    console.log('    [throttle] Meta says wait ' + waitSec +
+                's — sleeping ' + capped + 's');
+    Utilities.sleep(capped * 1000);
+  } else if (worstPct >= 90) {
+    console.log('    [throttle ' + worstPct.toFixed(0) +
+                '%] approaching cap — sleeping 30s');
+    Utilities.sleep(30000);
+  } else if (worstPct >= 75) {
+    console.log('    [throttle ' + worstPct.toFixed(0) +
+                '%] warm — pacing 5s');
+    Utilities.sleep(5000);
+  }
 }
 
 // ── Row flattener — extracts purchases/conv_value from actions[] ────────
@@ -599,7 +904,8 @@ const HEADERS_DAILY = HEADERS_ACTIVE.slice();
 // The daily tab uses date_start as the per-day date, so surface it first.
 HEADERS_DAILY.unshift('date');
 
-function writeSheet_(sheetName, rows, daily, append) {
+function writeSheet_(sheetName, rows, daily, append, perAcct) {
+  perAcct = perAcct || [];
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(sheetName);
   if (!sh) sh = ss.insertSheet(sheetName);
@@ -610,7 +916,11 @@ function writeSheet_(sheetName, rows, daily, append) {
     sh.clearContents(); sh.clearFormats();
   }
   if (!rows.length && !append) {
-    sh.getRange(1, 1).setValue('No rows returned. Check META_ACCESS_TOKEN + ACCOUNT_* in Script Properties.');
+    // Even with zero rows, dump per-account status so the user sees WHY
+    // (e.g. "Raho: 0 rows — Meta HTTP 400: User request limit reached")
+    // instead of a bare "No rows returned" that hides the real cause.
+    sh.getRange(1, 1).setValue('No rows returned. Per-account status below:');
+    _writePerAcctBlock_(sh, perAcct, /*startRow*/ 3);
     return;
   }
 
@@ -624,7 +934,12 @@ function writeSheet_(sheetName, rows, daily, append) {
     sh.setFrozenColumns(daily ? 8 : 7);
   }
 
-  if (!rows.length) return;
+  if (!rows.length) {
+    // Append call for an account that failed / had zero data. Still stamp
+    // the per-account status block at the bottom.
+    _writePerAcctBlock_(sh, perAcct, sh.getLastRow() + 3);
+    return;
+  }
 
   // Values
   const data = rows.map(r => headers.map(h => {
@@ -647,9 +962,31 @@ function writeSheet_(sheetName, rows, daily, append) {
   const widen = (n, w) => { const i = headers.indexOf(n); if (i >= 0) sh.setColumnWidth(i + 1, w); };
   widen('ad_name', 260); widen('adset_name', 220); widen('campaign_name', 220);
 
-  // Refresh footer
-  sh.getRange(total + 2, 1).setValue('Refreshed at: ' + new Date().toISOString())
+  // Refresh footer + per-account status block
+  const footerRow = total + 2;
+  sh.getRange(footerRow, 1).setValue('Refreshed at: ' + new Date().toISOString())
     .setFontStyle('italic').setFontColor('#666');
+  _writePerAcctBlock_(sh, perAcct, footerRow + 1);
+}
+
+// Stamps a color-coded "Per-account status" block into the sheet so failed
+// accounts (rate-limited, permission-denied, etc.) are visible without
+// diving into Apps Script → Executions.
+function _writePerAcctBlock_(sh, perAcct, startRow) {
+  if (!perAcct || !perAcct.length) return;
+  sh.getRange(startRow, 1).setValue('Per-account status:')
+    .setFontWeight('bold').setFontColor('#333');
+  for (let i = 0; i < perAcct.length; i++) {
+    const p = perAcct[i];
+    const row = startRow + 1 + i;
+    const ok = !p.error;
+    const line = ok
+      ? '  ' + p.name + ' (act_' + p.id + ')  →  ' + p.rows + ' rows in ' + p.secs + 's'
+      : '  [!] ' + p.name + ' (act_' + p.id + ')  →  FAILED after ' + p.secs + 's · ' + p.error;
+    sh.getRange(row, 1).setValue(line)
+      .setFontColor(ok ? '#0a7d2c' : '#c0392b')
+      .setFontStyle('italic');
+  }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -664,14 +1001,54 @@ function window_(days) {
 // ── Triggers ────────────────────────────────────────────────────────────
 function installHourlyTriggers() {
   uninstallAllTriggers();
-  ['refreshActive30','refreshActive90','refreshDaily30','refreshDaily90']
+  ['refreshActive30','refreshActive90','refreshDaily30','refreshDaily90All']
     .forEach(fn => ScriptApp.newTrigger(fn).timeBased().everyHours(1).create());
   SpreadsheetApp.getActiveSpreadsheet()
     .toast('4 hourly triggers installed (one per tab)', 'Meta Direct', 5);
 }
+
+// Nightly refresh — fires AFTER the backend Python orchestrator finishes.
+// The orchestrator (_refresh_all_dashboard_data.py) runs primary_sync +
+// rebuild_attribution_orders and takes ~3h wall time starting ~00:00–01:00
+// IST → done ~03:30–04:00 IST. We schedule at 05:00 IST onwards so the sheet
+// pulls a DB where shopify_ad_attribution + ae_table_view are fully mapped;
+// otherwise shopify_orders / utm_* / ad_status columns would be stale.
+//
+// Timezone: uses the Apps Script project timezone. Set File → Project
+// Settings → Timezone to "(GMT+05:30) India Standard Time" for the hours
+// below to mean IST literally.
+//
+// Split across 3 hour slots because Apps Script has a 6-min per-execution
+// ceiling — Raho's Daily 90d alone can eat that entire budget, so each
+// heavy handler gets its own trigger and the "ALL" variants are avoided.
+function installNightlyTriggers() {
+  uninstallAllTriggers();
+  // 05:00 IST — fast aggregate tabs (~30-60s each)
+  ScriptApp.newTrigger('refreshActive30')      .timeBased().atHour(5).everyDays(1).create();
+  ScriptApp.newTrigger('refreshActive90')      .timeBased().atHour(5).everyDays(1).create();
+  // 06:00 IST — daily 30d (fast) + Raho daily 90d (heavy, own slot)
+  ScriptApp.newTrigger('refreshDaily30')       .timeBased().atHour(6).everyDays(1).create();
+  ScriptApp.newTrigger('refreshDaily90Raho')   .timeBased().atHour(6).everyDays(1).create();
+  // 07:00 IST — smaller accounts' daily 90d (append to Raho's rows)
+  ScriptApp.newTrigger('refreshDaily90Fourth') .timeBased().atHour(7).everyDays(1).create();
+  ScriptApp.newTrigger('refreshDaily90Third')  .timeBased().atHour(7).everyDays(1).create();
+  SpreadsheetApp.getActiveSpreadsheet()
+    .toast('6 nightly triggers installed (5–7 AM IST, post-DB-refresh)', 'Meta Direct', 6);
+}
+
 function uninstallAllTriggers() {
-  const wanted = new Set(['refreshActive30','refreshActive90','refreshDaily30','refreshDaily90','refreshAllTabs']);
+  const wanted = new Set([
+    'refreshActive30','refreshActive90',
+    'refreshDaily30','refreshDaily90','refreshDaily90All',
+    'refreshDaily90Raho','refreshDaily90Fourth','refreshDaily90Third',
+    'refreshAllTabs',
+  ]);
+  let removed = 0;
   ScriptApp.getProjectTriggers().forEach(t => {
-    if (wanted.has(t.getHandlerFunction())) ScriptApp.deleteTrigger(t);
+    if (wanted.has(t.getHandlerFunction())) { ScriptApp.deleteTrigger(t); removed++; }
   });
+  try {
+    SpreadsheetApp.getActiveSpreadsheet()
+      .toast('Removed ' + removed + ' trigger(s)', 'Meta Direct', 4);
+  } catch (_) {}
 }

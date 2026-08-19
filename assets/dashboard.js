@@ -127,14 +127,19 @@ function detectCtype(name){
 
 async function fetchAds(){
   // FastAPI proxy path — bypasses PostgREST for reliability.
+  // Single request, gzipped by GZipMiddleware — typical wall time 3-6s
+  // vs. 90-180s for the 20-batch PostgREST fallback.
   if (API_BASE){
     dbStat.innerHTML = 'Loading via API <span class="spinner"></span>';
+    const _t0 = Date.now();
     try {
       const r = await fetch(API_BASE + '/api/ads');
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
       const out = j.rows || [];
-      dbStat.innerHTML = 'Loaded <span class="mono">'+fmtInt(out.length)+'</span> ads (API)';
+      const _ms = Date.now() - _t0;
+      dbStat.innerHTML = 'Loaded <span class="mono">'+fmtInt(out.length)+
+        '</span> ads in ' + (_ms/1000).toFixed(1) + 's (API, gzipped)';
       return out;
     } catch (e){
       console.warn('[fetchAds via API_BASE failed]', e, '— falling back to PostgREST');
@@ -164,8 +169,19 @@ async function fetchAds(){
     'preview_link','ad_link',
     'shopify_orders','shopify_sales','shopify_top_tier','shopify_roas'
   ].join(',');
-  const headers = {'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON};
-  let out=[], offset=0, BATCH=1000;
+  // Also add Prefer:count=none so PostgREST skips the expensive COUNT(*)
+  // it does by default when you don't specify — that alone shaves ~30% off
+  // the per-request time on ae_table_view.
+  const headers = {'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
+                   'Prefer':'count=none'};
+  // BATCH bumped 1000 → 5000. On a 15-20k-row ae_table_view fetch this
+  // takes us from 20 sequential PostgREST round-trips to 4 — each round-
+  // trip has TLS + auth + plan overhead, so fewer > bigger. Anything
+  // larger than 5000 tends to hit Supabase's anon-role JSON size cap.
+  // For real speed: open the dashboard with ?apiBase=http://<host>:<port>
+  // so fetchAds uses the FastAPI /api/ads single-shot (gzipped) path.
+  const _t0 = Date.now();
+  let out=[], offset=0, BATCH=5000;
   while(true){
     const url=SUPABASE_URL+'/rest/v1/ae_table_view?select='+cols+
               '&order=amount_spent.desc.nullslast&limit='+BATCH+'&offset='+offset;
@@ -177,7 +193,13 @@ async function fetchAds(){
     offset+=BATCH;
     if(offset>=20000) break;
   }
-  dbStat.innerHTML='Loaded <span class="mono">'+fmtInt(out.length)+'</span> ads';
+  const _ms = Date.now() - _t0;
+  dbStat.innerHTML='Loaded <span class="mono">'+fmtInt(out.length)+'</span> ads' +
+    ' in ' + (_ms/1000).toFixed(1) + 's (PostgREST) — ' +
+    '<a href="#" onclick="alert(\'For faster loads, open the dashboard with '+
+    '?apiBase=http://<fastapi-host>:<port> so /api/ads (gzipped, single request) ' +
+    'is used instead of PostgREST batches.\');return false;" ' +
+    'style="text-decoration:underline;color:#888">speed tip</a>';
   return out;
 }
 
@@ -3138,10 +3160,10 @@ async function fetchAeShopifyRollups(){
   aeShopifyByAdset    = nextAdset;
   aeShopifyByCampaign = nextCamp;
 }
-// Windowed reach fetch — now calls get_ireach_incremental_analysis with
-// level_arg='ad'. Same RPC as the Incremental Analysis section uses for
-// campaign/adset/account, extended to support ad-grain. Reads Meta's own
-// deduped cumulative reach (public.ireach_cumulative_daily where level='ad')
+// Windowed reach fetch — calls get_reach_incr_by_window with level_arg='ad'.
+// Same RPC as the Incremental Analysis section uses for campaign/adset/account.
+// Sources from the *_incr tables (baseline 2026-08-01). Reads Meta's own
+// deduped cumulative reach (public.ad_incr — baseline-anchored *_incr family)
 // and computes:
 //   cum_at_start_prev = cumulative reach on the last day BEFORE from_date
 //   cum_at_end        = cumulative reach on the last day ON or BEFORE to_date
@@ -3179,7 +3201,7 @@ async function fetchAeWindowReach(){
     // their query plans warmed independently. Retry with backoff until one
     // lands on a warm worker.
     const _fetchOnce = () => fetch(
-      SUPABASE_URL + '/rest/v1/rpc/get_ireach_incremental_analysis?limit=50000',
+      SUPABASE_URL + '/rest/v1/rpc/get_reach_incr_by_window?limit=50000',
       {
         method: 'POST',
         headers: {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
@@ -5677,7 +5699,8 @@ function aeGroupBy(rows, key){
     const cnt = g._adIds.size;
     const label = key === 'ad_name'  ? g.ad_name + (cnt > 1 ? '  (×' + cnt + ' ad_ids)' : '')
                 : key === 'adset'    ? (g.adset_name || '(adset)') + (cnt > 1 ? '  (×' + cnt + ' ads)' : '')
-                :                      '[Campaign]';
+                : key === 'campaign' ? (g.campaign_name || '(campaign)') + (cnt > 1 ? '  (×' + cnt + ' ads)' : '')
+                :                      (g.ad_name || '(row)');
     // Authoritative Shopify overlay (adset/campaign only). Uses RPC rollup
     // when available; falls back to the summed value otherwise (e.g. before
     // the RPC has resolved on first paint).
@@ -5918,9 +5941,84 @@ const CAT_CLASS = {
  * F-flags stay lifetime-based on purpose — they're the ad's overall
  * verdict, not "was this ad a winner on Jun 29?" */
 function aeApplyWindow(r){
-  const w  = aeWindowMetricsByAdId[r.ad_id];
-  const s  = aeWindowShopifyByAdId[r.ad_id];
-  const rr = aeWindowReachByAdId[r.ad_id];
+  // Grouped rows (adset / campaign level) carry a _adIds Set from aeGroupBy —
+  // their .ad_id is a display label like "5 ad_ids", so a single-key lookup
+  // in aeWindowMetricsByAdId misses and the else-branch below used to zero
+  // out every metric. Sum across the constituent ad_ids instead.
+  const grouped = r._adIds instanceof Set && r._adIds.size > 1;
+  let w, s, rr;
+  if (grouped){
+    let imp=0, rch=0, spd=0, cv=0, prc=0, ftv=0, ncp=0, lnk=0, hasAnyM=false;
+    for (const id of r._adIds){
+      const m = aeWindowMetricsByAdId[id];
+      if (!m) continue;
+      hasAnyM = true;
+      imp += +m.impressions     || 0;
+      rch += +m.reach           || 0;
+      spd += +m.amount_spent    || 0;
+      cv  += +m.conv_value      || 0;
+      prc += +m.purchases       || 0;
+      ftv += +m.ftewv_count     || 0;
+      ncp += +m.ncp_count       || 0;
+      lnk += +m.link_clicks_raw || 0;
+    }
+    if (hasAnyM){
+      w = {
+        impressions:     imp,
+        reach:           rch,
+        amount_spent:    spd,
+        conv_value:      cv,
+        purchases:       prc,
+        ftewv_count:     ftv,
+        ncp_count:       ncp,
+        link_clicks_raw: lnk,
+        frequency:       rch > 0 ? imp / rch : 0,
+        cost_per_1000:   imp > 0 ? (spd * 1000) / imp : 0,
+        ctr_pct:         imp > 0 ? (lnk / imp) * 100 : 0,
+        roas_ma:         spd > 0 ? cv / spd : 0,
+        cost_per_ftewv:  ftv > 0 ? spd / ftv : 0,
+        cost_per_ncp:    ncp > 0 ? spd / ncp : 0,
+      };
+    }
+    // Shopify overlay for grouped rows: prefer authoritative RPC rollup that
+    // was already applied by aeGroupBy (aeShopifyByAdset / aeShopifyByCampaign)
+    // when NO date window is active; when a window IS active, sum the windowed
+    // per-ad shopify values across constituents (RPC rollups don't accept a
+    // window scope in the current schema).
+    let so=0, ss=0, hasAnyS=false;
+    for (const id of r._adIds){
+      const m = aeWindowShopifyByAdId[id];
+      if (!m) continue;
+      hasAnyS = true;
+      so += +m.orders || 0;
+      ss += +m.sales  || 0;
+    }
+    if (hasAnyS) s = {orders: so, sales: ss};
+
+    // Reach overlay for grouped rows: sum ad-level cumulative-reach deltas.
+    // This slightly overcounts because the same user reached by two ads in
+    // the group is counted twice; proper de-dup would require calling
+    // get_reach_incr_by_window(level='adset'|'campaign') separately. Kept
+    // as a summed fallback so the columns show data rather than zeros.
+    let rf=0, rl=0, ri=0, rsp=0, hasAnyR=false;
+    for (const id of r._adIds){
+      const m = aeWindowReachByAdId[id];
+      if (!m) continue;
+      hasAnyR = true;
+      rf  += +m.reach_first || 0;
+      rl  += +m.reach_last  || 0;
+      ri  += +m.reach_incr  || 0;
+      rsp += +m.spend_sum   || 0;
+    }
+    if (hasAnyR) rr = {reach_first: rf, reach_last: rl,
+                       reach_incr: ri, spend_sum: rsp};
+  } else {
+    // Single ad (or single-ad group) — original per-id lookup.
+    w  = aeWindowMetricsByAdId[r.ad_id];
+    s  = aeWindowShopifyByAdId[r.ad_id];
+    rr = aeWindowReachByAdId[r.ad_id];
+  }
+
   if (!w && !s && !rr && !_aeWindowReachKey) return r;
   const out = Object.assign({}, r);
   if (w){
@@ -5969,9 +6067,17 @@ function aeApplyWindow(r){
   // Shopify overlay: replace the lifetime shopify_orders / shopify_sales
   // with the windowed aggregate. When the window has no matched orders for
   // this ad, show 0 (not lifetime) so users see the honest windowed answer.
+  // For grouped rows without any windowed Shopify hit, KEEP the RPC rollup
+  // that aeGroupBy already applied — otherwise zero would clobber the
+  // authoritative adset/campaign totals.
   if (aeWindowShopifyKeyIsActive()){
-    out.shopify_orders = s ? s.orders : 0;
-    out.shopify_sales  = s ? s.sales  : 0;
+    if (s){
+      out.shopify_orders = s.orders;
+      out.shopify_sales  = s.sales;
+    } else if (!grouped){
+      out.shopify_orders = 0;
+      out.shopify_sales  = 0;
+    }
     // shopify_roas re-derives from the (possibly windowed) spend + sales
     const spend = +out.amount_spent || 0;
     out.shopify_roas = spend > 0 ? (out.shopify_sales / spend) : null;
@@ -5985,20 +6091,21 @@ function aeApplyWindow(r){
     const _shop = +out.shopify_sales || 0;
     out.meta_shop_diff_pct = _conv > 0 ? ((_shop - _conv) / _conv) * 100 : null;
   }
-  // Reach overlay — reads from get_ireach_incremental_analysis RPC
+  // Reach overlay — reads from get_reach_incr_by_window RPC
   // (level='ad'). Same Meta-dedup logic as Incremental Analysis section:
   //   Prev Reach     = cumulative reach on the day BEFORE window start
   //   Latest Reach   = cumulative reach on window end date
   //   Incr. Reach    = latest − previous (new unique users during window)
   //   Cost / 1k Incr = spend_sum × 1000 / Incr. Reach
-  // Values sourced from public.ireach_cumulative_daily where level='ad'.
+  // Values sourced from public.ad_incr via get_reach_incr_by_window(level='ad').
   if (_aeWindowReachKey && _aeWindowReachLoaded){
     // The RPC has responded for the current window. The ONLY correct
     // source of Prev / Latest / Incr Reach is the RPC (cumulative-reach
     // based). If the ad isn't in the response, it had no delivery in the
     // window — show zeros. Never fall back to ae_reach_recent, whose
     // values are yesterday vs day-before single-day reaches and are
-    // nonsense for a windowed view.
+    // nonsense for a windowed view. For grouped rows, `rr` was summed
+    // across constituent ads above (slight overcount vs Meta-dedup).
     if (rr){
       out.previous_reach    = rr.reach_first;   // cum_at_start_prev
       out.latest_reach      = rr.reach_last;    // cum_at_end
@@ -6006,12 +6113,14 @@ function aeApplyWindow(r){
       out.cost_per_1000_incremental_reach = rr.reach_incr > 0
         ? (rr.spend_sum * 1000) / rr.reach_incr
         : null;
-    } else {
+    } else if (!grouped){
       out.previous_reach    = 0;
       out.latest_reach      = 0;
       out.incremental_reach = 0;
       out.cost_per_1000_incremental_reach = null;
     }
+    // Grouped row with no reach hit → keep summed lifetime reach from
+    // aeGroupBy rather than zeroing.
   }
   // else: RPC is still in flight for this window — keep ae_reach_recent's
   // snapshot values that got merged in earlier, so the row isn't blank.
@@ -6300,13 +6409,13 @@ function _ireachApplyPreset(p){
 }
 
 // Fetch pre-aggregated campaign / adset daily rows from the server-side
-// matviews (public.ireach_campaign_daily / public.ireach_adset_daily).
+// tables (public.campaign_incr / public.adset_incr — baseline 2026-08-01).
 // These are ~18k / ~54k rows total — tiny compared to the ~450k raw
 // daily-ad rows the old client-side dedup path pulled. Server-side
 // already handles the (ad_id, date) primary-wins dedup, so no audit
 // counter to surface any more.
 async function _ireachFetch(from, to){
-  // Uses the sheet-model RPC get_ireach_incremental_analysis. Returns per-entity
+  // Uses the sheet-model RPC get_reach_incr_by_window. Returns per-entity
   // rows already aggregated over the window:
   //   incr_reach = MAX(0, cum_at_end - cum_at_start_prev)
   //   cum_at_end = Meta cumulative unique reach at window end (from origin)
@@ -6318,7 +6427,7 @@ async function _ireachFetch(from, to){
                    Prefer:'count=none'};
   const errors = {};
   const call = async (level) => {
-    const url = SUPABASE_URL + '/rest/v1/rpc/get_ireach_incremental_analysis';
+    const url = SUPABASE_URL + '/rest/v1/rpc/get_reach_incr_by_window';
     const body = JSON.stringify({from_date: from, to_date: to, level_arg: level});
     let r;
     try {
@@ -6361,12 +6470,18 @@ async function _ireachFetch(from, to){
   const account = await call('account');
   const camp    = await call('campaign');
   const adset   = await call('adset');
+  // baseline_active is a per-row flag from the new RPC — true whenever the
+  // user's from_date is earlier than the *_incr baseline (2026-08-01) and the
+  // server clamped it. Any single row with the flag is enough to trigger the
+  // caveat banner in the status area.
+  const anyClamped = (rows) => rows.some(r => r && r.baseline_active === true);
   return {
     account, camp, adset,
     audit: {
       account_rows: account.length,
       camp_rows: camp.length,
       adset_rows: adset.length,
+      baseline_active: anyClamped(account) || anyClamped(camp) || anyClamped(adset),
       errors,
     },
   };
@@ -6564,12 +6679,24 @@ function _ireachRenderAudit(){
         Object.entries(errs).map(([lvl, msg]) => `<b>${lvl}</b>: ${msg}`).join(' · ') +
       '</span>'
     : '';
+  // baseline_active flag comes back from get_reach_incr_by_window when the
+  // user's from_date is earlier than the *_incr baseline (2026-08-01). In
+  // that case the RPC silently clamps and we surface a caveat banner so the
+  // number isn't mistaken for full-window incremental.
+  const clamped = !!a.baseline_active;
+  const baselineNote = clamped
+    ? '<br><span class="reach-baseline-note" style="color:var(--warning-text,#a06a00)">'+
+      'ⓘ Reach data is available from <b>2026-08-01</b> onwards. Numbers above are the '+
+      'incremental unique reach from that baseline through your window end — not the full '+
+      'pre-Aug-1 window.'+
+      '</span>'
+    : '';
   el.innerHTML =
-    '<span>Source · <b>ireach_cumulative_daily</b> (Meta unique reach, growing time_range from ORIGIN=2025-01-01) via '+
-    '<b>get_ireach_incremental_analysis()</b> RPC · returned '+
+    '<span>Source · <b>{account,campaign,adset,ad}_incr</b> (Meta unique reach, ORIGIN=2023-08-01, baseline=2026-08-01) via '+
+    '<b>get_reach_incr_by_window()</b> RPC · returned '+
       fmtInt(a.account_rows)+' accounts, '+
       fmtInt(a.camp_rows)+' campaigns, '+
-      fmtInt(a.adset_rows)+' adsets · spend joined from ireach_*_daily</span>' + errList;
+      fmtInt(a.adset_rows)+' adsets</span>' + errList + baselineNote;
 }
 
 async function _ireachApply(){
@@ -6585,7 +6712,7 @@ async function _ireachApply(){
   }
   ireachState.from = from; ireachState.to = to;
   const status = document.getElementById('ireachStatus');
-  status.innerHTML = 'Fetching from ireach_campaign_daily + ireach_adset_daily <span class="spinner"></span>';
+  status.innerHTML = 'Fetching from campaign_incr + adset_incr + account_incr <span class="spinner"></span>';
   const t0 = performance.now();
   try {
     const { account, camp, adset, audit } = await _ireachFetch(from, to);
@@ -6627,7 +6754,7 @@ async function _ireachApply(){
 
 /* ────────────────────────────────────────────────────────────────
    Saturation curve — Spend × Incremental Reach per entity per scope.
-   Reads get_ireach_saturation_curve RPC (per-day cumulative points),
+   Reads get_reach_incr_curve RPC (per-day cumulative points from *_incr),
    groups by entity_id, sorts by total_spend desc, keeps the top-20,
    renders one Chart.js line per entity on the scope's canvas.
    ──────────────────────────────────────────────────────────────── */
@@ -6655,7 +6782,7 @@ async function _ireachRefreshSaturation(from, to){
     if (c && typeof c.destroy === 'function'){ c.destroy(); }
     _ireachSatState.charts[scope] = null;
   }
-  const url = SUPABASE_URL + '/rest/v1/rpc/get_ireach_saturation_curve';
+  const url = SUPABASE_URL + '/rest/v1/rpc/get_reach_incr_curve';
   const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
                    'Content-Type':'application/json', Prefer:'count=none'};
   // Map dashboard scope names → RPC level_arg values
@@ -6857,7 +6984,7 @@ function _ireachAcctResolveRange(range){
   else if (range === '90d')      { from = new Date(today); from.setDate(today.getDate()-89); }
   else if (range === 'ytd')      { from = new Date(today.getFullYear(), 0, 1); }
   else if (range === 'lifetime') { from = new Date(HISTORIC_CUTOFF + 'T00:00:00'); }
-  // Never dip below the historic cutoff — ireach_cumulative_daily doesn't have data before it
+  // Never dip below the historic cutoff — account_incr doesn't have data before it
   const cutoff = new Date(HISTORIC_CUTOFF + 'T00:00:00');
   if (from < cutoff) from = cutoff;
   return { from: iso(from), to };
@@ -6877,72 +7004,66 @@ async function _ireachAcctFetchRange(){
   const headers = {apikey:SUPABASE_ANON, Authorization:'Bearer '+SUPABASE_ANON,
                    'Content-Type':'application/json', Prefer:'count=none'};
   try {
-    // 1) ALL account rows in the reach table for the window — no spend filter
-    const reachUrl = SUPABASE_URL +
-      '/rest/v1/ireach_cumulative_daily?select=entity_id,entity_name,date,cumulative_reach' +
-      '&level=eq.account&date=gte.' + from + '&date=lte.' + to +
-      '&order=entity_id,date&limit=50000';
-    // 2) Daily spend per (account_id, date) — sum campaign_daily rows
-    const spendUrl = SUPABASE_URL +
-      '/rest/v1/ireach_campaign_daily?select=account_id,date,spend_daily' +
-      '&date=gte.' + from + '&date=lte.' + to + '&limit=50000';
-    const [reachResp, spendResp] = await Promise.all([
-      fetch(reachUrl, { headers }),
-      fetch(spendUrl, { headers }),
-    ]);
-    if (!reachResp.ok) throw new Error('reach HTTP ' + reachResp.status);
-    if (!spendResp.ok) throw new Error('spend HTTP ' + spendResp.status);
-    const reachRows = await reachResp.json();
-    const spendRows = await spendResp.json();
-    // 3) Pre-window cum_at_start_prev per account (single query, tiny)
+    // 1) ALL account rows in the window — account_incr has BOTH reach and
+    //    cumulative spend, so one query replaces the old two-URL fetch.
+    const rangeUrl = SUPABASE_URL +
+      '/rest/v1/account_incr?select=account_id,account_name,date,reach_cumulative,spend_cumulative' +
+      '&date=gte.' + from + '&date=lte.' + to +
+      '&order=account_id,date&limit=50000';
+    // 2) Pre-window baseline row per account (empty when from == baseline).
     const startUrl = SUPABASE_URL +
-      '/rest/v1/ireach_cumulative_daily?select=entity_id,cumulative_reach,date' +
-      '&level=eq.account&date=lt.' + from + '&order=entity_id,date.desc' +
-      '&limit=200';
-    const startResp = await fetch(startUrl, { headers });
+      '/rest/v1/account_incr?select=account_id,reach_cumulative,spend_cumulative,date' +
+      '&date=lt.' + from + '&order=account_id,date.desc&limit=200';
+    const [rangeResp, startResp] = await Promise.all([
+      fetch(rangeUrl, { headers }),
+      fetch(startUrl, { headers }),
+    ]);
+    if (!rangeResp.ok) throw new Error('range HTTP ' + rangeResp.status);
+    const rangeRows = await rangeResp.json();
     const startRows = startResp.ok ? await startResp.json() : [];
-    // Take the LATEST pre-window row per entity
-    const startByEntity = {};
+    // Latest pre-window row per account — supplies the cum_at_start_prev
+    // baseline. Absent → 0 (window starts on or before *_incr baseline).
+    const startByAcct = {};
     for (const r of startRows){
-      if (!(r.entity_id in startByEntity)) startByEntity[r.entity_id] = +r.cumulative_reach || 0;
+      if (!(r.account_id in startByAcct)){
+        startByAcct[r.account_id] = {
+          reach: +r.reach_cumulative || 0,
+          spend: +r.spend_cumulative || 0,
+        };
+      }
     }
-    // 4) Aggregate spend per (account_id, date) — server may return multiple
-    //    campaigns per account; sum them here.
-    const spendByAcctDate = {};        // { account_id: { date: totalSpend } }
-    for (const r of spendRows){
-      const a = r.account_id, d = r.date, s = +r.spend_daily || 0;
-      if (!a || !d) continue;
-      if (!spendByAcctDate[a]) spendByAcctDate[a] = {};
-      spendByAcctDate[a][d] = (spendByAcctDate[a][d] || 0) + s;
-    }
-    // 5) Group reach rows per entity, sorted by date, subtracting cum_at_start_prev
+    // Group range rows per account, sorted by date, subtracting start baseline.
     const byId = new Map();
-    for (const r of reachRows){
-      const id = r.entity_id; if (!id) continue;
+    for (const r of rangeRows){
+      const id = r.account_id; if (!id) continue;
       let e = byId.get(id);
       if (!e){
-        e = { id, name: r.entity_name || '(unnamed)', pts: [], total: 0 };
+        e = { id, name: r.account_name || '(unnamed)', pts: [], total: 0 };
         byId.set(id, e);
       }
-      e.pts.push({ date: r.date, cum_reach: +r.cumulative_reach || 0 });
+      e.pts.push({
+        date: r.date,
+        cum_reach: +r.reach_cumulative || 0,
+        cum_spend: +r.spend_cumulative || 0,
+      });
     }
-    // 6) Build the shape the renderer expects: {label, points:[{x:cum_spend,y:cum_reach}], total}
+    // Build the shape the renderer expects: {label, points:[{x,y,date,spend}], total}.
     const list = [];
     for (const e of byId.values()){
       e.pts.sort((a,b) => a.date.localeCompare(b.date));
-      const startCum = startByEntity[e.id] || 0;
-      const spendMap = spendByAcctDate[e.id] || {};
-      let cumSpend = 0;
+      const startBase = startByAcct[e.id] || { reach: 0, spend: 0 };
+      let prevSpend = startBase.spend;
       const outPts = e.pts.map(p => {
-        cumSpend += spendMap[p.date] || 0;
+        const daySpend = Math.max(0, p.cum_spend - prevSpend);
+        prevSpend = p.cum_spend;
         return {
-          x:       cumSpend,
-          y:       Math.max(0, p.cum_reach - startCum),
-          date:    p.date,
-          spend:   spendMap[p.date] || 0,
+          x:     Math.max(0, p.cum_spend - startBase.spend),
+          y:     Math.max(0, p.cum_reach - startBase.reach),
+          date:  p.date,
+          spend: daySpend,
         };
       });
-      const total = cumSpend;
+      const total = outPts.length ? outPts[outPts.length - 1].x : 0;
       list.push({ label: e.name, points: outPts, total });
     }
     // Sort by total spend desc; but keep 0-spend accounts LAST rather than

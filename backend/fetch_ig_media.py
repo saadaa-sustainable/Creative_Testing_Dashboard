@@ -70,7 +70,12 @@ IG_ACCOUNTS = [
 # retried — so this list is the WIDEST plausible bundle.
 _METRICS_FEED = [
     'reach','views','likes','saved','comments','shares','total_interactions',
-    'follows','profile_visits','profile_activity','impressions',
+    'follows','profile_visits','profile_activity',
+    # 'impressions' — DEPRECATED in v22.0+ per Meta docs, no longer accepted
+    # for either FEED or REELS. Requesting it triggered a first-request 400
+    # for every single media, and the throttle counter escalated on the
+    # subsequent retries — the fetcher stalled at 0 upserts for 20+ minutes.
+    # Removed upfront so the initial call succeeds.
     'reposts','total_comments','total_likes','total_views',
     'facebook_views',
 ]
@@ -83,10 +88,10 @@ _METRICS_REELS = [
 ]
 _METRICS_STORY = [
     'reach','views','total_interactions','replies','shares',
-    'follows','profile_visits','profile_activity','impressions',
+    'follows','profile_visits','profile_activity',   # 'impressions' — v22+ deprecated
     'navigation','link_clicks','reposts','total_views','facebook_views',
 ]
-_METRICS_AD = ['reach','impressions']
+_METRICS_AD = ['reach']   # 'impressions' removed — v22+ deprecated
 
 METRICS_BY_TYPE = {
     'REELS':          ','.join(_METRICS_REELS),
@@ -494,6 +499,8 @@ def main():
     ap.add_argument('--reset', action='store_true', help='Ignore progress file, start fresh')
     ap.add_argument('--dry-run', action='store_true')
     ap.add_argument('--batch', type=int, default=100)
+    ap.add_argument('--refetch-all', action='store_true',
+                    help='Ignore DB seed — re-fetch every media (slow).')
     args = ap.parse_args()
 
     accts = [a for a in IG_ACCOUNTS if not args.account or a['username'] == args.account]
@@ -509,7 +516,23 @@ def main():
     for acct in accts:
         uname, ig_id = acct['username'], acct['ig_id']
         log(f"\n══ IG account: {uname}   business_id={ig_id} ══")
+        # Seed `seen_this_acct` from BOTH the progress file AND the DB —
+        # without the DB seed, a fresh progress file means the walker
+        # re-fetches every already-cached media (~1.3k for saadaadesigns)
+        # and each of those unavoidable Meta insights calls burns throttle
+        # budget for zero gain. Fetch of new media becomes ~10x faster.
         seen_this_acct = set(done_by_acct.get(uname, []))
+        if conn is not None and not args.refetch_all:
+            try:
+                with conn.cursor() as _c:
+                    _c.execute(
+                        "SELECT media_id FROM public.ig_media WHERE ig_username = %s",
+                        (uname,))
+                    db_seen = {r[0] for r in _c.fetchall() if r[0]}
+                seen_this_acct |= db_seen
+                log(f"  seeded {len(db_seen):,} already-cached media_ids from DB")
+            except Exception as _e:
+                log(f"  [!] DB seed skipped: {type(_e).__name__}: {_e}")
         batch = []
         count = 0
 
