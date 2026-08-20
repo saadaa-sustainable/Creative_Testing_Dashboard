@@ -20,7 +20,7 @@
  * 2. Project Settings (gear icon) → Script Properties → confirm:
  *      SUPABASE_URL              =  https://<project>.supabase.co
  *      SUPABASE_ANON             =  eyJ… (anon key)
- *      REFRESH_DB_BEFORE_FETCH   =  true       (optional, default true)
+ *      REFRESH_DB_BEFORE_FETCH   =  false      (optional, default false)
  * 3. In your existing Code.gs, ADD this ONE LINE inside your onOpen():
  *      sbBuildMenu();
  *    (or, if you don't have a Code.gs onOpen anymore, this file's own
@@ -28,11 +28,16 @@
  * 4. Reload the sheet → new "Meta Direct — Supabase" menu appears.
  *
  * ── HOW REFRESH_DB_BEFORE_FETCH WORKS ───────────────────────────────────
- * When true (default), each refresh calls public.refresh_meta_direct_views()
- * RPC first — that regenerates the 4 materialized views from the current
- * primary_table + shopify_ad_attribution state (~15-30s). Set to false if
- * you're refreshing multiple tabs back-to-back and the views were already
- * refreshed by the nightly orchestrator.
+ * DEFAULT FALSE. The sheet just reads the cached materialized views —
+ * always fast (~1-3s per tab). The nightly orchestrator refreshes the
+ * views via public.refresh_meta_direct_views() around 05:00 IST so morning
+ * fetches see the freshest data.
+ *
+ * Set to TRUE only when you need on-demand freshness in the middle of the
+ * day (e.g. right after a manual primary_sync run). Each refresh then adds
+ * ~4 min of wall time before the fetch, so use sparingly. You can also just
+ * click "Rebuild source views (RPC)" once, then click your desired refresh
+ * — same effect without changing the property.
  * ═══════════════════════════════════════════════════════════════════════
  */
 
@@ -66,9 +71,13 @@ function sbGetConfig_() {
   const anon = (props.getProperty('SUPABASE_ANON') || '').trim();
   if (!url)  throw new Error('Missing SUPABASE_URL in Script Properties.');
   if (!anon) throw new Error('Missing SUPABASE_ANON in Script Properties.');
-  const rf = (props.getProperty('REFRESH_DB_BEFORE_FETCH') || 'true')
+  // Default FALSE: sheet fetches always read the latest cached view state
+  // (instant, ~1-3s per tab). The nightly orchestrator refreshes the views
+  // via public.refresh_meta_direct_views(). Set to 'true' if you want each
+  // menu-click to trigger a fresh rebuild first (~4 min wall time).
+  const rf = (props.getProperty('REFRESH_DB_BEFORE_FETCH') || 'false')
              .toString().toLowerCase();
-  return {url: url, anon: anon, refreshFirst: rf !== 'false'};
+  return {url: url, anon: anon, refreshFirst: rf === 'true'};
 }
 
 // ── Column order (mirrors materialized view schema) ─────────────────
