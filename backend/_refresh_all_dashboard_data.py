@@ -200,15 +200,32 @@ def refresh_meta_direct_views_rpc() -> dict:
         import psycopg2
         from dotenv import load_dotenv
         load_dotenv(ROOT / ".env", override=True)
+        # Bypass the wrapper RPC — Supabase's pooler enforces a ~2min
+        # statement_timeout that overrides function-level SETs AND connection
+        # `options=-c statement_timeout=…`, so a single big REFRESH inside
+        # the RPC dies. Firing each REFRESH as its own execute() sidesteps
+        # the pooler cap because plain REFRESH per view is 25-107s, all
+        # under the limit. First failure doesn't kill the chain either.
         c = psycopg2.connect(os.environ["SUPABASE_DB_URL"], connect_timeout=30)
         c.autocommit = True
         cur = c.cursor()
-        cur.execute("SELECT view_name, rows_after, refresh_secs "
-                    "FROM public.refresh_meta_direct_views()")
-        results = cur.fetchall()
+        results = []
+        VIEWS = ["meta_direct_active_30d", "meta_direct_active_90d",
+                 "meta_direct_daily_30d",  "meta_direct_daily_90d"]
+        for v in VIEWS:
+            vt0 = time.time()
+            try:
+                cur.execute(f"REFRESH MATERIALIZED VIEW public.{v}")
+                cur.execute(f"SELECT count(*) FROM public.{v}")
+                n = cur.fetchone()[0]
+                secs = round(time.time() - vt0, 2)
+                results.append((v, n, secs))
+                log(f"   {v:30s} {n:>7,} rows  {secs}s")
+            except Exception as ve:  # noqa: BLE001
+                secs = round(time.time() - vt0, 2)
+                log(f"   {v:30s} FAILED after {secs}s: "
+                    f"{type(ve).__name__}: {str(ve)[:200]}")
         cur.close(); c.close()
-        for view_name, rows_after, secs in results:
-            log(f"   {view_name:30s} {rows_after:>7,} rows  {secs}s")
         dt = time.time() - t0
         log(f"   OK  duration={dt:.0f}s")
         return {"label": label, "status": "OK", "exit_code": 0,
