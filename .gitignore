@@ -19,6 +19,12 @@ backend/.*progress*.json
 # DB snapshots (rollback dumps, large)
 backend/db_snapshots/
 
+# Service-account keys and other credential files — NEVER commit
+backend/secrets/
+*.serviceaccount.json
+*-sa.json
+saadaa-wh-*.json
+
 # Local SQLite state
 backend/*.sqlite
 backend/*.sqlite-journal
@@ -46,3 +52,9 @@ backend/_*
 
 # Parallel-pipeline per-worker logs (regenerated each run)
 backend/_parallel_logs/
+
+# React frontend — node_modules + build output
+frontend/node_modules/
+frontend/dist/
+dist/
+frontend/.vite/
