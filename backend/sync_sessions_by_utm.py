@@ -44,10 +44,17 @@ def http_get(path, extra=None, timeout=30):
 
 def fetch_raw_sessions(since_iso, until_iso):
     """Page through source project's sessions table for the given date range.
-    Only pulls the columns we aggregate on client-side."""
+    Only pulls the columns we aggregate on client-side.
+
+    IMPORTANT: PostgREST's anon role has a default row cap of 1000 per
+    request. Previously PAGE=5000 with a `Range: 0-4999` request → PG
+    silently returned 1000 rows → `len(chunk) < PAGE` was true → loop
+    broke on page 0, leaving 200k+ rows unfetched. That's why the target
+    table stopped updating on 2026-08-10. Fix: page in 1000-row chunks
+    (matching the cap) and only break when the response is truly empty."""
     rows = []
     page = 0
-    PAGE = 5000
+    PAGE = 1000
     cols = 'session_date,utm_source,sessions,online_store_visitors'
     while True:
         lo, hi = page * PAGE, (page + 1) * PAGE - 1
@@ -64,6 +71,11 @@ def fetch_raw_sessions(since_iso, until_iso):
         print(f'  [page {page}] +{len(chunk):,} rows  running total {len(rows):,}', flush=True)
         if len(chunk) < PAGE: break
         page += 1
+        # Safety belt — 100k pages × 1k = 100M rows, more than any sane
+        # window should ever produce. Guards against silent infinite loop.
+        if page > 100_000:
+            print(f'  [!] safety break at page {page}', flush=True)
+            break
     return rows
 
 

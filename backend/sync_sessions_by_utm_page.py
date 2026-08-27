@@ -46,10 +46,15 @@ def http_get(path, extra=None, timeout=45):
 
 def fetch_day(day_iso):
     """Pull raw rows for a single day (session_date=eq.day). One day at
-    a time keeps memory bounded — full 90d has ~1M raw rows, per-day = ~10k."""
+    a time keeps memory bounded — full 90d has ~1M raw rows, per-day = ~10k.
+
+    IMPORTANT: PostgREST's anon role has a default row cap of 1000 per
+    request. PAGE=5000 with `Range: 0-4999` → PG silently returns 1000
+    rows → `len(chunk) < PAGE` breaks the loop on page 0, leaving ~90%
+    of the day unfetched. Fix: page in 1000-row chunks matching the cap."""
     rows = []
     page = 0
-    PAGE = 5000
+    PAGE = 1000
     cols = ('session_date,landing_page_path,utm_source,sessions,'
             'online_store_visitors,sessions_with_cart_additions,'
             'sessions_that_reached_checkout,bounces')
@@ -66,6 +71,8 @@ def fetch_day(day_iso):
         rows.extend(chunk)
         if len(chunk) < PAGE: break
         page += 1
+        if page > 1000:   # safety belt — no sane day has >1M rows
+            break
     return rows
 
 
