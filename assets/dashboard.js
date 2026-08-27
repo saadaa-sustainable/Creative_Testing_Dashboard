@@ -4664,6 +4664,13 @@ async function aiFetchOrders(fromIso, toIso, perfBudgetMs){
   // already use limit=20000). At the previous BATCH=1000, a 40k-row L30
   // fetch cost 41 HTTP round-trips; at 10k it's ~4 round-trips.
   const BATCH = 10000;
+  // Hard row cap — the fetcher used to run unbounded and could load 100k+
+  // rows on a busy 30d window, freezing the browser + the UTM Analytics
+  // recomputation downstream. 50k covers all sane use cases (even a huge
+  // day is <5k orders, so 50k = ~10 days of the busiest week). If we hit
+  // the cap we stop paging + surface a warning; the user can narrow the
+  // date filter to see the missing tail.
+  const MAX_ROWS = 50000;
   // Keyset pagination — never use OFFSET because at offset=40000 PostgreSQL
   // still has to walk the earlier 40k rows on the date-desc index. That
   // O(pageIdx²) blowup was the entire reason a 41k-row L30 fetch was still
@@ -4671,6 +4678,7 @@ async function aiFetchOrders(fromIso, toIso, perfBudgetMs){
   let out = [], pages = 0;
   let cur = null;   // {date, id} — strictly-below boundary for next page
   const t0 = performance.now();
+  let capped = false;
   while (true){
     let url = SUPABASE_URL+'/rest/v1/'+table+'?select='+cols+
               '&order=order_created_at.desc,order_id.desc&limit='+BATCH;
@@ -4692,6 +4700,14 @@ async function aiFetchOrders(fromIso, toIso, perfBudgetMs){
     document.getElementById('aiStatus').textContent =
       'Loaded ' + fmtInt(out.length) + ' rows · ' + ((performance.now()-t0)/1000).toFixed(1) + 's';
     if (chunk.length < BATCH) break;
+    // Row cap — stop paging once we've fetched 50k. Trim to exactly MAX_ROWS
+    // so downstream aggregations (aiRenderCharts, UTM analytics) don't blow
+    // up on stray extras from the last chunk.
+    if (out.length >= MAX_ROWS){
+      out = out.slice(0, MAX_ROWS);
+      capped = true;
+      break;
+    }
     const last = chunk[chunk.length - 1];
     cur = { date: last.order_created_at, id: last.order_id };
     if (perfBudgetMs && (performance.now() - t0) > perfBudgetMs) {
@@ -4699,6 +4715,12 @@ async function aiFetchOrders(fromIso, toIso, perfBudgetMs){
         'Aborted at ' + fmtInt(out.length) + ' rows — slow fetch';
       return null;
     }
+  }
+  if (capped){
+    const secs = ((performance.now()-t0)/1000).toFixed(1);
+    document.getElementById('aiStatus').textContent =
+      'Loaded ' + fmtInt(MAX_ROWS) + ' rows (row cap) · ' + secs + 's · ' +
+      'narrow the date range to see the missing tail';
   }
   return out;
 }
