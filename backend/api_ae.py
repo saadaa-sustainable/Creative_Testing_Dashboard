@@ -33,9 +33,12 @@ from typing import Any
 import psycopg2
 from psycopg2 import pool as _pool
 from psycopg2.extras import RealDictCursor
+import pathlib as _pl
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 try: sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
@@ -71,6 +74,57 @@ app.add_middleware(
 # window_reach / delivery responses by 5-10x. Zero code changes needed on
 # the frontend — the browser handles decompression transparently.
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# ── Static file serving + section routing ────────────────────────────
+# Serves the dashboard directly from FastAPI so users open a clean URL
+# like  http://localhost:8000/ads-analyse  (no ?supabaseUrl=&supabaseAnon=)
+# and the frontend auto-detects same-origin — no anon key ever leaves the
+# server. Each SECTION_SLUG maps to a data-view name that the frontend
+# activates on page load.
+_ROOT_HTML = _pl.Path(__file__).parent.parent / "index_v2.html"
+_ASSETS_DIR = _pl.Path(__file__).parent.parent / "assets"
+if _ASSETS_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(_ASSETS_DIR)), name="assets")
+
+# User-friendly URL slugs → internal data-view names. Frontend reads
+# window.location.pathname on load, resolves via the same map, and
+# activates the right section without a page reload.
+SECTION_SLUG_TO_VIEW = {
+    "":                       "home",
+    "ads-analyse":            "ae",
+    "ad-intelligence":        "adintel",
+    "incremental-analysis":   "ireach",
+    "historic-reach":         "hreach",
+    "creative-testing":       "testing",
+    "creative-lifecycle":     "lifecycle",
+    "landing-page":           "landing",
+    "untested-assets":        "untested",
+    "historic-untested":      "histuntested",
+    "cpi-inspector":          "cpis",
+    "inventory":              "inventory",
+}
+
+
+@app.get("/", response_class=FileResponse)
+def serve_root():
+    if not _ROOT_HTML.exists():
+        raise HTTPException(500, "index_v2.html not found at repo root")
+    return _ROOT_HTML
+
+
+@app.get("/favicon.ico")
+def favicon():
+    # Silence noisy 404s in the log without adding an actual favicon file.
+    return Response(status_code=204)
+
+
+@app.get("/{section}", response_class=FileResponse)
+def serve_section(section: str):
+    # Only serve the SPA for known section slugs — anything else is a
+    # genuine 404 (guards against colliding with future /api or /rest paths).
+    if section not in SECTION_SLUG_TO_VIEW:
+        raise HTTPException(404, f"unknown section: {section}")
+    return _ROOT_HTML
 
 # ── JSON coercion ────────────────────────────────────────────────────
 def _jsonify(v):

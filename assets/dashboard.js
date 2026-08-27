@@ -6,9 +6,67 @@ const params      = new URLSearchParams(window.location.search);
 // full PostgREST surface at /rest/v1/*, so every existing SUPABASE_URL call
 // (26 tables + RPCs the dashboard makes) routes through it. Direct psycopg2
 // hits bypass anon PostgREST's statement-timeout and rate-limit issues.
-//   Launch: python backend/api_ae.py       (listens on http://127.0.0.1:8766)
-//   Dashboard URL:  index_v2.html?apiBase=http://127.0.0.1:8766
-const API_BASE = (params.get('apiBase') || '').replace(/\/$/, '');
+//   Launch: python backend/api_ae.py       (listens on http://localhost:8000)
+//
+// AUTO-DETECTION — you no longer need to pass ?apiBase= or the Supabase
+// URL/key in the URL. If this page is loaded FROM the FastAPI backend
+// (http(s):// same-origin), API_BASE defaults to window.location.origin —
+// all fetches go same-origin, no CORS preflight, no anon key in the URL,
+// and clean section URLs like /ads-analyse work out of the box.
+//
+// Legacy override paths still work:
+//   file://index_v2.html?apiBase=http://localhost:8000    (dev)
+//   index_v2.html?supabaseUrl=X&supabaseAnon=Y            (direct PostgREST)
+const _AUTO_API_BASE = (
+  window.location.protocol === 'http:' || window.location.protocol === 'https:'
+) ? window.location.origin : '';
+const API_BASE = (params.get('apiBase') || _AUTO_API_BASE || '').replace(/\/$/, '');
+
+// ── URL routing — clean section URLs like /ads-analyse ────────────
+// Maps user-friendly slug ↔ internal data-view names. Kept in sync with
+// backend/api_ae.py's SECTION_SLUG_TO_VIEW dict — do NOT rename either
+// side without updating the other.
+const SECTION_SLUG_TO_VIEW = {
+  '':                     'home',
+  'ads-analyse':          'ae',
+  'ad-intelligence':      'adintel',
+  'incremental-analysis': 'ireach',
+  'historic-reach':       'hreach',
+  'creative-testing':     'testing',
+  'creative-lifecycle':   'lifecycle',
+  'landing-page':         'landing',
+  'untested-assets':      'untested',
+  'historic-untested':    'histuntested',
+  'cpi-inspector':        'cpis',
+  'inventory':            'inventory',
+};
+const _VIEW_TO_SLUG = Object.fromEntries(
+  Object.entries(SECTION_SLUG_TO_VIEW).map(([k, v]) => [v, k])
+);
+
+/* When the user clicks a sidebar item, push the matching slug into the
+   URL bar. Uses replaceState (not pushState) so the browser back button
+   still leaves the dashboard cleanly instead of walking through every
+   internal view switch. If we're loaded via file://, this is a no-op. */
+function _syncUrlToView(view){
+  if (window.location.protocol === 'file:') return;
+  const slug = _VIEW_TO_SLUG[view];
+  if (slug == null) return;
+  const targetPath = '/' + slug;
+  if (window.location.pathname === targetPath) return;
+  try {
+    window.history.replaceState({view: view}, '', targetPath + window.location.search);
+  } catch (_) { /* history API blocked in some sandboxed contexts */ }
+}
+
+/* Read the current URL pathname and return the matching data-view. Called
+   once during boot before any view is activated so the user lands on the
+   section their URL specifies (bookmark support). */
+function _viewFromUrlPath(){
+  if (window.location.protocol === 'file:') return null;
+  const slug = window.location.pathname.replace(/^\/+|\/+$/g, '');
+  return SECTION_SLUG_TO_VIEW[slug] || null;
+}
 // If apiBase is set, use it AS the SUPABASE_URL so all existing fetch()
 // calls in this file route through the gateway with zero per-endpoint edits.
 // SUPABASE_ANON is still needed as a header even when hitting the gateway
@@ -2291,6 +2349,10 @@ document.querySelectorAll('.sb-item').forEach(it => {
     document.querySelectorAll('.view').forEach(vv => vv.style.display = 'none');
     const target = document.getElementById('view-' + v);
     if (target) { target.style.display = 'block'; }
+    // Sync URL to the current section — bookmarks + browser back button work,
+    // but no page reload (SPA nav). Silent no-op when loaded via file:// (URL
+    // sync only makes sense when served by FastAPI).
+    try { _syncUrlToView(v); } catch (_) {}
     // Reset scroll to the top of the newly-opened view so long previous
     // pages don't leave the user landing halfway down (esp. Landing Page
     // Analysis, whose table is far below the KPI cards).
@@ -2415,6 +2477,38 @@ document.querySelectorAll('.home-card').forEach(card => {
     }
     if (picked) picked.click();
   });
+});
+
+/* Boot-time URL routing — if the page loaded at a section slug like
+   /ads-analyse, click that section's sidebar item so the user lands on
+   the right view. Runs AFTER all sb-item click handlers are wired.
+   No-op on file:// or when the URL is /  (leaves the default 'home' view). */
+(function _bootFromUrl(){
+  const targetView = _viewFromUrlPath();
+  if (!targetView || targetView === 'home') return;
+  const items = document.querySelectorAll('.sb-item');
+  // Prefer the "canonical" item for this view — no active-preset, not historic —
+  // so /ads-analyse doesn't accidentally land on the "Active Ads" pill toggle.
+  let canonical = null, fallback = null;
+  for (const it of items){
+    if (it.dataset.view !== targetView) continue;
+    if (!fallback) fallback = it;
+    const hasPreset = !!it.dataset.activePreset;
+    const isHist   = it.dataset.historic === '1';
+    if (!hasPreset && !isHist){ canonical = it; break; }
+  }
+  const picked = canonical || fallback;
+  if (picked) picked.click();
+})();
+
+/* Browser back/forward — sync the visible view to the URL when the user
+   navigates via browser buttons. Same lookup as _bootFromUrl. */
+window.addEventListener('popstate', () => {
+  const targetView = _viewFromUrlPath();
+  if (!targetView) return;
+  const item = Array.from(document.querySelectorAll('.sb-item'))
+    .find(it => it.dataset.view === targetView && !it.dataset.activePreset);
+  if (item) item.click();
 });
 
 /* Hamburger toggle — mobile / tablet only (see @media 900px in CSS).
