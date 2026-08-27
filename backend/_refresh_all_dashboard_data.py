@@ -270,6 +270,19 @@ def main() -> None:
         # Meta Direct sheet mirrors — must run AFTER primary_sync +
         # rebuild_attribution_orders so both feeder tables are fresh.
         all_results.append(refresh_meta_direct_views_rpc())
+        # Flush FastAPI's response cache so anyone hitting the dashboard
+        # after the refresh sees Aug XX data immediately (not the stale
+        # cached Aug XX-1 payload). Silent if the API server isn't running.
+        try:
+            import requests as _rq
+            api_base = os.environ.get("API_BASE", "http://127.0.0.1:8000")
+            r = _rq.post(f"{api_base}/api/cache/invalidate", timeout=5)
+            if r.status_code == 200:
+                log(f"-- cache invalidated: {r.json()}")
+            else:
+                log(f"-- cache invalidate HTTP {r.status_code} — ignoring")
+        except Exception as _e:  # noqa: BLE001
+            log(f"-- cache invalidate skipped ({type(_e).__name__}: {str(_e)[:80]})")
 
     total = time.time() - overall_t0
     ok_n   = sum(1 for r in all_results if r["status"] == "OK")

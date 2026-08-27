@@ -134,6 +134,95 @@ def _jsonify(v):
     if isinstance(v, (date, datetime)): return v.isoformat()
     return v
 
+
+# ── In-process TTL cache (Phase A — server-side response cache) ──────
+# The nightly orchestrator refreshes data once a day; there's no point
+# recomputing the same query for every concurrent user or every browser
+# reload. Simple dict + TTL — single-worker uvicorn only (multi-worker
+# needs Redis). Cache-Control header on the response also lets the
+# browser skip the network entirely on repeat requests within max-age.
+_CACHE_TTL_SEC = 900          # 15 min — matches how often data actually changes
+_BROWSER_MAX_AGE = 300        # 5 min  — tighter than server so users see refresh sooner
+_cache: dict[str, tuple[float, object]] = {}
+_cache_stats = {"hits": 0, "misses": 0, "evictions": 0}
+_cache_lock = threading.Lock()
+
+
+def _cache_get(key: str):
+    """Return cached value or None. Evicts on expiry."""
+    now = time.time()
+    with _cache_lock:
+        entry = _cache.get(key)
+        if entry is None:
+            _cache_stats["misses"] += 1
+            return None
+        cached_at, val = entry
+        if now - cached_at > _CACHE_TTL_SEC:
+            del _cache[key]
+            _cache_stats["evictions"] += 1
+            _cache_stats["misses"] += 1
+            return None
+        _cache_stats["hits"] += 1
+        return val
+
+
+def _cache_set(key: str, val):
+    with _cache_lock:
+        _cache[key] = (time.time(), val)
+
+
+def _cached_response(response: Response, key: str, fn):
+    """Serve `fn()` output from cache when possible + set browser cache header.
+    `response` is FastAPI's injected Response so we can add headers."""
+    val = _cache_get(key)
+    if val is None:
+        val = fn()
+        _cache_set(key, val)
+        response.headers["X-Cache"] = "MISS"
+    else:
+        response.headers["X-Cache"] = "HIT"
+    response.headers["Cache-Control"] = (
+        f"public, max-age={_BROWSER_MAX_AGE}, stale-while-revalidate=60"
+    )
+    return val
+
+
+@app.get("/api/cache/stats")
+def cache_stats():
+    """Diagnostic — cache hit rate, size, entries. Also useful for
+    monitoring in dev. Doesn't leak query values (only keys)."""
+    with _cache_lock:
+        total = _cache_stats["hits"] + _cache_stats["misses"]
+        hit_rate = _cache_stats["hits"] / total if total else 0
+        return {
+            "entries":  len(_cache),
+            "hits":     _cache_stats["hits"],
+            "misses":   _cache_stats["misses"],
+            "evictions": _cache_stats["evictions"],
+            "hit_rate": round(hit_rate, 3),
+            "ttl_sec":  _CACHE_TTL_SEC,
+            "browser_max_age_sec": _BROWSER_MAX_AGE,
+            "keys":     sorted(_cache.keys())[:50],   # first 50 for peek
+        }
+
+
+@app.post("/api/cache/invalidate")
+def cache_invalidate(prefix: str | None = Query(None)):
+    """Clear the response cache. Call from the nightly orchestrator right
+    after refresh_meta_direct_views to force fresh reads on the next hit.
+      POST /api/cache/invalidate            → clears everything
+      POST /api/cache/invalidate?prefix=ads → clears keys starting with 'ads:'
+    """
+    with _cache_lock:
+        if prefix is None:
+            n = len(_cache)
+            _cache.clear()
+            return {"cleared": n, "prefix": None}
+        to_del = [k for k in _cache if k.startswith(prefix)]
+        for k in to_del:
+            del _cache[k]
+        return {"cleared": len(to_del), "prefix": prefix}
+
 # ── health ───────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
@@ -419,19 +508,23 @@ _AE_COLS = [
 ]
 
 @app.get("/api/ads")
-def ads(status: str | None = None, since: str = "2025-01-01"):
-    where = ["reporting_ends >= %s"]
-    params: list = [since]
-    if status:
-        where.append("UPPER(COALESCE(ad_status,'')) = %s")
-        params.append(status.upper())
-    sql = f"""SELECT {', '.join(_AE_COLS)}
-              FROM public.ae_table_view
-              WHERE {' AND '.join(where)}
-              ORDER BY amount_spent DESC NULLS LAST"""
-    with cursor() as cur:
-        cur.execute(sql, tuple(params))
-        return {"rows": _jsonify(cur.fetchall()), "count": cur.rowcount}
+def ads(response: Response,
+        status: str | None = None,
+        since: str = "2025-01-01"):
+    def _query():
+        where = ["reporting_ends >= %s"]
+        params: list = [since]
+        if status:
+            where.append("UPPER(COALESCE(ad_status,'')) = %s")
+            params.append(status.upper())
+        sql = f"""SELECT {', '.join(_AE_COLS)}
+                  FROM public.ae_table_view
+                  WHERE {' AND '.join(where)}
+                  ORDER BY amount_spent DESC NULLS LAST"""
+        with cursor() as cur:
+            cur.execute(sql, tuple(params))
+            return {"rows": _jsonify(cur.fetchall()), "count": cur.rowcount}
+    return _cached_response(response, f"ads:{status}:{since}", _query)
 
 def _valdate(s: str):
     try: date.fromisoformat(s)
@@ -439,100 +532,114 @@ def _valdate(s: str):
         raise HTTPException(400, f"bad date {s!r} — expected YYYY-MM-DD")
 
 @app.get("/api/delivery")
-def delivery(from_: str = Query(..., alias="from"), to: str = Query(...)):
+def delivery(response: Response,
+             from_: str = Query(..., alias="from"),
+             to: str = Query(...)):
     _valdate(from_); _valdate(to)
-    with cursor() as cur:
-        cur.execute("SELECT MIN(date) AS md FROM public.ae_daily_90d")
-        min_covered = cur.fetchone()["md"]
-        if min_covered and date.fromisoformat(from_) >= min_covered:
-            cur.execute("""SELECT DISTINCT ad_id::text AS ad_id
-                           FROM   public.ae_daily_90d
-                           WHERE  date BETWEEN %s AND %s AND impressions > 0""",
-                        (from_, to))
-        else:
-            cur.execute("""SELECT DISTINCT ad_id::text AS ad_id FROM (
-                             SELECT ad_id FROM public.primary_table
-                              WHERE date BETWEEN %s AND %s AND impressions > 0
-                             UNION
-                             SELECT ad_id FROM public.backfill_table
-                              WHERE date BETWEEN %s AND %s AND impressions > 0
-                           ) x WHERE ad_id IS NOT NULL AND ad_id <> ''""",
-                        (from_, to, from_, to))
-        ids = [r["ad_id"] for r in cur.fetchall()]
-        return {"from": from_, "to": to, "ad_ids": ids, "count": len(ids)}
+    def _query():
+        with cursor() as cur:
+            cur.execute("SELECT MIN(date) AS md FROM public.ae_daily_90d")
+            min_covered = cur.fetchone()["md"]
+            if min_covered and date.fromisoformat(from_) >= min_covered:
+                cur.execute("""SELECT DISTINCT ad_id::text AS ad_id
+                               FROM   public.ae_daily_90d
+                               WHERE  date BETWEEN %s AND %s AND impressions > 0""",
+                            (from_, to))
+            else:
+                cur.execute("""SELECT DISTINCT ad_id::text AS ad_id FROM (
+                                 SELECT ad_id FROM public.primary_table
+                                  WHERE date BETWEEN %s AND %s AND impressions > 0
+                                 UNION
+                                 SELECT ad_id FROM public.backfill_table
+                                  WHERE date BETWEEN %s AND %s AND impressions > 0
+                               ) x WHERE ad_id IS NOT NULL AND ad_id <> ''""",
+                            (from_, to, from_, to))
+            ids = [r["ad_id"] for r in cur.fetchall()]
+            return {"from": from_, "to": to, "ad_ids": ids, "count": len(ids)}
+    return _cached_response(response, f"delivery:{from_}:{to}", _query)
 
 @app.get("/api/window_metrics")
-def window_metrics(from_: str = Query(..., alias="from"), to: str = Query(...)):
+def window_metrics(response: Response,
+                   from_: str = Query(..., alias="from"),
+                   to: str = Query(...)):
     _valdate(from_); _valdate(to)
-    with cursor() as cur:
-        cur.execute("SELECT MIN(date) AS md FROM public.ae_daily_90d")
-        min_covered = cur.fetchone()["md"]
-        if min_covered and date.fromisoformat(from_) >= min_covered:
-            cur.execute("""SELECT
-                             ad_id::text                                    AS ad_id,
-                             COUNT(*) FILTER (WHERE impressions > 0)::int   AS days_active,
-                             COALESCE(SUM(impressions),      0)::bigint     AS impressions,
-                             COALESCE(SUM(reach),            0)::bigint     AS reach_sum,
-                             COALESCE(MAX(reach),            0)::bigint     AS reach_peak,
-                             COALESCE(SUM(amount_spent),     0)::float      AS spend,
-                             COALESCE(SUM(purchases),        0)::float      AS purchases,
-                             COALESCE(SUM(conversion_value), 0)::float      AS conv_value,
-                             COALESCE(SUM(link_clicks_raw),  0)::bigint     AS link_clicks,
-                             COALESCE(SUM(ftewv_count),      0)::float      AS ftewv,
-                             COALESCE(SUM(ncp_count),        0)::float      AS ncp
-                           FROM public.ae_daily_90d
-                           WHERE date BETWEEN %s AND %s
-                           GROUP BY ad_id
-                           HAVING SUM(impressions) > 0""", (from_, to))
-        else:
-            cur.execute("""WITH u AS (
-                 SELECT ad_id::text AS ad_id, date, impressions, reach,
-                        amount_spent_inr,
-                        purchases::numeric AS purchases,
-                        conversion_value::numeric AS conv_value,
-                        COALESCE(inline_link_clicks, outbound_clicks)::bigint AS link_clicks,
-                        ftewv_count::numeric AS ftewv_count,
-                        ncp_count::numeric   AS ncp_count, 1 AS pri
-                   FROM public.primary_table
-                  WHERE ad_id IS NOT NULL AND impressions IS NOT NULL AND impressions > 0
-                    AND date BETWEEN %s AND %s
-                 UNION ALL
-                 SELECT ad_id::text, date, impressions, reach, amount_spent_inr,
-                        NULL::numeric, conversion_value::numeric,
-                        outbound_clicks::bigint, ftewv_count::numeric,
-                        ncp_count::numeric, 2 AS pri
-                   FROM public.backfill_table
-                  WHERE ad_id IS NOT NULL AND impressions IS NOT NULL AND impressions > 0
-                    AND date BETWEEN %s AND %s
-               ), dedup AS (
-                 SELECT DISTINCT ON (ad_id, date) *
-                   FROM u ORDER BY ad_id, date, pri
-               )
-               SELECT ad_id, COUNT(*)::int AS days_active,
-                      SUM(impressions)::bigint AS impressions,
-                      SUM(reach)::bigint AS reach_sum,
-                      MAX(reach)::bigint AS reach_peak,
-                      SUM(amount_spent_inr)::float AS spend,
-                      SUM(purchases)::float AS purchases,
-                      SUM(conv_value)::float AS conv_value,
-                      SUM(link_clicks)::bigint AS link_clicks,
-                      SUM(ftewv_count)::float AS ftewv,
-                      SUM(ncp_count)::float AS ncp
-                 FROM dedup GROUP BY ad_id""", (from_, to, from_, to))
-        return {"from": from_, "to": to, "rows": cur.fetchall(), "count": cur.rowcount}
+    def _query():
+        with cursor() as cur:
+            cur.execute("SELECT MIN(date) AS md FROM public.ae_daily_90d")
+            min_covered = cur.fetchone()["md"]
+            if min_covered and date.fromisoformat(from_) >= min_covered:
+                cur.execute("""SELECT
+                                 ad_id::text                                    AS ad_id,
+                                 COUNT(*) FILTER (WHERE impressions > 0)::int   AS days_active,
+                                 COALESCE(SUM(impressions),      0)::bigint     AS impressions,
+                                 COALESCE(SUM(reach),            0)::bigint     AS reach_sum,
+                                 COALESCE(MAX(reach),            0)::bigint     AS reach_peak,
+                                 COALESCE(SUM(amount_spent),     0)::float      AS spend,
+                                 COALESCE(SUM(purchases),        0)::float      AS purchases,
+                                 COALESCE(SUM(conversion_value), 0)::float      AS conv_value,
+                                 COALESCE(SUM(link_clicks_raw),  0)::bigint     AS link_clicks,
+                                 COALESCE(SUM(ftewv_count),      0)::float      AS ftewv,
+                                 COALESCE(SUM(ncp_count),        0)::float      AS ncp
+                               FROM public.ae_daily_90d
+                               WHERE date BETWEEN %s AND %s
+                               GROUP BY ad_id
+                               HAVING SUM(impressions) > 0""", (from_, to))
+            else:
+                cur.execute("""WITH u AS (
+                     SELECT ad_id::text AS ad_id, date, impressions, reach,
+                            amount_spent_inr,
+                            purchases::numeric AS purchases,
+                            conversion_value::numeric AS conv_value,
+                            COALESCE(inline_link_clicks, outbound_clicks)::bigint AS link_clicks,
+                            ftewv_count::numeric AS ftewv_count,
+                            ncp_count::numeric   AS ncp_count, 1 AS pri
+                       FROM public.primary_table
+                      WHERE ad_id IS NOT NULL AND impressions IS NOT NULL AND impressions > 0
+                        AND date BETWEEN %s AND %s
+                     UNION ALL
+                     SELECT ad_id::text, date, impressions, reach, amount_spent_inr,
+                            NULL::numeric, conversion_value::numeric,
+                            outbound_clicks::bigint, ftewv_count::numeric,
+                            ncp_count::numeric, 2 AS pri
+                       FROM public.backfill_table
+                      WHERE ad_id IS NOT NULL AND impressions IS NOT NULL AND impressions > 0
+                        AND date BETWEEN %s AND %s
+                   ), dedup AS (
+                     SELECT DISTINCT ON (ad_id, date) *
+                       FROM u ORDER BY ad_id, date, pri
+                   )
+                   SELECT ad_id, COUNT(*)::int AS days_active,
+                          SUM(impressions)::bigint AS impressions,
+                          SUM(reach)::bigint AS reach_sum,
+                          MAX(reach)::bigint AS reach_peak,
+                          SUM(amount_spent_inr)::float AS spend,
+                          SUM(purchases)::float AS purchases,
+                          SUM(conv_value)::float AS conv_value,
+                          SUM(link_clicks)::bigint AS link_clicks,
+                          SUM(ftewv_count)::float AS ftewv,
+                          SUM(ncp_count)::float AS ncp
+                     FROM dedup GROUP BY ad_id""", (from_, to, from_, to))
+            return {"from": from_, "to": to, "rows": _jsonify(cur.fetchall()),
+                    "count": cur.rowcount}
+    return _cached_response(response, f"window_metrics:{from_}:{to}", _query)
 
 @app.get("/api/window_shopify")
-def window_shopify(from_: str = Query(..., alias="from"), to: str = Query(...)):
+def window_shopify(response: Response,
+                   from_: str = Query(..., alias="from"),
+                   to: str = Query(...)):
     _valdate(from_); _valdate(to)
-    with cursor() as cur:
-        cur.execute("""SELECT ad_id::text AS ad_id,
-                              COUNT(*)::int AS orders,
-                              COALESCE(SUM(total_price),0)::float AS sales
-                       FROM   public.shopify_ad_attribution
-                       WHERE  order_created_at::date BETWEEN %s AND %s
-                         AND  has_match = TRUE AND ad_id IS NOT NULL
-                       GROUP  BY ad_id""", (from_, to))
-        return {"from": from_, "to": to, "rows": cur.fetchall(), "count": cur.rowcount}
+    def _query():
+        with cursor() as cur:
+            cur.execute("""SELECT ad_id::text AS ad_id,
+                                  COUNT(*)::int AS orders,
+                                  COALESCE(SUM(total_price),0)::float AS sales
+                           FROM   public.shopify_ad_attribution
+                           WHERE  order_created_at::date BETWEEN %s AND %s
+                             AND  has_match = TRUE AND ad_id IS NOT NULL
+                           GROUP  BY ad_id""", (from_, to))
+            return {"from": from_, "to": to, "rows": _jsonify(cur.fetchall()),
+                    "count": cur.rowcount}
+    return _cached_response(response, f"window_shopify:{from_}:{to}", _query)
 
 # ─── Pipeline control panel ─────────────────────────────────────────
 # Small UI to start _refresh_all_dashboard_data.py, watch its progress
