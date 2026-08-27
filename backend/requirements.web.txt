@@ -1,0 +1,20 @@
+# Web-server subset — installed on Render/Fly/etc. hosting the FastAPI
+# backend. Does NOT include the Meta pipeline deps (google-ads, openpyxl,
+# etc.) because the orchestrator runs on-prem, not on the web host.
+#
+# Install locally to reproduce the deployed environment:
+#   pip install -r backend/requirements.web.txt
+
+# FastAPI + ASGI server
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+
+# Direct DB access to Supabase Postgres
+psycopg2-binary==2.9.9
+
+# Env-var loading (.env in local dev, real env vars in production)
+python-dotenv==1.0.0
+
+# HTTP client used by orchestrator to POST /api/cache/invalidate
+# and by a few endpoints internally
+requests==2.31.0
