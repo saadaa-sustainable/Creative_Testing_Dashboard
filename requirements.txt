@@ -11,4 +11,4 @@ psycopg2-binary==2.9.9
 python-dotenv==1.0.0
 
 # Job scheduler — hourly + daily cron in scheduler.py
-schedule==1.2.
+schedule==1.2.2
