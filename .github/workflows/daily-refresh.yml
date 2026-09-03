@@ -1,0 +1,145 @@
+# CTD (Creative Testing Dashboard) daily refresh via GitHub Actions.
+#
+# Runs scripts/wrap_refresh_all.py which invokes the existing
+# backend/_refresh_all_dashboard_data.py orchestrator and logs the
+# per-step result to public.cron_run_log in Supabase.
+#
+# ---------------------------------------------------------------------
+# Schedule (both dashboards use Meta -- 4h gap between projects):
+#   CTD refresh   19:30 UTC = 01:00 IST  (~90-150 min)   <-- this file
+#   BP  refresh   23:30 UTC = 05:00 IST  (~35-60 min)
+#
+# Manual trigger: Actions tab -> "CTD daily refresh" -> Run.
+# The schedule block below is COMMENTED OUT for the first push -- enable
+# it after you've run the workflow manually once and confirmed a row
+# lands in cron_run_log.
+# ---------------------------------------------------------------------
+
+name: CTD daily refresh
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_meta:
+        description: "Skip PHASE 1 (Meta fetchers)?"
+        required: false
+        default: "false"
+
+  # Uncomment after first manual dispatch works.
+  # schedule:
+  #   - cron: "30 19 * * *"  # 19:30 UTC = 01:00 IST
+
+concurrency:
+  group: ctd-daily-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    # Orchestrator caps out around 150 min; 240 min gives room for Meta
+    # throttle days without letting a runaway job burn the free quota.
+    timeout-minutes: 240
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Restore BigQuery service account
+        env:
+          GOOGLE_CREDS_JSON: ${{ secrets.GOOGLE_CREDS_JSON }}
+        run: |
+          if [ -n "$GOOGLE_CREDS_JSON" ]; then
+            echo "$GOOGLE_CREDS_JSON" > "$RUNNER_TEMP/gcp.json"
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/gcp.json" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run daily refresh
+        env:
+          # --- Supabase Postgres (required) ---
+          # CTD scripts read SUPABASE_DB_URL primarily; cron_log.py
+          # accepts either that or DATABASE_URL_SYNC.
+          SUPABASE_DB_URL:              ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_URL:                 ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY:            ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY:    ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+          # --- Meta ads + Instagram ---
+          META_ACCESS_TOKEN:            ${{ secrets.META_ACCESS_TOKEN }}
+          META_API_VERSION:             ${{ secrets.META_API_VERSION }}
+          IG_ACCESS_TOKEN:              ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_BUSINESS_ID:               ${{ secrets.IG_BUSINESS_ID }}
+          ACCOUNT_1_ID:                 ${{ secrets.ACCOUNT_1_ID }}
+          ACCOUNT_1_NAME:               ${{ secrets.ACCOUNT_1_NAME }}
+          ACCOUNT_2_ID:                 ${{ secrets.ACCOUNT_2_ID }}
+          ACCOUNT_2_NAME:               ${{ secrets.ACCOUNT_2_NAME }}
+          ACCOUNT_3_ID:                 ${{ secrets.ACCOUNT_3_ID }}
+          ACCOUNT_3_NAME:               ${{ secrets.ACCOUNT_3_NAME }}
+          SYNC_ACCOUNT_ID:              ${{ secrets.SYNC_ACCOUNT_ID }}
+          CUSTOM_METRIC_FTEWV:          ${{ secrets.CUSTOM_METRIC_FTEWV }}
+          CUSTOM_METRIC_NCP:            ${{ secrets.CUSTOM_METRIC_NCP }}
+
+          # --- Google Ads ---
+          GOOGLE_ADS_DEVELOPER_TOKEN:   ${{ secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
+          GOOGLE_ADS_LOGIN_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_LOGIN_CUSTOMER_ID }}
+          # google-ads.yaml is written to disk at runtime from a secret
+          # holding the whole YAML file (client_id / client_secret /
+          # refresh_token live inside it).
+          # This mirrors how the local .env sets it via GOOGLE_ADS_YAML.
+
+          # --- Shopify ---
+          SHOP_DOMAIN:                  ${{ secrets.SHOP_DOMAIN }}
+          SHOPIFY_ADMIN_ACCESS_TOKEN:   ${{ secrets.SHOPIFY_ADMIN_ACCESS_TOKEN }}
+          SHOPIFY_ACCESS_TOKEN:         ${{ secrets.SHOPIFY_ACCESS_TOKEN }}
+          ADMIN_ACCESS_TOKEN:           ${{ secrets.ADMIN_ACCESS_TOKEN }}
+          SHOPIFY_API_VERSION:          ${{ secrets.SHOPIFY_API_VERSION }}
+          SHOPIFY_DATA_URL:             ${{ secrets.SHOPIFY_DATA_URL }}
+          SHOPIFY_DATA_DB_URL:          ${{ secrets.SHOPIFY_DATA_DB_URL }}
+          SHOPIFY_DATA_ANON:            ${{ secrets.SHOPIFY_DATA_ANON }}
+
+          # --- Content Workflow + Creator Hub (2 companion Supabase projects) ---
+          CONTENT_WORKFLOW_URL:         ${{ secrets.CONTENT_WORKFLOW_URL }}
+          CONTENT_ANON_KEY:             ${{ secrets.CONTENT_ANON_KEY }}
+          CONTENT_SERVICE_KEY:          ${{ secrets.CONTENT_SERVICE_KEY }}
+          CREATOR_HUB_URL:              ${{ secrets.CREATOR_HUB_URL }}
+          CREATOR_HUB_ACCESS:           ${{ secrets.CREATOR_HUB_ACCESS }}
+          CREATOR_HUB_SERVICE_KEY:      ${{ secrets.CREATOR_HUB_SERVICE_KEY }}
+
+          # --- API base for cache invalidation (safe to leave empty; wrapper
+          # swallows a connection error) ---
+          API_BASE:                     ${{ secrets.API_BASE }}
+
+        run: |
+          # google-ads.yaml is loaded from a secret because the file
+          # holds refresh tokens; write it to disk so google-ads-python
+          # can find it via ~/google-ads.yaml discovery.
+          if [ -n "${{ secrets.GOOGLE_ADS_YAML }}" ]; then
+            printf '%s' "${{ secrets.GOOGLE_ADS_YAML }}" > "$HOME/google-ads.yaml"
+          fi
+
+          FLAGS=""
+          if [ "${{ github.event.inputs.skip_meta }}" = "true" ]; then
+            FLAGS="$FLAGS --skip-meta"
+          fi
+          python scripts/wrap_refresh_all.py $FLAGS
+
+      - name: Upload full log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: refresh-log-${{ github.run_id }}
+          path: |
+            backend/logs/**/*.log
+            backend/logs/**/*.json
+          if-no-files-found: ignore
+          retention-days: 14
