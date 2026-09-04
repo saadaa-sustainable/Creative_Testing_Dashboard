@@ -33,6 +33,7 @@ USAGE
   python _refresh_all_dashboard_data.py --phase meta      # only phase 1
   python _refresh_all_dashboard_data.py --phase ingest    # only phase 2
   python _refresh_all_dashboard_data.py --phase compute   # only phase 3+4
+  python _refresh_all_dashboard_data.py --phase lp        # only phase 4 (LP RPCs)
   python _refresh_all_dashboard_data.py --skip-meta       # phases 2+3+4 (when
                                                              the token is busy)
 
@@ -245,9 +246,11 @@ def run_phase(name: str, steps: list) -> list[dict]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--phase", choices=["meta", "ingest", "compute", "all"],
+    ap.add_argument("--phase",
+                    choices=["meta", "ingest", "compute", "lp", "all"],
                     default="all",
-                    help="Run only this phase (default: all)")
+                    help="Run only this phase (default: all). 'lp' = PHASE 4 "
+                         "only (landing-page RPCs, no fetchers, no compute).")
     ap.add_argument("--skip-meta", action="store_true",
                     help="Skip PHASE 1 (Meta fetchers) — useful when the Meta "
                          "token is being used elsewhere.")
@@ -263,6 +266,13 @@ def main() -> None:
 
     if args.phase in ("ingest", "all"):
         all_results.extend(run_phase("Other INGEST", PHASE_INGEST))
+
+    # PHASE 4 on its own — the two landing-page RPCs aggregate over data
+    # that is already in Postgres, so they can be re-run standalone
+    # without touching Meta/Shopify/Google fetchers. Only SUPABASE_DB_URL
+    # is needed.
+    if args.phase == "lp":
+        all_results.append(refresh_lp_rpcs())
 
     if args.phase in ("compute", "all"):
         all_results.extend(run_phase("COMPUTATION", PHASE_COMPUTE))
@@ -308,6 +318,12 @@ def main() -> None:
     }
     STATUS_JSON.write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
     log(f"   status JSON → {STATUS_JSON.name}")
+
+    # Standalone phase-4 runs are fired by hand from GitHub Actions, where a
+    # green check on a failed RPC would be misleading. Full/other-phase runs
+    # keep exiting 0 — wrap_refresh_all.py reads the status JSON for those.
+    if args.phase == "lp" and fail_n:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

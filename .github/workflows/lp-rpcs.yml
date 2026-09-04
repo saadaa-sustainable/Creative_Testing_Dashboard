@@ -1,0 +1,62 @@
+# CTD — PHASE 4 only: landing-page RPCs.
+#
+# Runs just the two Postgres functions that PHASE 4 of
+# backend/_refresh_all_dashboard_data.py calls:
+#   public.refresh_landing_page_analysis_30d(30)
+#   public.refresh_landing_page_ad_breakdown_30d(30)
+#
+# No Meta / Shopify / Google fetchers, no compute steps — these RPCs
+# aggregate server-side over data already in Supabase, so the only
+# secret needed is SUPABASE_DB_URL.
+#
+# Trigger: Actions tab -> "CTD LP RPCs (phase 4)" -> Run workflow.
+# Runs on demand only; no schedule (the daily refresh already runs
+# phase 4 at the end of its own chain).
+
+name: CTD LP RPCs (phase 4)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ctd-lp-rpcs
+  cancel-in-progress: false
+
+jobs:
+  lp-rpcs:
+    runs-on: ubuntu-latest
+    # Both RPCs together run in minutes; 60 leaves headroom if the DB
+    # is busy behind a concurrent daily refresh.
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        # Only what refresh_lp_rpcs() imports — skipping the full
+        # requirements.txt keeps this job to well under a minute.
+        run: |
+          python -m pip install --upgrade pip
+          pip install psycopg2-binary==2.9.9 python-dotenv==1.0.0
+
+      - name: Run phase 4 (LP RPCs)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: python backend/_refresh_all_dashboard_data.py --phase lp
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lp-rpcs-log-${{ github.run_id }}
+          path: |
+            backend/logs/**/*.log
+            backend/logs/**/*.json
+          if-no-files-found: ignore
+          retention-days: 14
