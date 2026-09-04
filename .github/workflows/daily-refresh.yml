@@ -135,6 +135,22 @@ jobs:
           fi
           python scripts/wrap_refresh_all.py $FLAGS
 
+      # Self-heal: the aggregate layer (LP RPCs + the four meta_direct_*
+      # matviews) is the LAST thing the orchestrator does, so it is exactly
+      # what a killed run loses. On 2026-09-03 the 3h subprocess cap fired
+      # between meta_direct_active_90d and meta_direct_daily_30d, leaving the
+      # daily matviews a day stale even though primary_table was current.
+      #
+      # `if: always()` so this runs even when the step above times out or
+      # exits non-zero. It is DB-only (needs just SUPABASE_DB_URL), takes a
+      # few minutes, and is idempotent — re-running it after a successful
+      # refresh just rebuilds the same rows.
+      - name: Rebuild aggregate layer (LP RPCs + meta_direct views)
+        if: always()
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: python backend/_refresh_all_dashboard_data.py --phase rpcs
+
       - name: Upload full log
         if: always()
         uses: actions/upload-artifact@v4
