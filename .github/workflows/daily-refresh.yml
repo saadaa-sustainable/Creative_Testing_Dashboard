@@ -36,9 +36,12 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    # Orchestrator caps out around 150 min; 240 min gives room for Meta
-    # throttle days without letting a runaway job burn the free quota.
-    timeout-minutes: 240
+    # Orchestrator caps out around 150 min; 360 min (6h) covers the
+    # 5h wrap subprocess cap in scripts/wrap_refresh_all.py plus
+    # setup / upload overhead. Meta throttle days regularly stretch
+    # the run past 3h and the earlier 240 min limit killed one
+    # otherwise-successful run.
+    timeout-minutes: 360
 
     steps:
       - name: Checkout

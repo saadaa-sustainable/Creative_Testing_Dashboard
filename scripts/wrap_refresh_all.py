@@ -57,7 +57,11 @@ def main() -> int:
         # `steps` dict below so cron_run_log gets fine-grained per-script
         # status too.
         wrap_started = time.time()
-        with run.step("orchestrator", timeout=10800) as step:
+        # 5h subprocess cap (2026-09-04). CTD's orchestrator normally
+        # finishes in 90-150 min but can push past 3h on Meta throttle
+        # days -- the earlier 3h cap killed a run mid-flight even
+        # though downstream tables were still landing writes.
+        with run.step("orchestrator", timeout=18000) as step:
             rc = step.run(orchestrator_args, cwd=str(ROOT))
 
         # Replay per-script results from the orchestrator's own JSON. The
