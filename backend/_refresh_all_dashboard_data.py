@@ -34,6 +34,8 @@ USAGE
   python _refresh_all_dashboard_data.py --phase ingest    # only phase 2
   python _refresh_all_dashboard_data.py --phase compute   # only phase 3+4
   python _refresh_all_dashboard_data.py --phase lp        # only phase 4 (LP RPCs)
+  python _refresh_all_dashboard_data.py --phase mdviews   # only meta_direct_* matviews
+  python _refresh_all_dashboard_data.py --phase rpcs      # LP RPCs + meta_direct views
   python _refresh_all_dashboard_data.py --skip-meta       # phases 2+3+4 (when
                                                              the token is busy)
 
@@ -211,6 +213,7 @@ def refresh_meta_direct_views_rpc() -> dict:
         c.autocommit = True
         cur = c.cursor()
         results = []
+        failed: list[str] = []
         VIEWS = ["meta_direct_active_30d", "meta_direct_active_90d",
                  "meta_direct_daily_30d",  "meta_direct_daily_90d"]
         for v in VIEWS:
@@ -224,10 +227,20 @@ def refresh_meta_direct_views_rpc() -> dict:
                 log(f"   {v:30s} {n:>7,} rows  {secs}s")
             except Exception as ve:  # noqa: BLE001
                 secs = round(time.time() - vt0, 2)
+                failed.append(v)
                 log(f"   {v:30s} FAILED after {secs}s: "
                     f"{type(ve).__name__}: {str(ve)[:200]}")
         cur.close(); c.close()
         dt = time.time() - t0
+        if failed:
+            # Previously this returned OK even when a view blew up, which is
+            # how the 2026-09-03 run reported success while daily_30d/90d were
+            # left a day stale. Surface it instead.
+            log(f"   FAIL  {len(failed)}/{len(VIEWS)} views not refreshed  "
+                f"duration={dt:.0f}s")
+            return {"label": label, "status": "FAIL", "exit_code": 1,
+                    "duration_sec": round(dt, 1),
+                    "error": "views not refreshed: " + ", ".join(failed)}
         log(f"   OK  duration={dt:.0f}s")
         return {"label": label, "status": "OK", "exit_code": 0,
                 "duration_sec": round(dt, 1)}
@@ -247,10 +260,13 @@ def run_phase(name: str, steps: list) -> list[dict]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--phase",
-                    choices=["meta", "ingest", "compute", "lp", "all"],
+                    choices=["meta", "ingest", "compute", "lp", "mdviews",
+                             "rpcs", "all"],
                     default="all",
                     help="Run only this phase (default: all). 'lp' = PHASE 4 "
-                         "only (landing-page RPCs, no fetchers, no compute).")
+                         "only (landing-page RPCs); 'mdviews' = the four "
+                         "meta_direct_* matviews only; 'rpcs' = both. All "
+                         "three are DB-only and need just SUPABASE_DB_URL.")
     ap.add_argument("--skip-meta", action="store_true",
                     help="Skip PHASE 1 (Meta fetchers) — useful when the Meta "
                          "token is being used elsewhere.")
@@ -271,8 +287,15 @@ def main() -> None:
     # that is already in Postgres, so they can be re-run standalone
     # without touching Meta/Shopify/Google fetchers. Only SUPABASE_DB_URL
     # is needed.
-    if args.phase == "lp":
+    if args.phase in ("lp", "rpcs"):
         all_results.append(refresh_lp_rpcs())
+
+    # The meta_direct_* matviews likewise only read tables that are already in
+    # Postgres, so they can be rebuilt on their own after a run that died
+    # partway through them (2026-09-03: the 3h subprocess cap killed the
+    # orchestrator between active_90d and daily_30d).
+    if args.phase in ("mdviews", "rpcs"):
+        all_results.append(refresh_meta_direct_views_rpc())
 
     if args.phase in ("compute", "all"):
         all_results.extend(run_phase("COMPUTATION", PHASE_COMPUTE))
@@ -322,7 +345,7 @@ def main() -> None:
     # Standalone phase-4 runs are fired by hand from GitHub Actions, where a
     # green check on a failed RPC would be misleading. Full/other-phase runs
     # keep exiting 0 — wrap_refresh_all.py reads the status JSON for those.
-    if args.phase == "lp" and fail_n:
+    if args.phase in ("lp", "mdviews", "rpcs") and fail_n:
         sys.exit(1)
 
 

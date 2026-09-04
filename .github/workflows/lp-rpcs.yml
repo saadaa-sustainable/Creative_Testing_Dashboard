@@ -1,32 +1,43 @@
-# CTD — PHASE 4 only: landing-page RPCs.
+# CTD — DB-only refresh steps, runnable on their own.
 #
-# Runs just the two Postgres functions that PHASE 4 of
-# backend/_refresh_all_dashboard_data.py calls:
-#   public.refresh_landing_page_analysis_30d(30)
-#   public.refresh_landing_page_ad_breakdown_30d(30)
+#   lp       public.refresh_landing_page_analysis_30d(30)
+#            public.refresh_landing_page_ad_breakdown_30d(30)      (PHASE 4)
+#   mdviews  REFRESH of meta_direct_active_30d / _90d and
+#            meta_direct_daily_30d / _90d
+#   rpcs     both of the above
 #
-# No Meta / Shopify / Google fetchers, no compute steps — these RPCs
-# aggregate server-side over data already in Supabase, so the only
-# secret needed is SUPABASE_DB_URL.
+# All three read tables that are already in Supabase — no Meta / Shopify /
+# Google fetchers run — so the only secret needed is SUPABASE_DB_URL.
+# Use this to repair a night where the full refresh died partway through
+# (e.g. the 2026-09-03 run, killed by the subprocess cap after the
+# meta_direct *active* views but before the *daily* ones).
 #
-# Trigger: Actions tab -> "CTD LP RPCs (phase 4)" -> Run workflow.
-# Runs on demand only; no schedule (the daily refresh already runs
-# phase 4 at the end of its own chain).
+# Trigger: Actions tab -> "CTD DB-only refresh" -> Run workflow -> pick phase.
 
-name: CTD LP RPCs (phase 4)
+name: CTD DB-only refresh
 
 on:
   workflow_dispatch:
+    inputs:
+      phase:
+        description: "Which DB-only step to run"
+        required: true
+        default: "lp"
+        type: choice
+        options:
+          - lp
+          - mdviews
+          - rpcs
 
 concurrency:
-  group: ctd-lp-rpcs
+  group: ctd-db-only-refresh
   cancel-in-progress: false
 
 jobs:
-  lp-rpcs:
+  refresh:
     runs-on: ubuntu-latest
-    # Both RPCs together run in minutes; 60 leaves headroom if the DB
-    # is busy behind a concurrent daily refresh.
+    # The four matview REFRESHes take a few minutes; 60 leaves headroom if
+    # the DB is busy behind a concurrent daily refresh.
     timeout-minutes: 60
 
     steps:
@@ -39,22 +50,22 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        # Only what refresh_lp_rpcs() imports — skipping the full
+        # Only what the DB-only steps import — skipping the full
         # requirements.txt keeps this job to well under a minute.
         run: |
           python -m pip install --upgrade pip
           pip install psycopg2-binary==2.9.9 python-dotenv==1.0.0
 
-      - name: Run phase 4 (LP RPCs)
+      - name: Run phase ${{ inputs.phase }}
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: python backend/_refresh_all_dashboard_data.py --phase lp
+        run: python backend/_refresh_all_dashboard_data.py --phase "${{ inputs.phase }}"
 
       - name: Upload log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lp-rpcs-log-${{ github.run_id }}
+          name: db-only-refresh-log-${{ github.run_id }}
           path: |
             backend/logs/**/*.log
             backend/logs/**/*.json
