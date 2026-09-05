@@ -5,6 +5,10 @@
 -- These two checkpoints freeze the inputs at the moments people actually
 -- judge a test by:
 --
+-- Metrics come from backfill_table UNION primary_table deduped per
+-- (ad_id, date) with MAX — the same pairing ae_table_view reads, so these
+-- verdicts and the live Category column are computed off the same numbers.
+--
 --   d14_*  metrics accumulated over the ad's first 14 days
 --          (ad_created_date .. ad_created_date + 14, inclusive — same window
 --           as result_classifier.py's WINDOW_DAYS)
@@ -16,8 +20,11 @@
 -- column. Change a threshold and the history re-reads consistently.
 
 CREATE TABLE IF NOT EXISTS public.ad_result_snapshots (
-    account_name          TEXT        NOT NULL,
+    -- Keyed on ad_id alone, matching ae_table_view's grain (it groups by
+    -- ad_id and carries the latest account_name), so the dashboard can map
+    -- snapshots onto table rows by ad_id with no ambiguity.
     ad_id                 TEXT        NOT NULL,
+    account_name          TEXT,
     ad_name               TEXT,
     ad_created_date       DATE        NOT NULL,
 
@@ -50,11 +57,9 @@ CREATE TABLE IF NOT EXISTS public.ad_result_snapshots (
 
     last_computed_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    PRIMARY KEY (account_name, ad_id)
+    PRIMARY KEY (ad_id)
 );
 
-CREATE INDEX IF NOT EXISTS ad_result_snapshots_ad_id_ix
-    ON public.ad_result_snapshots (ad_id);
 CREATE INDEX IF NOT EXISTS ad_result_snapshots_created_ix
     ON public.ad_result_snapshots (ad_created_date);
 
