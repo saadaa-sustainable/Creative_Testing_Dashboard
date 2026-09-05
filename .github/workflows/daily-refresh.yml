@@ -27,6 +27,16 @@ on:
 
   schedule:
     - cron: "30 19 * * *"  # 19:30 UTC = 01:00 IST
+    # BACKUP, 20:30 UTC = 02:00 IST. GitHub does not guarantee scheduled
+    # runs -- it delays and drops them under load. Measured on this
+    # workflow: the 2026-09-04 schedule started at 21:40 UTC (2h10m
+    # late), and the 2026-09-05 one never fired at all. Backend_Project
+    # mirrors this database roughly six hours later, so a dropped run
+    # here silently costs BOTH dashboards a day.
+    #
+    # The guard step below makes this second cron free -- it exits in
+    # seconds when the primary already ran.
+    - cron: "30 20 * * *"  # 20:30 UTC = 02:00 IST (backup)
 
 concurrency:
   group: ctd-daily-refresh
@@ -42,22 +52,62 @@ jobs:
     # otherwise-successful run.
     timeout-minutes: 360
 
+    # actions:read is what the duplicate guard below needs to read this
+    # workflow's own run history. Nothing here writes to the repo.
+    permissions:
+      contents: read
+      actions: read
+
     steps:
+      - name: Skip if the primary schedule already ran
+        # Only the 20:30 UTC backup can be a duplicate; a manual dispatch
+        # is always deliberate and a 19:30 run is the primary.
+        #
+        # 6-hour window, because a run here takes 150+ min normally and
+        # past 3h on a Meta-throttle day. A window shorter than the run
+        # itself would let the backup queue behind a slow primary and
+        # then start a second full refresh against the same database the
+        # moment it finished.
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          CUTOFF="$(date -u -d '6 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
+          RECENT="$(gh run list \
+              --repo "${{ github.repository }}" \
+              --workflow daily-refresh.yml \
+              --limit 20 \
+              --json databaseId,createdAt \
+              --jq "[.[] | select(.databaseId != ${{ github.run_id }})
+                        | select(.createdAt > \"$CUTOFF\")] | length")"
+          echo "runs of this workflow since $CUTOFF (excluding this one): $RECENT"
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$RECENT" -gt 0 ]; then
+            echo "A refresh already ran in that window -- skipping this one."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.guard.outputs.skip != 'true'
         uses: actions/checkout@v4
 
       - name: Set up Python 3.12
+        if: steps.guard.outputs.skip != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
 
       - name: Install dependencies
+        if: steps.guard.outputs.skip != 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Restore BigQuery service account
+        if: steps.guard.outputs.skip != 'true'
         env:
           GOOGLE_CREDS_JSON: ${{ secrets.GOOGLE_CREDS_JSON }}
         run: |
@@ -67,6 +117,7 @@ jobs:
           fi
 
       - name: Run daily refresh
+        if: steps.guard.outputs.skip != 'true'
         env:
           # --- Supabase Postgres (required) ---
           # CTD scripts read SUPABASE_DB_URL primarily; cron_log.py
@@ -152,7 +203,7 @@ jobs:
         run: python backend/_refresh_all_dashboard_data.py --phase rpcs
 
       - name: Upload full log
-        if: always()
+        if: always() && steps.guard.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: refresh-log-${{ github.run_id }}
