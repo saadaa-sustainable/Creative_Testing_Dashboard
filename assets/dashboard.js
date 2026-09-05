@@ -261,6 +261,42 @@ async function fetchAds(){
   return out;
 }
 
+/* Per-ad historical verdict checkpoints from public.ad_result_snapshots.
+   Two frozen points per ad — its first 14 days, and the day its cumulative
+   impressions crossed 50,000 — stored as raw metrics so the two history
+   columns in Ads Analyse re-read through the SAME F1-F4 threshold inputs as
+   the live Category column. Built nightly by
+   backend/build_ad_result_snapshots.py. */
+let snapByAdId = {};
+async function fetchAdResultSnapshots(){
+  if (!SUPABASE_URL || !SUPABASE_ANON) return {};
+  const cols = ['ad_id','d14_complete','d14_end_date','d14_impressions','d14_spend',
+                'd14_roas','d14_cost_per_ncp','d14_cost_per_ftewv',
+                'k50_crossed_at','k50_days_to_cross','k50_impressions','k50_spend',
+                'k50_roas','k50_cost_per_ncp','k50_cost_per_ftewv'].join(',');
+  const headers = {'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
+                   'Prefer':'count=none'};
+  const out = {};
+  let offset = 0; const BATCH = 5000;
+  try {
+    while (true){
+      const url = SUPABASE_URL+'/rest/v1/ad_result_snapshots?select='+cols+
+                  '&limit='+BATCH+'&offset='+offset;
+      const r = await fetch(url, {headers});
+      if (!r.ok){ console.warn('[fetchAdResultSnapshots] HTTP', r.status); break; }
+      const j = await r.json();
+      for (const row of j) out[row.ad_id] = row;
+      if (j.length < BATCH) break;
+      offset += BATCH;
+      if (offset >= 40000) break;
+    }
+  } catch (e){
+    // Non-fatal: the two history columns render "—" and everything else works.
+    console.warn('[fetchAdResultSnapshots] network error', e);
+  }
+  return out;
+}
+
 /* Pull ad_thumbnails once and index by ad_id. Each entry stores BOTH the
    small thumbnail (for inline 44x44 table cells) AND the higher-res image
    (used in the drawer preview where upscaling a small thumb shows blur). */
@@ -2213,12 +2249,15 @@ document.getElementById('btnRefresh').onclick = async ()=>{
   // Creative Testing reads primary_table for the current date window
   // (default = last 30d). Ads Analyse reads ae_table_view (lifetime).
   let freshReach;
-  [primaryAds, allAds, thumbsByAdId, freshReach] = await Promise.all([
+  let freshSnaps;
+  [primaryAds, allAds, thumbsByAdId, freshReach, freshSnaps] = await Promise.all([
     fetchPrimaryAggregated(state.dateFrom || '', state.dateTo || ''),
     fetchAds(),
     fetchThumbnails(),
-    fetchReachRecent()
+    fetchReachRecent(),
+    fetchAdResultSnapshots()
   ]);
+  snapByAdId = freshSnaps || {};
   reachRecentByAdId = freshReach;
   for (const r of allAds){
     const rr = reachRecentByAdId[r.ad_id];
@@ -3652,6 +3691,10 @@ const AE_MF_FIELDS = [
   {key:'adset_id',      label:'Adset ID'},
   {key:'ad_id',         label:'Ad ID'},
   {key:'category',      label:'Category'},
+  // Frozen verdicts from ad_result_snapshots — filter for e.g. "was a Winner
+  // at 14 days but is Discarded now".
+  {key:'result_14d',    label:'Result @14d'},
+  {key:'result_50k',    label:'Result @50k'},
   {key:'ad_status',     label:'Status'},
   {key:'account_name',  label:'Account'},
   // ── Numeric metrics — pick metric + set threshold ───────────────
@@ -5895,6 +5938,70 @@ function aeCategorise(r, t){
   return {p1, p2, p3, p4, category: cat};
 }
 
+/* Historical verdicts — the same F1-F4 rules as aeCategorise, but reading a
+   frozen checkpoint from ad_result_snapshots instead of lifetime totals.
+
+   ad_created is deliberately passed as null: the "Result Awaited" grace
+   period exists because a young ad has not had time to deliver, and that is
+   a statement about TODAY. A closed 14-day window is a finished verdict, and
+   a 50k crossing already happened — neither gets the buffer. Whether the
+   14-day window has closed at all is handled by d14_complete below. */
+function aeCategoriseSnapshot(metrics, t){
+  return aeCategorise({
+    impressions:      metrics.impressions,
+    roas_ma:          metrics.roas,
+    cost_per_ncp:     metrics.cost_per_ncp,
+    cost_per_ftewv:   metrics.cost_per_ftewv,
+    ad_created:       null,
+  }, t).category;
+}
+
+/* Attach result_14d / result_50k (plus their hover text) to one row. Both are
+   plain strings on the row, so sorting, the multi-filter and CSV export pick
+   them up with no extra wiring. */
+function aeAttachHistory(r, t){
+  const sn = snapByAdId[r._repAdId || r.ad_id];
+  r.result_14d = ''; r.result_50k = '';
+  r._h14title  = ''; r._h50title  = '';
+  if (!sn) return;
+
+  // ── first 14 days ──
+  if (sn.d14_complete){
+    r.result_14d = aeCategoriseSnapshot({
+      impressions:    +sn.d14_impressions   || 0,
+      roas:           +sn.d14_roas          || 0,
+      cost_per_ncp:   +sn.d14_cost_per_ncp  || 0,
+      cost_per_ftewv: +sn.d14_cost_per_ftewv|| 0,
+    }, t);
+    r._h14title = 'Verdict on first 14 days (to ' + String(sn.d14_end_date||'').slice(0,10) + ')'
+                + ' — ' + fmtInt(sn.d14_impressions) + ' impressions, '
+                + fmtRs(sn.d14_spend) + ' spend, ROAS ' + (+sn.d14_roas || 0).toFixed(2);
+  } else {
+    // Window still open — no verdict yet, only an elapsed-days note.
+    r._h14title = 'Still inside the first 14 days (window closes '
+                + String(sn.d14_end_date||'').slice(0,10) + ')';
+  }
+
+  // ── 50,000 impressions ──
+  if (sn.k50_crossed_at){
+    r.result_50k = aeCategoriseSnapshot({
+      impressions:    +sn.k50_impressions   || 0,
+      roas:           +sn.k50_roas          || 0,
+      cost_per_ncp:   +sn.k50_cost_per_ncp  || 0,
+      cost_per_ftewv: +sn.k50_cost_per_ftewv|| 0,
+    }, t);
+    r.k50_crossed_at    = sn.k50_crossed_at;
+    r.k50_days_to_cross = sn.k50_days_to_cross;
+    r._h50title = 'Verdict when the ad passed 50,000 impressions on '
+                + String(sn.k50_crossed_at).slice(0,10)
+                + ' (day ' + sn.k50_days_to_cross + ') — '
+                + fmtInt(sn.k50_impressions) + ' impressions, '
+                + fmtRs(sn.k50_spend) + ' spend, ROAS ' + (+sn.k50_roas || 0).toFixed(2);
+  } else {
+    r._h50title = 'Never reached 50,000 impressions';
+  }
+}
+
 /* Mutate allAds in place — every row's .category is overwritten with the
    freshly-computed value. This makes Creative Testing's KPIs use the same
    thresholds as Ads Analyse. The original DB-baked category is preserved
@@ -5906,12 +6013,17 @@ function aeApplyCurrentThresholds(){
     const {p1,p2,p3,p4,category} = aeCategorise(r, t);
     r.f1_pass = p1; r.f2_pass = p2; r.f3_pass = p3; r.f4_pass = p4;
     r.category = category;
+    aeAttachHistory(r, t);
   }
 }
 
 function aeRecategorise(rows){
   const t = aeReadThresholds();
-  return rows.map(r => ({...r, ...aeCategorise(r, t)}));
+  return rows.map(r => {
+    const out = {...r, ...aeCategorise(r, t)};
+    aeAttachHistory(out, t);
+    return out;
+  });
 }
 
 function aeFiltered(){
@@ -7615,6 +7727,17 @@ function renderAE(){
                (host || '')+'<span class="lp-path">'+shortPath+'</span></a>'+
            '</td>';
   };
+  // Historical verdict badge. Empty label = no verdict to show (14-day window
+  // still open, or the ad never hit 50k) — the title says which.
+  const histCell = (label, title, subDate) => {
+    const esc = String(title || '').replace(/"/g, '&quot;');
+    if (!label) return '<td class="id-cell" title="'+esc+'">—</td>';
+    const c = CAT_CLASS[label] || 'cat-disc';
+    const sub = subDate
+      ? '<div class="ae-hist-date">'+String(subDate).slice(0,10)+'</div>'
+      : '';
+    return '<td title="'+esc+'"><span class="cat-badge '+c+'">'+label+'</span>'+sub+'</td>';
+  };
   const fmtPct = v => (v == null || v === '') ? '—' : (+v).toFixed(2) + '%';
   const fmtNum2 = v => (v == null || v === '') ? '—' : (+v).toFixed(2);
   const fmtNum3 = v => (v == null || v === '') ? '—' : (+v).toFixed(3);
@@ -7675,6 +7798,12 @@ function renderAE(){
       numCell(r.days_to_result == null ? '—' : fmtInt(r.days_to_result))+
       numCell(r.days_to_target_f1 == null ? '—' : fmtInt(r.days_to_target_f1))+
       '<td><span class="cat-badge '+cls+'">'+(r.category||'—')+'</span></td>'+
+      // History: the verdict this ad had at two fixed checkpoints, so a
+      // decayed winner still reads as a winner where it counted. Both are
+      // computed from ad_result_snapshots through the same thresholds as the
+      // live Category cell above.
+      histCell(r.result_14d, r._h14title)+
+      histCell(r.result_50k, r._h50title, r.k50_crossed_at)+
       fCell(r.f1_pass)+
       fCell(r.f2_pass)+
       fCell(r.f3_pass)+
@@ -8239,12 +8368,15 @@ document.getElementById('aeBtnRefresh').onclick = async () => {
   // Refresh both sources + thumbnails + reach-recent. Creative Testing uses
   // the current date window (default last 30d); Ads Analyse uses lifetime.
   let freshReach;
-  [primaryAds, allAds, thumbsByAdId, freshReach] = await Promise.all([
+  let freshSnaps;
+  [primaryAds, allAds, thumbsByAdId, freshReach, freshSnaps] = await Promise.all([
     fetchPrimaryAggregated(state.dateFrom || '', state.dateTo || ''),
     fetchAds(),
     fetchThumbnails(),
-    fetchReachRecent()
+    fetchReachRecent(),
+    fetchAdResultSnapshots()
   ]);
+  snapByAdId = freshSnaps || {};
   reachRecentByAdId = freshReach;
   for (const r of allAds){
     const rr = reachRecentByAdId[r.ad_id];

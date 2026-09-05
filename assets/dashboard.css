@@ -2274,6 +2274,10 @@
   .cat-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;
     font-weight:700;letter-spacing:0.4px;text-transform:uppercase}
   .cat-badge.cat-iw       {background:#E0F0E5;color:#2E7755}
+  /* Crossing date under the Result @50k badge — secondary to the verdict
+     itself, so it sits smaller and muted rather than in its own column. */
+  .ae-hist-date{font-size:10px;color:var(--text-tertiary);margin-top:2px;
+                font-variant-numeric:tabular-nums;white-space:nowrap}
   .cat-badge.cat-winner   {background:var(--success-bg);color:var(--success-text)}
   .cat-badge.cat-priority {background:var(--info-bg);color:var(--info-text)}
   .cat-badge.cat-a1       {background:var(--warning-bg);color:var(--warning-text)}

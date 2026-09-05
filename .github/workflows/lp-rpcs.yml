@@ -5,6 +5,9 @@
 #   mdviews  REFRESH of meta_direct_active_30d / _90d and
 #            meta_direct_daily_30d / _90d
 #   rpcs     both of the above
+#   snapshots
+#            rebuild ad_result_snapshots (first-14-days + 50k-impressions
+#            checkpoints behind the two Ads Analyse history columns)
 #
 # All three read tables that are already in Supabase — no Meta / Shopify /
 # Google fetchers run — so the only secret needed is SUPABASE_DB_URL.
@@ -28,6 +31,7 @@ on:
           - lp
           - mdviews
           - rpcs
+          - snapshots
 
 concurrency:
   group: ctd-db-only-refresh
