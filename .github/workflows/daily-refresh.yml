@@ -197,7 +197,16 @@ jobs:
       # few minutes, and is idempotent — re-running it after a successful
       # refresh just rebuilds the same rows.
       - name: Rebuild aggregate layer (LP RPCs + meta_direct views)
-        if: always()
+        # always(), so a partly-failed refresh still gets its aggregates
+        # rebuilt -- but NOT when the duplicate guard skipped the job.
+        # This step arrived from a different branch than the guard did,
+        # so the merge left it as the one ungated step, and on the
+        # guard's first live skip (run 33994991630, 2026-09-05 22:51) it
+        # ran with no checkout and no Python and took the whole run down
+        # with it: 7 seconds, every real step correctly skipped, and a
+        # red X anyway. A backup run that stands down has to report
+        # green, or the signal it exists to give is worthless.
+        if: always() && steps.guard.outputs.skip != 'true'
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: python backend/_refresh_all_dashboard_data.py --phase rpcs
