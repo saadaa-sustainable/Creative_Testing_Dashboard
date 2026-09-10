@@ -73,9 +73,13 @@ if _only_id:
     if not ACCOUNTS:
         sys.exit(f"SYNC_ACCOUNT_ID={_only_id!r} matched no configured account")
 
-# Custom conversion names — must match exactly what's in Meta Business Manager
-CUSTOM_METRIC_FTEWV = os.getenv("CUSTOM_METRIC_FTEWV", "First-time EWV")
-CUSTOM_METRIC_NCP = os.getenv("CUSTOM_METRIC_NCP", "NCP")
+# Custom conversion names — must match exactly what's in Meta Business Manager.
+# `or` rather than getenv's default arg: GitHub Actions sets every env key it
+# lists, so an unset secret arrives as an EMPTY STRING, not as an absent var,
+# and getenv's default never fires. That silently looked up a conversion named
+# "" and stored 0 for FTEWV/NCP on every row from 2026-08-19 onward.
+CUSTOM_METRIC_FTEWV = (os.getenv("CUSTOM_METRIC_FTEWV") or "").strip() or "First-time EWV"
+CUSTOM_METRIC_NCP   = (os.getenv("CUSTOM_METRIC_NCP")   or "").strip() or "NCP"
 
 TABLE = "primary_table"
 CHUNK_DAYS = 15  # 7 days per API chunk (prevents Meta 500 on large accounts)
@@ -614,8 +618,13 @@ def parse_row(
     page_likes     = _action_val(actions, "like")
 
     # Custom conversions — matches Apps Script logic exactly
-    ftewv_count = 0.0
-    ncp_count = 0.0
+    # None (not 0.0) when the conversion could not be resolved: the caller
+    # drops these keys from the upsert so a lookup failure leaves whatever is
+    # already stored intact. Writing 0.0 here is what destroyed three weeks of
+    # FTEWV/NCP history — the daily sync rewrites a 16-day trailing window, so
+    # each failed run overwrote good rows with zeros.
+    ftewv_count = None
+    ncp_count = None
     if ftewv_id:
         ftewv_count = _action_val(actions, f"offsite_conversion.custom.{ftewv_id}")
     if ncp_id:
@@ -623,8 +632,10 @@ def parse_row(
 
     # Cost per FTEWV and NCP — derived from spend/count (avoids cost_per_action_type
     # which causes Meta 400/500 errors on large accounts)
-    cost_per_ftewv = round(spend / ftewv_count, 2) if ftewv_count > 0 else 0.0
-    cost_per_ncp = round(spend / ncp_count, 2) if ncp_count > 0 else 0.0
+    cost_per_ftewv = round(spend / ftewv_count, 2) if (ftewv_count or 0) > 0 else (
+        None if ftewv_count is None else 0.0)
+    cost_per_ncp = round(spend / ncp_count, 2) if (ncp_count or 0) > 0 else (
+        None if ncp_count is None else 0.0)
 
     # Conversion value
     conv_value = _action_val(
@@ -698,10 +709,10 @@ def parse_row(
         "atc_rate": round(atc_rate, 4),
         "ci_atc_rate": round(ci_atc_rate, 4),
         "purchase_rate": round(purchase_rate, 4),
-        "ftewv_count": round(ftewv_count, 2),
-        "cost_per_ftewv": round(cost_per_ftewv, 2),
-        "ncp_count": round(ncp_count, 2),
-        "cost_per_ncp": round(cost_per_ncp, 2),
+        "ftewv_count": None if ftewv_count is None else round(ftewv_count, 2),
+        "cost_per_ftewv": None if cost_per_ftewv is None else round(cost_per_ftewv, 2),
+        "ncp_count": None if ncp_count is None else round(ncp_count, 2),
+        "cost_per_ncp": None if cost_per_ncp is None else round(cost_per_ncp, 2),
         "ltv_reach": round(ltv_ad["reach"], 2),
         "ltv_frequency": round(ltv_ad["frequency"], 4),
         "preview_link": ad_meta.get("preview_link", ""),
@@ -733,12 +744,24 @@ def get_conn():
 # if (account_name, ad_id, date) exists → UPDATE all metrics
 # if not → INSERT new row
 # This means daily syncs always reflect the latest Meta numbers
+# Columns whose NULL means "not measured on this run", never "zero". The
+# custom-conversion lookup can fail (renamed conversion, unset
+# CUSTOM_METRIC_* env, token without ads_management) and the daily sync
+# rewrites a 16-day trailing window, so a plain assignment lets one bad run
+# erase good history. COALESCE keeps the stored value in that case.
+PRESERVE_ON_NULL = ("ftewv_count", "cost_per_ftewv", "ncp_count", "cost_per_ncp")
+
+def _assign(c: str) -> str:
+    if c in PRESERVE_ON_NULL:
+        return f"{c} = COALESCE(EXCLUDED.{c}, {TABLE}.{c})"
+    return f"{c} = EXCLUDED.{c}"
+
 UPSERT_SQL = f"""
     INSERT INTO {TABLE} ({", ".join(COLUMNS)})
     VALUES ({", ".join([f"%({c})s" for c in COLUMNS])})
     ON CONFLICT (account_name, ad_id, date)
     DO UPDATE SET
-        {", ".join([f"{c} = EXCLUDED.{c}" for c in UPDATE_COLS])},
+        {", ".join([_assign(c) for c in UPDATE_COLS])},
         updated_at = NOW()
 """
 
@@ -1074,10 +1097,14 @@ def sync(since: str, until: str, label: str):
     log.info(f"{'='*60}\n")
 
 
-def backfill():
-    """One-time backfill: Jan 1 2026 → today into primary_table."""
-    since = "2026-01-01"
-    until = gmt_today()
+def backfill(since: str | None = None, until: str | None = None):
+    """Backfill a date range into primary_table (default: Jan 1 2026 → today).
+
+    Takes an explicit range so a bounded repair — e.g. the 2026-08-19 onward
+    window where FTEWV/NCP were zeroed — doesn't mean re-pulling the whole
+    year from Meta."""
+    since = since or "2026-01-01"
+    until = until or gmt_today()
     total_days = (date.fromisoformat(until) - date.fromisoformat(since)).days
     n_chunks = (total_days // CHUNK_DAYS + 1) * len(ACCOUNTS)
     log.info(f"\nPRIMARY TABLE BACKFILL")
@@ -1131,7 +1158,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if cmd == "backfill":
-        backfill()
+        # Optional range: primary_sync.py backfill [since] [until]
+        backfill(sys.argv[2] if len(sys.argv) > 2 else None,
+                 sys.argv[3] if len(sys.argv) > 3 else None)
     elif cmd == "daily":
         daily()
     elif cmd == "hourly":
@@ -1140,5 +1169,5 @@ if __name__ == "__main__":
         status()
     else:
         print(f"Unknown: {cmd}")
-        print("Usage: python primary_sync.py [backfill|daily|hourly|status]")
+        print("Usage: python primary_sync.py [backfill [since] [until]|daily|hourly|status]")
         sys.exit(1)
