@@ -4777,7 +4777,23 @@ async function aiReloadOrders(){
     document.getElementById('aiStatus').textContent = 'Window too wide — retrying with Last 15 Days';
     rows = await aiFetchOrders(newFrom, newTo, null) || [];
   }
-  aiOrders = rows || [];
+  // Defensive dedup by order_id. shopify_ad_attribution has a PRIMARY
+  // KEY on order_id so the DB itself guarantees one row per order --
+  // this is a client-side belt-and-braces guard for the case where a
+  // keyset-pagination edge case, a fast re-click on Reload, or a
+  // network retry re-inserts the boundary row. Last-write-wins keeps
+  // the newest copy. Reported 2026-09-14: a screenshot showed the
+  // same order_id (7315785416950) rendered 4 times; DB inspection
+  // confirmed one row -- something upstream of aiOrders had cloned
+  // the boundary row. Cost is negligible even at 50k rows.
+  const _seen = new Set();
+  aiOrders = (rows || []).filter(r => {
+    const oid = r && r.order_id;
+    if (!oid) return true;         // shouldn't happen, but don't drop rows we can't key
+    if (_seen.has(oid)) return false;
+    _seen.add(oid);
+    return true;
+  });
   // Stamp asset_id on every row so the existing sort-by-header path
   // (reads a[aiSortKey]) can order by the new Asset ID column.
   for (const r of aiOrders){
