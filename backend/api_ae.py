@@ -283,14 +283,103 @@ def _parse_in(v: str) -> list:
             out.append(val.strip('"'))
     return out
 
+def _split_group_parts(body: str) -> list[str]:
+    """Split a comma-separated group body on top-level commas only,
+    respecting nested parens. `col.eq.a,and(col.eq.b,col.eq.c)`
+    yields `['col.eq.a', 'and(col.eq.b,col.eq.c)']`.
+    """
+    parts: list[str] = []
+    depth = 0
+    start = 0
+    for i, ch in enumerate(body):
+        if ch == '(':
+            depth += 1
+        elif ch == ')':
+            depth -= 1
+        elif ch == ',' and depth == 0:
+            parts.append(body[start:i])
+            start = i + 1
+    parts.append(body[start:])
+    return [p for p in (p.strip() for p in parts) if p]
+
+
+def _parse_condition(expr: str, params: list) -> str | None:
+    """Parse a single condition -- either a leaf `col.op.val` or a
+    nested `and(...)` / `or(...)` group. Returns the SQL fragment (in
+    parens for a group, bare `"col" op %s` for a leaf) or None if
+    unparseable.
+    """
+    e = expr.strip()
+    # Nested group?
+    if e.startswith("and(") and e.endswith(")"):
+        return _parse_group_body(e[4:-1], params, joiner=" AND ")
+    if e.startswith("or(") and e.endswith(")"):
+        return _parse_group_body(e[3:-1], params, joiner=" OR ")
+    # Leaf: col.op.val
+    if "." not in e:
+        return None
+    col, rest = e.split(".", 1)
+    if "." not in rest:
+        return None
+    op, arg = rest.split(".", 1)
+    if op not in _OP:
+        return None
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", col):
+        return None
+    sql_op, coerce = _OP[op]
+    coerced, _ = coerce(arg)
+    params.append(coerced)
+    return f'"{col}" {sql_op} %s'
+
+
+def _parse_group_body(body: str, params: list, joiner: str) -> str:
+    """Parse the body of an `and(...)` or `or(...)` group and return
+    the SQL wrapped in a single set of outer parens. `joiner` is
+    " AND " or " OR ". Ignores unparseable child clauses so a
+    malformed leaf doesn't take out the whole group."""
+    parts = _split_group_parts(body)
+    child_sqls: list[str] = []
+    for p in parts:
+        sql = _parse_condition(p, params)
+        if sql:
+            child_sqls.append(sql)
+    if not child_sqls:
+        return "TRUE"
+    return "(" + joiner.join(child_sqls) + ")"
+
+
 def _build_where(qs_pairs, params: list) -> list[str]:
     """Translate query-string filters into SQL WHERE clauses.
 
     qs_pairs is a list of (key, value) tuples (preserves order + multi-value).
     Appends bind-params to `params`.
+
+    2026-09-14: gained `or=(...)` and `and=(...)` support. These are the
+    PostgREST syntax the frontend uses for keyset pagination on the
+    Ad Intelligence page:
+
+        or=(order_created_at.lt.X,and(order_created_at.eq.X,order_id.lt.Y))
+
+    Previously the gateway silently dropped any `or=` or `and=` filter
+    (listed in _RESERVED, no branch handled it), so every keyset batch
+    request returned the SAME top-of-list rows -- the client thought
+    it was paginating but was really re-fetching page 1 five times,
+    capping at ~10k unique orders no matter how many were in the
+    30-day window. Reported 2026-09-14 as "only 10k orders for last
+    30 days, actual count is 40k+".
     """
     clauses = []
     for key, val in qs_pairs:
+        if key in ("or", "and") and val:
+            # PostgREST group: or=(a,b,and(c,d))  → (a OR b OR (c AND d))
+            body = val
+            if body.startswith("(") and body.endswith(")"):
+                body = body[1:-1]
+            joiner = " OR " if key == "or" else " AND "
+            sql = _parse_group_body(body, params, joiner)
+            if sql and sql != "TRUE":
+                clauses.append(sql)
+            continue
         if key in _RESERVED: continue
         if not val: continue
         # value format: `op.arg` or `op(arg)` — split on the first '.'
