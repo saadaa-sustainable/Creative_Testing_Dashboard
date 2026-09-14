@@ -249,6 +249,18 @@ _ALLOWED_TABLES = {
     "ig_media", "ad_meta_lifetime",
     "shopify_ad_attribution_l30",
     "landing_page_analysis_30d", "landing_page_ad_breakdown_30d",
+    # Daily sessions grain is what the Landing Page Analysis TABLE's
+    # Sessions / Visitors / ATC % / Bounce % columns live-fetch through
+    # this gateway on every render, filtered by (session_date >= from,
+    # session_date <= to). Omitted from the initial allowlist as an
+    # oversight -- the pages / ad_breakdown rollups were exposed but the
+    # underlying grain the columns actually read wasn't, so every row
+    # rendered Sessions=0 / Visitors=0 (screenshot 2026-09-14).
+    "landing_page_sessions_daily",
+    # sessions_by_utm_page_daily is the same table sharded by utm_source;
+    # frontend switches to it when the utm_source multi-select filter is
+    # engaged. Same freshness contract, same read pattern.
+    "sessions_by_utm_page_daily",
     "ad_attribution_overrides", "ad_results",
     "rck_daily_30d", "rck_last30",
 }
