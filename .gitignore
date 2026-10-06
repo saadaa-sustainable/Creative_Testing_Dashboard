@@ -58,3 +58,16 @@ frontend/node_modules/
 frontend/dist/
 dist/
 frontend/.vite/
+
+# Local virtualenv (python3.12 via brew; see DEPLOYMENT.md)
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Local analysis outputs + resumable caches — regenerable, often large
+backend/*.xlsx
+backend/.boost_ads.cache.json
+backend/.ig_tagged.progress.json
+backend/.ad_edit_log.progress.json
