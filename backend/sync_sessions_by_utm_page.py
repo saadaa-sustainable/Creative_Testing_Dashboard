@@ -13,7 +13,7 @@ Usage
   python sync_sessions_by_utm_page.py --full      # 2024-01-01 → today
 """
 from __future__ import annotations
-import os, sys, argparse, json, urllib.request, urllib.error
+import os, sys, argparse, json, time, http.client, urllib.request, urllib.error
 from datetime import date, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
@@ -32,16 +32,56 @@ if not (SRC_URL and SRC_KEY and DB_URL):
     sys.exit('[fatal] need SHOPIFY_DATA_URL + SHOPIFY_DATA_ANON_KEY + SUPABASE_DB_URL')
 
 
-def http_get(path, extra=None, timeout=45):
+def http_get(path, extra=None, timeout=45, retries=4):
+    """GET with retry on transient transport errors.
+
+    PostgREST occasionally closes a chunked response mid-body, which
+    surfaces as http.client.IncompleteRead. This script walks one request
+    per day over a long window, so a single blip anywhere in that loop
+    aborted the whole sync and left the target table silently stale.
+    HTTPError is a real answer from the server and still returns as-is."""
     hdrs = {'apikey': SRC_KEY, 'Authorization': f'Bearer {SRC_KEY}',
             'Accept': 'application/json'}
     if extra: hdrs.update(extra)
-    req = urllib.request.Request(f'{SRC_URL}{path}', headers=hdrs)
+    last = None
+    for attempt in range(retries):
+        req = urllib.request.Request(f'{SRC_URL}{path}', headers=hdrs)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.status, dict(r.headers), r.read()
+        except urllib.error.HTTPError as e:
+            return e.code, dict(e.headers), e.read()
+        except (http.client.IncompleteRead, http.client.RemoteDisconnected,
+                urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
+            last = e
+            if attempt == retries - 1:
+                break
+            wait = 2 ** attempt
+            print(f'  [retry {attempt + 1}/{retries - 1}] {type(e).__name__}: {e} '
+                  f'— sleeping {wait}s', flush=True)
+            time.sleep(wait)
+    raise RuntimeError(f'GET {path} failed after {retries} attempts: '
+                       f'{type(last).__name__}: {last}') from last
+
+
+def ensure_conn(conn, cur):
+    """Return a live (conn, cur), reconnecting if the pooler dropped it.
+
+    This loop fetches a full day of sessions over HTTP (~19k rows, a minute
+    or more) between writes, and the DB connection just sits there. Supabase's
+    pooler closes it well inside that, so the next execute_values died with
+    "server closed the connection unexpectedly" — on 2026-09-16 that killed
+    the sync 4 days into an 18-day window. Days already committed survive;
+    this just lets the run continue instead of aborting."""
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return r.status, dict(r.headers), r.read()
-    except urllib.error.HTTPError as e:
-        return e.code, dict(e.headers), e.read()
+        cur.execute('SELECT 1'); cur.fetchone()
+        return conn, cur
+    except Exception:
+        try: cur.close(); conn.close()
+        except Exception: pass
+        print('  [db] connection dropped — reconnecting', flush=True)
+        conn = psycopg2.connect(DB_URL, connect_timeout=30); conn.autocommit = False
+        return conn, conn.cursor()
 
 
 def fetch_day(day_iso):
@@ -128,6 +168,7 @@ def main():
         agg = aggregate(raw)
         if agg:
             payload = [(k[0], k[1], k[2], v[0], v[1], v[2], v[3], v[4]) for k, v in agg.items()]
+            conn, cur = ensure_conn(conn, cur)
             execute_values(
                 cur,
                 """insert into public.sessions_by_utm_page_daily

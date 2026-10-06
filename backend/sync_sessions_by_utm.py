@@ -12,7 +12,7 @@ Usage
   python sync_sessions_by_utm.py --full         # 2024-01-01 → today
 """
 from __future__ import annotations
-import os, sys, argparse, json, urllib.request, urllib.error
+import os, sys, argparse, json, time, http.client, urllib.request, urllib.error
 from datetime import date, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
@@ -31,15 +31,37 @@ if not (SRC_URL and SRC_KEY and DB_URL):
     sys.exit('[fatal] need SHOPIFY_DATA_URL + SHOPIFY_DATA_ANON_KEY + SUPABASE_DB_URL in .env')
 
 
-def http_get(path, extra=None, timeout=30):
+def http_get(path, extra=None, timeout=30, retries=4):
+    """GET with retry on transient transport errors.
+
+    PostgREST occasionally closes a chunked response mid-body, which
+    surfaces as http.client.IncompleteRead. Without a retry that single
+    blip aborts the whole paged fetch and the target table silently
+    stops updating — the same class of failure as the 2026-08-10
+    row-cap bug, just from the transport side instead of the row cap.
+    HTTPError is a real answer from the server, so it returns as before
+    rather than being retried."""
     hdrs = {'apikey': SRC_KEY, 'Authorization': f'Bearer {SRC_KEY}', 'Accept': 'application/json'}
     if extra: hdrs.update(extra)
-    req = urllib.request.Request(f'{SRC_URL}{path}', headers=hdrs)
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return r.status, dict(r.headers), r.read()
-    except urllib.error.HTTPError as e:
-        return e.code, dict(e.headers), e.read()
+    last = None
+    for attempt in range(retries):
+        req = urllib.request.Request(f'{SRC_URL}{path}', headers=hdrs)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.status, dict(r.headers), r.read()
+        except urllib.error.HTTPError as e:
+            return e.code, dict(e.headers), e.read()
+        except (http.client.IncompleteRead, http.client.RemoteDisconnected,
+                urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
+            last = e
+            if attempt == retries - 1:
+                break
+            wait = 2 ** attempt
+            print(f'  [retry {attempt + 1}/{retries - 1}] {type(e).__name__}: {e} '
+                  f'— sleeping {wait}s', flush=True)
+            time.sleep(wait)
+    raise RuntimeError(f'GET {path} failed after {retries} attempts: '
+                       f'{type(last).__name__}: {last}') from last
 
 
 def fetch_raw_sessions(since_iso, until_iso):
@@ -123,6 +145,21 @@ def main():
     print(f'[aggregated] {len(agg):,} (day × utm_source) buckets')
 
     payload = [(d, src, sess, vis) for (d, src), (sess, vis) in agg.items()]
+
+    # Reconnect before writing. The connection above was opened to read
+    # MAX(session_date) and then sat idle through the whole paged fetch —
+    # 276k rows / ~15 min on a full window. Supabase's pooler drops an
+    # idle connection well inside that, so the upsert died with "server
+    # closed the connection unexpectedly" AFTER every row had been
+    # fetched, and the table stayed stale with nothing in the log to
+    # explain it.
+    try:
+        cur.close(); conn.close()
+    except Exception:
+        pass
+    conn = psycopg2.connect(DB_URL, connect_timeout=30); conn.autocommit = False
+    cur = conn.cursor()
+
     execute_values(
         cur,
         """insert into public.sessions_by_utm_source_daily
