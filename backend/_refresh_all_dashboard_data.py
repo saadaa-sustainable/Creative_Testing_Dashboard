@@ -129,6 +129,48 @@ PHASE_COMPUTE = [
     ("build_rck_last30",               ["_build_rck_last30.py"],             600),
 ]
 
+# ─── CORE — the eight tables the dashboard actually serves ────────────
+# Requested 2026-10-06: run ONLY what updates these, nothing else.
+#
+#   primary_table           primary_sync_daily
+#   ig_media                fetch_ig_media
+#   shopify_products        sync_shopify_products
+#   cpis_daily_sales        fetch_cpis_by_sku
+#   backfill_table          propagate_primary_to_backfill   (needs primary_table)
+#   summary_table           refresh_summary_table           (reads primary + backfill
+#                                                            + shopify_ad_attribution)
+#   shopify_ad_attribution  rebuild_attribution_orders      (needs backfill_table)
+#   ads_delivered_daily     refresh_ads_delivered_daily     (needs primary + backfill)
+#
+# Order is dependency-correct and otherwise mirrors PHASE_COMPUTE, so this
+# phase produces the same numbers the full run does -- including the fact
+# that refresh_summary_table runs BEFORE rebuild_attribution_orders, so its
+# shopify_* columns reflect the PREVIOUS day's attribution. That is existing
+# behaviour, not a quirk of this phase; swapping the two lines below would
+# make them same-day but would also shift those columns' values.
+#
+# Deliberately NOT here, and why:
+#   fetch_reach_incr_all   2h13m of Meta #3018 errors writing nothing -- its
+#                          ORIGIN_DATE passed Meta's 37-month cap (see
+#                          fetch_reach_incr.py). Dropping it is most of the
+#                          runtime saving.
+#   refresh_product_doq    reads bq_inventory_daily, a table nothing creates.
+#   apply_ctp_unique_ids   needs openpyxl + a Windows-only .xlsx path.
+#   fetch_google_ads_daily reads gcloud ADC the workflow never provisions.
+#   the session syncs      credential-name mismatch in the workflow env block.
+# None of them feed the eight tables above.
+PHASE_CORE = [
+    ("primary_sync_daily",             ["primary_sync.py", "daily"],        5400),
+    ("fetch_ig_media",                 ["fetch_ig_media.py"],               3600),
+    ("sync_shopify_products",          ["sync_shopify_products.py"],         900),
+    ("fetch_cpis_by_sku",              ["fetch_cpis_by_sku.py"],             900),
+    ("propagate_primary_to_backfill",  ["propagate_primary_to_backfill.py"], 1800),
+    ("refresh_summary_table",          ["refresh_summary_table.py"],         900),
+    ("rebuild_attribution_orders",     ["rebuild_attribution_orders.py",
+                                        "2026-06-15", "2099-12-31"],        4200),
+    ("refresh_ads_delivered_daily",    ["_refresh_ads_delivered_daily.py"],  600),
+]
+
 
 def log(msg: str) -> None:
     line = f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {msg}"
@@ -182,6 +224,41 @@ def refresh_lp_rpcs() -> dict:
         cur.close(); c.close()
         dt = time.time() - t0
         log(f"   OK  duration={dt:.0f}s")
+        return {"label": label, "status": "OK", "exit_code": 0,
+                "duration_sec": round(dt, 1)}
+    except Exception as e:  # noqa: BLE001
+        dt = time.time() - t0
+        log(f"   EXCEPTION {type(e).__name__}: {e}")
+        return {"label": label, "status": "EXCEPTION", "exit_code": None,
+                "duration_sec": round(dt, 1), "error": f"{type(e).__name__}: {e}"}
+
+
+def refresh_freq_lifecycle_rpc() -> dict:
+    """Rebuild ae_freq_lifecycle_mat — the per-ad 1x/1.5x/2x/2.5x/3x
+    frequency-crossing table behind the whole Creative Lifecycle section.
+
+    The RPC has existed in Postgres all along but NO pipeline step ever
+    called it, so the table sat frozen at its 2026-07-01 contents while
+    every other table moved on — 11,681 rows and 77 days stale when this
+    was found on 2026-09-15. It reads ae_raw_view, so it belongs after
+    refresh_ae_table in PHASE 3. Cheap (~13s) and idempotent."""
+    label = "refresh_freq_lifecycle"
+    log(f"-- step: {label}")
+    t0 = time.time()
+    try:
+        import psycopg2
+        from dotenv import load_dotenv
+        load_dotenv(ROOT / ".env", override=True)
+        c = psycopg2.connect(os.environ["SUPABASE_DB_URL"], connect_timeout=30)
+        c.autocommit = True
+        cur = c.cursor()
+        cur.execute("SET statement_timeout = '900s'")
+        cur.execute("SELECT public.refresh_ae_freq_lifecycle()")
+        cur.execute("SELECT count(*), max(d_1) FROM public.ae_freq_lifecycle_mat")
+        n, latest = cur.fetchone()
+        cur.close(); c.close()
+        dt = time.time() - t0
+        log(f"   OK  duration={dt:.0f}s  rows={n:,}  max_d_1={latest}")
         return {"label": label, "status": "OK", "exit_code": 0,
                 "duration_sec": round(dt, 1)}
     except Exception as e:  # noqa: BLE001
@@ -260,7 +337,7 @@ def run_phase(name: str, steps: list) -> list[dict]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--phase",
-                    choices=["meta", "ingest", "compute", "lp", "mdviews",
+                    choices=["core", "meta", "ingest", "compute", "lp", "mdviews",
                              "rpcs", "all"],
                     default="all",
                     help="Run only this phase (default: all). 'lp' = PHASE 4 "
@@ -277,6 +354,13 @@ def main() -> None:
     overall_t0 = time.time()
     all_results: list[dict] = []
 
+    # 'core' is standalone: the eight dashboard tables and nothing else. No
+    # early return needed -- "core" is absent from every other phase's tuple
+    # below, so they all skip and control falls through to the usual summary
+    # + status JSON that wrap_refresh_all.py reads.
+    if args.phase == "core":
+        all_results.extend(run_phase("CORE dashboard tables", PHASE_CORE))
+
     if args.phase in ("meta", "all") and not args.skip_meta:
         all_results.extend(run_phase("META fetchers", PHASE_META))
 
@@ -289,6 +373,7 @@ def main() -> None:
     # is needed.
     if args.phase in ("lp", "rpcs"):
         all_results.append(refresh_lp_rpcs())
+        all_results.append(refresh_freq_lifecycle_rpc())
 
     # The meta_direct_* matviews likewise only read tables that are already in
     # Postgres, so they can be rebuilt on their own after a run that died
@@ -300,6 +385,8 @@ def main() -> None:
     if args.phase in ("compute", "all"):
         all_results.extend(run_phase("COMPUTATION", PHASE_COMPUTE))
         all_results.append(refresh_lp_rpcs())
+        # Reads ae_raw_view, so it has to follow refresh_ae_table above.
+        all_results.append(refresh_freq_lifecycle_rpc())
         # Meta Direct sheet mirrors — must run AFTER primary_sync +
         # rebuild_attribution_orders so both feeder tables are fresh.
         all_results.append(refresh_meta_direct_views_rpc())

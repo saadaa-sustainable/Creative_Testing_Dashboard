@@ -45,9 +45,15 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-meta", action="store_true",
                     help="pass --skip-meta to the underlying orchestrator")
+    ap.add_argument("--phase", default=None,
+                    help="pass --phase through (e.g. 'core' for just the eight "
+                         "dashboard tables). Omitted = the orchestrator's own "
+                         "default, which is 'all'.")
     args = ap.parse_args()
 
     orchestrator_args = [sys.executable, str(ORCHESTRATOR)]
+    if args.phase:
+        orchestrator_args += ["--phase", args.phase]
     if args.skip_meta:
         orchestrator_args.append("--skip-meta")
 

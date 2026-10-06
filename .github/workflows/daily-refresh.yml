@@ -26,7 +26,7 @@ on:
         default: "false"
 
   schedule:
-    - cron: "30 19 * * *"  # 19:30 UTC = 01:00 IST
+    - cron: "0 19 * * *"   # 19:00 UTC = 00:30 IST
     # BACKUP, 20:30 UTC = 02:00 IST. GitHub does not guarantee scheduled
     # runs -- it delays and drops them under load. Measured on this
     # workflow: the 2026-09-04 schedule started at 21:40 UTC (2h10m
@@ -36,7 +36,7 @@ on:
     #
     # The guard step below makes this second cron free -- it exits in
     # seconds when the primary already ran.
-    - cron: "30 20 * * *"  # 20:30 UTC = 02:00 IST (backup)
+    - cron: "0 20 * * *"   # 20:00 UTC = 01:30 IST (backup)
 
 concurrency:
   group: ctd-daily-refresh
@@ -180,36 +180,23 @@ jobs:
             printf '%s' "${{ secrets.GOOGLE_ADS_YAML }}" > "$HOME/google-ads.yaml"
           fi
 
-          FLAGS=""
+          # --phase core: ONLY the eight tables the dashboard serves
+          # (primary_table, backfill_table, summary_table,
+          #  shopify_ad_attribution, shopify_products, cpis_daily_sales,
+          #  ads_delivered_daily, ig_media). Everything else was dropped on
+          # 2026-10-06 -- see PHASE_CORE in _refresh_all_dashboard_data.py
+          # for what was removed and why.
+          FLAGS="--phase core"
           if [ "${{ github.event.inputs.skip_meta }}" = "true" ]; then
             FLAGS="$FLAGS --skip-meta"
           fi
           python scripts/wrap_refresh_all.py $FLAGS
 
-      # Self-heal: the aggregate layer (LP RPCs + the four meta_direct_*
-      # matviews) is the LAST thing the orchestrator does, so it is exactly
-      # what a killed run loses. On 2026-09-03 the 3h subprocess cap fired
-      # between meta_direct_active_90d and meta_direct_daily_30d, leaving the
-      # daily matviews a day stale even though primary_table was current.
-      #
-      # `if: always()` so this runs even when the step above times out or
-      # exits non-zero. It is DB-only (needs just SUPABASE_DB_URL), takes a
-      # few minutes, and is idempotent — re-running it after a successful
-      # refresh just rebuilds the same rows.
-      - name: Rebuild aggregate layer (LP RPCs + meta_direct views)
-        # always(), so a partly-failed refresh still gets its aggregates
-        # rebuilt -- but NOT when the duplicate guard skipped the job.
-        # This step arrived from a different branch than the guard did,
-        # so the merge left it as the one ungated step, and on the
-        # guard's first live skip (run 33994991630, 2026-09-05 22:51) it
-        # ran with no checkout and no Python and took the whole run down
-        # with it: 7 seconds, every real step correctly skipped, and a
-        # red X anyway. A backup run that stands down has to report
-        # green, or the signal it exists to give is worthless.
-        if: always() && steps.guard.outputs.skip != 'true'
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: python backend/_refresh_all_dashboard_data.py --phase rpcs
+      # The "Rebuild aggregate layer" step (--phase rpcs: LP RPCs + the four
+      # meta_direct_* matviews) was removed on 2026-10-06. It rebuilds tables
+      # OUTSIDE the eight this workflow now maintains, so it no longer belongs
+      # here. It is still reachable on demand: Actions -> "CTD DB-only refresh"
+      # (lp-rpcs.yml), or  python backend/_refresh_all_dashboard_data.py --phase rpcs
 
       - name: Upload full log
         if: always() && steps.guard.outputs.skip != 'true'
