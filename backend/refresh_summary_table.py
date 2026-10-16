@@ -294,6 +294,63 @@ ON CONFLICT (ad_id) DO UPDATE SET
 """
 
 
+# ---------------------------------------------------------------------
+# Ads that exist on Meta but have NEVER delivered.
+#
+# REFRESH_SQL above aggregates backfill_table, which is built from Meta's
+# insights endpoint. Insights only emits a row for an ad that delivered, so
+# an ad created and then paused -- or one still waiting to leave review --
+# produces no rows anywhere and never got a summary_table row at all. It
+# was invisible to every dashboard view even though it exists in Ads
+# Manager. Measured 2026-10-16: 864 such ads, created 2026-02-28 onward,
+# 63 of them currently ACTIVE.
+#
+# sync_ad_metadata.py reads the /act_{id}/ads edge, which does list them,
+# so they can be inserted here with zero metrics.
+#
+# status = 'No delivery', NOT 'Discarded'. The F-filter rules would sort a
+# zero-impression ad into Discarded, which would put 748 archived ads that
+# never ran into the same bucket as ads that ran and failed -- two very
+# different things, and it would make the failure rate look far worse than
+# it is. d14_category gets the same value, matching the bucket
+# compute_d14_verdict.py already uses for ads with no rows in their window.
+#
+# A conflict here can only be a row this statement inserted on an earlier
+# run: an ad with any backfill history is excluded by the NOT EXISTS, so
+# REFRESH_SQL owns that row instead. Once such an ad starts delivering it
+# drops out of this statement and REFRESH_SQL gives it a real status.
+NO_DELIVERY_SQL = """
+INSERT INTO summary_table (
+    ad_id, ad_name, created_date, last_seen, days_active,
+    total_impressions, total_spend, total_conv_value, total_ncp, total_ftewv,
+    status, ad_status, f1_pass, f2_pass, f3_pass, f4_pass,
+    d14_category, status_at, refreshed_at
+)
+SELECT m.ad_id,
+       m.ad_name,
+       m.meta_created_time::date,
+       NULL,                -- never delivered, so there is no last_seen
+       0,
+       0, 0, 0, 0, 0,
+       'No delivery',
+       m.effective_status,
+       FALSE, FALSE, FALSE, FALSE,
+       'No delivery',
+       NOW(), NOW()
+FROM public.ad_metadata m
+WHERE NOT EXISTS (
+    SELECT 1 FROM backfill_table b WHERE b.ad_id = m.ad_id
+)
+ON CONFLICT (ad_id) DO UPDATE SET
+    ad_name      = EXCLUDED.ad_name,
+    ad_status    = EXCLUDED.ad_status,
+    created_date = EXCLUDED.created_date,
+    status       = EXCLUDED.status,
+    d14_category = EXCLUDED.d14_category,
+    refreshed_at = EXCLUDED.refreshed_at
+"""
+
+
 def main():
     log.info("Connecting to Supabase…")
     t0 = time.time()
@@ -309,6 +366,11 @@ def main():
 
     log.info("Running UPSERT from backfill_table (verdict history preserved)…")
     cur.execute(REFRESH_SQL)
+    conn.commit()
+
+    log.info("Adding ads that exist on Meta but have never delivered…")
+    cur.execute(NO_DELIVERY_SQL)
+    log.info(f"  no-delivery rows inserted/refreshed: {cur.rowcount:,}")
     conn.commit()
 
     elapsed = time.time() - t0

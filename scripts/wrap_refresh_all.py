@@ -46,8 +46,8 @@ def main() -> int:
     ap.add_argument("--skip-meta", action="store_true",
                     help="pass --skip-meta to the underlying orchestrator")
     ap.add_argument("--phase", default=None,
-                    help="pass --phase through (e.g. 'core' for just the eight "
-                         "dashboard tables). Omitted = the orchestrator's own "
+                    help="pass --phase through (e.g. 'core' for just the nine "
+                         "dashboard-table steps). Omitted = the orchestrator's own "
                          "default, which is 'all'.")
     args = ap.parse_args()
 
