@@ -165,6 +165,12 @@ PHASE_CORE = [
     ("sync_shopify_products",          ["sync_shopify_products.py"],         900),
     ("fetch_cpis_by_sku",              ["fetch_cpis_by_sku.py"],             900),
     ("propagate_primary_to_backfill",  ["propagate_primary_to_backfill.py"], 1800),
+    # Must precede refresh_summary_table: it supplies the ad_metadata rows
+    # that summary_table's ad_name / ad_status are COALESCEd from. Insights
+    # only reports ads that delivered, so without this step both columns
+    # freeze on each ad's last spending day and miss later renames, pauses
+    # and archives.
+    ("sync_ad_metadata",               ["sync_ad_metadata.py"],              900),
     ("refresh_summary_table",          ["refresh_summary_table.py"],         900),
     ("rebuild_attribution_orders",     ["rebuild_attribution_orders.py",
                                         "2026-06-15", "2099-12-31"],        4200),

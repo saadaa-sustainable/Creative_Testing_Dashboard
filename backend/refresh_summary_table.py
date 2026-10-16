@@ -27,6 +27,11 @@ import logging
 import psycopg2
 from dotenv import load_dotenv
 
+# REFRESH_SQL joins public.ad_metadata. Import its DDL rather than copying
+# it, so the table has exactly one definition; this script runs it below so
+# the join cannot fail on a database where sync_ad_metadata.py has never run.
+from sync_ad_metadata import DDL as AD_METADATA_DDL
+
 load_dotenv()
 DB_URL = os.environ["SUPABASE_DB_URL"]
 
@@ -163,6 +168,20 @@ latest_status AS (
         ORDER BY p2.date DESC LIMIT 1
     ) p ON TRUE
 ),
+-- Meta's own answer for name and status, from sync_ad_metadata.py, which
+-- reads the /act_{id}/ads edge. That edge lists every ad whether or not it
+-- delivered; insights (the source of agg and latest_status above) lists
+-- only ads that delivered, so both of those columns freeze on an ad's last
+-- spending day and never see a later rename, pause or archive. Measured
+-- 2026-10-16: 65 stale names and 3,015 stale statuses out of 22,467 rows,
+-- including 2,408 rows whose ad_status was NULL purely because the ad had
+-- not delivered recently. COALESCE, not an unconditional overwrite, so an
+-- ad missing from ad_metadata keeps its old derived value rather than
+-- going NULL if the sync has never run.
+ad_meta AS (
+    SELECT ad_id, ad_name, effective_status
+    FROM public.ad_metadata
+),
 -- Instagram / Facebook permalinks — one row per ad_id from ad_thumbnails
 -- (Meta Graph scrape).  Instagram is the URL used for the drawer's live
 -- iframe embed; the dashboard appends /embed/captioned/ at render time.
@@ -171,7 +190,7 @@ permalinks AS (
     FROM public.ad_thumbnails
 )
 SELECT
-    a.ad_id, a.ad_name, a.created_date, a.last_seen, a.days_active,
+    a.ad_id, COALESCE(am.ad_name, a.ad_name) AS ad_name, a.created_date, a.last_seen, a.days_active,
     a.total_impressions, a.total_spend, a.total_conv_value, a.total_ncp, a.total_ftewv,
     CASE
         -- Incremental Winner = F1 AND (F2 OR F3) AND F4
@@ -204,7 +223,7 @@ SELECT
             THEN 'Result Awaited'
         ELSE 'Discarded'
     END  AS status,
-    ls.ad_status,
+    COALESCE(am.effective_status, ls.ad_status) AS ad_status,
     (a.total_impressions >= 50000)                                                                AS f1_pass,
     (a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.2)                             AS f2_pass,
     (a.total_ncp   > 0 AND a.total_spend / a.total_ncp   <= 525)                                  AS f3_pass,
@@ -224,6 +243,7 @@ SELECT
     NOW() AS refreshed_at
 FROM agg a
 LEFT JOIN latest_status ls USING (ad_id)
+LEFT JOIN ad_meta am USING (ad_id)
 LEFT JOIN shopify_agg sa USING (ad_id)
 LEFT JOIN shopify_top_tier st USING (ad_id)
 LEFT JOIN permalinks pl USING (ad_id)
@@ -283,6 +303,7 @@ def main():
     cur.execute("SET statement_timeout = '30min'")
 
     log.info("Ensuring summary_table schema exists…")
+    cur.execute(AD_METADATA_DDL)
     cur.execute(SCHEMA_SQL)
     conn.commit()
 
