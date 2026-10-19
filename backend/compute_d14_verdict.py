@@ -41,12 +41,13 @@ Priority order matters -- first match wins, mirroring ae_table_view.
     Result Awaited      the 14-day window has not closed yet
     No delivery         no rows at all in the window (ad never served)
 
-!! ROAS_MIN IS 3.0 HERE, 3.2 IN THE DATABASE !!
-refresh_ae_table.py hardcodes `conv_value / amount_spent >= 3.2` for
-f2_pass, so ae_table_view.category uses 3.2. 3.0 is the figure confirmed
-as the business rule (2026-09-22). Until one of them moves, d14_category
-and category are NOT computed on identical rules and a direct comparison
-slightly overstates drift. One constant, one line.
+THRESHOLDS ARE NOW CANONICAL EVERYWHERE (aligned 2026-10-19)
+refresh_summary_table.py, refresh_ae_table.py, results_sync.py,
+hourly_impressions.py and assets/dashboard.js all use the same four
+numbers, so d14_category and category are computed on identical rules
+and drift between them is real drift rather than a threshold artifact.
+refresh_summary_table previously used ROAS 3.2 and cost-per-FTEWV 25,
+and refresh_ae_table used ROAS 3.2. Change one, change all six.
 
 SOURCE
     backfill_table, which spans launch onward (primary_table only keeps
@@ -74,7 +75,7 @@ if not DB_URL: sys.exit("Missing SUPABASE_DB_URL in .env")
 
 WINDOW_DAYS = 14          # keep in step with result_classifier.WINDOW_DAYS
 F1_IMPRESSIONS = 50_000
-ROAS_MIN       = 3.0      # see the warning in the docstring -- DB uses 3.2
+ROAS_MIN       = 3.0      # canonical; see the note in the docstring
 F3_COST_NCP    = 525
 F4_COST_FTEWV  = 12
 

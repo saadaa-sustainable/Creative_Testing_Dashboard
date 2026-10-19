@@ -295,7 +295,7 @@ def is_copy(name):
 
 
 def categorise(spend, impr, conv_v, ftewv, ncp,
-               t_imp=50000, t_roas=3.2, t_cpn=525, t_cpft=12):
+               t_imp=50000, t_roas=3.0, t_cpn=525, t_cpft=12):
     """Mirror getAdCategory() / aeCompute() in index.html — used to populate
     count_winner / count_ite / count_analyse / count_discarded on hourly rows."""
     if spend <= 0 and impr <= 0:

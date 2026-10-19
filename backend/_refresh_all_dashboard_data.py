@@ -172,6 +172,15 @@ PHASE_CORE = [
     # and archives.
     ("sync_ad_metadata",               ["sync_ad_metadata.py"],              900),
     ("refresh_summary_table",          ["refresh_summary_table.py"],         900),
+    # Fills d14_category for ads whose 14-day buffer has just closed. Only
+    # touches rows where it is NULL, so it is cheap and never rewrites a
+    # declared verdict; a threshold change needs a manual --recompute.
+    ("compute_d14_verdict",            ["compute_d14_verdict.py"],           900),
+    # Rebuilds ae_raw_view, which ae_table_view reads -- the categories and
+    # F-flags behind the dashboard's Ads Analyse section. Left out of CORE
+    # when this phase was first trimmed, which froze that section at
+    # 2026-10-04 while everything else moved on.
+    ("refresh_ae_table",               ["refresh_ae_table.py"],             1800),
     ("rebuild_attribution_orders",     ["rebuild_attribution_orders.py",
                                         "2026-06-15", "2099-12-31"],        4200),
     ("refresh_ads_delivered_daily",    ["_refresh_ads_delivered_daily.py"],  600),

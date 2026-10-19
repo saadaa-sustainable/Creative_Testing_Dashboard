@@ -315,7 +315,7 @@ SELECT
     END                                                                                     AS days_to_target_f1,
     e.ad_status,
     (e.impressions >= 50000),
-    (amount_spent > 0 AND conv_value / amount_spent >= 3.2),
+    (amount_spent > 0 AND conv_value / amount_spent >= 3.0),
     (ncp_count   > 0 AND amount_spent / ncp_count <= 525),
     (ftewv_count > 0 AND amount_spent / ftewv_count <= 12),
     impressions,

@@ -12,11 +12,18 @@ Status rules (7 categories — mirrors dashboard getAdCategory):
     Result Awaited     = otherwise-Discarded AND created within last 14 days
     Discarded          = everything else
 
+Thresholds -- the canonical rule, confirmed 2026-10-19. The same four
+numbers are used by refresh_ae_table.py, compute_d14_verdict.py,
+results_sync.py, hourly_impressions.py and assets/dashboard.js. They had
+drifted here to ROAS 3.2 and cost/FTEWV 25, which over-promoted 320 of
+385 "Incremental Winner" ads and 475 "P0 analysis" ads relative to the
+dashboard. If you change one, change all six.
+
 Thresholds:
     F1 = impressions ≥ 50,000
-    F2 = conv_value / spend ≥ 3.2
+    F2 = conv_value / spend ≥ 3.0
     F3 = spend / ncp     ≤ 525  (positive)
-    F4 = spend / ftewv   ≤ 25   (positive)
+    F4 = spend / ftewv   ≤ 12   (positive)
 """
 
 import os
@@ -195,24 +202,24 @@ SELECT
     CASE
         -- Incremental Winner = F1 AND (F2 OR F3) AND F4
         WHEN a.total_impressions >= 50000
-         AND ((a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.2)
+         AND ((a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.0)
               OR (a.total_ncp > 0 AND a.total_spend / a.total_ncp <= 525))
-         AND a.total_ftewv > 0 AND a.total_spend / a.total_ftewv <= 25
+         AND a.total_ftewv > 0 AND a.total_spend / a.total_ftewv <= 12
             THEN 'Incremental Winner'
         -- Winner = F1 AND (F2 OR F3)
         WHEN a.total_impressions >= 50000
-         AND ((a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.2)
+         AND ((a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.0)
               OR (a.total_ncp > 0 AND a.total_spend / a.total_ncp <= 525))
             THEN 'Winner'
         -- P0 analysis (was Priority) = F1 AND F4
         WHEN a.total_impressions >= 50000
-         AND a.total_ftewv > 0 AND a.total_spend / a.total_ftewv <= 25
+         AND a.total_ftewv > 0 AND a.total_spend / a.total_ftewv <= 12
             THEN 'P0 analysis'
         -- P1 analysis (was Analyze 1) = F1 only
         WHEN a.total_impressions >= 50000
             THEN 'P1 analysis'
         -- P2 analysis (was Analyze 2) = F2 only
-        WHEN a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.2
+        WHEN a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.0
             THEN 'P2 analysis'
         -- Result Awaited = 14-day grace period. Any ad that would fall to
         -- Discarded but was created within the last CT_BUFFER_DAYS (14)
@@ -225,9 +232,9 @@ SELECT
     END  AS status,
     COALESCE(am.effective_status, ls.ad_status) AS ad_status,
     (a.total_impressions >= 50000)                                                                AS f1_pass,
-    (a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.2)                             AS f2_pass,
+    (a.total_spend > 0 AND a.total_conv_value / a.total_spend >= 3.0)                             AS f2_pass,
     (a.total_ncp   > 0 AND a.total_spend / a.total_ncp   <= 525)                                  AS f3_pass,
-    (a.total_ftewv > 0 AND a.total_spend / a.total_ftewv <= 25)                                   AS f4_pass,
+    (a.total_ftewv > 0 AND a.total_spend / a.total_ftewv <= 12)                                   AS f4_pass,
     sa.shopify_orders,
     sa.shopify_sales,
     sa.shopify_aov,
