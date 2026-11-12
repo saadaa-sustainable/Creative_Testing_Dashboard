@@ -170,7 +170,10 @@ PHASE_CORE = [
     # only reports ads that delivered, so without this step both columns
     # freeze on each ad's last spending day and miss later renames, pauses
     # and archives.
-    ("sync_ad_metadata",               ["sync_ad_metadata.py"],              900),
+    # 3600, not 900: it runs right after primary_sync_daily has spent ~2,750 s
+    # on insights, so Meta's ad-account budget is routinely exhausted by the
+    # time this starts and it has to sit out a throttle of up to ~25 min.
+    ("sync_ad_metadata",               ["sync_ad_metadata.py"],             3600),
     ("refresh_summary_table",          ["refresh_summary_table.py"],         900),
     # Fills d14_category for ads whose 14-day buffer has just closed. Only
     # touches rows where it is NULL, so it is cheap and never rewrites a

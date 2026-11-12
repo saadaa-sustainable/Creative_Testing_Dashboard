@@ -161,6 +161,36 @@ def scrub(text: str) -> str:
     return text.replace(TOKEN, "<REDACTED>") if TOKEN else text
 
 
+# An ad-account throttle (80004 / subcode 2446079) is not a 30-second blip.
+# Measured on the nightly of 2026-11-11: this step runs straight after
+# primary_sync_daily, which spends 2,751 s pulling insights and leaves the
+# account's budget exhausted. The old ladder waited 30+60+90+120 s = 5 min
+# total, nowhere near enough, so the step failed every single night from
+# 2026-11-02 to 2026-11-12 while a hand-run on an idle budget passed first try.
+THROTTLE_BACKOFF = [60, 180, 420, 900, 900]
+
+
+def regain_wait(headers, attempt: int) -> int:
+    """Seconds to wait before retrying a throttled page.
+
+    Meta states the real cooldown in X-Business-Use-Case-Usage as
+    estimated_time_to_regain_access, in MINUTES. Honour it when present —
+    guessing shorter just burns an attempt — and fall back to the ladder.
+    """
+    raw = headers.get("X-Business-Use-Case-Usage") or ""
+    mins = 0
+    if raw:
+        try:
+            for entries in (json.loads(raw) or {}).values():
+                for e in entries or []:
+                    mins = max(mins, int(e.get("estimated_time_to_regain_access") or 0))
+        except (ValueError, TypeError, AttributeError):
+            mins = 0
+    ladder = THROTTLE_BACKOFF[min(attempt, len(THROTTLE_BACKOFF) - 1)]
+    # +30 s of slack: regaining access exactly on the stated minute still 429s.
+    return max(ladder, mins * 60 + 30) if mins else ladder
+
+
 def fetch_account(account_id: str, label: str) -> list[dict]:
     """Walk /act_{id}/ads. Returns one dict per ad, all statuses included."""
     url = f"{API}/act_{account_id}/ads"
@@ -174,11 +204,11 @@ def fetch_account(account_id: str, label: str) -> list[dict]:
     out: list[dict] = []
     page = 0
     while url:
-        for attempt in range(5):
+        for attempt in range(len(THROTTLE_BACKOFF)):
             try:
                 r = requests.get(url, params=params, timeout=120)
             except requests.RequestException as exc:
-                if attempt == 4:
+                if attempt == len(THROTTLE_BACKOFF) - 1:
                     raise RuntimeError(scrub(f"{label}: {exc}")) from None
                 time.sleep(5 * (attempt + 1)); continue
             if r.status_code == 200:
@@ -187,9 +217,9 @@ def fetch_account(account_id: str, label: str) -> list[dict]:
                 "content-type", "").startswith("application/json") else {}
             # 17 = user request limit, 4 = app limit, 80004 = ad-account limit.
             if r.status_code in (429, 500, 502, 503) or err.get("code") in (4, 17, 80004):
-                if attempt == 4:
+                if attempt == len(THROTTLE_BACKOFF) - 1:
                     raise RuntimeError(scrub(f"{label}: throttled, gave up: {err}"))
-                time.sleep(30 * (attempt + 1)); continue
+                time.sleep(regain_wait(r.headers, attempt)); continue
             raise RuntimeError(scrub(f"{label}: HTTP {r.status_code} {err.get('message','')}"))
 
         body = r.json()
@@ -224,15 +254,29 @@ def main() -> int:
 
     print(f"Fetching ad metadata from Meta ({VER}):")
     rows = []
+    # One account throttling out used to discard every account that had already
+    # succeeded, because nothing was written until all three returned. On the
+    # 2026-11-11 nightly that meant Raho Saadaa's 18,410 ads were fetched and
+    # then thrown away when Fourth Ad Account hit 80004 — so ad_metadata froze
+    # whole rather than going partially stale, and every name in the table was
+    # 7 days old. Keep what we got, write it, and report the gap at the end.
+    failed: list[str] = []
     for _key, acct, label in targets:
-        for ad in fetch_account(acct, label):
+        try:
+            fetched = fetch_account(acct, label)
+        except RuntimeError as exc:
+            failed.append(label)
+            print(f"  {label:20s} FAILED: {scrub(str(exc))[:160]}")
+            continue
+        for ad in fetched:
             rows.append((
                 ad.get("id"), acct, label, ad.get("name"),
                 ad.get("effective_status"), ad.get("configured_status"),
                 ad.get("adset_id"), ad.get("campaign_id"),
                 ad.get("created_time"), ad.get("updated_time"),
             ))
-    print(f"  {'TOTAL':20s} {len(rows):>6,} ads")
+    print(f"  {'TOTAL':20s} {len(rows):>6,} ads"
+          + (f"   ({len(failed)} account(s) incomplete)" if failed else ""))
     if not rows:
         sys.exit("Meta returned no ads at all — refusing to touch the database")
 
@@ -263,7 +307,10 @@ def main() -> int:
     cur.execute("""SELECT COUNT(*) FROM public.summary_table s
                    WHERE NOT EXISTS (SELECT 1 FROM public.ad_metadata m
                                      WHERE m.ad_id = s.ad_id)""")
-    print(f"  in summary, not on Meta : {cur.fetchone()[0]:,}")
+    # Only means "deleted on Meta" when every account was fetched; after a
+    # partial run the missing account's ads land in this count too.
+    note = "  (partial run — includes the un-fetched account)" if failed else ""
+    print(f"  in summary, not on Meta : {cur.fetchone()[0]:,}{note}")
 
     if args.dry_run:
         conn.rollback()
@@ -281,6 +328,12 @@ def main() -> int:
         print(f"{v:22s} {n:>8,}")
 
     cur.close(); conn.close()
+    # Non-zero on a partial run so the orchestrator still flags it, but only
+    # after the accounts that did succeed have been committed.
+    if failed:
+        print(f"\n[!] incomplete: {', '.join(failed)} — "
+              f"those accounts keep their previous ad_metadata rows")
+        return 1
     return 0
 
 
